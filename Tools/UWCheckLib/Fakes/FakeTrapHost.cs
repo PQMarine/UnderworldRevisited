@@ -188,6 +188,8 @@ namespace UnderworldRevisited.Tools
 
             public void SleepByTrap(int piHow) { }
 
+            public IUWScheduleHost Schedules { get; set; }
+
             public bool BeginConversation(int piSlot) => true;
 
             public UWObject TalkedTo;

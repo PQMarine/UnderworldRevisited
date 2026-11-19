@@ -30,18 +30,18 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>One expected row: Id, Tiles, Brightness, Flicker, Shadows, OpenFire, Glow,
-        /// Fire, the palette light level.</summary>
+        /// Fire, the palette light level, the glow threshold.</summary>
         private static readonly object[][] msExpectedLightRows =
         {
-            new object[] { 145, 3f,   0.8f,  1f,    true,  true,  1.5f, 1f,    2f }, // torch
-            new object[] { 146, 1.5f, 0.5f,  0.9f,  false, true,  1.2f, 0.35f, 1f }, // candle
-            new object[] { 144, 3.5f, 0.9f,  0.08f, true,  false, 1f,   0f,    3f }, // lantern
-            new object[] { 298, 4f,   1.1f,  1.2f,  true,  true,  1.8f, 1.8f,  3f }, // campfire
-            new object[] { 120, 4f,   1.0f,  1.2f,  false, true,  1.5f, 1.4f,  3f }, // fire elemental
-            new object[] { 297, 2f,   0.35f, 0f,    false, false, 1f,   0f,    1f }, // glowing stone
-            new object[] { 184, 1.5f, 0.25f, 0f,    false, false, 0.8f, 0f,    1f }, // glowing mushroom
-            new object[] { 279, 2.5f, 0.6f,  0f,    false, false, 1f,   0f,    2f }, // orb
-            new object[] { 274, 2.5f, 0.6f,  0f,    false, false, 1f,   0f,    2f }, // orb stone
+            new object[] { 145, 3f,   0.8f,  1f,    true,  true,  1.5f, 1f,    2f, 0f }, // torch
+            new object[] { 146, 1.5f, 0.5f,  0.9f,  false, true,  1.2f, 0.35f, 1f, 0f }, // candle
+            new object[] { 144, 3.5f, 0.9f,  0.08f, true,  false, 1f,   0f,    3f, 0f }, // lantern
+            new object[] { 298, 4f,   1.1f,  1.2f,  true,  true,  1.8f, 1.8f,  3f, 0f }, // campfire
+            new object[] { 120, 4f,   1.0f,  1.2f,  false, true,  2f,   1.4f,  3f, 0.25f }, // fire elemental (glow since 2026-11-19)
+            new object[] { 297, 2f,   0.35f, 0f,    false, false, 1f,   0f,    1f, 0f }, // glowing stone
+            new object[] { 184, 1.5f, 0.25f, 0f,    false, false, 0.8f, 0f,    1f, 0f }, // glowing mushroom
+            new object[] { 279, 2.5f, 0.6f,  0f,    true,  false, 2f,   0f,    2f, 0.25f }, // orb (shadows and glow since 2026-11-19)
+            new object[] { 274, 2.5f, 0.6f,  0f,    true,  false, 2f,   0f,    2f, 0.25f }, // orb stone (shadows and glow since 2026-11-19)
         };
 
         private static void fCheckLightSourceRows()
@@ -72,6 +72,7 @@ namespace UnderworldRevisited.Tools
                 fFloatPin(lsName + " glow", lORow.Glow, (float)lOExpected[6]);
                 fFloatPin(lsName + " fire", lORow.Fire, (float)lOExpected[7]);
                 fFloatPin(lsName + " palette level", lORow.PaletteLightLevel, (float)lOExpected[8]);
+                fFloatPin(lsName + " glow threshold", lORow.GlowThreshold, (float)lOExpected[9]);
                 Check.Bool(lsName + " is a light source", UWLightSourceTable.IsLightSource(liId), true);
             }
 

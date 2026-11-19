@@ -65,6 +65,8 @@ namespace UnderworldRevisited.Tools
             Check.Str("uw2 models: ... every one without an unknown opcode", string.Join("; ", lsTrouble), string.Empty);
             Check.Str("uw2 models: the models both games have that differ in vertices or faces (as read)", string.Join(" ", lsChanged), "0x08 0x0D 0x18 0x1C");
             Check.Bool("uw2 models: the door frame's first colour from the second game's record", lOUw2.GetPrimaryPaletteIndex(UW3DModelImport.ModelIndex.DoorFrame) != 0, true);
+            // The door leaf's narrow sides (UWObjectSpawner.fSpawnDoor; UnderworldExhumed DRAWOBJ.C rect_cols[0xE]).
+            Check.Str("uw2 models: the door leaf's side colour, first and second game", (lOUw1 != null ? lOUw1.GetPrimaryPaletteIndex(UW3DModelImport.ModelIndex.DoorLeaf).ToString("X2") : "--") + " " + lOUw2.GetPrimaryPaletteIndex(UW3DModelImport.ModelIndex.DoorLeaf).ToString("X2"), "EC 8F");
 
             // The model of each 3D object type, items 0x150 to 0x16F: a model with geometry or none.
             byte[] lyExe = File.ReadAllBytes(lsUw2Exe);
@@ -118,6 +120,43 @@ namespace UnderworldRevisited.Tools
                 Check.Str("uw2 models: the first game's table through GetObjectModel - shrine, bench",
                     lOUw1.GetObjectModel(0x157) + " " + lOUw1.GetObjectModel(0x150),
                     UW3DModelImport.ModelIndex.Shrine + " " + UW3DModelImport.ModelIndex.Bench);
+
+            // The original paints a back-face test's faces in program order (UW3DModelLayering, per user 2026-11-18, the
+            // chest's bands): the chest's faces laid on their tests' planes and layered - how many move and how far at most
+            // (in model units), in either game; the portcullis keeps its shape.
+            if (lOUw1 != null)
+                Check.Str("models: the chest layered as the original paints it (moved faces, the farthest in units), both games; the portcullis untouched",
+                    fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.Chest)) + " | " + fLayered(lOUw2.GetModel(UW3DModelImport.ModelIndex.Chest))
+                    + " | " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.Portcullis)),
+                    "33 3.64 | 33 3.64 | 0 0.00");
+        }
+
+        private static string fLayered(UW3DModel pOModel)
+        {
+            List<UWVector3[]> lOCorners = UW3DModelLayering.FaceCorners(pOModel);
+            int liMoved = 0;
+            double ldFarthest = 0;
+
+            for (int liFace = 0; liFace < pOModel.Faces.Count; liFace++)
+            {
+                double ldFace = 0;
+
+                for (int liAt = 0; liAt < lOCorners[liFace].Length; liAt++)
+                {
+                    UWVector3 lOFrom = pOModel.Vertices[pOModel.Faces[liFace].VertexIndices[liAt]];
+                    UWVector3 lOTo = lOCorners[liFace][liAt];
+                    double ldX = lOFrom.X - lOTo.X, ldY = lOFrom.Y - lOTo.Y, ldZ = lOFrom.Z - lOTo.Z;
+
+                    ldFace = System.Math.Max(ldFace, System.Math.Sqrt(ldX * ldX + ldY * ldY + ldZ * ldZ) * 256);
+                }
+
+                if (ldFace > 0.001)
+                    liMoved++;
+
+                ldFarthest = System.Math.Max(ldFarthest, ldFace);
+            }
+
+            return liMoved + " " + ldFarthest.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 }

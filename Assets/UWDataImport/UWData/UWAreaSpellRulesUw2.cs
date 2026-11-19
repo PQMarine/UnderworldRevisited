@@ -30,6 +30,31 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWAreaSpellRulesUw2
 	{
+		/// <summary>
+		/// A SPECIAL WEAPON'S FIREBALL (player_attack's specweap 3, COMBAT.C:808): build_new_obj(0x1C2) on the target's
+		/// square at the strike height with fireball_effect's flames, then damage_square kind 1 (10d6 of fire, type 11)
+		/// on every object of the square, charged to the player.
+		/// </summary>
+		public static void WeaponFireball(IUWWorld pIWorld, UWTile pOTile)
+		{
+			if (pIWorld == null || pOTile == null)
+				return;
+
+			int liZPos = UWAreaSpellRules.RollStrikeZPos(pOTile.FloorHeight >> 1);
+			UWSpot lOSpot = new UWSpot(new UWTilePos(pOTile.X, pOTile.Z), NewObjectFine, NewObjectFine, liZPos);
+
+			pIWorld.Presentation.ShowEffect(ExplosionId, lOSpot, EffectSeconds, 0);
+
+			foreach (UWExplosionRules.Flame lOFlame in UWExplosionRules.ScatterFlames(ExplosionId, NewObjectFine, NewObjectFine, liZPos))
+				pIWorld.Presentation.ShowEffect(lOFlame.ObjectId,
+					new UWSpot(new UWTilePos(pOTile.X, pOTile.Z), lOFlame.FineX, lOFlame.FineY, lOFlame.ZPos),
+					UWExplosionRules.LengthToSeconds(lOFlame.LengthTicks), lOFlame.StartFrame);
+
+			UWRulesMagic.FlameWindRules lOSquare = pIWorld.Session.Rules.Magic.FlameWind;
+
+			pIWorld.StrikeTile(new UWTilePos(pOTile.X, pOTile.Z), lOSquare.Dice, lOSquare.Sides, UWDamageTypes.Fire, UWCritterBrain.PlayerIndex);
+		}
+
 		public const int MajorClass = 6;
 
 		/// <summary>One entry of area_spells[] (SPELLS.C:729).</summary>

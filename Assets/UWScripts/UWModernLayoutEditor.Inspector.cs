@@ -51,12 +51,7 @@ public partial class UWModernLayoutEditor
     {
         mOOverviewRows = new[]
         {
-            new InspectorRow
-            {
-                Id = Defs.InterfaceFont.LabelId,
-                Make = peElement => fChoice(Defs.InterfaceFont.Label, Defs.InterfaceFont.ChoiceLabels, UWUserSettings.InterfaceFont == 1 ? 1 : 0,
-                    liAt => { UWUserSettings.InterfaceFont = liAt; fSaveSettings(); })
-            },
+            // The font left the editor on 2026-11-19 (per user): the Interface window sets it for every preset.
             fShow(UWText.T("editor.part.minimap"), Defs.MinimapHidden, true),
             fShow(UWText.T("editor.part.action_bar"), Defs.ActionBarHidden, true),
             fShow(UWText.T("editor.part.compass"), Defs.ModernCompass, false),

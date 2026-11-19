@@ -227,6 +227,10 @@ namespace UnderworldRevisited.Tools
             {
             }
 
+            public void PlayerStruckBy(int piAttacker)
+            {
+            }
+
             public void StrikeThingInFlight(int piFlightIndex, int piDamage, int piDamageType)
             {
             }

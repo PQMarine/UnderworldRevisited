@@ -56,6 +56,12 @@ namespace UWDataImport.UWData
 			/// <summary>Remastered: how strongly the bright spots of the sprite itself glow.</summary>
 			public float Glow;
 
+			/// <summary>Remastered: how bright a pixel must be to glow (its brightest channel, 0 to 1); 0 keeps the sprite
+			/// material's 0.6. THE ORBS (per user 2026-11-19: the orb of level 2 cast shadows but looked too dark to give the
+			/// light): their sphere is teal at 0.39 to 0.58, below the material's threshold, so only the stand's yellow
+			/// glowed.</summary>
+			public float GlowThreshold;
+
 			/// <summary>Remastered: size of the fire for sparks and smoke (UWRemasterParticles),
 			/// 0 = none.</summary>
 			public float Fire;
@@ -75,11 +81,11 @@ namespace UWDataImport.UWData
 			new Row { Id = UWObjectIds.Candle,  Tiles = 1.5f, Brightness = 0.5f,  Flicker = 0.9f,  Shadows = false, OpenFire = true,  Glow = 1.2f, Fire = 0.35f, PaletteLightLevel = 1f }, // candle
 			new Row { Id = UWObjectIds.Lantern, Tiles = 3.5f, Brightness = 0.9f,  Flicker = 0.08f, Shadows = true,  OpenFire = false, Glow = 1f,                 PaletteLightLevel = 3f }, // lantern
 			new Row { Id = 298, Tiles = 4f,   Brightness = 1.1f,  Flicker = 1.2f,  Shadows = true,  OpenFire = true,  Glow = 1.8f, Fire = 1.8f,  PaletteLightLevel = 3f }, // campfire
-			new Row { Id = 120, Tiles = 4f,   Brightness = 1.0f,  Flicker = 1.2f,  Shadows = false, OpenFire = true,  Glow = 1.5f, Fire = 1.4f,  PaletteLightLevel = 3f }, // fire elemental
+			new Row { Id = 120, Tiles = 4f,   Brightness = 1.0f,  Flicker = 1.2f,  Shadows = false, OpenFire = true,  Glow = 2f, GlowThreshold = 0.25f, Fire = 1.4f, PaletteLightLevel = 3f }, // fire elemental (glow as the orbs per user 2026-11-19; its light casts no shadow)
 			new Row { Id = UWObjectIds.GlowingRock, Tiles = 2f, Brightness = 0.35f, Flicker = 0f, Shadows = false, OpenFire = false, Glow = 1f, PaletteLightLevel = 1f }, // glowing stone
 			new Row { Id = 184, Tiles = 1.5f, Brightness = 0.25f, Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 0.8f,               PaletteLightLevel = 1f }, // glowing mushroom
-			new Row { Id = 279, Tiles = 2.5f, Brightness = 0.6f,  Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 1f,                 PaletteLightLevel = 2f }, // orb
-			new Row { Id = 274, Tiles = 2.5f, Brightness = 0.6f,  Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 1f,                 PaletteLightLevel = 2f }, // orb stone
+			new Row { Id = 279, Tiles = 2.5f, Brightness = 0.6f,  Flicker = 0f,    Shadows = true,  OpenFire = false, Glow = 2f, GlowThreshold = 0.25f, PaletteLightLevel = 2f }, // orb (shadows per user 2026-11-19: the orb of level 2; there are few)
+			new Row { Id = 274, Tiles = 2.5f, Brightness = 0.6f,  Flicker = 0f,    Shadows = true,  OpenFire = false, Glow = 2f, GlowThreshold = 0.25f, PaletteLightLevel = 2f }, // orb stone
 		};
 
 		/// <summary>

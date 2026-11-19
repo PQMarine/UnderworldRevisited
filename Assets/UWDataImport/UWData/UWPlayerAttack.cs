@@ -104,6 +104,15 @@ namespace UWDataImport.UWData
 			UWGameSession.Current.Game.Combat.WeaponEnchantment(liMajor, liMinor, out piAccuracy, out piDamage);
 		}
 
+		/// <summary>The wielded weapon's special power (DoPlayerWeapon's specweap; the game's IUWCombatVariant), 0 for none.</summary>
+		public static int GetSpecialWeapon(UWObject pOWeapon, System.Collections.Generic.IList<UWObject> pORecords)
+		{
+			if (pOWeapon == null || !UWObjectMechanics.TryGetEnchantmentClass(pOWeapon, pORecords, out int liMajor, out int liMinor))
+				return 0;
+
+			return UWGameSession.Current.Game.Combat.SpecialWeapon(liMajor, liMinor);
+		}
+
 		/// <param name="piEnchantAccuracy">The weapon's accuracy enchantment (GetWeaponEnchantment).</param>
 		/// <param name="piEnchantDamage">The weapon's damage enchantment, on the base damage.</param>
 		/// <param name="pIDefender">The struck creature, or UWAttackResolution.ObjectDefender for a

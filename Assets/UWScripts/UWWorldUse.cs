@@ -36,6 +36,14 @@ public sealed class UWWorldUse
         return mOInteraction.Inventory;
     }
 
+    /// <summary>
+    /// THE AUTOMATIC KEY: the scheme's (UWUiSchemePolicy.KeyUsedAutomatically, the modern one) and the player's switch
+    /// (UWUserSettings.AutoKey, Gameplay, Aids; 2026-11-19, a wish from a forum post). Off, the key is used by hand as in
+    /// the original, and the crosshair shows no key (UWModernWorldInput.GetCrosshairLock). The second game has no
+    /// automatic key: its key waits on the use key (UWAttackUw2.ApplyWaitingUseOn).
+    /// </summary>
+    public static bool KeyUsedAutomatically => UWControlScheme.Ui.Policy.KeyUsedAutomatically && UWUserSettings.AutoKey;
+
     /// <summary>The key in the backpack (in bags too) that fits a closed, locked door, null for none or for a door
     /// that is open or not locked - the modern scheme's automatic key (fTryUseDoor) and its name on the crosshair
     /// (UWModernWorldInput, GitHub issue 30).</summary>
@@ -543,7 +551,7 @@ public sealed class UWWorldUse
 
         // The modern scheme's automatic key: asked only when it can matter (a closed, locked
         // door), so the backpack is not searched for every click on a door.
-        UWObject lOKey = UWControlScheme.Ui.Policy.KeyUsedAutomatically ? KeyAtHand(lODoor, fInventory(), fLoader()) : null;
+        UWObject lOKey = KeyUsedAutomatically ? KeyAtHand(lODoor, fInventory(), fLoader()) : null;
         bool lbKeyAtHand = lOKey != null;
 
         switch (UWDoorRules.Use(lODoor.IsClosed, lODoor.IsSpiked, lODoor.IsLocked, true, lbKeyAtHand))

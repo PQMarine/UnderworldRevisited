@@ -93,11 +93,14 @@ public sealed class UWPlayerInput
         return lOInteraction != null && lOInteraction.IsCombatModeActive;
     }
 
-    /// <summary>Left button held with a press that started in the viewport, original scheme.</summary>
+    /// <summary>Left button held with a press that started in the viewport, original scheme. The second game's
+    /// walk too (per user 2026-11-18: a right click to jump while walking by pointer looked as well; mous_in_3d
+    /// breaks off with the left button down in both games, uw2 ui/INTERACT.C:483) - its first-game interface is
+    /// not set up there.</summary>
     private bool fIsCursorMoving()
     {
         return mScheme != null && !UWControlScheme.IsModern
-            && mGameUi != null && UWMouseButtons.LeftHeld && mbCursorDragStartedInViewport;
+            && (mGameUi != null || UWWalkUw2.IsWalking) && UWMouseButtons.LeftHeld && mbCursorDragStartedInViewport;
     }
 
     /// <summary>

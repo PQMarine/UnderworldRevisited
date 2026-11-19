@@ -71,6 +71,8 @@ namespace UWDataImport.UWData
 
 		public void SleepByTrap(int piHow) => mIInner.SleepByTrap(piHow);
 
+		public IUWScheduleHost Schedules => mIInner.Schedules;
+
 		public bool BeginConversation(int piSlot) => mIInner.BeginConversation(piSlot);
 
 		public bool TalkTo(UWObject pONpcData) => mIInner.TalkTo(pONpcData);

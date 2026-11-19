@@ -14,11 +14,19 @@ namespace UWDataImport.Audio
 	{
 		private readonly UWOpl2 mOChip;
 
-		private readonly UWAdlibMusicDriver mODriver;
+		private UWAdlibMusicDriver mODriver;
 
 		public UWAdlibMusicDevice(UWAdlibBank pOBank)
 		{
 			mOChip = new UWOpl2();
+			mODriver = new UWAdlibMusicDriver(mOChip, pOBank);
+		}
+
+		/// <summary>The timbres of the game now running (UW2 plan phase 5 part A): each game's UW.AD has its own, and
+		/// the second game's pieces ask for its timbres. The piece playing stops; the chip starts afresh.</summary>
+		public void UseBank(UWAdlibBank pOBank)
+		{
+			mOSequencer = null;
 			mODriver = new UWAdlibMusicDriver(mOChip, pOBank);
 		}
 

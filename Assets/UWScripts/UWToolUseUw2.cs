@@ -15,7 +15,22 @@ public static class UWToolUseUw2
     {
         return piId == UWToolRulesUw2.Leeches || piId == UWToolRulesUw2.Mandolin || piId == UWToolRulesUw2.Flute
             || piId == UWToolRulesUw2.FishingPole || piId == UWToolRulesUw2.OilFlask || piId == UWToolRulesUw2.RockHammer
-            || piId == UWToolRulesUw2.StopperedBottle || piId == UWToolRulesUw2.Horn || UWToolRulesUw2.IsKeyGem(piId);
+            || piId == UWToolRulesUw2.StopperedBottle || piId == UWToolRulesUw2.Horn || UWToolRulesUw2.IsKeyGem(piId)
+            || UWToolRulesUw2.IsBones(piId) || piId == UWToolRulesUw2.Anvil || piId == UWToolRulesUw2.Pole;
+    }
+
+    /// <summary>
+    /// UseUtil in the world (how 0): the anvil and the pole ask for their target there too, the anvil standing where it
+    /// is and the clicked thing in the pack repaired (uses part 2, 2026-11-18). False for anything else.
+    /// </summary>
+    public static bool UseInWorld(UWObject pOItem, DataImport pOData, UWInventoryModel pOInventory)
+    {
+        if (pOItem == null || (pOItem.ID != UWToolRulesUw2.Anvil && pOItem.ID != UWToolRulesUw2.Pole))
+            return false;
+
+        Use(pOItem, pOData, pOInventory, null);
+
+        return true;
     }
 
     /// <summary>UseMagic from the pack. pOHost carries the instrument player.</summary>
@@ -56,9 +71,20 @@ public static class UWToolUseUw2
                     fSay(pOData, UWToolRulesUw2.HornFailsString);
                 break;
 
+            // UseUtil (uses part 2): the anvil repairs a carried thing, the pole works a switch out of reach.
+            case UWToolRulesUw2.Anvil:
+                fBeginUseOn(pOItem, pOData, (pOTarget, pOEntity, pbCarried) => fAnvil(pOTarget, pbCarried, pOData, pOInventory));
+                break;
+
+            case UWToolRulesUw2.Pole:
+                fBeginUseOn(pOItem, pOData, (pOTarget, pOEntity, pbCarried) => fPole(pOTarget, pOEntity, pOData));
+                break;
+
             default:
                 if (UWToolRulesUw2.IsKeyGem(pOItem.ID))
                     fBeginUseOn(pOItem, pOData, (pOTarget, pOEntity, pbCarried) => fKeyGem(pOItem, pOTarget, pbCarried, pOData, pOInventory));
+                else if (UWToolRulesUw2.IsBones(pOItem.ID))
+                    fBeginUseOn(pOItem, pOData, (pOTarget, pOEntity, pbCarried) => fBones(pOItem, pOTarget, pOData, pOInventory));
                 break;
         }
     }
@@ -81,7 +107,7 @@ public static class UWToolUseUw2
     }
 
     /// <summary>One of the pack's things used up (using_punt): one off a stack, else the thing.</summary>
-    private static void fUseUp(UWObject pOItem, UWInventoryModel pOInventory)
+    public static void UseUp(UWObject pOItem, UWInventoryModel pOInventory)
     {
         if (pOInventory == null)
             return;
@@ -106,7 +132,7 @@ public static class UWToolUseUw2
         lOPlayer.Vitals.CurePoison();
         UWDamagePipeline.Apply(lOPlayer.Vitals, UWDamageRequest.Leeches());
         lOPlayer.WriteToRecord();
-        fUseUp(pOItem, pOInventory);
+        UseUp(pOItem, pOInventory);
     }
 
     /// <summary>
@@ -171,7 +197,7 @@ public static class UWToolUseUw2
         fSay(pOData, lOResult.Message);
 
         if (lOResult.FlaskUsed)
-            fUseUp(pOFlask, pOInventory);
+            UseUp(pOFlask, pOInventory);
 
         if (!lOResult.Changes)
             return;
@@ -180,6 +206,92 @@ public static class UWToolUseUw2
         lOChanged.Quality = (ushort)lOResult.NewQuality;
         UWObjectAppearance.Apply(lOChanged, pOData.Textures, null);
         pOInventory.NotifyChanged();
+    }
+
+    /// <summary>UseBonesOn: on a gravestone the bones find their rest and are used up, on anything else no effect.</summary>
+    private static void fBones(UWObject pOBones, UWObject pOTarget, DataImport pOData, UWInventoryModel pOInventory)
+    {
+        int liLine = UWToolRulesUw2.BonesOn(pOTarget != null ? pOTarget.ID : 0, out bool lbUsedUp);
+
+        fSay(pOData, liLine);
+
+        if (lbUsedUp)
+            UseUp(pOBones, pOInventory);
+    }
+
+    /// <summary>UsePoleOn: a switch is worked as a use in the world (UseObj with how 0), with its line; anything else
+    /// cannot be.</summary>
+    private static void fPole(UWObject pOTarget, UWEntityInfo pOEntity, DataImport pOData)
+    {
+        if (pOTarget == null || pOEntity == null || !UWToolRulesUw2.IsSwitch(pOTarget.ID) || UWWalkUw2View.Current == null)
+        {
+            fSay(pOData, UWToolRulesUw2.PoleCannotString);
+
+            return;
+        }
+
+        fSay(pOData, UWToolRulesUw2.PoleTriggersString);
+        UWWalkUw2View.Current.UseThing(pOEntity);
+    }
+
+    /// <summary>
+    /// UseAnvilOn and repair_item (uw2 event/WORLDEV.C:1047, the first game's rules - UWRepairRules with the second
+    /// game's lines): a carried thing only; the estimate and "Make an attempt?", then the attempt - loud (noise 0xF), the
+    /// time passed (pass_time, the schedules catching up), the line, a destroyed thing gone from the pack.
+    /// </summary>
+    private static void fAnvil(UWObject pOTarget, bool pbCarried, DataImport pOData, UWInventoryModel pOInventory)
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+
+        if (pOTarget == null || !pbCarried || lOPlayer == null || lOPlayer.Vitals == null || UWGameScreenUw2.Current == null)
+            return;
+
+        int liSkill = lOPlayer.Vitals.GetSkill(UWPlayerData.Skill.Repair);
+
+        if (!UWRepairRules.TryGetQuestion(pOTarget, pOData, liSkill, UWGame.Uw2, out string lsQuestion))
+        {
+            fSay(pOData, UWRepairRules.Uw2CannotRepairMessage);
+
+            return;
+        }
+
+        UWGameScreenUw2.Current.AskYesNo(lsQuestion, pbYes =>
+        {
+            if (pbYes)
+                fRepair(pOTarget, pOData, pOInventory, liSkill);
+        });
+    }
+
+    private static void fRepair(UWObject pOTarget, DataImport pOData, UWInventoryModel pOInventory, int piSkill)
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+        UWPlayerFile lOFile = UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
+
+        if (lOPlayer == null || lOPlayer.Vitals == null)
+            return;
+
+        UWRepairRules.Result lOResult = UWRepairRules.Attempt(pOTarget, pOData, piSkill, UWGame.Uw2);
+
+        lOPlayer.Vitals.MakeNoise(UWRepairRules.RepairNoise);
+
+        // pass_time(time * 60): the record first (the day clock is read from it), the vitals take the new clock, the
+        // schedules catch up - as the jail's night (UWDeathUw2).
+        if (lOFile != null && lOResult.Minutes > 0)
+        {
+            lOPlayer.WriteToRecord();
+            UWDeathRulesUw2.PassTime(lOFile, lOResult.Minutes * 60);
+            lOPlayer.Vitals.TakeClock(UWPlayerRecordUw2.GameClock(lOFile));
+            UWScheduleHostUw2.RunAll();
+        }
+
+        if (!string.IsNullOrEmpty(lOResult.Message))
+            UWGameScreenUw2.Say(lOResult.Message);
+
+        if (lOResult.Destroyed && pOInventory != null)
+            pOInventory.RemoveItem(pOTarget);
+
+        if (pOInventory != null)
+            pOInventory.NotifyChanged();
     }
 
     /// <summary>UseKeyGem: a treated key gem on the large blackrock gem fuses with its lines and sounds and is used up.</summary>
@@ -203,9 +315,10 @@ public static class UWToolUseUw2
         if (!lOResult.Fused)
             return;
 
-        UWAudioService.PlayEffect(UWToolRulesUw2.KeyGemSound);
-        UWAudioService.PlayEffect(lOResult.AllUsed ? UWToolRulesUw2.KeyGemAllSound : UWToolRulesUw2.KeyGemAfterSound);
-        fUseUp(pOKeyGem, pOInventory);
+        UWAudioService.PlayEffect(UWToolRulesUw2.KeyGemSound, UWToolRulesUw2.KeyGemSoundVolume);
+        UWAudioService.PlayEffect(lOResult.AllUsed ? UWToolRulesUw2.KeyGemAllSound : UWToolRulesUw2.KeyGemAfterSound,
+            UWToolRulesUw2.KeyGemAfterSoundVolume);
+        UseUp(pOKeyGem, pOInventory);
     }
 
     /// <summary>UseRockHammerOn: a boulder in the world breaks; the boulder goes first, the new pieces around its spot.</summary>

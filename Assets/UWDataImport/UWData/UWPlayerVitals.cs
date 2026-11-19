@@ -693,6 +693,62 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public const int ManaSkillNumber = FirstNamedSkillNumber + (int)UWPlayerData.Skill.Mana;
 
+		/// <summary>grant_skill_advance's groups (uw2 game/SKILLS.C:188): the seven combat skills, mana, lore and casting,
+		/// the ten others.</summary>
+		public const int CombatSkillGroup = -1;
+
+		public const int MagicSkillGroup = -2;
+
+		public const int OtherSkillGroup = -3;
+
+		/// <summary>The first skill of the ten others (traps), in the save game numbering.</summary>
+		private const int TrapsSkillNumber = FirstNamedSkillNumber + (int)UWPlayerData.Skill.Traps;
+
+		/// <summary>Mana is favoured in the magic group while below this.</summary>
+		private const int FavouredManaBelow = 8;
+
+		/// <summary>
+		/// THE SECOND GAME'S ADVANCE BY A SKILL POINT (grant_skill_advance, uw2 game/SKILLS.C:192; x_skills above
+		/// 10000 in a conversation, the trainers): a skill number raises that skill through get_skill (TryIncreaseSkill);
+		/// a group (CombatSkillGroup 3 tries over its seven, MagicSkillGroup 2 tries over its three with mana while below
+		/// 8 on every other roll, OtherSkillGroup 4 tries over its ten) raises a random one of it each try. Then
+		/// player_compute(0): the maxima anew (RecomputeMaxima). True when anything rose. The caller spends the point.
+		/// </summary>
+		public bool GrantSkillAdvance(int piWhich)
+		{
+			int liStart;
+			int liCount;
+			int liTries;
+
+			switch (piWhich)
+			{
+				case CombatSkillGroup: liStart = AttackSkillNumber; liCount = 7; liTries = 3; break;
+				case MagicSkillGroup: liStart = ManaSkillNumber; liCount = 3; liTries = 2; break;
+				case OtherSkillGroup: liStart = TrapsSkillNumber; liCount = 10; liTries = 4; break;
+				default: liStart = piWhich; liCount = 1; liTries = 1; break;
+			}
+
+			bool lbRose = false;
+
+			for (int liLeft = liCount; liTries > 0 && liLeft > 0; liTries--, liLeft--)
+			{
+				int liSkill;
+
+				// rand() & 2: every other roll keeps a weak mana skill; else start + rand() * count / 0x8000.
+				if (liStart == ManaSkillNumber && GetSkillByNumber(ManaSkillNumber) < FavouredManaBelow && (UWRandom.Next(0x8000) & 2) != 0)
+					liSkill = ManaSkillNumber;
+				else
+					liSkill = liStart + (liCount == 1 ? 0 : UWRandom.Next(liCount));
+
+				if (TryIncreaseSkill(liSkill))
+					lbRose = true;
+			}
+
+			RecomputeMaxima();
+
+			return lbRose;
+		}
+
 		/// <summary>Spends one skill point.</summary>
 		public void SpendSkillPoint()
 		{

@@ -469,6 +469,46 @@ float UWOwnTileDoorCrossing(float3 pPositionWS, float3 pPivotWS)
     return -1.0;
 }
 
+// A 3D MODEL'S DEPTH: the own-tile box around its origin's tile, and for a BRIDGE (pfTieBias above 0) THE PAINTER'S TIES
+// (per user 2026-11-19: a bridge on UW1 level 7 resting on a pillar flickered at its edge). The bridge model covers exactly
+// its tile, its deck at the floor's height there, its sides in the plane of a higher neighbour's wall. The original draws a
+// tile's floor and walls before its objects and a nearer tile later (UnderworldExhumed GRIDDB.C grdb_elem): the deck covers
+// the floor of its tile, and the wall, drawn with the lower tile beside it, covers the bridge's side. Ties only: a face
+// pointing up or down comes pfTieBias nearer along the line of sight, any other goes as far back. Height and width stay
+// as in the data.
+float UWModelOwnTileDepth(float3 pPositionWS, float pfFloorY, float pfTieBias, float pfDepth)
+{
+    float3 lPivot = TransformObjectToWorld(float3(0, 0, 0));
+
+    if (pfTieBias <= 0.0)
+        return UWOwnTileDepth(pPositionWS, lPivot, pfFloorY, pfDepth);
+
+    float3 lNormal = normalize(cross(ddy(pPositionWS), ddx(pPositionWS)));
+    float3 lToEye = normalize(_WorldSpaceCameraPos - pPositionWS);
+    float3 lAt = pPositionWS + (lToEye * (abs(lNormal.y) > 0.7 ? pfTieBias : -pfTieBias));
+
+    return UWOwnTileDepth(lAt, lPivot, pfFloorY, UWOwnTileDeviceDepth(lAt));
+}
+
+// NEAR A 3D MODEL (the Remastered billboard, UWPainterModelAfterSprite; per user 2026-11-19: the castle's people still
+// stood in front of a pillar beside them): a sprite pixel BESIDE its own tile keeps its true depth. The box rule pulls such a
+// pixel forward to where its line of sight leaves the tile - in front of a pillar standing in the next tile between that
+// point and the pixel. Above and below the tile (the feet in the floor, the head in the ceiling) the box rule stays.
+float UWOwnTileDepthBesideTrue(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float pfDepth)
+{
+    if (_UWOwnTileSize > 0.0)
+    {
+        float lfHalf = _UWOwnTileSize * 0.5;
+        float2 lCorner = (floor((pPivotWS.xz + lfHalf) / _UWOwnTileSize) * _UWOwnTileSize) - lfHalf;
+        float2 lLocal = pPositionWS.xz - lCorner;
+
+        if (any(lLocal < UW_OWN_TILE_INSET) || any(lLocal > _UWOwnTileSize - UW_OWN_TILE_INSET))
+            return pfDepth;
+    }
+
+    return UWOwnTileDepth(pPositionWS, pPivotWS, pfGroundY, pfDepth);
+}
+
 // How far behind a door's plane a sprite beyond it is put, in world units. MORE THAN HALF THE
 // DEPTH OF ANY DOOR ASSEMBLY (2026-10-25: 0.5 until then, and Urgo still stood in front of his
 // portcullis): the portcullis shows the far faces of its bars, as the original does - 1 unit

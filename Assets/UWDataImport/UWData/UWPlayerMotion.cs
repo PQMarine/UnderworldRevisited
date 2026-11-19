@@ -702,8 +702,8 @@ namespace UWDataImport.UWData
 		/// Returns the ice's bounce, -1 for none.
 		///
 		/// THE PRECISION MODE blends per call as well, so the ice's strength is a rate per original frame
-		/// (fIceStrength: 0 or less stays 0, the fraction carried). DEVIATIONS: the original's skid sound and effect on a sharp change (set_effect 0x80,
-		/// 4) is not made yet; on flat ice the original's push angle is an uninitialised local - a slope's
+		/// (fIceStrength: 0 or less stays 0, the fraction carried). DEVIATIONS: the original's view jolt on a sharp change of speed (set_effect 0x80,
+		/// 4: a few frames of shaken heading, PLAYMOVE.C) is not made; on flat ice the original's push angle is an uninitialised local - a slope's
 		/// direction left from an earlier tile pushes there with what the stack holds; ours pushes with 0.
 		/// </summary>
 		/// <summary>The ice grip on the tile under the player this frame (set by fIceAndCurrents): the setting's, Off on

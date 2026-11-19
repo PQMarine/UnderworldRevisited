@@ -145,6 +145,11 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
 
     public bool ShowsFoeCondition => mEyes != null;
 
+    /// <summary>The first game has no special weapons.</summary>
+    public void WeaponPowerOnHit(int piPower, UWEntityInfo pOTarget, int piDamageDone)
+    {
+    }
+
     public void ShowFoeCondition(int piHitPoints, int piTableHitPoints, string psName)
     {
         mEyes.ShowCondition(mOUWDataImporter, piHitPoints, piTableHitPoints, psName);

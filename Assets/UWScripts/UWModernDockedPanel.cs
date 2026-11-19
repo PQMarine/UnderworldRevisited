@@ -246,6 +246,29 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
         return 1f - Mathf.Exp(-SlideRate * Time.unscaledDeltaTime);
     }
 
+    /// <summary>The next layout puts the panel where it is going at once (SnapNextLayout).</summary>
+    private bool mbSnapNext;
+
+    /// <summary>
+    /// NO SLIDE FOR THE NEXT OPEN OR CLOSE (per user 2026-11-19): the windows the free pointer opens and closes
+    /// (UWModernPointer, UWUserSettings.FreeOpens*) are there at once, so the pad's pointer placed on the backpack
+    /// lands on the slot and not on the character panel sliding in over it. Its keys and its handle keep the slide.
+    /// </summary>
+    public void SnapNextLayout()
+    {
+        mbSnapNext = true;
+    }
+
+    /// <summary>The share of the way the panel glides in this layout: all of it once after SnapNextLayout.</summary>
+    protected float fTakeSlideStep()
+    {
+        if (!mbSnapNext)
+            return fSlideStep();
+
+        mbSnapNext = false;
+        return 1f;
+    }
+
     /// <summary>A value gliding towards its target, there once it is nearer than pfSnap.</summary>
     protected static float fGlide(float pfValue, float pfTarget, float pfStep, float pfSnap)
     {

@@ -83,6 +83,10 @@ namespace UWDataImport.UWData
 		/// camping on the ground; refused as a chosen sleep is (moving, hostile creatures near).</summary>
 		void SleepByTrap(int piHow);
 
+		/// <summary>The second game's schedules as the castle hacks reach them (hack 36 move_folks_around, hack 37
+		/// Sched_SetAllClocks; G6 part 1); null where there are none.</summary>
+		IUWScheduleHost Schedules { get; }
+
 		// ------------------------------------------------- Through this firing's channel
 
 		bool BeginConversation(int piSlot);

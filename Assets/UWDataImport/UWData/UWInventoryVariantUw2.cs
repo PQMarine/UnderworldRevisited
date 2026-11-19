@@ -5,11 +5,18 @@ namespace UWDataImport.UWData
 	/// inv/INVPANEL.C:496): the five armour places take a hack-class object of minor class 2 or 3 (ids
 	/// 0x20 to 0x3F) whose OBJECTS.DAT armour row has the place's category - 8 the head, 1 the body, 4 the
 	/// gloves, 3 the legs, 5 the feet -, the rings category 9; the weapon hand refuses a stack of more than
-	/// one melee weapon; the other hands and shoulders take anything. Food in the head's place (eating it)
-	/// and the lights' lit and unlit ids come with the second game's rules (phase 4).
+	/// one melee weapon; the other hands and shoulders take anything. Food in the head's place is eaten
+	/// (UWFoodUw2.IsEatenFromHead); the lights' lit and unlit ids are still the first game's (Todo, inventory
+	/// 2026-11-19).
 	/// </summary>
 	public sealed class UWInventoryVariantUw2 : IUWInventoryVariant
 	{
+		/// <summary>inv_look's skill_check(Lore, 8) + 1 (UnderworldExhumed uw2 ui/INTERACT.C; per user 2026-11-19): the first
+		/// game rolls against 0x0A.</summary>
+		public const int Uw2LoreLookTarget = 8;
+
+		public int LoreLookTarget => Uw2LoreLookTarget;
+
 		public int CarryLimit(DataImport pOData)
 		{
 			UWPlayerFile lOFile = UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;

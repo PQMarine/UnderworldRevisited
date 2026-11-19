@@ -158,7 +158,54 @@ namespace UWDataImport.UWData
 
 		public const int KeyGemAllSound = 0x2C;
 
+		/// <summary>What the fusing's sounds add to their own volume: 0x28 for 0x12, 0x14 for 0x2A and 0x2C
+		/// (USEITEMS.C:134-138; sound audit 2026-11-17).</summary>
+		public const int KeyGemSoundVolume = 0x28;
+
+		public const int KeyGemAfterSoundVolume = 0x14;
+
 		public static bool IsKeyGem(int piId) => piId >= FirstKeyGem && piId <= LastKeyGem;
+
+		// ------------------------------------------------- UseUtil (uw2 obj/USEITEMS.C:1055; 2026-11-18, uses part 2)
+
+		/// <summary>The skulls and bones UseUtil asks a target for, from the pack only (UseBonesOn).</summary>
+		public const int FirstBones = 0xC2;
+
+		public const int LastBones = 0xC6;
+
+		/// <summary>The anvil and the pole ask a target from the pack and in the world (UseAnvilOn, UsePoleOn).</summary>
+		public const int Anvil = 0xD7;
+
+		public const int Pole = 0xD8;
+
+		/// <summary>UseBonesOn's resting place.</summary>
+		public const int Gravestone = 0x165;
+
+		/// <summary>"You thoughtfully give the bones a final resting place." (0x94); else NoEffectString.</summary>
+		public const int BonesRestString = 0x94 + 1;
+
+		/// <summary>"Using the pole you trigger the switch." (0xAB) and "The pole cannot be used on that." (0xAC).</summary>
+		public const int PoleTriggersString = 0xAB + 1;
+
+		public const int PoleCannotString = 0xAC + 1;
+
+		/// <summary>CLASS_SWITCH, 0x170-0x17F: what UsePoleOn works.</summary>
+		private const int SwitchClassMask = 0x1F0;
+
+		private const int SwitchClassBase = 0x170;
+
+		public static bool IsBones(int piId) => piId >= FirstBones && piId <= LastBones;
+
+		public static bool IsSwitch(int piId) => (piId & SwitchClassMask) == SwitchClassBase;
+
+		/// <summary>UseBonesOn: on a gravestone the line and the bones are used up (using_punt), else "It seems to have no
+		/// effect.". Returns the line; pbUsedUp says whether the bones go.</summary>
+		public static int BonesOn(int piTargetId, out bool pbUsedUp)
+		{
+			pbUsedUp = piTargetId == Gravestone;
+
+			return pbUsedUp ? BonesRestString : NoEffectString;
+		}
 
 		/// <summary>Whether the horn plays: the djinn's X clock at 6 or more.</summary>
 		public static bool HornSounds(UWPlayerFile pOFile) => pOFile != null && UWPlayerRecordUw2.XClock(pOFile, UWPlayerRecordUw2.DjinnClock) >= HornDjinnStage;

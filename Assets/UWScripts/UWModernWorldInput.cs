@@ -480,7 +480,8 @@ public sealed class UWModernWorldInput
     {
         piKeyId = -1;
 
-        if (fData() == null)
+        // Without the automatic key the crosshair shows none (UWWorldUse.KeyUsedAutomatically, one switch for both).
+        if (fData() == null || !UWWorldUse.KeyUsedAutomatically)
             return false;
 
         mOInteraction.AimAtCrosshair(out UWEntityInfo lOFrontmost, out string _, out UWEntityInfo lOPickable);
@@ -494,7 +495,7 @@ public sealed class UWModernWorldInput
         if (lODoor == null || !lODoor.IsClosed || !lODoor.IsLocked)
             return false;
 
-        UWObject lOKey = UWControlScheme.Ui.Policy.KeyUsedAutomatically ? UWWorldUse.KeyAtHand(lODoor, fInventory(), mOInteraction.LevelLoader) : null;
+        UWObject lOKey = UWWorldUse.KeyAtHand(lODoor, fInventory(), mOInteraction.LevelLoader);
 
         piKeyId = lOKey != null ? lOKey.ID : -1;
 

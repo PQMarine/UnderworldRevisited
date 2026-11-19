@@ -282,6 +282,16 @@ namespace UWDataImport.UWData
 			}
 		}
 
+		/// <summary>mouse_dragged's distance (uw1 and uw2 ui/MOUSE.C): a held button drags once the pointer has moved
+		/// more than this many of the original's 320 x 200 pixels, counted |dx| + |dy|.</summary>
+		public const int DragDistance = 6;
+
+		/// <summary>Whether a move of (pfDx, pfDy) original pixels from the press is a drag (mouse_dragged).</summary>
+		public static bool IsDrag(float pfDx, float pfDy)
+		{
+			return System.Math.Abs(pfDx) + System.Math.Abs(pfDy) > DragDistance;
+		}
+
 		/// <summary>The pointer crossed the drag threshold with the button still down. Only the
 		/// default state's gesture drags, and only a pickable thing; everything else waits for
 		/// the release.</summary>
@@ -615,6 +625,17 @@ namespace UWDataImport.UWData
 		public static int PoisonDegree(int piPoison)
 		{
 			return piPoison <= 0 ? -1 : (piPoison - 1) / 3;
+		}
+
+		/// <summary>
+		/// THE CLICK ON THE WEAPON HAND WITH SOMETHING IN IT (DoSpecialActions' case 8 and 9, inv/BAGS.C of both games;
+		/// per user 2026-11-18 a click on the drawn weapon did nothing in the second game): a melee weapon (class 0, ids
+		/// 0x00-0x0F) or a sling, bow, crossbow or jeweled bow there draws or sheathes it (toggle_fightmode); anything else
+		/// in the hand is used (UseObj). The empty hand toggles before (DoInventoryMouse).
+		/// </summary>
+		public static bool WeaponHandTogglesFight(int piObjectId)
+		{
+			return (piObjectId & 0x1F0) == 0 || piObjectId == 0x18 || piObjectId == 0x19 || piObjectId == 0x1A || piObjectId == 0x1F;
 		}
 	}
 }

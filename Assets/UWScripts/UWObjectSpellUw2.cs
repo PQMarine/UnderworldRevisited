@@ -149,6 +149,14 @@ public static class UWObjectSpellUw2
             pOAttack.AddMessage(lsSpecial);
     }
 
+    /// <summary>A special weapon's door power (UWAttackUw2.WeaponPowerOnHit): obj_spells with ObjectActorArg 0xC, the Open
+    /// spell's pick on a door in the world.</summary>
+    public static void OpenByWeapon(UWObject pOTarget, UWEntityInfo pOEntity, UWLevel pOLevel, UWAttackUw2 pOAttack)
+    {
+        if (pOTarget != null && pOAttack != null)
+            fOpen(pOTarget, pOEntity, false, pOLevel, pOAttack);
+    }
+
     /// <summary>checkLock(player, target, -45): a door's lock or the lock in a chest's chain, picked with 45 - "The spell
     /// unlocks the lock." when it came off, "The spell has no discernable effect." otherwise.</summary>
     private static void fOpen(UWObject pOTarget, UWEntityInfo pOEntity, bool pbCarried, UWLevel pOLevel, UWAttackUw2 pOAttack)

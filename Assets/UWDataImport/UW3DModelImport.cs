@@ -136,6 +136,13 @@ namespace UWDataImport
 
             public const int Pillar = 0x0A;
             public const int Shrine = 0x0B;
+            /// <summary>The portcullis grille (drawn by do_door, our own mesh - UWPortcullisLook takes its colour).</summary>
+            public const int Portcullis = 0x0C;
+
+            /// <summary>The door leaf (do_door's model 0xE): its one colour is the colour of the leaf's narrow sides, the
+            /// textured face the door's picture (UnderworldExhumed DRAWOBJ.C rect_cols: 0xEC in the first game, 0x8F in
+            /// the second).</summary>
+            public const int DoorLeaf = 0x0E;
             public const int Gravestone = 0x13;
             public const int Moongate = 0x17;
             public const int Table = 0x18;
@@ -220,6 +227,7 @@ namespace UWDataImport
             public int ColorRegister;
             public int ShadeLevel;
             public bool IsGouraud;
+            public List<UW3DModelSideTest> SideTests;
         }
 
         /// <summary>Execution state of one model.</summary>
@@ -253,6 +261,10 @@ namespace UWDataImport
             public int Steps;
             public bool Aborted;
             public readonly List<int> UnknownOpcodes = new List<int>();
+
+            /// <summary>The back-face tests (58, 5E-68) whose regions are open now, outermost first - a face made now is
+            /// drawn by the original only when all of them hold (UW3DModelFace.SideTests).</summary>
+            public readonly List<UW3DModelSideTest> OpenSideTests = new List<UW3DModelSideTest>();
         }
 
         public UW3DModel GetModel(int piModelIndex)
@@ -287,6 +299,8 @@ namespace UWDataImport
 
             // ends of the skipped regions (conditional skips) that are currently open
             List<int> lOOpenRegions = new List<int>();
+            // the side test of each open region (null for the register skips 14 and 16), same order
+            List<UW3DModelSideTest> lOOpenTests = new List<UW3DModelSideTest>();
 
             while (!pOMachine.Aborted)
             {
@@ -298,7 +312,14 @@ namespace UWDataImport
 
                 for (int liAt = lOOpenRegions.Count - 1; liAt >= 0; liAt--)
                     if (piPos >= lOOpenRegions[liAt])
+                    {
                         lOOpenRegions.RemoveAt(liAt);
+
+                        if (lOOpenTests[liAt] != null)
+                            pOMachine.OpenSideTests.Remove(lOOpenTests[liAt]);
+
+                        lOOpenTests.RemoveAt(liAt);
+                    }
 
                 int liOp = fReadUInt16(piPos);
                 int p = piPos + 2;
@@ -306,6 +327,10 @@ namespace UWDataImport
                 switch (liOp)
                 {
                     case 0x00: // 27D8 END
+                        foreach (UW3DModelSideTest lOTest in lOOpenTests)
+                            if (lOTest != null)
+                                pOMachine.OpenSideTests.Remove(lOTest);
+
                         return;
 
                     case 0x02: // 2B16 store word (address, value) - register setup
@@ -359,6 +384,11 @@ namespace UWDataImport
                         if (liLast >= 0 && lOOpenRegions[liLast] == p)
                         {
                             lOOpenRegions[liLast] = liTarget;
+
+                            // the else part: drawn when the test fails, the eye behind the plane
+                            if (lOOpenTests[liLast] != null)
+                                lOOpenTests[liLast].Else = true;
+
                             piPos = p;
                         }
                         else
@@ -371,22 +401,35 @@ namespace UWDataImport
 
                     case 0x14: // 305A run if [address] > value, else skip
                     case 0x16: // 3047 run if [address] < value, else skip
-                    case 0x64: // 3F7B / 3F92 / 3FA9 camera side skips
+                        lOOpenRegions.Add(p + 6 + fReadInt16(p));
+                        {
+                            UW3DModelSideTest lORegister = new UW3DModelSideTest { Register = true, Address = fReadUInt16(p + 2), Value = fReadInt16(p + 4), RunIfGreater = liOp == 0x14 };
+
+                            lOOpenTests.Add(lORegister);
+                            pOMachine.OpenSideTests.Add(lORegister);
+                        }
+                        piPos = p + 6;
+                        break;
+
+                    case 0x64: // 3F7B / 3F92 / 3FA9 camera side skips (one axis: x, y, z)
                     case 0x66:
                     case 0x68:
                         lOOpenRegions.Add(p + 6 + fReadInt16(p));
+                        fOpenSideTest(pOMachine, lOOpenTests, liOp == 0x64 ? 1 : 0, liOp == 0x66 ? 1 : 0, liOp == 0x68 ? 1 : 0, p + 2);
                         piPos = p + 6;
                         break;
 
                     case 0x58: // 3FC0 skip a group facing away (three pairs)
                         lOOpenRegions.Add(p + 14 + fReadInt16(p));
+                        fOpenSideTest(pOMachine, lOOpenTests, 1, 1, 1, p + 2);
                         piPos = p + 14;
                         break;
 
-                    case 0x5E: // 3F00 / 3F29 / 3F52 the same for two axes
+                    case 0x5E: // 3F00 / 3F29 / 3F52 the same for two axes (no x, no y, no z)
                     case 0x60:
                     case 0x62:
                         lOOpenRegions.Add(p + 10 + fReadInt16(p));
+                        fOpenSideTest(pOMachine, lOOpenTests, liOp == 0x5E ? 0 : 1, liOp == 0x60 ? 0 : 1, liOp == 0x62 ? 0 : 1, p + 2);
                         piPos = p + 10;
                         break;
 
@@ -682,8 +725,24 @@ namespace UWDataImport
             {
                 ColorRegister = pOMachine.Gouraud ? pOMachine.GouraudRegister : pOMachine.ColorRegister,
                 ShadeLevel = pOMachine.Gouraud ? 0 : pOMachine.FlatShade,
-                IsGouraud = pOMachine.Gouraud
+                IsGouraud = pOMachine.Gouraud,
+                SideTests = pOMachine.OpenSideTests.Count > 0 ? new List<UW3DModelSideTest>(pOMachine.OpenSideTests) : null
             };
+        }
+
+        /// <summary>A back-face test's region opens: its (n, p) pairs for the axes it has, read from piAt in the order
+        /// x, y, z (an axis it lacks counts zero).</summary>
+        private void fOpenSideTest(Machine pOMachine, List<UW3DModelSideTest> pOTests, int piHasX, int piHasY, int piHasZ, int piAt)
+        {
+            UW3DModelSideTest lOTest = new UW3DModelSideTest();
+            int liAt = piAt;
+
+            if (piHasX != 0) { lOTest.NX = fReadInt16(liAt); lOTest.PX = fReadInt16(liAt + 2); liAt += 4; }
+            if (piHasY != 0) { lOTest.NY = fReadInt16(liAt); lOTest.PY = fReadInt16(liAt + 2); liAt += 4; }
+            if (piHasZ != 0) { lOTest.NZ = fReadInt16(liAt); lOTest.PZ = fReadInt16(liAt + 2); }
+
+            pOTests.Add(lOTest);
+            pOMachine.OpenSideTests.Add(lOTest);
         }
 
         private static SlotValue fGetSlot(Machine pOMachine, int piOperand)
@@ -788,7 +847,8 @@ namespace UWDataImport
                     ShadeLevel = lORaw.ShadeLevel,
                     ColorRegister = lORaw.ColorRegister,
                     ColorIndex = fResolveSlotColor(piModelIndex, lORaw.ColorRegister),
-                    AltColorIndex = fResolveSlotColor(piModelIndex, lORaw.ColorRegister + 1)
+                    AltColorIndex = fResolveSlotColor(piModelIndex, lORaw.ColorRegister + 1),
+                    SideTests = lORaw.SideTests
                 };
 
                 foreach (int liKey in lORaw.Keys)

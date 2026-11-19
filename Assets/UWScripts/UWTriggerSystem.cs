@@ -199,6 +199,15 @@ public static class UWTriggerSystem
     }
 
     /// <summary>The second game's scroll as a firing's presentation (UWSleepUw2.ScrollPresentation), else the world's.</summary>
+    /// <summary>The trap host the second game's schedules fire their triggers through: nobody as the setter
+    /// (UseTrigger(0L, 0L, ...), G6 part 1); null without a world.</summary>
+    public static IUWTrapHost ScheduleTrapHostUw2(UWLevelLoader pOLevelLoader)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+
+        return lOWorld != null ? new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), UWTrapRules.Setter.Thing) : null;
+    }
+
     private static IUWPresentation fScrollUw2(UWWorld pOWorld)
     {
         return UWSleepUw2.Current != null ? UWSleepUw2.Current.ScrollPresentation(pOWorld) : pOWorld.Presentation;
@@ -804,8 +813,10 @@ public static class UWTriggerSystem
             if (lOFlight == null)
                 return false;
 
-            UWAudioService.PlayEffectAt(mOWorld.Session.Game.Combat.SpellMissileLaunchSound(piProjectile),
-                UWViewpoint.SubTileToWorld(piTileX, piTileY, pOTrap));
+            int liLaunchSound = mOWorld.Session.Game.Combat.SpellMissileLaunchSound(piProjectile);
+
+            UWAudioService.PlayEffectAt(liLaunchSound, UWViewpoint.SubTileToWorld(piTileX, piTileY, pOTrap),
+                mOWorld.Session.Game.Combat.MissileLaunchVolume(liLaunchSound, piProjectile));
 
             return true;
         }
@@ -869,6 +880,8 @@ public static class UWTriggerSystem
                 UWWalkUw2.IsWalking);
         }
 
+        public IUWScheduleHost Schedules => UWScheduleHostUw2.ForTraps(mOLoader);
+
         public void SleepByTrap(int piHow)
         {
             UWSleepUw2 lOSleep = UWSleepUw2.Current;
@@ -893,6 +906,20 @@ public static class UWTriggerSystem
 
         public bool TalkTo(UWObject pONpcData)
         {
+            // The second game's walk talks through its own screen (as UWCreatureWorld.Talk): the first game's
+            // Interaction is not there, and a trap's talk never opened (per user, 2026-11-17, test 68.2: the pit fighter
+            // did not speak when the player ran from the fight).
+            if (UWWalkUw2.IsWalking)
+            {
+                if (pONpcData == null || UWGameScreenUw2.Current == null || UWConversationScreenUw2.IsOpen || mOLoader == null
+                    || !mOLoader.TryGetEntity(pONpcData, out UWEntityInfo lOEntity))
+                    return false;
+
+                UWGameScreenUw2.Current.TalkTo(lOEntity);
+
+                return true;
+            }
+
             return mOInteraction != null && mOInteraction.TryTalkToNpcData(pONpcData);
         }
 

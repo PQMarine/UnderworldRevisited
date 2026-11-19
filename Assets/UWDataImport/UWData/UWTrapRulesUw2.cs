@@ -1829,6 +1829,25 @@ namespace UWDataImport.UWData
 		public const int HeavyPlate = 84;
 
 		/// <summary>
+		/// THE ENTER AND EXIT TRIGGERS BEHIND ANOTHER TRIGGER (deviations.everyEnterExitTrigger, Fix bugs of the original;
+		/// per user 2026-11-18): check_pplate asks only the first trigger of a square as an enter or exit trigger and then
+		/// turns to the pressure mode, so one further down the list never goes off. Six such squares ship; two carry content
+		/// that is lost so: level 17 (27, 35) the Guardian's speech (spell trap #450, cutscene 5; per user the original never
+		/// plays it), and level 3 (15, 53) and (16, 53), which set game variable 52 to 1 and 0 - SCD.ARK block 1 reads it to
+		/// put Miranda where she meets the player, and 1 is set nowhere else. The other four lose nothing (an empty trigger,
+		/// the move trigger's own chain again, a variable nothing reads). With the fix every trigger of the mode in hand is
+		/// asked; the plates are untouched.
+		/// </summary>
+		public const bool EveryEnterExitTriggerApplied = true;
+
+		private static bool fEveryEnterExitTrigger(IUWTrapHost pIHost)
+		{
+			UWRules lORules = pIHost.World.Session != null ? pIHost.World.Session.Rules : null;
+
+			return lORules != null && lORules.Deviations.EveryEnterExitTrigger;
+		}
+
+		/// <summary>
 		/// check_pplate (uw2 event/TRIGGER.C:1091) for the setter the host names, on the square and at height piZ: piMode 6
 		/// enter or 0xE exit (a change of square), 7 pressure or 0xF release (a change of height on the square, a pick-up, a
 		/// thing coming to rest). Only the first trigger of the square's list is asked as an enter or exit trigger (by the
@@ -1847,6 +1866,7 @@ namespace UWDataImport.UWData
 			bool lbRan = false;
 			UWObject lOPrevious = null;
 			UWTrapHostAsPlayer lIAsPlayer = new UWTrapHostAsPlayer(pIHost) { PlateTile = pOTile };
+			bool lbEvery = (piMode & 7) == EnterMode && fEveryEnterExitTrigger(pIHost);
 
 			foreach (UWObject lOTrigger in new List<UWObject>(pOTile.ObjectsInTile))
 			{
@@ -1857,6 +1877,9 @@ namespace UWDataImport.UWData
 
 				if (liTriggerMode == liMode && (liMode & 7) == EnterMode)
 					UseTrigger(null, lOTrigger, liMode, pIHost);
+				// The fix: one behind the first is asked too (the original's loop has turned to the pressure mode by then).
+				else if (lbEvery && liTriggerMode == piMode)
+					UseTrigger(null, lOTrigger, piMode, pIHost);
 
 				if ((liMode & 7) == EnterMode)
 					liMode++;
@@ -2157,6 +2180,8 @@ namespace UWDataImport.UWData
 				.Register(CurePotionsHack, "spoiled cure potions", (pOTrap, pOTrigger, pOSwitch, pIHost) => fAt(pOTrigger, (x, y) => fRuinCurePotions(x, y, pIHost)))
 				.Register(CourtyardHack, "Britannia goes dry", (pOTrap, pOTrigger, pOSwitch, pIHost) => fAt(pOTrigger, (x, y) => fCourtyard(pOTrap, x, y, pIHost)))
 				.Register(BliySkupHack, "Bliy Skup's chamber", (pOTrap, pOTrigger, pOSwitch, pIHost) => fBliySkup(pIHost))
+				.Register(CastleDayHack, "the castle's day", (pOTrap, pOTrigger, pOSwitch, pIHost) => fCastleDay(pIHost))
+				.Register(SchedulesHack, "the schedules", (pOTrap, pOTrigger, pOSwitch, pIHost) => fRunSchedules(pIHost))
 				.Register(QbertHack, "q*bert floor", (pOTrap, pOTrigger, pOSwitch, pIHost) => fQbert(pOTrap.Owner, pIHost));
 
 			lOTable.Seal();
@@ -2343,9 +2368,43 @@ namespace UWDataImport.UWData
 				return true;
 			}
 
-			UWTrapLog.Detail = piHack == ArenaRunsHack ? "-> running from the pit fight: not built (G6)" : "-> the arena's fire: not built (G6)";
+			if (piHack == ArenaFireHack)
+			{
+				// maybe_cheat_arena_fire: not built, see UWArenaRulesUw2 (the original reads fine positions as tiles).
+				UWTrapLog.Detail = "-> the arena's fire: not built (the original's rescue reads past the map)";
 
-			return false;
+				return true;
+			}
+
+			// Hack 30 (TRIGGER.C:846): the player running, or the creature that set it off (arena_opponent_runs).
+			UWPlayerFile lOFile = fRecord(pIHost);
+			UWLevel lOLevel = pIHost.World.Level;
+
+			if (pIHost.Firing.ByCreature)
+			{
+				int liIndex = pIHost.Firing.SetterIndex;
+				UWNpc lOOpponent = lOLevel != null && liIndex > 0 && liIndex < lOLevel.Masterlist.Count ? lOLevel.Masterlist[liIndex] as UWNpc : null;
+
+				UWArenaRulesUw2.OpponentRuns(lOFile, lOOpponent, liIndex);
+				UWTrapLog.Detail = string.Format("-> opponent {0} runs: pit record {1}", liIndex, UWPlayerRecordUw2.GetQuest(lOFile, UWArenaRulesUw2.PitRecordQuest));
+
+				return true;
+			}
+
+			if (pIHost.Firing.ByThing)
+			{
+				// CharacterThatTriggeredTrap is the thing itself in the original, handed to arena_opponent_runs; ours keeps
+				// no thing here.
+				UWTrapLog.Detail = "-> set off by a thing: nothing";
+
+				return true;
+			}
+
+			int liFirst = UWArenaRulesUw2.PlayerRuns(lOFile, lOLevel, lONpc => { if (lONpc != null) pIHost.TalkTo(lONpc); });
+
+			UWTrapLog.Detail = string.Format("-> the player runs: fighter {0} talks", liFirst);
+
+			return true;
 		}
 
 		/// <summary>Hack 5, player_did_bad(trap owner) (uw2 event/WORLDEV.C:578; G4 rest part 3, 2026-11-16): the owners of
@@ -3076,6 +3135,36 @@ namespace UWDataImport.UWData
 		public const int BottlesHack = 33;
 
 		public const int CourtyardHack = 34;
+
+		/// <summary>Hack 36, move_folks_around, and hack 37, Sched_SetAllClocks (G6 part 1).</summary>
+		public const int CastleDayHack = 36;
+
+		public const int SchedulesHack = 37;
+
+		/// <summary>Hack 36: the castle people's next places (UWScheduleRulesUw2.MoveFolksAround).</summary>
+		private static bool fCastleDay(IUWTrapHost pIHost)
+		{
+			if (pIHost.Schedules == null)
+				return false;
+
+			UWTrapLog.Detail = "-> " + UWScheduleRulesUw2.MoveFolksAround(pIHost.Schedules) + " castle people sent";
+
+			return true;
+		}
+
+		/// <summary>Hack 37: every schedule brought up to date (refused, as the original's busy workspace refuses it, while
+		/// the schedules themselves run this trap).</summary>
+		private static bool fRunSchedules(IUWTrapHost pIHost)
+		{
+			UWScheduleBookUw2 lOBook = UWGameSession.Current != null && UWGameSession.Current.World != null ? UWGameSession.Current.World.Schedules : null;
+
+			if (pIHost.Schedules == null || lOBook == null)
+				return false;
+
+			UWTrapLog.Detail = "-> schedules " + UWScheduleRulesUw2.SetAllClocks(lOBook, pIHost.Schedules);
+
+			return true;
+		}
 
 		public const int CurePotionsHack = 38;
 

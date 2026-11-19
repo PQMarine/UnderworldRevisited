@@ -53,4 +53,8 @@ public interface IUWMeleeHost
     bool ShowsFoeCondition { get; }
 
     void ShowFoeCondition(int piHitPoints, int piTableHitPoints, string psName);
+
+    /// <summary>A special weapon's power after a hit (UWCombatVariantUw2.PowerFires): the second game's; the first has none.
+    /// piDamageDone is the damage after the armour.</summary>
+    void WeaponPowerOnHit(int piPower, UWEntityInfo pOTarget, int piDamageDone);
 }

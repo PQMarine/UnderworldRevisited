@@ -809,6 +809,28 @@ namespace UnderworldRevisited.Tools
             Check.Str("uw2 sites: stepping onto level 2's 35/30 sets off its enter trigger (variable 52 from 0 to 2)",
                 liBefore + " " + UWPlayerRecordUw2.GetNumbered(lOFile, 52), "0 2");
 
+            // Level 3, 15/53: the enter trigger sits behind a move trigger, so the original never asks it (check_pplate); with
+            // the fix (deviations.everyEnterExitTrigger) it sets variable 52 to 1, Miranda's meeting place.
+            FakeTrapHost lOThree = fUw2Host(lOImport, 2);
+            UWLevel lOLevel3Enter = lOImport.Levels[2];
+            UWRulesDeviations lODeviations = lOImport.Session.Rules.Deviations;
+            bool lbFixBefore = lODeviations.EveryEnterExitTrigger;
+            string lsEnter = (lOThree.World.Session == lOImport.Session).ToString();
+
+            foreach (bool lbFix in new[] { false, true })
+            {
+                lODeviations.EveryEnterExitTrigger = lbFix;
+                UWPlayerRecordUw2.SetNumbered(lOFile, 52, 0);
+                lOThree.Fake.Body.Feet = new UWSpot(new UWTilePos(15, 53), 3, 3, lOLevel3Enter.GetTile(15, 53).FloorHeight >> 1);
+                UWTrapRulesUw2.MoverMoved(lOLevel3Enter.GetTile(14, 53), 0, lOLevel3Enter.GetTile(15, 53), lOLevel3Enter.GetTile(15, 53).FloorHeight >> 1, lOThree);
+                lsEnter += " " + UWPlayerRecordUw2.GetNumbered(lOFile, 52);
+            }
+
+            lODeviations.EveryEnterExitTrigger = lbFixBefore;
+
+            Check.Str("uw2 sites: level 3's enter trigger at 15/53 behind a move trigger - dead as in the original, with the fix it sets variable 52 to 1",
+                lsEnter, "True 0 1");
+
             // Level 26, 58/15: a heavy plate (fine y bit 2 set: more than 84) at its height; a thing heavier than that put on it
             // presses it - its chain runs as by the player and the plate's state flips to pressed.
             FakeTrapHost lOIce = fUw2Host(lOImport, 25);

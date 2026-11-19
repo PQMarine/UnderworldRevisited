@@ -147,6 +147,10 @@ public class DoorMover : MonoBehaviour, IUsableDoor
         // opposite of it (with a positive remainder at -75 degrees per second). The end position is
         // therefore the negated value from StartUsingDoor - the other way round the door stands in the
         // wall instead of in the passage (per user, 2026-09-03).
+        // Where the door's sounds come from, before the leaf turns.
+        mvSoundAt = transform.position;
+        mbSoundAtSet = true;
+
         if (StartsOpen)
         {
             transform.RotateAround(RotationPoint, Vector3.up, DoorDirection ? OpenAngle : -OpenAngle);
@@ -213,13 +217,15 @@ public class DoorMover : MonoBehaviour, IUsableDoor
             {
                 mbClosing = false;
                 IsClosed = true;
+                fPlayShut();
             }
         }
 	}
 
     public void StartUsingDoor()
     {
-        UWAudioService.PlayEffectAt(UWDataImport.UWData.UWSoundEffectId.Door, transform.position);
+        UWAudioService.PlayEffectAt(UWDataImport.UWData.UWSoundEffectId.Door, fSoundAt);
+        miStartOrder = UWDoorShutSounds.NextStartOrder();
 
         mfMotionStartOpen = mfOpenNow;
 
@@ -267,6 +273,30 @@ public class DoorMover : MonoBehaviour, IUsableDoor
         {
             mbClosing = false;
             IsClosed = true;
+            fPlayShut();
         }
     }
+
+    /// <summary>The door has come to rest shut: UWSoundEffectId.DoorShut, both games.</summary>
+    private void fPlayShut()
+    {
+        UWDoorShutSounds.Request(UWDataImport.UWData.UWSoundEffectId.DoorShut, fSoundAt, miStartOrder);
+    }
+
+    /// <summary>
+    /// THE DOOR'S SOUNDS COME FROM ONE PLACE, the closed leaf's (per user 2026-11-18: the shut sound came now digital,
+    /// now AdLib): the original plays both at the door object's square and fine place (OpenDoor, CloseDoor, EFFECT.C).
+    /// Ours took the leaf's position, which the swing carries round the hinge; the shut sound, a little farther off
+    /// than the creak still playing, lost the one digital channel (the same priority plus a lower volume) and fell
+    /// back to the music device.
+    /// </summary>
+    private Vector3 mvSoundAt;
+
+    /// <summary>When this door last began to move, among all doors (UWDoorShutSounds).</summary>
+    private int miStartOrder;
+
+    private bool mbSoundAtSet;
+
+    /// <summary>The sounds' place; before Start has run (a trigger in the level's first frame) the leaf's own.</summary>
+    private Vector3 fSoundAt => mbSoundAtSet ? mvSoundAt : transform.position;
 }

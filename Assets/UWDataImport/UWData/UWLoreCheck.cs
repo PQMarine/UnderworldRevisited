@@ -107,7 +107,9 @@ namespace UWDataImport.UWData
 
 			// The check returns -1 to 2, the result should be 1 to 3. The critical
 			// failure thereby slides onto the same level as the ordinary one.
-			int liResult = (int)UWSkillCheck.Check(piLoreSkill, LoreTarget) + 1;
+			// The game's target (IUWInventoryVariant.LoreLookTarget): UW2's inv_look rolls against 8, the first game 0x0A.
+			int liTarget = UWGameSession.Current != null ? UWGameSession.Current.Game.Inventory.LoreLookTarget : LoreTarget;
+			int liResult = (int)UWSkillCheck.Check(piLoreSkill, liTarget) + 1;
 
 			if (liResult < ResultUnknown)
 				liResult = ResultUnknown;

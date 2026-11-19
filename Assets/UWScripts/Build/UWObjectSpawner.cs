@@ -263,6 +263,19 @@ namespace UnderworldRevisited.Build
         /// RGB(24,24,24) matches practically exactly).</summary>
         private const byte RevealPaletteIndex = 0xF7;
 
+        /// <summary>The reveal's colour itself, #181818: the second game's palette has it at 207, its 0xF7 is a yellow
+        /// brown (per user 2026-11-18: the inner side of the portcullis's frame and lintel showed yellow edges). Each
+        /// game takes the slot of this colour in its palette 0; the first game's is 0xF7.</summary>
+        private const byte RevealGrey = 0x18;
+
+        /// <summary>The reveal's slot in this game's palette 0 (RevealGrey), RevealPaletteIndex without one.</summary>
+        private static int fRevealIndex(DataImport pOData)
+        {
+            UWPalette lOPalette = pOData != null && pOData.Palettes != null ? pOData.Palettes.GetPalette(0) : null;
+
+            return lOPalette != null ? lOPalette.GetNearestIndex(RevealGrey, RevealGrey, RevealGrey) : RevealPaletteIndex;
+        }
+
         /// <summary>First slice of the 256 palette colour tiles in the Texture2DArray of the
         /// dungeon geometry, see UWTextureArrayBuilder.GetPaletteSliceOffset. -1 if
         /// no data is present.</summary>
@@ -311,7 +324,7 @@ namespace UnderworldRevisited.Build
             miFloorSliceOffset = piFloorSliceOffset;
             mO3DModels = pO3DModels;
             miPaletteSliceOffset = pOData != null ? UWTextureArrayBuilder.GetPaletteSliceOffset(pOData) : -1;
-            miRevealSlice = miPaletteSliceOffset >= 0 ? miPaletteSliceOffset + RevealPaletteIndex : -1;
+            miRevealSlice = miPaletteSliceOffset >= 0 ? miPaletteSliceOffset + fRevealIndex(pOData) : -1;
         }
 
         /// <summary>Does this spawner work with exactly this atlas and these materials? Otherwise
@@ -524,18 +537,15 @@ namespace UnderworldRevisited.Build
             return 0;
         }
 
-        /// <summary>The second game's goal of a creature held as stone or paralysed (AI.C:1304): it has no mind
-        /// until the magic's domain brings it back.</summary>
-        private const int HeldGoalUw2 = 15;
-
         /// <summary>
-        /// THE SECOND GAME'S CREATURES MOVE (UW2 plan phase 4): the first game's body and brain on its table. It has
-        /// no player to perceive yet (UWCreatureWorld.HasPlayer), so they go about their goals; a creature with
-        /// no row or no hit points stays a picture.
+        /// THE SECOND GAME'S CREATURES MOVE (UW2 plan phase 4): the first game's body and brain on its table; a creature
+        /// with no row or no hit points stays a picture. A creature held at goal 15 (Paralyze, AI.C:1304) gets them too
+        /// since 2026-11-17 (the rest of G6): the brain counts the hold down (UWCritterBrain, CountsDownHeldGoal) - until
+        /// then one saved while held stayed a picture for good after loading.
         /// </summary>
         private void fAttachCritterBrainUw2(GameObject pOGameObject, UWNpc pONpc)
         {
-            if (pONpc.NPCGoal == HeldGoalUw2 || !mOData.ObjectClassProperties.TryGetCritter(pONpc.ID, out UWObjectClassProperties.Critter lOCritter)
+            if (!mOData.ObjectClassProperties.TryGetCritter(pONpc.ID, out UWObjectClassProperties.Critter lOCritter)
                 || lOCritter.Vitality <= 0)
                 return;
 
@@ -762,10 +772,25 @@ namespace UnderworldRevisited.Build
 
         private const float DrawOffset = 0.1f;
 
+        /// <summary>
+        /// A 3D MODEL WHERE THE ORIGINAL'S DRAWING PUTS IT (per user 2026-11-19: a bridge on level 7 by SAVE3 flickered at
+        /// its edge over the pillar it rests on, and reached into the next tile at its near end): the renderer places an
+        /// object at (tile &lt;&lt; 8) + (xpos &lt;&lt; 5) + 16 (UnderworldExhumed GAMESORT.C, objxloc and objzloc), one unit
+        /// further than the 0xF of the game's rules (UWWorldScale.SubTileOffset). The bridge model, 256 units from -112 to
+        /// +144, covers exactly its tile there; a quarter unit off it stuck out on one side and fell short on the other, in
+        /// the plane of a floor at its height. Only the models move (to 4 of our units within the eighth, the 0.1 draw offset
+        /// included); the sprites and the rules keep their place.
+        /// </summary>
+        /// <summary>How far a bridge's face moves along the line of sight to settle a tie as the original's painter does
+        /// (UWOwnTile.hlsl, UWModelOwnTileDepth; per user 2026-11-19): a fifth of a unit, below any pixel.</summary>
+        private const float BridgeTieBias = 0.2f;
+
+        private const float ModelDrawShift = 16f * UWWorldScale.UnitsPerOriginalUnit - UWWorldScale.SubTileOffset - DrawOffset;
+
         /// <summary>Hands a model the floor of the tile it stands in, for the own-tile rule
         /// (UWOwnTile): its origin may lie below that floor, the shrine's does. Only the model face
         /// material reads it; the other submeshes ignore the block.</summary>
-        private static void fSetModelDepthRange(Renderer pORenderer, float pfFloorY)
+        private static void fSetModelDepthRange(Renderer pORenderer, float pfFloorY, float pfTieBias)
         {
             if (pORenderer == null)
                 return;
@@ -774,6 +799,7 @@ namespace UnderworldRevisited.Build
 
             pORenderer.GetPropertyBlock(lOBlock);
             lOBlock.SetFloat(UWShaderIds.ModelFloorY, pfFloorY);
+            lOBlock.SetFloat(UWShaderIds.TieBias, pfTieBias);
             pORenderer.SetPropertyBlock(lOBlock);
         }
 
@@ -1810,12 +1836,48 @@ namespace UnderworldRevisited.Build
             {
                 mOModelDecalMaterial = new Material(pOMaterial) { name = pOMaterial.name + " (model faces)" };
                 UWOwnTile.Enable(mOModelDecalMaterial);
+
+                // The plain decal material casts no shadow (a wall picture); a model does (Remastered).
+                mOModelDecalMaterial.SetShaderPassEnabled(UWLevelLoader.ShadowCasterPass, true);
             }
 
             return mOModelDecalMaterial;
         }
 
         private Material mOModelDecalMaterial;
+
+        /// <summary>A DOOR LEAF ON ITS OWN COPY OF THE DECAL MATERIAL, with the shadow pass the wall pictures' material has
+        /// switched off (per user 2026-11-19: the doors cast no Remastered shadow).</summary>
+        private Material fDoorLeafMaterial(Material pOMaterial)
+        {
+            if (pOMaterial == null || pOMaterial != mODecalMaterial)
+                return pOMaterial;
+
+            if (mODoorLeafMaterial == null)
+            {
+                mODoorLeafMaterial = new Material(pOMaterial) { name = pOMaterial.name + " (door leaves)" };
+                mODoorLeafMaterial.SetShaderPassEnabled(UWLevelLoader.ShadowCasterPass, true);
+            }
+
+            return mODoorLeafMaterial;
+        }
+
+        private Material mODoorLeafMaterial;
+
+        /// <summary>The object atlas's spot for the first pixel of a wall texture (the secret door's sides,
+        /// fSpawnSecretDoor), false where the texture or the palette colour is missing.</summary>
+        private bool fTryGetWallFirstPixelUv(int piWallTexture, out Vector2 pOUv)
+        {
+            pOUv = Vector2.zero;
+
+            if (mOAtlas == null || mOData == null || mOData.Textures == null)
+                return false;
+
+            UWTexture lOWall = mOData.Textures.GetOriginalTextureByType(UWTexture.TextureTypes.WALL, piWallTexture);
+
+            return lOWall != null && lOWall.PaletteIndices != null && lOWall.PaletteIndices.Length > 0
+                && mOAtlas.TryGetPaletteUv(lOWall.PaletteIndices[0], out pOUv);
+        }
 
         /// <summary>The second game's bed model (do_rect's 0x1D), its blanket and pillow coloured by the owner field.</summary>
         private const int BedModel = 0x1D;
@@ -1994,7 +2056,7 @@ namespace UnderworldRevisited.Build
 
             // Computed up front, because node 008C ("reach up to the ceiling", see below) needs
             // to know the object's Y position to derive the local target height from it.
-            Vector3 lOPosition = fGetObjectPosition(xPos, zPos, pOObject);
+            Vector3 lOPosition = fGetObjectPosition(xPos, zPos, pOObject) + new Vector3(ModelDrawShift, 0f, ModelDrawShift);
 
             float lfLocalCeiling = UWWorldScale.CeilingHeight - lOPosition.y;
 
@@ -2041,9 +2103,15 @@ namespace UnderworldRevisited.Build
             bool lbGem = fIsUw2 && piModelIndex == UWBlackrockGemLook.Model;
             List<int> lOGemRegisters = lbGem ? new List<int>() : null;
 
+            // THE ORIGINAL PAINTS IN PROGRAM ORDER (per user 2026-11-18, the chest's bands): the faces of one back-face
+            // test laid on its plane, the later ones a hair above the earlier (UW3DModelLayering).
+            List<UWVector3[]> lOLayered = UW3DModelLayering.FaceCorners(lOModel);
+            int liFaceAt = -1;
+
             foreach (UW3DModelFace lOFace in lOModel.Faces)
             {
                 int liBase = lOVerts.Count;
+                liFaceAt++;
 
                 // Textured faces (00A8/00B4/00CE/00A0) always show the graphic of the
                 // object itself (pOObject.Texture) - for most models an atlas icon,
@@ -2074,7 +2142,7 @@ namespace UnderworldRevisited.Build
                 for (int i = 0; i < lOFace.VertexIndices.Count; i++)
                 {
                     int liVertexIndex = lOFace.VertexIndices[i];
-                    UWVector3 lV = lOModel.Vertices[liVertexIndex];
+                    UWVector3 lV = lOLayered[liFaceAt][i];
 
                     // Pillar/door-frame-like models mark individual vertices as "stretch up
                     // to the ceiling" (node 008C) - the actual ceiling height is only known
@@ -2301,7 +2369,8 @@ namespace UnderworldRevisited.Build
             // shader only lets it win against those two planes. A projectile brings its own
             // position and is left alone.
             if (!pOPositionOverride.HasValue && mOLevelLoader != null)
-                fSetModelDepthRange(lOObj.GetComponent<MeshRenderer>(), mOLevelLoader.GetFloorHeightAt(lOPosition));
+                fSetModelDepthRange(lOObj.GetComponent<MeshRenderer>(), mOLevelLoader.GetFloorHeightAt(lOPosition),
+                    pOObject.ID == BridgeObjectId ? BridgeTieBias : 0f);
 
             // BoxCollider instead of MeshCollider: a concave MeshCollider (ankh outline with
             // notches) easily makes the CharacterController snag or slip through thin spots.
@@ -2777,13 +2846,15 @@ namespace UnderworldRevisited.Build
             Vector2 lOUvOrigin = lOResolved.UvRect.position;
             Vector2 lOUvSize = lOResolved.UvRect.size;
 
-            // Narrow sides: in the original a real palette colour - the same as the
-            // door frame (model index 01, see UW3DModelImport.GetPrimaryPaletteIndex), not a
-            // pixel from the door graphic itself. Fallback to the old "most frequent
+            // Narrow sides: in the original a real palette colour - THE DOOR LEAF MODEL'S (0xE, UW3DModelImport.ModelIndex.
+            // DoorLeaf; per user 2026-11-19: the second game's sides looked wrong). Until then the door frame's (model 1),
+            // which is next to it in the first game (0xEB against 0xEC) but a much darker brown in the second (0x93 against
+            // 0x8F) - and the frame itself is drawn in the wall's colour there anyway (rect_cols flag 0x20). Not a pixel
+            // from the door graphic itself. Fallback to the old "most frequent
             // sprite pixel" trick in case the palette tiles are ever missing from the atlas
             // or no model import (UW.EXE) is available.
             byte liDoorFrameColor = mO3DModels != null
-                ? mO3DModels.GetPrimaryPaletteIndex(UW3DModelImport.ModelIndex.DoorFrame)
+                ? mO3DModels.GetPrimaryPaletteIndex(UW3DModelImport.ModelIndex.DoorLeaf)
                 : (byte)0;
             Vector2 lOSolid;
 
@@ -2863,7 +2934,7 @@ namespace UnderworldRevisited.Build
             lOMesh.RecalculateNormals();
 
             lODoor.AddComponent<MeshFilter>().sharedMesh = lOMesh;
-            lODoor.AddComponent<MeshRenderer>().sharedMaterial = lOResolved.Material;
+            lODoor.AddComponent<MeshRenderer>().sharedMaterial = fDoorLeafMaterial(lOResolved.Material);
             lODoor.AddComponent<MeshCollider>().sharedMesh = lOMesh;
 
             DoorMover lOMover = lODoor.AddComponent<DoorMover>();
@@ -2968,11 +3039,17 @@ namespace UnderworldRevisited.Build
             // darkening values.
             UWPalette lOBarPalette2 = mOData != null ? mOData.Palettes.GetPalette(0) : null;
 
-            Color32 lOTone106 = fGetPaletteColour(lOBarPalette2, 106, new Color32(76, 76, 100, 255));
-            Color32 lOTone107 = fGetPaletteColour(lOBarPalette2, 107, new Color32(64, 64, 88, 255));
-            Color32 lOTone108 = fGetPaletteColour(lOBarPalette2, 108, new Color32(56, 56, 72, 255));
-            Color32 lOTone109 = fGetPaletteColour(lOBarPalette2, 109, new Color32(48, 48, 60, 255));
-            Color32 lOTone110 = fGetPaletteColour(lOBarPalette2, 110, new Color32(36, 36, 48, 255));
+            // THE SECOND GAME (per user 2026-11-18, its portcullises looked different): 106 to 110 are the shades of the
+            // model's own colour (104 in UW.EXE) at five light levels; UW2.EXE colours the same model grey 202, and the
+            // second game's slots 106 to 110 are a skin tone. UWPortcullisLook takes the levels of the model's colour
+            // through the game's light table - the first game's are 106 to 110 as before.
+            int liBarBase = mO3DModels != null ? mO3DModels.GetPrimaryPaletteIndex(UW3DModelImport.ModelIndex.Portcullis) : UWPortcullisLook.FirstGameBase;
+            int[] liStripes = UWPortcullisLook.StripeIndices(liBarBase != 0 ? liBarBase : UWPortcullisLook.FirstGameBase, mOData != null ? mOData.LightLevels : null);
+            Color32 lOTone106 = fGetPaletteColour(lOBarPalette2, liStripes[0], new Color32(76, 76, 100, 255));
+            Color32 lOTone107 = fGetPaletteColour(lOBarPalette2, liStripes[1], new Color32(64, 64, 88, 255));
+            Color32 lOTone108 = fGetPaletteColour(lOBarPalette2, liStripes[2], new Color32(56, 56, 72, 255));
+            Color32 lOTone109 = fGetPaletteColour(lOBarPalette2, liStripes[3], new Color32(48, 48, 60, 255));
+            Color32 lOTone110 = fGetPaletteColour(lOBarPalette2, liStripes[4], new Color32(36, 36, 48, 255));
 
             // Stripes of equal width; two identical ones side by side make one of double
             // width. Horizontal from bottom to top.
@@ -3139,9 +3216,12 @@ namespace UnderworldRevisited.Build
 
             lOPortcullis.AddComponent<UWDoor>();
 
-            // DELIBERATELY no UWDamageable: that a wooden door can be smashed has been
-            // verified in the original (see UWDoor.BurstOpen). For the iron portcullis there is
-            // no such observation, and inventing destructibility would be guesswork.
+            // A BODY FOR BLOWS (per user 2026-11-19 with a picture of the second game: a blow at a portcullis wears the
+            // weapon, and a special weapon's door power lifts it; ours struck the wall behind). The damage follows the
+            // original's damage_object as for every door: COMOBJ gives the portcullis (0x146) quality class 3 in both
+            // games, so it takes nothing and is never smashed - the blow lands, the weapon wears (frp_check, 2 * (id & 7)
+            // in 12, always for it) and the powers fire. Until then deliberately none, for want of an observation.
+            fAttachDoorHealth(lOPortcullis, pOObject);
 
             UWEntityInfo lOInfo = lOPortcullis.AddComponent<UWEntityInfo>();
             lOInfo.ObjectData = pOObject;
@@ -3352,19 +3432,29 @@ namespace UnderworldRevisited.Build
                 fGetWallUv(lOE) + lOSecretDoorUvOffset, fGetWallUv(lOF) + lOSecretDoorUvOffset,
                 fGetWallUv(lOG) + lOSecretDoorUvOffset, fGetWallUv(lOH) + lOSecretDoorUvOffset);
 
-            fAddSolidQuad(lOVertices, lOUVs, liTriangles, fGetWallUv(lOB),
+            // THE NARROW SIDES IN ONE COLOUR, THE WALL TEXTURE'S FIRST PIXEL (per user 2026-11-19 with a picture of the
+            // original: a flat brown strip, ours showed the wall's grain): do_door draws the secret door as model 0xF, whose
+            // colour is the caller's texture colour (rect_cols flag 0x20) - the first pixel of the tile's wall texture, in the
+            // second game its TxmCol, filled the same way (UnderworldExhumed DRAWOBJ.C do_rect, LOADGR.C load_tr_ems). As the
+            // door leaves' sides: a palette colour of the object atlas on the door leaf material, its own submesh. Without the
+            // atlas colour the sides keep a point of the wall texture, as before.
+            Vector2 lOSideUv;
+            bool lbFlatSides = fTryGetWallFirstPixelUv(pOTile.TextureWall, out lOSideUv) && mODecalMaterial != null;
+            List<int> liSideTriangles = lbFlatSides ? new List<int>() : liTriangles;
+
+            fAddSolidQuad(lOVertices, lOUVs, liSideTriangles, lbFlatSides ? lOSideUv : fGetWallUv(lOB),
                 new Vector3(-lfHalfWidth, lfBottom, -lfHalfDepth), new Vector3(-lfHalfWidth, lfBottom, lfHalfDepth),
                 new Vector3(-lfHalfWidth, lfTop, lfHalfDepth), new Vector3(-lfHalfWidth, lfTop, -lfHalfDepth));
 
-            fAddSolidQuad(lOVertices, lOUVs, liTriangles, fGetWallUv(lOA),
+            fAddSolidQuad(lOVertices, lOUVs, liSideTriangles, lbFlatSides ? lOSideUv : fGetWallUv(lOA),
                 new Vector3(lfHalfWidth, lfBottom, lfHalfDepth), new Vector3(lfHalfWidth, lfBottom, -lfHalfDepth),
                 new Vector3(lfHalfWidth, lfTop, -lfHalfDepth), new Vector3(lfHalfWidth, lfTop, lfHalfDepth));
 
-            fAddSolidQuad(lOVertices, lOUVs, liTriangles, fGetWallUv(lOC),
+            fAddSolidQuad(lOVertices, lOUVs, liSideTriangles, lbFlatSides ? lOSideUv : fGetWallUv(lOC),
                 new Vector3(-lfHalfWidth, lfTop, lfHalfDepth), new Vector3(lfHalfWidth, lfTop, lfHalfDepth),
                 new Vector3(lfHalfWidth, lfTop, -lfHalfDepth), new Vector3(-lfHalfWidth, lfTop, -lfHalfDepth));
 
-            fAddSolidQuad(lOVertices, lOUVs, liTriangles, fGetWallUv(lOB),
+            fAddSolidQuad(lOVertices, lOUVs, liSideTriangles, lbFlatSides ? lOSideUv : fGetWallUv(lOB),
                 new Vector3(-lfHalfWidth, lfBottom, -lfHalfDepth), new Vector3(lfHalfWidth, lfBottom, -lfHalfDepth),
                 new Vector3(lfHalfWidth, lfBottom, lfHalfDepth), new Vector3(-lfHalfWidth, lfBottom, lfHalfDepth));
 
@@ -3376,13 +3466,20 @@ namespace UnderworldRevisited.Build
             Mesh lOMesh = new Mesh();
             lOMesh.name = "SecretDoor";
             lOMesh.SetVertices(lOVertices);
+            lOMesh.subMeshCount = lbFlatSides ? 2 : 1;
             lOMesh.SetTriangles(liTriangles, 0);
+
+            if (lbFlatSides)
+                lOMesh.SetTriangles(liSideTriangles, 1);
+
             lOMesh.SetUVs(0, lOTexCoords);
             lOMesh.RecalculateBounds();
             lOMesh.RecalculateNormals();
 
             lODoor.AddComponent<MeshFilter>().sharedMesh = lOMesh;
-            lODoor.AddComponent<MeshRenderer>().sharedMaterial = mODungeonMaterial;
+            lODoor.AddComponent<MeshRenderer>().sharedMaterials = lbFlatSides
+                ? new[] { mODungeonMaterial, fDoorLeafMaterial(mODecalMaterial) }
+                : new[] { mODungeonMaterial };
             lODoor.AddComponent<MeshCollider>().sharedMesh = lOMesh;
 
             DoorMover lOMover = lODoor.AddComponent<DoorMover>();

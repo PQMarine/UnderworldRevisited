@@ -380,7 +380,7 @@ namespace UWDataImport.UWData
 					mIHost.OnSwingStarted(liAnim - 1);
 
 					if (mORecord.GTarg == PlayerIndex)
-						mIHost.PlayMusic(UWCritterRules.CombatTheme);
+						mIHost.PlayMusic(mIServices.Game.Critter.CombatTheme, true);
 				}
 
 				if (liFrame == UWCritterRules.MeleeHitFrame)
@@ -464,7 +464,13 @@ namespace UWDataImport.UWData
 			mORecord.NewDestination = false;
 			mORecord.IsStanding = false;
 
-			if (mORecord.Goal != 11)
+			// GOAL 11, AND IN THE SECOND GAME THE HELD GOAL 15, GO STRAIGHT TO THE GOAL (uw2 AI.C critter_mv: "if (goal ==
+			// 0xB || goal == 0xF) goto do_goal"; per user 2026-11-19: a creature held by a special weapon came free at once,
+			// in the original much later): no footsteps, no alarm, no reaction to the blow - it stays held, the attacker
+			// kept for when the hold ends.
+			bool lbHeld = mORecord.Goal == UWTargetSpellRulesUw2.HeldGoal && mIServices.Game.Critter.CountsDownHeldGoal;
+
+			if (mORecord.Goal != 11 && !lbHeld)
 			{
 				fFootsteps();
 
@@ -487,28 +493,11 @@ namespace UWDataImport.UWData
 			if (mORecord.Animation != AnimWalking || (mORecord.Frame & 1) == 0)
 				return;
 
-			switch (mORow.FootstepCategory)
-			{
-				case 1:
-					mIHost.PlaySound(mORecord.Frame == 1 ? 1 : 2);
-					break;
+			// The game's table (IUWCritterVariant.FootstepSound): the second game's differs.
+			int liSound = mIServices.Game.Critter.FootstepSound(mORow.FootstepCategory, mORecord.Frame);
 
-				case 2:
-					mIHost.PlaySound(0x17);
-					break;
-
-				case 3:
-					mIHost.PlaySound(5);
-					break;
-
-				case 4:
-					mIHost.PlaySound(0x0E);
-					break;
-
-				case 5:
-					mIHost.PlaySound(0x0D);
-					break;
-			}
+			if (liSound >= 0)
+				mIHost.PlaySound(liSound);
 		}
 
 		/// <summary>The kin alarm (53514-53600, spec 4.2): same kind or an ally, within the
@@ -2320,8 +2309,8 @@ namespace UWDataImport.UWData
 				int liHealth = mORecord.HitPoints * 64 / (mORow.Vitality + 1);
 
 				pIHost.PlayMusic(liHealth < UWCritterRules.HurtThemeThreshold
-					? UWCritterRules.HurtCombatTheme
-					: UWCritterRules.CombatTheme);
+					? mIServices.Game.Critter.FoeHurtTheme
+					: mIServices.Game.Critter.CombatTheme, false);
 			}
 		}
 

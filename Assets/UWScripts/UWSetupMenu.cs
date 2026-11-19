@@ -63,6 +63,9 @@ public partial class UWSetupMenu : MonoBehaviour
         /// <summary>How the game plays (2026-11-08, per user): the original's switches and the aids.</summary>
         Gameplay,
 
+        /// <summary>How the interface looks and behaves (2026-11-19, per user): texts, the modern pointer, the windows.</summary>
+        Interface,
+
         /// <summary>The mods in the folder Mods, their load order and switches (UWSetupMenu.Mods.cs, 2026-11-09).</summary>
         Mods,
 
@@ -900,6 +903,7 @@ public partial class UWSetupMenu : MonoBehaviour
             case DialogEnum.PaletteEffects: fDrawPaletteEffectsDialog(pfWidth); break;
             case DialogEnum.Game: fDrawGameDialog(pfWidth); break;
             case DialogEnum.Gameplay: fDrawGameplayDialog(pfWidth); break;
+            case DialogEnum.Interface: fDrawInterfaceDialog(pfWidth); break;
             case DialogEnum.Mods: fDrawModsDialog(pfWidth); break;
             case DialogEnum.Graphics: fDrawGraphicsDialog(pfWidth); break;
             case DialogEnum.RemasteredEffects: fDrawRemasteredEffects(pfWidth); break;
@@ -1064,6 +1068,10 @@ public partial class UWSetupMenu : MonoBehaviour
             else
                 fOpenControlsDialog();
         }
+
+        // THE INTERFACE beside the controls (2026-11-19, per user).
+        if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.interface", meOpenDialog == DialogEnum.Interface))
+            fToggleDialog(DialogEnum.Interface);
 
         if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.sound", meOpenDialog == DialogEnum.Sound))
             fToggleDialog(DialogEnum.Sound);
@@ -1542,6 +1550,18 @@ public partial class UWSetupMenu : MonoBehaviour
         Rect lODialog = fDialogOnScreen(pfWidth, fMaxWidth(800f, mOPassPages.InnerNeeded(mOGameplayPage) + ScrollBarRoom), 150f, 280f, 54f);
 
         fDrawPageScrolled(lODialog, mOGameplayPage, 54f);
+
+        if (mOPassRows.Done(lODialog))
+            meOpenDialog = DialogEnum.None;
+    }
+
+    /// <summary>THE INTERFACE WINDOW (2026-11-19, per user): the page fBuildInterfacePage, scrolled when it does not fit,
+    /// Done below - as the Gameplay window.</summary>
+    private void fDrawInterfaceDialog(float pfWidth)
+    {
+        Rect lODialog = fDialogOnScreen(pfWidth, fMaxWidth(800f, mOPassPages.InnerNeeded(mOInterfacePage) + ScrollBarRoom), 150f, 280f, 54f);
+
+        fDrawPageScrolled(lODialog, mOInterfacePage, 54f);
 
         if (mOPassRows.Done(lODialog))
             meOpenDialog = DialogEnum.None;

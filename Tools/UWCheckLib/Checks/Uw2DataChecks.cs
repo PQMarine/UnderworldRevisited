@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using UWDataImport;
 using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools
@@ -46,6 +47,13 @@ namespace UnderworldRevisited.Tools
                 liPalettes++;
 
             Check.Int("uw2: PALS.DAT's palettes (8448 bytes of 768)", liPalettes, 11);
+
+            // The portcullis's stripes (UWPortcullisLook, per user 2026-11-18): the first game's measured 106 to 110 are light
+            // levels of its model colour 104; the same levels of the second game's grey 202 - not its slots 106 to 110.
+            Check.Str("portcullis stripes: UW1 from 104 as measured, UW2 from 202 in its own light table",
+                string.Join(",", UWPortcullisLook.StripeIndices(UWPortcullisLook.FirstGameBase, new UWLightLevels(pOContext.DataPath))) + " | "
+                + string.Join(",", UWPortcullisLook.StripeIndices(202, new UWLightLevels(lsData))),
+                "106,107,108,109,110 | 204,205,206,207,207");
 
             int liFiles = 0;
             int liPictures = 0;
@@ -134,6 +142,33 @@ namespace UnderworldRevisited.Tools
                 File.Exists(Path.Combine(lsCrit, "AS.AN")) && File.Exists(Path.Combine(lsCrit, "CR.AN")) && File.Exists(Path.Combine(lsCrit, "PG.MP"))
                 && !File.Exists(Path.Combine(lsCrit, "ASSOC.ANM")), true);
             Check.Bool("uw2: ... so the first game's critter reader finds nothing there (phase 1 reads them)", new UWCritterAnimations(lsData).IsLoaded, false);
+
+            fCheckUw2Teachers(lsData);
+        }
+
+        /// <summary>The second game's teachers as the help reads them from the scripts (UWTrainersUw2), and a met teacher
+        /// kept through UWR.json's lines (UWKnowledge).</summary>
+        private static void fCheckUw2Teachers(string psData)
+        {
+            DataImport lOImport = new DataImport(psData, null, null, UWGameProfiles.Uw2);
+            List<string> lsTeachers = new List<string>();
+
+            foreach (KeyValuePair<int, List<int>> lOTeacher in UWTrainersUw2.All(lOImport.Conversations))
+                lsTeachers.Add(lOTeacher.Key + ":" + string.Join(",", lOTeacher.Value));
+
+            Check.Str("uw2 teachers: the conversations that advance a skill for a skill point (x_skills above 10000) and their skills",
+                string.Join(" ", lsTeachers),
+                "4:2 41:3 43:8 45:9,7 102:4,5 128:16,13,10,17 130:7,9 132:4,5,3 133:0,1 134:6,19,18 135:10,16,14 139:8,11 140:15 141:15 144:12 168:3,2");
+
+            UWKnowledge lOKnown = new UWKnowledge();
+
+            lOKnown.MetTeacher(133, 1, "Geoffrey");
+            lOKnown.MetTeacher(133, 5, "Other");
+            UWKnowledge lOBack = UWKnowledge.Import(lOKnown.Export());
+
+            Check.Str("uw2 teachers: the first meeting kept, through UWR.json's lines",
+                (lOBack.HasMetTeacher(133, out UWKnowledge.Met lOMet) ? lOMet.Level + " " + lOMet.Who : "none") + " " + lOBack.HasMetTeacher(4, out _),
+                "1 Geoffrey False");
         }
 
         private static bool fHasPalette(UWPalettes pOPalettes, int piIndex)

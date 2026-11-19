@@ -200,7 +200,9 @@ namespace UWDataImport.UWData
 
 		public static readonly UWIntSettingDef ModernMessageFade = fInt(nameof(UWUserData.ModernMessageFade), UWSettingKind.Int, d => d.ModernMessageFade, (d, v) => d.ModernMessageFade = v, UWSettingStore.Layout);
 
-		public static readonly UWIntSettingDef InterfaceFont = fInt(nameof(UWUserData.InterfaceFont), UWSettingKind.Choice, d => d.InterfaceFont, (d, v) => d.InterfaceFont = v, UWSettingStore.Layout);
+		// NOT PART OF THE LAYOUT SINCE 2026-11-19 (per user): set in the Interface window for every preset, no longer in the
+		// layout editor, so a layout neither brings nor restores it. The key stays, so a saved value stays.
+		public static readonly UWIntSettingDef InterfaceFont = fInt(nameof(UWUserData.InterfaceFont), UWSettingKind.Choice, d => d.InterfaceFont, (d, v) => d.InterfaceFont = v);
 
 		public static readonly UWBoolSettingDef ModernGemApart = fBool(nameof(UWUserData.ModernGemApart), d => d.ModernGemApart, (d, v) => d.ModernGemApart = v, UWSettingStore.Layout);
 
@@ -237,6 +239,14 @@ namespace UWDataImport.UWData
 		};
 
 		public static readonly UWBoolSettingDef MouseInvertY = fBool(nameof(UWUserData.MouseInvertY), d => d.MouseInvertY, (d, v) => d.MouseInvertY = v);
+
+		public static readonly UWBoolSettingDef AutoKey = fBool(nameof(UWUserData.AutoKey), d => d.AutoKey, (d, v) => d.AutoKey = v);
+
+		public static readonly UWBoolSettingDef FreeOpensCharacter = fBool(nameof(UWUserData.FreeOpensCharacter), d => d.FreeOpensCharacter, (d, v) => d.FreeOpensCharacter = v);
+
+		public static readonly UWBoolSettingDef FreeOpensRunes = fBool(nameof(UWUserData.FreeOpensRunes), d => d.FreeOpensRunes, (d, v) => d.FreeOpensRunes = v);
+
+		public static readonly UWBoolSettingDef FreeOpensBags = fBool(nameof(UWUserData.FreeOpensBags), d => d.FreeOpensBags, (d, v) => d.FreeOpensBags = v);
 
 		public static readonly UWBoolSettingDef WalkSlowToggle = fBool(nameof(UWUserData.WalkSlowToggle), d => d.WalkSlowToggle, (d, v) => d.WalkSlowToggle = v);
 
@@ -470,7 +480,7 @@ namespace UWDataImport.UWData
 			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
 			ModernBacks, ModernScrollLines, ModernScrollWidth, ModernMessageLines, ModernMessageFade, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,
-			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle, DebugKeys,
+			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle, AutoKey, FreeOpensCharacter, FreeOpensRunes, FreeOpensBags, DebugKeys,
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,
 			RightStickDeadzone, ModernPanelPinned, ModernRunesPinned, ControlScheme, EasyMovementInterval, ShowOpeningSequence,
 			CutsceneSubtitles, RunInBackground, CheckForUpdates, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,

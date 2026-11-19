@@ -42,6 +42,8 @@ public partial class UWSetupMenu
 
     private UWSetupPage mOGameplayPage;
 
+    private UWSetupPage mOInterfacePage;
+
     /// <summary>The mode and the size the Display dialog shows in this pass, read once before its
     /// rows as the dialog always did (in the editor the saved choice, in the game what is on screen).</summary>
     private UWDisplayMode.ModeEnum meShownMode;
@@ -63,6 +65,7 @@ public partial class UWSetupMenu
         mOGraphicsPage = fBuildGraphicsPage();
         mOGamePage = fBuildGamePage();
         mOGameplayPage = fBuildGameplayPage();
+        mOInterfacePage = fBuildInterfacePage();
     }
 
     private static UWSetupRow fTitle(string psId, string psText)
@@ -87,6 +90,14 @@ public partial class UWSetupMenu
         return new UWSetupRow { Kind = Kind.Toggle, Id = pODef.LabelId, Def = pODef, Advance = pfAdvance };
     }
 
+    /// <summary>A toggle under a line that names the group (the Interface window's free-pointer windows).</summary>
+    private static UWSetupRow fIndentedToggle(UWSettingDef pODef)
+    {
+        return new UWSetupRow { Kind = Kind.Toggle, Id = pODef.LabelId, Def = pODef, X = ToggleIndent, WidthLess = ToggleIndent, Advance = 30f };
+    }
+
+    private const float ToggleIndent = 24f;
+
     // ------------------------------------------------- Colours
 
     private UWSetupPage fBuildColoursPage()
@@ -110,12 +121,50 @@ public partial class UWSetupMenu
             .Add(fColourSlider(Defs.ColourContrast, 0.5f, 2f, 40f,
                 pfValue => fSetColours((int)UWColourVision.Mode, UWColourVision.Strength, UWColourVision.Brightness, pfValue), () => UWColourVision.Contrast))
             .Add(fToggle(Defs.MarkPoison, 30f))
-            .Add(fHint(Defs.MarkPoison, 10f))
-            // THE WINDOWS' THEME (cleanup phase 8d, per user 2026-10-25): Plain, the look of before, or
-            // Stone in the application icon's colours, and the Stone theme's ground - greyed under
-            // Plain (the entry's EnabledWhen). A choice is saved at once and shows at once, this
-            // window included (the entries' OnChange, UWGuiTheme.Changed).
-            .Add(new UWSetupRow { Kind = Kind.Separator, Id = "colours.separator", Height = 1f, Advance = 8f })
+            .Add(fHint(Defs.MarkPoison, 0f));
+    }
+
+    // ------------------------------------------------- Interface
+
+    /// <summary>
+    /// THE INTERFACE WINDOW (2026-11-19, per user: the free pointer's windows had no fitting place): how the interface
+    /// looks and behaves in both schemes - the game's texts in the modern font (until then only the key F), the modern
+    /// pointer's mode (also the game menu's button) and the windows that come with the free pointer, and the windows'
+    /// theme and ground (moved here from Colours, per user). Where things stand stays the layout editor's.
+    /// </summary>
+    private UWSetupPage fBuildInterfacePage()
+    {
+        return new UWSetupPage("interface")
+            .Add(fTitle("interface.title", UWText.T("setup.interface.title")))
+            .Add(fHint("interface.intro", UWText.T("setup.interface.intro"), 14f))
+            .Add(new UWSetupRow { Kind = Kind.Info, Id = "interface.texts", Text = UWText.T("setup.interface.texts"), Look = UWSetupRow.LookEnum.Heading, Advance = 26f })
+            // THE GAME'S TEXTS IN THE MODERN FONT, the key F's switch (UWTextLabel caches it, so the row goes through it).
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.Toggle, Id = Defs.ModernFont.LabelId, Def = Defs.ModernFont, Advance = 30f,
+                GetOn = () => UWTextLabel.UseModernFont, SetOn = pbOn => UWTextLabel.UseModernFont = pbOn
+            })
+            .Add(fHint(Defs.ModernFont, 10f))
+            // THE MODERN INTERFACE'S FONT (per user 2026-11-19: until then only in the layout editor, which turns the preset
+            // to Custom, so Modern and Classic Modular could not reach it; UWUiFonts.Face).
+            .Add(new UWSetupRow { Kind = Kind.ChoiceRow, Id = Defs.InterfaceFont.LabelId, Def = Defs.InterfaceFont, ChoiceColumns = FontChoiceColumns, Advance = 30f })
+            .Add(fHint(Defs.InterfaceFont, 14f))
+            .Add(new UWSetupRow { Kind = Kind.Info, Id = "interface.modern", Text = UWText.T("setup.interface.modern"), Look = UWSetupRow.LookEnum.Heading, Advance = 26f })
+            // THE MODERN POINTER: the right button toggles, or held looks around (UWModernPointer; the game menu too).
+            .Add(fToggle(Defs.ModernPointerHold, 30f))
+            .Add(fHint(Defs.ModernPointerHold, 10f))
+            // WINDOWS THAT OPEN WITH THE FREE POINTER (2026-11-19, a wish from a forum post): each its own switch, off by
+            // default (UWModernPointer); the hint under the three. A LINE OF THEIR OWN AND THE THREE INDENTED UNDER IT (per
+            // user the same day: three times "Freeing the pointer opens" read long).
+            .Add(new UWSetupRow { Kind = Kind.Info, Id = "interface.freeopens", Text = UWText.T("setup.interface.freeopens"), Advance = 28f })
+            .Add(fIndentedToggle(Defs.FreeOpensCharacter))
+            .Add(fIndentedToggle(Defs.FreeOpensRunes))
+            .Add(fIndentedToggle(Defs.FreeOpensBags))
+            .Add(fHint(Defs.FreeOpensCharacter, 14f))
+            .Add(new UWSetupRow { Kind = Kind.Info, Id = "interface.windows", Text = UWText.T("setup.interface.windows"), Look = UWSetupRow.LookEnum.Heading, Advance = 26f })
+            // THE WINDOWS' THEME (cleanup phase 8d, per user 2026-10-25): Plain, the look of before, or Stone in the
+            // application icon's colours, and the Stone theme's ground - greyed under Plain (the entry's EnabledWhen). A
+            // choice is saved at once and shows at once, this window included (the entries' OnChange, UWGuiTheme.Changed).
             .Add(new UWSetupRow { Kind = Kind.ChoiceRow, Id = Defs.WindowTheme.LabelId, Def = Defs.WindowTheme, ChoiceColumns = ThemeChoiceColumns, Advance = 30f })
             .Add(new UWSetupRow { Kind = Kind.ChoiceRow, Id = Defs.WindowBackground.LabelId, Def = Defs.WindowBackground, ChoiceColumns = ThemeChoiceColumns, Advance = 30f })
             .Add(fHint(Defs.WindowTheme, 0f));
@@ -123,6 +172,9 @@ public partial class UWSetupMenu
 
     /// <summary>The theme rows: the label in the sliders' column (140 wide), the choices from 150.</summary>
     private static readonly UWChoiceColumns ThemeChoiceColumns = new UWChoiceColumns(0f, 140f, 150f, 150f);
+
+    /// <summary>The interface font's row: its label is longer than the theme's.</summary>
+    private static readonly UWChoiceColumns FontChoiceColumns = new UWChoiceColumns(0f, 230f, 240f, 240f);
 
     /// <summary>A colour row: the live value of UWColourVision, set through it with the other two
     /// as they stand. The limits are the dialog's own (0 to 1, 0.5 to 2): the settings table keeps
@@ -340,7 +392,14 @@ public partial class UWSetupMenu
             // MUSIC FROM RECORDINGS (UWMusicRecordings, 2026-10-27): the player's own files in
             // place of the device, piece by piece.
             .Add(fToggle(Defs.MusicRecordings, 32f))
-            .Add(fHint(Defs.MusicRecordings, 6f))
+            // The hint names the running game's folder and pieces (per user 2026-11-19: in the second game it named
+            // UW1/Music and the first game's numbers).
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.Hint, Id = Defs.MusicRecordings.HintId, Def = Defs.MusicRecordings, Advance = 6f,
+                TextOf = () => UWText.T(UnderworldRevisited.UWSettings.Game.Game == UWGame.Uw2
+                    ? "setting.MusicRecordings.hint.uw2" : Defs.MusicRecordings.HintId)
+            })
             .Add(new UWSetupRow { Kind = Kind.Custom, Id = "sound.recordings", Draw = fDrawRecordingLine });
     }
 
@@ -728,6 +787,10 @@ public partial class UWSetupMenu
             // character has learned (UWKnowledge); at once.
             .Add(fToggle(Defs.KnowledgeShowAll, 30f))
             .Add(fHint(Defs.KnowledgeShowAll, 10f))
+            // THE AUTOMATIC KEY of the modern scheme and its key at the crosshair, one switch (2026-11-19, a wish from a
+            // forum post, one switch per user): off the key is used by hand as in the original; at once.
+            .Add(fToggle(Defs.AutoKey, 30f))
+            .Add(fHint(Defs.AutoKey, 10f))
             // THE LIZARD WORDS (GitHub issue 20, 2026-11-08): their meanings in brackets in the lizardmen's
             // conversations - the words Murgo has mimed, or all; at once.
             .Add(new UWSetupRow

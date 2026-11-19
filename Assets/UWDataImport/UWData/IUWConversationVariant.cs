@@ -22,5 +22,14 @@ namespace UWDataImport.UWData
 		/// <summary>Whether giving in lowers the partner's attitude by one step (UW1: while above 0,
 		/// BARTER.C:723; UW2: while above 1, BARTER.C:700).</summary>
 		bool GivingInLowersAttitude(int piAttitude);
+
+		/// <summary>Whether do_inv_create joins a like pile of the partner and answers 0 (UW1: npc_inv_create walks his chain
+		/// for one, BARTER.C; UW2: always a new object at the head of his chain, its index - per user 2026-11-17, Jospur's
+		/// prize joined the player's fee and nothing was paid out).</summary>
+		bool InvCreateJoinsStack { get; }
+
+		/// <summary>Whether x_obj_stuff writes its link with bit 0x200 set (UW1: LINK_SPECIAL | link, a special property;
+		/// UW2: the raw value, conv/BABLHACK.C:653 - per user 2026-11-17, Jospur's 8 gold came as the special 0x208).</summary>
+		bool XObjStuffLinkSpecial { get; }
 	}
 }

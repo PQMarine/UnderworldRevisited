@@ -252,7 +252,7 @@ namespace UnderworldRevisited
         [Tooltip("Torches, candles, lanterns, campfires, fire elementals, light stones, mushrooms and orbs become real light sources. In the original only the player's torch gives light - this is an intended deviation, in this mode only.")]
         public bool RemasterTorchLights = true;
 
-        [Tooltip("Point lights cast shadows: the player light and the larger fires (torch, lantern, campfire). Costs computation.")]
+        [Tooltip("Point lights cast shadows: the player light, the larger fires (torch, lantern, campfire) and the orbs. Costs computation.")]
         public bool RemasterTorchShadows = true;
 
         [Tooltip("How bright the player light's shadows are: 0 black, 1 no shadow. The light's shadow strength is one less this.")]

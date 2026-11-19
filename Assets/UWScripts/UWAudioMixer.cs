@@ -144,7 +144,7 @@ public class UWAudioMixer : MonoBehaviour
         return Instance;
     }
 
-    /// <summary>The bank the effects play from: this object outlives a change of game.</summary>
+    /// <summary>The bank the effects and the AdLib music play from: this object outlives a change of game.</summary>
     private UWAdlibBank mOEffectBank;
 
     private void fFollowEffectBank(DataImport pOData)
@@ -156,7 +156,7 @@ public class UWAudioMixer : MonoBehaviour
 
         lock (mOLock)
         {
-            mOCore.UseEffectBank(lOBank);
+            mOCore.UseBank(lOBank);
         }
 
         mOEffectBank = lOBank;
@@ -222,6 +222,7 @@ public class UWAudioMixer : MonoBehaviour
     private void Update()
     {
         fReadSettings();
+        UWAudioService.FollowDigitalSource();
 
         if (mOInteraction == null)
             mOInteraction = UWScene.Interaction;
@@ -296,7 +297,7 @@ public class UWAudioMixer : MonoBehaviour
 
         // A piece a mod changed plays on the device, which reads the changed file (the recording is the original's).
         UWDataImport.UWData.UWModGameFiles lOModded = UWMods.GameFiles(UnderworldRevisited.UWSettings.Game);
-        bool lbModded = lOModded != null && UWMusicRecordings.IsChangedByMods(lOModded.Changed, psNumber);
+        bool lbModded = lOModded != null && pOSound != null && UWMusicRecordings.IsChangedByMods(lOModded.Changed, pOSound.Game, psNumber);
         string lsRecording = UWUserSettings.MusicRecordings && !lbModded ? UWMusicRecordings.Find(RecordingFolder, psNumber) : null;
 
         if (lsRecording != null && !mOFailedRecordings.Contains(lsRecording))
@@ -385,9 +386,29 @@ public class UWAudioMixer : MonoBehaviour
             mdDigitalStep = piSampleRate / (double)(liOutputRate > 0 ? liOutputRate : 48000);
             mfDigitalVolume = pfVolume;
             miDigitalPriority = piPriority;
+            DigitalToken++;
         }
 
         return true;
+    }
+
+    /// <summary>Counts the recordings the channel took: a caller that remembers it can change that one's volume
+    /// while it plays (SetDigitalVolume), and no later one.</summary>
+    public int DigitalToken { get; private set; }
+
+    /// <summary>update_digi_playback's AIL_set_digital_playback_volume: the volume of the recording piToken names,
+    /// while it still plays. False when another has taken the channel or it has ended.</summary>
+    public bool SetDigitalVolume(int piToken, float pfVolume)
+    {
+        lock (mOLock)
+        {
+            if (mfyDigital == null || piToken != DigitalToken)
+                return false;
+
+            mfDigitalVolume = pfVolume;
+
+            return true;
+        }
     }
 
     /// <summary>The channel into the output: each sample held until the next, as the card plays it.</summary>

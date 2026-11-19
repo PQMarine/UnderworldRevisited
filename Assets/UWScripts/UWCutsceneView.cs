@@ -90,6 +90,10 @@ public sealed class UWCutsceneView
     {
         mbInViewport = pbInViewport;
 
+        // The crop is placed before this (fPrepare opens the file first): only a full-screen picture ends it.
+        if (!pbInViewport)
+            mbCropPlaced = false;
+
         if (mOPictureImage == null)
             return;
 
@@ -120,10 +124,48 @@ public sealed class UWCutsceneView
         }
     }
 
+    /// <summary>
+    /// THE SECOND GAME'S WINDOW (UW2 plan phase 5 part D): a cutscene from 0x100 on plays in the 3D view's window of the
+    /// classic screen (show_cutscene: x 0x10, w 0xD0, h 0x7F, 0x103 taller), so only that part of the indexed screen
+    /// shows, in the 320 by 200 frame at its place over the game; no black backdrop.
+    /// </summary>
+    public void PlaceWindow(int piX, int piTop, int piWidth, int piHeight)
+    {
+        mbInViewport = true;
+        mbModernFrame = false;
+        mbCropPlaced = false;
+
+        if (mOPictureImage == null || mOFullScreenFrame == null)
+            return;
+
+        RectTransform lORect = (RectTransform)mOPictureImage.transform;
+
+        if (lORect.parent != mOFullScreenFrame)
+        {
+            lORect.SetParent(mOFullScreenFrame, false);
+            lORect.SetSiblingIndex(0);
+        }
+
+        float lfLeft = (float)piX / ScreenWidth;
+        float lfBottom = (float)(ScreenHeight - piTop - piHeight) / ScreenHeight;
+        float lfWidth = (float)piWidth / ScreenWidth;
+        float lfHeight = (float)piHeight / ScreenHeight;
+
+        lORect.anchorMin = new Vector2(lfLeft, lfBottom);
+        lORect.anchorMax = new Vector2(lfLeft + lfWidth, lfBottom + lfHeight);
+        lORect.offsetMin = Vector2.zero;
+        lORect.offsetMax = Vector2.zero;
+
+        // The texture is built bottom-up (ShowIndexed).
+        mOPictureImage.uvRect = new Rect(lfLeft, lfBottom, lfWidth, lfHeight);
+    }
+
     /// <summary>Cuts the painted block of the given animation file out of the canvas and puts
     /// it at the window picture position in the viewport.</summary>
     private void fPlaceViewportCrop(string psPath)
     {
+        mbCropPlaced = false;
+
         if (!mbInViewport || mOPictureImage == null || Screen.width <= 0 || Screen.height <= 0)
             return;
 
@@ -150,6 +192,11 @@ public sealed class UWCutsceneView
         if (Path.GetFileName(psPath).StartsWith(FinalDeathFilePrefix, System.StringComparison.OrdinalIgnoreCase))
             lOCorner.y += FinalDeathNudgeY;
         Rect lOScreen = lOUi.ClassicScreen.GetUiPictureScreenRect(lOCorner, new Vector2(lOBlock.width, lOBlock.height));
+
+        // Kept for LateUpdate: the frame may move while the picture plays (fFollowFrame).
+        mOCropCorner = lOCorner;
+        mOCropSize = new Vector2(lOBlock.width, lOBlock.height);
+        mbCropPlaced = true;
 
         // THE MODERN SCHEME hides the classic view window: the picture lies in the middle in a
         // leather frame at the UI's size, as the view's pictures do (UWModernHud, per user
@@ -338,6 +385,60 @@ public sealed class UWCutsceneView
         mOPictureTexture.SetPixels32(mOPictureBuffer);
         mOPictureTexture.Apply();
         mOPictureImage.enabled = true;
+    }
+
+    /// <summary>
+    /// THE SECOND GAME'S SCREEN (UWCutsceneRunnerUw2, UW2 plan phase 5 part C): 320 by 200 palette indices, top-down,
+    /// through the palette the DAC showed (6 bits a colour, widened as the VGA's DAC put them out). The fades are the
+    /// palette's own there, so the tint stays full.
+    /// </summary>
+    public void ShowIndexed(byte[] pyIndices, byte[] pyPalette6, byte[] pyOverlay = null, byte[] pyOverlayPalette6 = null)
+    {
+        if (mOPictureImage == null || mOPictureTexture == null || pyIndices == null || pyPalette6 == null)
+            return;
+
+        for (int liColour = 0; liColour < 256; liColour++)
+        {
+            mOPalette8[liColour] = new Color32(fWiden(pyPalette6[liColour * 3]), fWiden(pyPalette6[(liColour * 3) + 1]),
+                fWiden(pyPalette6[(liColour * 3) + 2]), 255);
+
+            if (pyOverlayPalette6 != null)
+                mOOverlay8[liColour] = new Color32(fWiden(pyOverlayPalette6[liColour * 3]), fWiden(pyOverlayPalette6[(liColour * 3) + 1]),
+                    fWiden(pyOverlayPalette6[(liColour * 3) + 2]), 255);
+        }
+
+        bool lbOverlay = pyOverlay != null && pyOverlayPalette6 != null;
+
+        for (int liY = 0; liY < ScreenHeight; liY++)
+        {
+            // The texture is built bottom-up, the picture top-down.
+            int liSourceRow = liY * ScreenWidth;
+            int liTargetRow = (ScreenHeight - 1 - liY) * ScreenWidth;
+
+            for (int liX = 0; liX < ScreenWidth; liX++)
+            {
+                byte lyOverlay = lbOverlay ? pyOverlay[liSourceRow + liX] : (byte)0;
+
+                mOPictureBuffer[liTargetRow + liX] = lyOverlay != 0 ? mOOverlay8[lyOverlay] : mOPalette8[pyIndices[liSourceRow + liX]];
+            }
+        }
+
+        mOPictureTexture.SetPixels32(mOPictureBuffer);
+        mOPictureTexture.Apply();
+        mOPictureImage.enabled = true;
+        SetBrightness(1f);
+    }
+
+    private readonly Color32[] mOPalette8 = new Color32[256];
+
+    private readonly Color32[] mOOverlay8 = new Color32[256];
+
+    /// <summary>A 6-bit DAC value as 8 bits (the top bits repeated, so 63 is 255).</summary>
+    private static byte fWiden(byte pyValue)
+    {
+        int liValue = pyValue & 0x3F;
+
+        return (byte)((liValue << 2) | (liValue >> 4));
     }
 
     /// <summary>Tints the picture track - the fades, and 1 before the logos and the victory
@@ -559,6 +660,8 @@ public sealed class UWCutsceneView
         if (mOModernFrame != null)
             mOModernFrame.enabled = mOPictureImage.enabled && mbInViewport && mbModernFrame;
 
+        fFollowFrame();
+
         // WITH THE HELP OPEN THE PICTURE SLIDES LEFT with the game frame (per user, 2026-09-30:
         // a dream played while the help was open lay partly under it) - the same shift the
         // conversation's frame follows (UWClassicConversationRenderer.Tick).
@@ -566,6 +669,41 @@ public sealed class UWCutsceneView
             mOFullScreenFrame.anchoredPosition = new Vector2(UWHelpLayout.FrameShift(UWUiFit.CanvasWidth), 0f);
 
         fPlaceSubtitle();
+    }
+
+    /// <summary>Where the viewport picture was cut out (fPlaceViewportCrop), in the frame's reference pixels.</summary>
+    private Vector2 mOCropCorner;
+
+    private Vector2 mOCropSize;
+
+    private bool mbCropPlaced;
+
+    /// <summary>
+    /// THE VIEWPORT PICTURE FOLLOWS THE FRAME (per user 2026-11-18: dying with the help open, the help closed, the frame
+    /// slid back to the middle and the death sequence stayed where it began): its place is screen fractions taken once,
+    /// so it is taken anew each frame from the classic screen's mapping while the frame moves. The modern scheme's
+    /// leather frame lies in the middle and does not move.
+    /// </summary>
+    private void fFollowFrame()
+    {
+        if (!mbCropPlaced || !mbInViewport || mbModernFrame || mOPictureImage == null || Screen.width <= 0 || Screen.height <= 0)
+            return;
+
+        UWGameUI lOUi = UWScene.GameUi;
+
+        if (lOUi == null)
+            return;
+
+        Rect lOScreen = lOUi.ClassicScreen.GetUiPictureScreenRect(mOCropCorner, mOCropSize);
+        RectTransform lORect = (RectTransform)mOPictureImage.transform;
+        Vector2 lOMin = new Vector2(lOScreen.xMin / Screen.width, lOScreen.yMin / Screen.height);
+        Vector2 lOMax = new Vector2(lOScreen.xMax / Screen.width, lOScreen.yMax / Screen.height);
+
+        if (lORect.anchorMin != lOMin || lORect.anchorMax != lOMax)
+        {
+            lORect.anchorMin = lOMin;
+            lORect.anchorMax = lOMax;
+        }
     }
 
     /// <summary>The subtitle's bottom SubtitleBottomOffset above the frame's bottom, centred under

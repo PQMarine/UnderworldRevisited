@@ -269,26 +269,39 @@ internal sealed class UWModernBagClicks
         return true;
     }
 
+    /// <summary>The pointer lies on the backpack's own window, not a bag's (ClickShutBackpack's place).</summary>
+    internal bool IsOverBackpack(Vector2 pOPointer)
+    {
+        return mOBags.Pages.FindWindow(pOPointer, out Window lOWindow) && lOWindow.Container == null;
+    }
+
     /// <summary>A click on the backpack while the bags are shut: they open as with B, and a
     /// container clicked opens its window (not the rune bag, whose shelf comes with the spells).
-    /// The click does nothing else.</summary>
-    internal void ClickShutBackpack(Vector2 pOPointer)
+    /// ON A CONTAINER THE CLICK DOES NOTHING ELSE (true): handled on, it would take the container (2026-10-04). ANY OTHER
+    /// CLICK ON THE BACKPACK GOES ON (false, per user 2026-11-19): on an empty slot or another thing it is handled as with
+    /// the bags open - a thing is taken, one on the pointer put down - instead of being spent on opening them. Beside the
+    /// backpack nothing happens (true).</summary>
+    internal bool ClickShutBackpack(Vector2 pOPointer)
     {
         UWModernBagPages lOPages = mOBags.Pages;
 
         if (!lOPages.FindWindow(pOPointer, out Window lOWindow) || lOWindow.Container != null)
-            return;
+            return true;
 
         mOBags.Open();
 
         if (!lOPages.FindSlot(pOPointer, out Window lOSlotWindow, out int liSlot) || lOSlotWindow != lOWindow)
-            return;
+            return false;
 
         UWObject lOItem = lOPages.GetItem(lOWindow, liSlot);
 
-        if (lOItem != null && lOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers
-            && lOItem.ID != UWObjectMechanics.RuneBagId && !mOBags.OpenBags.Bags.Contains(lOItem))
+        if (lOItem == null || lOItem.GetCategory() != UWObject.ObjectCategoryEnum.Containers)
+            return false;
+
+        if (lOItem.ID != UWObjectMechanics.RuneBagId && !mOBags.OpenBags.Bags.Contains(lOItem))
             mOBags.OpenBags.Toggle(lOItem);
+
+        return true;
     }
 
     // ------------------------------------------------- Look and use over the interface

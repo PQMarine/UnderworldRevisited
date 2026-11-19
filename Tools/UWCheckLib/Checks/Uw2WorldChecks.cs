@@ -751,7 +751,9 @@ namespace UnderworldRevisited.Tools
                 int liLevel = lOPlayer != null ? UWPlayerRecordUw2.Level(lOPlayer) - 1 : 0;
                 UWArk lOBefore = UWArk.Read(lOSession.World.RawLevelData, UWArk.LayoutEnum.Uw2);
 
-                string lsError = UWSaveCodec.SaveUw2(lOSession, lsScratch, "round trip", liLevel, liX, liY, liZ, liHeading);
+                bool lbSound = lOPlayer == null || UWPlayerRecordUw2.SoundOn(lOPlayer);
+                bool lbMusic = lOPlayer == null || UWPlayerRecordUw2.MusicOn(lOPlayer);
+                string lsError = UWSaveCodec.SaveUw2(lOSession, lsScratch, "round trip", liLevel, liX, liY, liZ, liHeading, lbSound, lbMusic);
                 UWArk lOAfter = UWArk.Read(Path.Combine(lsScratch, "LEV.ARK"), UWArk.LayoutEnum.Uw2);
                 List<string> lsChanged = new List<string>();
 

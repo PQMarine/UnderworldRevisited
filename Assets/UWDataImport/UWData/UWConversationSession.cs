@@ -207,6 +207,11 @@ namespace UWDataImport.UWData
 				mOVm.Said = piIndex => UWKnowledge.Current.SawString(mOConversation.StringBlock, piIndex + 1,
 					mOConversation.StringBlock == UWKnowledgeSources.DoorStringBlock ? UWKnowledgeSources.DoorWho : PartnerName);
 
+			// THE SECOND GAME'S TEACHERS for the help (UWTrainersUw2): a conversation that can advance a skill is
+			// remembered as met, with its level and the name shown.
+			if (fFileUw2 != null && pONpc != null && UWTrainersUw2.Teaches(pOData.Conversations, piSlot))
+				UWKnowledge.Current.MetTeacher(piSlot, fDungeonLevel, PartnerName);
+
 			// First the memory, then the globals on top - like the reference.
 			miMemoryWords = pOData.ConversationGlobals != null ? pOData.ConversationGlobals.GetWords(piSlot) : null;
 			mOVm.LoadMemory(miMemoryWords);

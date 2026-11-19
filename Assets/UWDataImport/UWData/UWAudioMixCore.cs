@@ -64,11 +64,13 @@ namespace UWDataImport.Audio
 			mOSelector = new UWMusicDeviceSelector(mOAdlib, piOutputRate, psSoundFontPath, pFRomFolder, pFLog, pFWarn);
 		}
 
-		/// <summary>The effects' timbres of the game now running: each game's UW.AD has its own, the second's goes
-		/// on to 0x24. The music keeps playing.</summary>
-		public void UseEffectBank(UWAdlibBank pOBank)
+		/// <summary>The timbres of the game now running: each game's UW.AD has its own, the second's effects go on to
+		/// 0x24, and its pieces ask for its own melodic timbres (UW2 plan phase 5 part A; until then the music chip kept
+		/// the first game's). A piece playing on the chip stops.</summary>
+		public void UseBank(UWAdlibBank pOBank)
 		{
 			mOEffects = new UWEffectSynth(pOBank);
+			mOAdlib.UseBank(pOBank);
 		}
 
 		public int OutputRate { get; }

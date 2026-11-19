@@ -226,7 +226,13 @@ namespace UWDataImport.UWData
 		{
 			return new UWDamageRequest(piRolled, UWDamageTypes.Physical, UWDamageSource.CreatureBlow, UWDamageRule.Hit,
 				piBodyPart, true, true, true, UWDamageMusic.Creature,
-				pbCritical ? CriticalFlashColour : NoFlash, pbCritical ? CriticalFlashSeconds : 0f);
+				pbCritical ? fCriticalFlashColour() : NoFlash, pbCritical ? CriticalFlashSeconds : 0f);
+		}
+
+		/// <summary>The game's critical flash (IUWCombatVariant.CriticalFlashColour); the first game's without a session.</summary>
+		private static int fCriticalFlashColour()
+		{
+			return UWGameSession.Current != null ? UWGameSession.Current.Game.Combat.CriticalFlashColour : CriticalFlashColour;
 		}
 
 		/// <summary>A creature's blow that missed: nothing lands, the combat music still hears of

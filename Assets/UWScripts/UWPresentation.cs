@@ -80,9 +80,9 @@ public sealed class UWPresentation : IUWPresentation
 
     // ------------------------------------------------- Sound, effects, the view
 
-    public void PlaySoundAtPlayer(int piEffect)
+    public void PlaySoundAtPlayer(int piEffect, int piVolume = 0)
     {
-        UWAudioService.PlayEffect(piEffect);
+        UWAudioService.PlayEffect(piEffect, piVolume);
     }
 
     /// <summary>The picture stands at the spot's eighths and height; sprites have their pivot at
@@ -109,6 +109,18 @@ public sealed class UWPresentation : IUWPresentation
 
     public void FlashWindow(int piPaletteColour, float pfSeconds)
     {
+        // THE SECOND GAME'S VIEW (per user, 2026-11-17: no red flash when hit): its walk has no UWGameUI, so every flash
+        // was lost; it is drawn over the second game's view as the night's flashes are (UWSleepUw2.ShowFlash).
+        if (UWWalkUw2.IsWalking)
+        {
+            UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+            if (UWSleepUw2.Current != null && lOLoader != null)
+                UWSleepUw2.Current.ShowFlash(lOLoader.UWDataImporter, piPaletteColour, pfSeconds);
+
+            return;
+        }
+
         UWGameUI lOUi = UWScene.GameUi;
 
         if (lOUi != null)
@@ -136,9 +148,13 @@ public sealed class UWPresentation : IUWPresentation
     }
 
     /// <summary>UWAudioService.ChangeTheme - the night's "Maps &amp; Legends", which the sleep's host asked
-    /// for itself until cleanup step 3.6 (2026-10-17).</summary>
+    /// for itself until cleanup step 3.6 (2026-10-17). The second game's rules ask with its own numbers (the creatures' combat themes, UW2 plan phase 5 part B):
+    /// set_new_music.</summary>
     public void ChangeMusicTheme(int piTheme)
     {
-        UWAudioService.ChangeTheme(piTheme);
+        if (UWAudioService.IsUw2)
+            UWAudioService.Uw2Request(piTheme);
+        else
+            UWAudioService.ChangeTheme(piTheme);
     }
 }

@@ -28,6 +28,8 @@ Shader "UW/DecalPalette"
         // the single-coloured faces. Without it a model's textured face lost against its own coloured faces (per user
         // 2026-11-16: a table leg showed through the table's top) - see UWOwnTile.hlsl.
         [HideInInspector] _UWModelFloorY ("Model Floor", Float) = -100000
+        // A bridge's ties with the planes of its tile, per renderer (UWObjectSpawner) - see UWModelOwnTileDepth.
+        [HideInInspector] _UWTieBias ("Painter tie shift", Float) = 0
     }
 
     SubShader
@@ -66,6 +68,7 @@ Shader "UW/DecalPalette"
                 float4 _IndexTex_ST;
                 float _Cutoff;
                 float _UWModelFloorY;
+                float _UWTieBias;
             CBUFFER_END
 
             struct Attributes
@@ -103,7 +106,7 @@ Shader "UW/DecalPalette"
                 #if defined(_UW_OWN_TILE)
                     // Only the side facing the viewer - see UWOwnTile.hlsl on the back of a model.
                     outDepth = pbFrontFace
-                        ? UWOwnTileDepth(IN.positionWS, TransformObjectToWorld(float3(0, 0, 0)), _UWModelFloorY, IN.positionCS.z)
+                        ? UWModelOwnTileDepth(IN.positionWS, _UWModelFloorY, _UWTieBias, IN.positionCS.z)
                         : IN.positionCS.z;
                 #endif
 
@@ -146,6 +149,7 @@ Shader "UW/DecalPalette"
                 float4 _IndexTex_ST;
                 float _Cutoff;
                 float _UWModelFloorY;
+                float _UWTieBias;
             CBUFFER_END
 
             struct Attributes

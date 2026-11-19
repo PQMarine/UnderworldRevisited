@@ -34,7 +34,7 @@ public static class UWUiFonts
 
     /// <summary>The face chosen: in the modern scheme's Classic preset the font key's (F,
     /// UWTextLabel.UseModernFont), as on the classic screen (per user, 2026-11-05); else the
-    /// interface font of the layout editor.</summary>
+    /// modern interface's font of the Interface window (the layout editor's until 2026-11-19).</summary>
     public static FaceEnum Face => UWModernClassicFrame.IsActive
         ? (UWTextLabel.UseModernFont ? FaceEnum.Modern : FaceEnum.Original)
         : UWUserSettings.InterfaceFont == 1 ? FaceEnum.Original : FaceEnum.Modern;

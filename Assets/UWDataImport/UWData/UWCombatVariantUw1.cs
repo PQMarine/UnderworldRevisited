@@ -9,6 +9,9 @@ namespace UWDataImport.UWData
 	{
 		/// <summary>Only class 0xC enchants a weapon: (minor &amp; 7) + 1, to the damage when bit 3 of
 		/// the minor is set, else to the attack score (the wielded weapon's, UWPlayerAttack).</summary>
+		/// <summary>The first game has no special weapons.</summary>
+		public int SpecialWeapon(int piMajor, int piMinor) => 0;
+
 		public void WeaponEnchantment(int piMajor, int piMinor, out int piAccuracy, out int piDamage)
 		{
 			piAccuracy = 0;
@@ -72,6 +75,11 @@ namespace UWDataImport.UWData
 			return UWSoundEffectId.HitCritter;
 		}
 
+		public int OtherHitSound(int piPlayersLastWeaponKind)
+		{
+			return UWSoundEffectId.HitCritter;
+		}
+
 		public int WallSound(int piWeaponKind)
 		{
 			return UWSoundEffectId.SpellImpact;
@@ -108,5 +116,9 @@ namespace UWDataImport.UWData
 		public int OwnMissileImpactSound => UWSoundEffectId.SpellImpact;
 
 		public int SpellMissileLaunchSound(int piProjectileId) => UWSoundEffectId.Miss;
+
+		public int MissileLaunchVolume(int piLaunchSound, int piProjectileId) => 0;
+
+		public int CriticalFlashColour => UWCritterCombat.CriticalFlashColour;
 	}
 }

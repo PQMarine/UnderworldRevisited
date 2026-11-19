@@ -1377,18 +1377,17 @@ namespace UWDataImport.UWData
 			mIView.PlaySound(piSound);
 		}
 
-		/// <summary>ChangeThemeMusic with the original's theme numbers (5 the hurt combat theme, 6
-		/// combat), and the combat music timer reset. At a swing's frame 0 the brain asks for 6
-		/// even while a combat theme already plays - then only the timer is reset (53136-53160).</summary>
-		void ICritterHost.PlayMusic(int piTheme)
+		/// <summary>ChangeThemeMusic with the game's theme numbers (IUWCritterVariant.CombatTheme and FoeHurtTheme),
+		/// and the combat music timer reset. Where the variant keeps the playing theme (the first game: 6 while a combat
+		/// theme plays, 53136-53160; the second: a swing while one plays, AI.C:1123) only the timer is reset.</summary>
+		void ICritterHost.PlayMusic(int piTheme, bool pbSwing)
 		{
 			if (mIWorld == null)
 				return;
 
-			int liPlaying = mIWorld.MusicTheme;
-			bool lbCombatPlaying = liPlaying >= UWMusicSelector.FirstCombatTheme && liPlaying <= UWMusicSelector.LastCombatTheme;
+			IUWCritterVariant lIVariant = UWGameSession.Current != null ? UWGameSession.Current.Game.Critter : UWGameProfiles.Uw1.Critter;
 
-			if (!(piTheme == UWCritterRules.CombatTheme && lbCombatPlaying) && World != null)
+			if (!lIVariant.KeepsPlayingTheme(piTheme, mIWorld.MusicTheme, pbSwing) && World != null)
 				World.Presentation.ChangeMusicTheme(piTheme);
 
 			mIWorld.MarkCombatMusic();
@@ -1524,12 +1523,39 @@ namespace UWDataImport.UWData
 			// hit points reach 0, so the golem lives on with his record's 0, as in the original, until
 			// his script sets 125. Until then the body counted its own copy, which had reached 0 when
 			// the brain asked, and got at least 1 back (fKeepBodyAlive) - the 1 the save wrote (B23).
-			bool lbRefused = !UWSpecialDeaths.Apply(liWhoami, UWSpecialDeaths.Stage.Dying, World, mIView.Ref);
+			// The game's own rules since G6 part 2 (2026-11-16): the second game's death_check through its variant.
+			bool lbRefused = !fSpecialDeath(UWSpecialDeaths.Stage.Dying, out Action lfAfterTalk);
 
 			if (lbRefused)
 				fEvent("death refused (whoami {0})", liWhoami);
 
+			fAfterConversation(lfAfterTalk);
+
 			return lbRefused;
+		}
+
+		/// <summary>The game's special death at this stage (IUWCritterVariant.ApplySpecialDeath); the first game's rules
+		/// without a session.</summary>
+		private bool fSpecialDeath(UWSpecialDeaths.Stage peStage, out Action pfAfterTalk)
+		{
+			if (UWGameSession.Current != null)
+				return UWGameSession.Current.Game.Critter.ApplySpecialDeath(mIView.Ref, peStage, World, out pfAfterTalk);
+
+			pfAfterTalk = null;
+
+			return UWSpecialDeaths.Apply(mONpc.NPCwhoami, peStage, World, mIView.Ref);
+		}
+
+		/// <summary>What the original does after its modal TalkTo comes back, once our conversation is over.</summary>
+		private static void fAfterConversation(Action pfAction)
+		{
+			if (pfAction == null)
+				return;
+
+			if (UWGameSession.Current != null)
+				UWGameSession.Current.Schedule.AfterConversation(pfAction);
+			else
+				pfAction();
 		}
 
 		/// <summary>
@@ -1540,12 +1566,16 @@ namespace UWDataImport.UWData
 		/// death_check(obj, 1) at frame 3, right before Obj_Rem, AI.C:1137 - the update in which
 		/// OnDeathFinished runs.)
 		/// </summary>
-		private void fApplySpecialDeath()
+		private Action fApplySpecialDeath()
 		{
 			int liWhoami = mONpc.NPCwhoami;
 
-			if (fHasSpecialDeath(liWhoami))
-				UWSpecialDeaths.Apply(liWhoami, UWSpecialDeaths.Stage.Dead, World, mIView.Ref);
+			if (!fHasSpecialDeath(liWhoami))
+				return null;
+
+			fSpecialDeath(UWSpecialDeaths.Stage.Dead, out Action lfAfterTalk);
+
+			return lfAfterTalk;
 		}
 
 		private static bool fHasSpecialDeath(int piWhoami)
@@ -1582,7 +1612,22 @@ namespace UWDataImport.UWData
 			// SpecialDeathCases with mode 1 - what follows a named creature death. The original
 			// asks it from NPCInitialProcessing, when a dead one is next processed; the moment the
 			// body goes is the closest one we have (see fApplySpecialDeath).
-			fApplySpecialDeath();
+			Action lfAfterTalk = fApplySpecialDeath();
+
+			// A TALK AT THE END (the second game's Patterson, stop_and_talk in death_check's mode 1): the original's
+			// TalkTo is modal and the body goes when it comes back, so ours keeps the body until the conversation is
+			// over, then runs what follows the talk and lets it go (G6 part 2).
+			if (lfAfterTalk != null)
+			{
+				fEvent("death held for a conversation");
+				fAfterConversation(() =>
+				{
+					lfAfterTalk();
+					mIView.CompleteDeath();
+				});
+
+				return;
+			}
 
 			mIView.CompleteDeath();
 		}
@@ -1835,6 +1880,56 @@ namespace UWDataImport.UWData
 			// (ovr104_71C) - unlike the level exit, which lifts a flier halfway up.
 			fRelocate(pOTile.X, pOTile.Y, piSubX & 7, piSubY & 7, (lOTile.FloorHeight >> 4) << 3);
 			fTrace("set down by the sleep ambush on {0}/{1} at {2}/{3}", pOTile.X, pOTile.Y, piSubX, piSubY);
+
+			return true;
+		}
+
+		/// <summary>instant_kill (uw2 WORLDEV.C:1703, G6 part 1): hit points 0, the dying sequence at its last frame, and
+		/// the death completed at once (OnDeathFinished: death_check mode 1, corpse and belongings, the body gone) - no death picture
+		/// drawn; death_check mode 0 first (G6 part 2). Until 2026-11-17 the body went on the creature's next update.
+		/// False when it is dead or dying already.</summary>
+		public bool KillOutright()
+		{
+			if (IsDead || mORecord.Animation == UWCritterBrain.AnimDying)
+				return false;
+
+			// instant_kill asks death_check with mode 0 too and does not listen (G6 part 2); mode 1 comes when the body goes.
+			if (fHasSpecialDeath(mONpc.NPCwhoami))
+			{
+				fSpecialDeath(UWSpecialDeaths.Stage.Dying, out Action lfAfterTalk);
+				fAfterConversation(lfAfterTalk);
+			}
+
+			mORecord.HitPoints = 0;
+			mORecord.Animation = UWCritterBrain.AnimDying;
+			mORecord.Frame = UWCritterRules.DeathRemovalFrame;
+			mORecord.Interval = UWCritterRules.IntervalStuck;
+			fTrace("killed outright by a schedule");
+
+			// AT ONCE, as instant_kill does: death_check mode 1, the corpse and the belongings, the body gone (per user
+			// 2026-11-17, test 70.2: Killorn's crash killed level 17's creatures, the player died at once and left, and the
+			// level's time passing healed the dying ones back - in the original the level stood empty). Until then the body
+			// went on the creature's next update.
+			fCommitDeath("by instant_kill");
+			((ICritterHost)this).OnDeathFinished();
+
+			return true;
+		}
+
+		/// <summary>teleport_critter (uw2 critter/CRITTIME.C:374, G5 part 2: a conversation's teleport_talker): to the spot
+		/// and zpos worked out by UWConversationRulesUw2.TeleportCritter, the transient bits 0, 1, 4 and 5 of byte 0x19
+		/// cleared. False for a dead creature.</summary>
+		public bool TeleportTo(UWTilePos pOTile, int piSubX, int piSubY, int piZPos)
+		{
+			if (IsDead)
+				return false;
+
+			fRelocate(pOTile.X, pOTile.Y, piSubX & 7, piSubY & 7, piZPos);
+			mORecord.TargetConfirmed = false;
+			mORecord.HeardSomething = false;
+			mORecord.MadeStand = false;
+			mORecord.Relentless = false;
+			fTrace("teleported by a conversation to {0}/{1} at {2}/{3}, z {4}", pOTile.X, pOTile.Y, piSubX, piSubY, piZPos);
 
 			return true;
 		}

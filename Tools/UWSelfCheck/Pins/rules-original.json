@@ -88,6 +88,7 @@
   "critter.withdraw.standRoll": 256,
   "deviations.conversationPatches": true,
   "deviations.debrisLosesSpell": false,
+  "deviations.everyEnterExitTrigger": true,
   "deviations.followerLandsWhereItCanStand": true,
   "deviations.groundedFlightBouncesOnIce": true,
   "deviations.orbManaAsideOnlyWhileOrbStands": true,

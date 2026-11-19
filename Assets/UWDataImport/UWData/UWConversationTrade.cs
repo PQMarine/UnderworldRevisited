@@ -607,7 +607,10 @@ namespace UWDataImport.UWData
 				if (liField == 2 && !fHasIdentificationField(lOItem))
 					continue;
 
-				if (lbSet)
+				// The second game writes the link raw (IUWConversationVariant.XObjStuffLinkSpecial).
+				if (lbSet && liField == LinkObjectField && mOGame != null && !mOGame.Game.Conversation.XObjStuffLinkSpecial)
+					lOItem.Quantity = (ushort)(liValue & 0x3FF);
+				else if (lbSet)
 					fSetObjectField(lOItem, liField, liValue);
 				else
 					mOVm.WriteMemory(pOAddresses[liField], fGetObjectField(lOItem, liField));
@@ -650,6 +653,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>The first field of x_obj_stuff after handle and mode.</summary>
 		private const int FirstObjectField = 2;
+
+		/// <summary>x_obj_stuff's link (the quantity field).</summary>
+		private const int LinkObjectField = 5;
 
 		/// <summary>
 		/// The fields of x_obj_stuff, "identified" to "quality", read and written as UW.EXE
@@ -1418,7 +1424,8 @@ namespace UWDataImport.UWData
 			if (lOInventory == null || lOItem == null)
 				return 0;
 
-			if (fTryJoinNpcStack(lOInventory, lOItem))
+			// The first game joins a like pile; the second makes a new object always (IUWConversationVariant).
+			if ((mOGame == null || mOGame.Game.Conversation.InvCreateJoinsStack) && fTryJoinNpcStack(lOInventory, lOItem))
 				return 0;
 
 			lOItem.Link = 0;

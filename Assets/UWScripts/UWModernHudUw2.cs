@@ -792,8 +792,10 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         UWFont lOFont = mOData.Fonts != null ? mOData.Fonts.Get(UWFonts.FontType.Normal) : null;
 
         int liFade = UWUserSettings.ModernMessageFade;
+        bool lbMore = UWGameScreenUw2.IsWaitingForPage;
 
-        if (lOFont == null || pOLines.Count == 0 || (liFade > 0 && pfSaidAgo >= liFade))
+        // Nothing fades while [MORE] waits (as the first game's modern box).
+        if (lOFont == null || pOLines.Count == 0 || (liFade > 0 && pfSaidAgo >= liFade && !lbMore))
         {
             UWTextLabel.Hide(mOLines);
 
@@ -805,8 +807,24 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         // They end where the action bar begins.
         int liWidth = Mathf.Clamp(Mathf.FloorToInt((UWModernBarUw2.LeftEdge(pfScale) - pfLeft) / pfScale) - (int)Margin, LeastLineWidth, LineWidth);
 
-        for (int liAt = Mathf.Max(0, pOLines.Count - ShownLines); liAt < pOLines.Count; liAt++)
+        // A PAGE OF A LONG TEXT is four lines, the box three: it shows the whole page (2026-11-18, the modern [MORE]).
+        int liShown = Mathf.Max(ShownLines, UWGameScreenUw2.LastPageLines);
+
+        for (int liAt = Mathf.Max(0, pOLines.Count - liShown); liAt < pOLines.Count; liAt++)
             mOText.AddRange(UWTextLayout.WrapText(lOFont, pOLines[liAt], liWidth));
+
+        // [MORE] WHILE THE NEXT PAGE WAITS (Todo: the modern scroll paged but drew no marker), after the last line as
+        // the first game's modern box puts it (UWModernMessageBox).
+        if (lbMore && mOText.Count > 0)
+        {
+            string lsWithMore = mOText[mOText.Count - 1] + "  " + UWMessageLogModel.MoreMarkerText;
+
+            // On a line of its own when it does not fit beside the last.
+            if (UWPictureWords.LineWidth(lOFont, lsWithMore, 1) <= liWidth)
+                mOText[mOText.Count - 1] = lsWithMore;
+            else
+                mOText.Add(UWMessageLogModel.MoreMarkerText);
+        }
 
         Color32[] lyColours = new Color32[mOText.Count];
 

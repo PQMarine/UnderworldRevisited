@@ -60,6 +60,11 @@ namespace UWDataImport.UWData
 
 		bool TryIncreasePlayerSkill(int piSkillNumber);
 
+		/// <summary>The second game's x_skills above 10000: with a skill point left, grant_skill_advance on the skill
+		/// (or a group, UWPlayerVitals.GrantSkillAdvance) and the point spent when anything rose. The first game never
+		/// asks (its 10001 only reads).</summary>
+		bool AdvancePlayerSkillByPoint(int piWhich);
+
 		/// <summary>Hunger, hit points, mana and poison as the conversation returns them at
 		/// its end.</summary>
 		void ApplyConversationValues(int piHunger, int piHitPoints, int piMana, int piPoison);

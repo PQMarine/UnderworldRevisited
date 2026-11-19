@@ -37,7 +37,7 @@ namespace UnderworldRevisited.Tools
             "ModernScroll", "ModernScrollLines", "ModernScrollWidth", "ModernMessageLines", "ModernMessageFade", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
             "ModernRuneHollow", "ModernRuneHollowOutline", "ModernRuneTablet", "ModernStatsPanel", "ModernCharacterPage",
             "ModernConversationOriginal", "ModernConversationNoOutline", "ConversationTextPercent", "MinimapHidden", "MinimapTurns",
-            "ActionBarHidden", "InterfaceFont"
+            "ActionBarHidden" // InterfaceFont left the layout on 2026-11-19 (the Interface window sets it)
         };
 
         private static void fCheckSettingsTable()

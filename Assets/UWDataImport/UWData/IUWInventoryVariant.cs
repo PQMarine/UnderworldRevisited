@@ -25,5 +25,9 @@ namespace UWDataImport.UWData
 		/// <summary>What the player can carry, in tenths of stones; -1 without a player (EncumCheck, the first game
 		/// reads the player data, the second its record).</summary>
 		int CarryLimit(DataImport pOData);
+
+		/// <summary>The target of the Lore roll when an item is looked at in the inventory (UW1: 0x0A, seg024_24DC_109B;
+		/// UW2: 8, inv_look in ui/INTERACT.C).</summary>
+		int LoreLookTarget { get; }
 	}
 }

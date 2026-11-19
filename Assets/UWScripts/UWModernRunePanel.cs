@@ -742,7 +742,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         int liRoom = Mathf.Max(60, Mathf.FloorToInt((lfTopLimit - lfFloor) / liScale));
         int liTargetRows = meTab == TabEnum.Runes ? Mathf.Min(liRoom, fRunesRows()) : liRoom;
         float lfTargetShown = fTargetShown(PanelWidth * liScale, lbFree);
-        float lfStep = fSlideStep();
+        float lfStep = fTakeSlideStep();
 
         if (mfRows <= 0f)
             mfRows = liTargetRows;

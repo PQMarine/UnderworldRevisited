@@ -423,8 +423,12 @@ public sealed class UWMissiles
 
         // The launch sound of every missile (PrepareProjectileObject, effect 0x0A; the second game's
         // throw has its own); a thing knocked loose makes none.
+        // The second game's launch 0x0A follows the missile while it plays (play_effect_on_mobile_src, uw2 MISSILE.C:145);
+        // its spell's 0x28 and the throw's 0x1C stay where they began (play_effect_on_mobile).
         if (pbLaunchSound)
-            UWAudioService.PlayEffectAt(piLaunchSound, lOAt);
+            UWAudioService.PlayEffectAt(piLaunchSound, lOAt, UWGameSession.Current != null
+                ? UWGameSession.Current.Game.Combat.MissileLaunchVolume(piLaunchSound, pORecord.ItemId) : 0,
+                piLaunchSound == UWSoundEffectId.Miss ? lOSpawned.transform : null);
 
         return lOFlight;
     }

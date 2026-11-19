@@ -248,9 +248,6 @@ public class UWModernGameMenu
     /// <summary>A preset button's indent (fKitPreset).</summary>
     private const float PresetIndent = 28f;
 
-    /// <summary>The room of the mouse button's picture on the pointer button.</summary>
-    private const float GlyphRoom = 44f;
-
     /// <summary>The area as wide as its longest text needs this frame.</summary>
     private float mfAreaWidth = AreaWidth;
 
@@ -271,8 +268,6 @@ public class UWModernGameMenu
 
     /// <summary>Between the Classic row's text and its buttons, and between the buttons.</summary>
     private const float ClassicGap = 6f;
-
-    private static readonly string[] msPointerIds = { "menu.pointer.hold", "menu.pointer.toggle" };
 
     private float fWidest(string[] psIds, in UWKitRows.HelpLook pOLook, float pfRoom)
     {
@@ -297,7 +292,7 @@ public class UWModernGameMenu
         float lfRoom = 2f * ButtonPadding;
         float lfNeeded = Mathf.Max(fWidest(msTitleIds, lOTitle, 0f), fWidest(msButtonIds, lOButton, lfRoom));
 
-        lfNeeded = Mathf.Max(lfNeeded, Mathf.Max(fWidest(msPresetIds, lOButton, lfRoom + PresetIndent), fWidest(msPointerIds, lOButton, lfRoom + GlyphRoom)));
+        lfNeeded = Mathf.Max(lfNeeded, fWidest(msPresetIds, lOButton, lfRoom + PresetIndent));
         lfNeeded = Mathf.Max(lfNeeded, PresetIndent + mOKit.HelpTextWidth(UWText.T("menu.preset.classic"), lOButton) + ButtonPadding
             + (2f * (fWidest(msClassicWidthIds, lOButton, lfRoom) + ClassicGap)));
         lfNeeded = Mathf.Max(lfNeeded, fWidest(msDetailIds, lOButton, lfRoom));
@@ -505,17 +500,8 @@ public class UWModernGameMenu
             mePage = PageEnum.Load;
 
         // Music, sound and the detail level left this menu on 2026-10-06 (per user): the setup
-        // bar at the top offers them in full while the menu is open (UWSetupMenu).
-        // THE MOUSE'S RIGHT BUTTON AS A GLYPH (per user, 2026-10-08: not the pad's - "Right button"
-        // said nothing of which; Kenney's pixel prompts, UWGlyphs), "RMB" if it is missing.
-        Texture2D lOMouseRight = UWGlyphs.MouseRight;
-        string lsPointerOption = UWUserSettings.ModernPointerHold ? UWText.T("menu.pointer.hold") : UWText.T("menu.pointer.toggle");
-
-        if (lOMouseRight != null ? fKitButton("  " + lsPointerOption, lOMouseRight) : fKitButton(UWText.F("menu.pointer.rmb", lsPointerOption)))
-        {
-            UWUserSettings.ModernPointerHold = !UWUserSettings.ModernPointerHold;
-            UWUserSettings.Save();
-        }
+        // bar at the top offers them in full while the menu is open (UWSetupMenu). The right button's
+        // toggle or hold left it on 2026-11-19 (per user): the Interface window has it.
 
         // The mouse look's speed left this menu on 2026-10-08 (per user): the Controls dialog of
         // the setup bar has it as a slider, reachable while the menu is open.

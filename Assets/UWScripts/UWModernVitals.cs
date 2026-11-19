@@ -119,6 +119,7 @@ public class UWModernVitals : UWModernPart
     protected override void fUpdate()
     {
         fEnsureArt();
+        fClickFlask();
 
         // Its own size and place (UWModernLayout): the shelf with the values above it.
         float liScale = fScaleOf(UWModernLayout.ElementEnum.Vitals);
@@ -193,6 +194,44 @@ public class UWModernVitals : UWModernPart
         ((RectTransform)mOHealthText.transform).sizeDelta = new Vector2(120f, mOHealthText.fontSize * 1.5f);
         ((RectTransform)mOManaText.transform).anchoredPosition = new Vector2(lfManaCentre, lfTextY);
         ((RectTransform)mOManaText.transform).sizeDelta = new Vector2(120f, mOManaText.fontSize * 1.5f);
+    }
+
+    /// <summary>
+    /// A CLICK ON A FLASK WITH THE FREE POINTER (2026-11-19, a wish from a forum post: the modern flasks turned green while
+    /// poisoned but named no degree and took no click): the same messages as a click on the classic frame's flask - the
+    /// health flask says how poisoned and the vitality, the mana flask the mana - through UWHudRunes.DescribeFlask, the
+    /// classic path itself (Classic Wide uses it too). Not while a menu or a typed line has the input, not with a thing on
+    /// the pointer, and a bag window over the flask takes the click.
+    /// </summary>
+    private void fClickFlask()
+    {
+        if (mOScheme == null || !mOScheme.IsPointerFree || !UWPointer.HasMouse || UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive
+            || UWModernPointer.PanelsHeld || mOUi == null || mOUi.Runes == null)
+            return;
+
+        UWControls lOControls = mOScheme.Controls;
+
+        if (lOControls == null || !lOControls.Player.CursorDrag.WasPressedThisFrame())
+            return;
+
+        if (mOUi.mOInventory != null && mOUi.mOInventory.CursorItem != null)
+            return;
+
+        Vector2 lOPointer = UWPointer.Position;
+
+        if (UWModernBags.Instance != null && UWModernBags.Instance.IsOverWindow(lOPointer))
+            return;
+
+        if (fIsOver(mOHealthFlask, lOPointer))
+            mOUi.Runes.DescribeFlask(UWClickRules.FlaskPart.Vitality);
+        else if (fIsOver(mOManaFlask, lOPointer))
+            mOUi.Runes.DescribeFlask(UWClickRules.FlaskPart.Mana);
+    }
+
+    private static bool fIsOver(RawImage pOImage, Vector2 pOPointer)
+    {
+        return pOImage != null && pOImage.enabled && pOImage.isActiveAndEnabled
+            && RectTransformUtility.RectangleContainsScreenPoint((RectTransform)pOImage.transform, pOPointer, null);
     }
 
     /// <summary>

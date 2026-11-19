@@ -97,6 +97,17 @@ public class UWMainMenu : MonoBehaviour
     /// <summary>Is the menu up - or something it has called?</summary>
     public static bool IsOpen { get; private set; }
 
+    /// <summary>
+    /// A WALK STARTS: the menu is gone (per user 2026-11-17: after Create Character N did nothing in the walk). The
+    /// creation starts the walk and the scene rebuilds at the end of that frame; when the menu's Update had already run
+    /// in it, it never saw IsStartingWalk, and the static IsOpen stayed set through the walk - the screen-menu gate held
+    /// N, B, F11 and Shift+F11, and the second game's music took the walk for a menu (loop only).
+    /// </summary>
+    public static void ForgetOpen()
+    {
+        IsOpen = false;
+    }
+
     /// <summary>Whether the menu bar may fold out now: only over the buttons and the save list,
     /// not during a cutscene or character creation (see UWSetupMenu).</summary>
     public static bool AcceptsMenuBar { get; private set; }
@@ -116,6 +127,10 @@ public class UWMainMenu : MonoBehaviour
 
     /// <summary>Whether the save folder holds a save of the running game (the walk menu offers Journey
     /// Onward then, as the original with a saved game; UW2 plan phase 2 step 6).</summary>
+    /// <summary>Has the second game a save (MAINMENU.C get_save_descs)? Also the opening's question
+    /// (UWSplashSequence: do_intro_scene).</summary>
+    internal static bool AnyWalkSave => fAnyWalkSave();
+
     private static bool fAnyWalkSave()
     {
         string lsRoot = UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
@@ -175,6 +190,27 @@ public class UWMainMenu : MonoBehaviour
 
     /// <summary>Where that line stands, under the buttons at the screen's foot.</summary>
     private const int WorkInProgressTop = 186;
+
+    /// <summary>
+    /// THE "i" BEHIND THAT LINE (per user 2026-11-19: "playable alpha", the work-in-progress line stays): a click shows
+    /// what the alpha holds and lacks (menu.uw2_alpha_info) in a box over the menu; any click or Escape closes it.
+    /// </summary>
+    private RawImage mOAlphaInfoButton;
+
+    private Image mOAlphaInfoBox;
+
+    private Text mOAlphaInfoText;
+
+    /// <summary>The gap between the line and its "i", in the original's pixels.</summary>
+    private const int AlphaInfoGap = 6;
+
+    /// <summary>The box's width and height in the original's pixels (it is unsqueezed against the 4:3 pixel).</summary>
+    private const int AlphaInfoWidth = 236;
+
+    private const int AlphaInfoHeight = 84;
+
+    /// <summary>The box's text size in the frame's units, as the version line's.</summary>
+    private const int AlphaInfoFontSize = 7;
 
     /// <summary>The port's version in the bottom right corner (Application.version, the player
     /// settings' bundleVersion), so a player can name it in a report (per user, 2026-11-04, after
@@ -325,7 +361,14 @@ public class UWMainMenu : MonoBehaviour
 
             case Mode.Cutscene:
                 if (mOIntro == null || !mOIntro.IsPlaying)
+                {
                     fShowButtons();
+
+                    // The second game's menu asks for its theme again after each choice (MAINMENU.C:147).
+                    if (IsWalkMenu)
+                        UWAudioService.Uw2RequestNow(UWMusicSelectorUw2.MenuTheme);
+                }
+
                 return;
 
             case Mode.CharacterCreation:
@@ -346,6 +389,9 @@ public class UWMainMenu : MonoBehaviour
 
             case Mode.Buttons:
                 if (fUpdateVersionLine())
+                    return;
+
+                if (IsWalkMenu && fUpdateAlphaInfo())
                     return;
 
                 if (IsWalkMenu)
@@ -432,10 +478,12 @@ public class UWMainMenu : MonoBehaviour
         // menu. Now the menu stands.
         UWScreenUi.HideLoadingCover();
 
-        // The menu plays "Introduction" (the reference: main.cs, LoadXMI(IntroTheme)); the second
-        // game's music is not read yet.
+        // The menu plays "Introduction" (the reference: main.cs, LoadXMI(IntroTheme)); the second game's menu its theme
+        // 1, followed by 10 while the menu waits (MAINMENU.C:147, :297; UW2 plan phase 5 part A).
         if (!IsWalkMenu)
             UWAudioService.ChangeTheme(UWMusicSelector.IntroTheme);
+        else
+            UWAudioService.Uw2RequestNow(UWMusicSelectorUw2.MenuTheme);
     }
 
     /// <summary>After the victory screens (UWEndgame.PlayVictory). The world behind it is
@@ -508,12 +556,65 @@ public class UWMainMenu : MonoBehaviour
     {
         UWFont lOFont = mOData.Fonts.Get(UWFonts.FontType.Big);
         string lsText = UWDataImport.UWData.UWText.T("menu.work_in_progress");
+        const string InfoMark = "(i)";
         int liWidth = fBigWidth(lOFont, lsText);
+        int liInfoWidth = fBigWidth(lOFont, InfoMark);
+        int liLeft = (UWScreenUi.ScreenWidth - (liWidth + AlphaInfoGap + liInfoWidth)) / 2;
+        Color lOColour = UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, UWClassicLayoutUw2.MainMenu.Palette,
+            UWClassicLayoutUw2.MainMenu.ListLitColour));
 
         mOWorkInProgress.gameObject.SetActive(true);
-        UWScreenUi.Place(mOWorkInProgress, (UWScreenUi.ScreenWidth - liWidth) / 2, WorkInProgressTop);
-        UWScreenUi.SetText(mOWorkInProgress, lOFont, lsText,
-            UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, UWClassicLayoutUw2.MainMenu.Palette, UWClassicLayoutUw2.MainMenu.ListLitColour)), liWidth + 1, false);
+        UWScreenUi.Place(mOWorkInProgress, liLeft, WorkInProgressTop);
+        UWScreenUi.SetText(mOWorkInProgress, lOFont, lsText, lOColour, liWidth + 1, false);
+
+        mOAlphaInfoButton.gameObject.SetActive(true);
+        UWScreenUi.Place(mOAlphaInfoButton, liLeft + liWidth + AlphaInfoGap, WorkInProgressTop);
+        UWScreenUi.SetText(mOAlphaInfoButton, lOFont, InfoMark, lOColour, liInfoWidth + 1, false);
+
+        fShowAlphaInfo(false);
+    }
+
+    /// <summary>The alpha's box shown or hidden; unsqueezed against the frame's 4:3 pixel like the version line.</summary>
+    private void fShowAlphaInfo(bool pbShow)
+    {
+        if (mOAlphaInfoBox == null)
+            return;
+
+        if (pbShow)
+        {
+            float lfFactor = UWClassicScreen.HorizontalPixelFactor;
+
+            mOAlphaInfoBox.rectTransform.localScale = new Vector3(lfFactor > 0f ? 1f / lfFactor : 1f, 1f, 1f);
+            mOAlphaInfoBox.rectTransform.sizeDelta = new Vector2(AlphaInfoWidth * (lfFactor > 0f ? lfFactor : 1f), AlphaInfoHeight);
+            mOAlphaInfoText.rectTransform.sizeDelta = mOAlphaInfoBox.rectTransform.sizeDelta - new Vector2(16f, 10f);
+            mOAlphaInfoText.text = UWDataImport.UWData.UWText.T("menu.uw2_alpha_info");
+        }
+
+        mOAlphaInfoBox.gameObject.SetActive(pbShow);
+    }
+
+    /// <summary>The "i" and its box while the second game's buttons show (true: the click or key is taken).</summary>
+    private bool fUpdateAlphaInfo()
+    {
+        if (mOAlphaInfoBox == null || mOAlphaInfoButton == null || !mOAlphaInfoButton.gameObject.activeSelf)
+            return false;
+
+        if (mOAlphaInfoBox.gameObject.activeSelf)
+        {
+            if (UWPointer.LeftPressed || UWPointer.RightPressed
+                || (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame))
+                fShowAlphaInfo(false);
+
+            return true;
+        }
+
+        if (!UWPointer.LeftPressed
+            || !RectTransformUtility.RectangleContainsScreenPoint(mOAlphaInfoButton.rectTransform, UWPointer.Position, null))
+            return false;
+
+        fShowAlphaInfo(true);
+
+        return true;
     }
 
     private void fShowButtons()
@@ -774,6 +875,44 @@ public class UWMainMenu : MonoBehaviour
             fOpenCharacterCreationUw2();
         else if (liChosen == JourneyOnwardButton)
             fShowWalkSaveList();
+        else if (liChosen == IntroductionButton)
+            fPlayCutscenes(IntroductionCutscene, IntroductionSecondCutscene);
+        else if (liChosen == AcknowledgementsButton)
+            fPlayCutscenes(AcknowledgementsCutscene);
+    }
+
+    /// <summary>The second game's introduction is two cutscenes, 0 then 1 (MAINMENU.C:211-212, do_intro_scene).</summary>
+    private const int IntroductionSecondCutscene = 1;
+
+    /// <summary>Cutscenes one after another, the menu back after the last (UW2 plan phase 5 part C).</summary>
+    private void fPlayCutscenes(params int[] piCutscenes)
+    {
+        if (piCutscenes == null || piCutscenes.Length == 0)
+            return;
+
+        if (mOIntro == null)
+            mOIntro = UWScene.IntroPlayer;
+
+        if (mOIntro == null)
+            return;
+
+        meMode = Mode.Cutscene;
+        mOCanvas.gameObject.SetActive(false);
+        UWGameClock.Hold(UWGameClock.MainMenuHold);
+        fSetModal(false);
+
+        fPlayFrom(piCutscenes, 0);
+
+        if (!mOIntro.IsPlaying)
+            fShowButtons();
+    }
+
+    private void fPlayFrom(int[] piCutscenes, int piAt)
+    {
+        if (piAt >= piCutscenes.Length)
+            return;
+
+        mOIntro.PlayCutscene(piCutscenes[piAt], () => fPlayFrom(piCutscenes, piAt + 1));
     }
 
     private void fLightWalkButtons()
@@ -1118,6 +1257,17 @@ public class UWMainMenu : MonoBehaviour
 
         mOWorkInProgress = UWUiKit.CreateRawImageAt(mOFrame, "Work in progress", 0, WorkInProgressTop);
         mOWorkInProgress.gameObject.SetActive(false);
+
+        mOAlphaInfoButton = UWUiKit.CreateRawImageAt(mOFrame, "Alpha info button", 0, WorkInProgressTop);
+        mOAlphaInfoButton.gameObject.SetActive(false);
+
+        mOAlphaInfoBox = UWUiKit.CreateImage(mOFrame, "Alpha info", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+            new Color(0.08f, 0.07f, 0.06f, 0.92f));
+        mOAlphaInfoText = UWUiKit.CreateText(mOAlphaInfoBox.transform, "Alpha info text", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+            TextAnchor.MiddleLeft, new Color(0.9f, 0.88f, 0.82f), null,
+            new UWUiKit.TextStyle { KeepsItsFont = true, Wraps = true, Effect = UWUiKit.TextEffectEnum.None });
+        mOAlphaInfoText.fontSize = AlphaInfoFontSize;
+        mOAlphaInfoBox.gameObject.SetActive(false);
 
         mOVersion = UWUiKit.CreateText(mOFrame, "Version", new Vector2(1f, 0f), new Vector2(1f, 0f), TextAnchor.LowerRight,
             new Color(0.85f, 0.85f, 0.85f), null,

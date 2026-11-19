@@ -268,10 +268,11 @@ namespace UWDataImport.UWData
 		/// the death sound 6.</summary>
 		void PlaySound(int piSound);
 
-		/// <summary>ChangeThemeMusic: theme 6 at swing frame 0 against the player unless the
-		/// current theme is 5..7 (53136-53160), theme 5 or 6 after a blow by the player
-		/// (DamageNPC). The host also resets its combat music timer.</summary>
-		void PlayMusic(int piTheme);
+		/// <summary>ChangeThemeMusic: the combat theme at swing frame 0 against the player (pbSwing) unless the
+		/// game's variant keeps the playing one (IUWCritterVariant.KeepsPlayingTheme; UW1 53136-53160, UW2 AI.C:1123),
+		/// the combat or foe-hurt theme after a blow by the player (DamageNPC, damage_critter). The host also resets its
+		/// combat music timer.</summary>
+		void PlayMusic(int piTheme, bool pbSwing);
 
 		/// <summary>The drowning of spec 7.3 (41417-41460): the host places the ONE splash
 		/// (class-7 object with offset 6, so 0x1C6) at the creature and plays the water sound.

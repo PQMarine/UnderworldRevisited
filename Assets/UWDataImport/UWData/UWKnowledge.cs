@@ -53,6 +53,30 @@ namespace UWDataImport.UWData
 
 		private readonly HashSet<string> mOFlags = new HashSet<string>();
 
+		/// <summary>The second game's teachers met: conversation slot, the dungeon level and the name it was held on.</summary>
+		private readonly Dictionary<int, Met> mOMet = new Dictionary<int, Met>();
+
+		/// <summary>Where a teacher was met (the second game's help, UWTrainersUw2).</summary>
+		public struct Met
+		{
+			public int Level;
+
+			public string Who;
+		}
+
+		/// <summary>A conversation with a teacher was held (the second game): the first meeting is kept.</summary>
+		public void MetTeacher(int piSlot, int piLevel, string psWho)
+		{
+			if (piSlot < 0 || mOMet.ContainsKey(piSlot))
+				return;
+
+			mOMet[piSlot] = new Met { Level = piLevel, Who = psWho };
+			Version++;
+		}
+
+		/// <summary>Whether the teacher of conversation piSlot was met, and where.</summary>
+		public bool HasMetTeacher(int piSlot, out Met pOMet) => mOMet.TryGetValue(piSlot, out pOMet);
+
 		/// <summary>Counts every change, for whoever caches a view of it.</summary>
 		public int Version { get; private set; }
 
@@ -202,7 +226,7 @@ namespace UWDataImport.UWData
 		// ------------------------------------------------- Kept with the save
 
 		/// <summary>The knowledge as lines for UWR.json: "m 7 Book", "m 3 Talk Sir Owen", "s 5 Cast",
-		/// "h 38", "p 13", "f folanae".</summary>
+		/// "h 38", "p 13", "f folanae", "t 133 1 Geoffrey" (a teacher met: slot, level, name).</summary>
 		public string[] Export()
 		{
 			List<string> lOLines = new List<string>();
@@ -221,6 +245,9 @@ namespace UWDataImport.UWData
 
 			foreach (string lsFlag in mOFlags)
 				lOLines.Add("f " + lsFlag);
+
+			foreach (KeyValuePair<int, Met> lOMet in mOMet)
+				lOLines.Add("t " + lOMet.Key + " " + lOMet.Value.Level + (string.IsNullOrEmpty(lOMet.Value.Who) ? string.Empty : " " + lOMet.Value.Who));
 
 			return lOLines.ToArray();
 		}
@@ -261,6 +288,15 @@ namespace UWDataImport.UWData
 				{
 					case "h":
 						lOKnowledge.mOHalfSpells.Add(liId);
+						break;
+
+					case "t":
+						int liLevel = 0;
+
+						if (lsParts.Length > 2)
+							int.TryParse(lsParts[2], out liLevel);
+
+						lOKnowledge.mOMet[liId] = new Met { Level = liLevel, Who = lsParts.Length > 3 ? lsParts[3] : null };
 						break;
 
 					case "p":

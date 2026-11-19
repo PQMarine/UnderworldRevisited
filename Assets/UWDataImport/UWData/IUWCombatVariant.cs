@@ -14,6 +14,10 @@ namespace UWDataImport.UWData
 		/// the effect's range, and special weapons from 8, COMBAT.C:641).</summary>
 		void WeaponEnchantment(int piMajor, int piMinor, out int piAccuracy, out int piDamage);
 
+		/// <summary>The special weapon's power a weapon's enchantment of this class gives, 0 for none (UW1: none; UW2:
+		/// effect - 7 from effect 8, DoPlayerWeapon's specweap, COMBAT.C:647).</summary>
+		int SpecialWeapon(int piMajor, int piMinor);
+
 		/// <summary>Whether a creature's poisonous hit gets past the player's armour (UW1: always, the
 		/// resistance alone decides, COMBAT.C:808; UW2: a roll against twice the armour first,
 		/// COMBAT.C:911).</summary>
@@ -49,6 +53,11 @@ namespace UWDataImport.UWData
 
 		/// <summary>The sound of a blow that landed (UW1: 4; UW2: by the kind, do_damage).</summary>
 		int MeleeHitSound(int piWeaponKind);
+
+		/// <summary>The sound of a blow that landed on anything but the player, struck by anyone (a creature on a
+		/// creature, a door, a thing): UW1 4; UW2's do_damage asks player_weapon, the kind the player's last swing began
+		/// with, whoever struck - 0x1B after an edged weapon, else 4 (COMBAT.C:384).</summary>
+		int OtherHitSound(int piPlayersLastWeaponKind);
 
 		/// <summary>The sound of a blow that met a wall (UW1: 7; UW2: 7 with a weapon, else 8, find_wall_coll).</summary>
 		int WallSound(int piWeaponKind);
@@ -89,5 +98,15 @@ namespace UWDataImport.UWData
 		/// <summary>The sound a spell's missile leaves with, by its object (UW1: missile_fire's 0xA for every missile;
 		/// UW2: spell_fire's 0x28, the acid and the snowball 0xA - for the player and the creatures alike, MISSILE.C).</summary>
 		int SpellMissileLaunchSound(int piProjectileId);
+
+		/// <summary>What a missile's launch sound adds to the effect's own volume (play_effect's vol): UW1 nothing
+		/// (missile_fire's play_effect_on_mobile(0xA, proj, 0)); UW2 0x14 for the bow, the sling, the creatures' missiles,
+		/// the arrow traps and the spells' 0x28, nothing for the acid's and the snowball's 0xA and a throw's 0x1C
+		/// (uw2 combat/MISSILE.C:123, :145, :179-182, :278, :341). Sound audit 2026-11-17, built 2026-11-18.</summary>
+		int MissileLaunchVolume(int piLaunchSound, int piProjectileId);
+
+		/// <summary>The view's flash when a creature's critical hit lands on the player (UW1: 0xB8; UW2: fill_FB(0x23),
+		/// combat/COMBAT.C:332).</summary>
+		int CriticalFlashColour { get; }
 	}
 }

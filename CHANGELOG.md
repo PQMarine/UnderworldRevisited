@@ -10,6 +10,115 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-19
+
+Ultima Underworld II is now a playable alpha: every rule of the game is built and was checked step by step against
+the original, and the classic interface is complete. It has not yet been played through from start to end, and its
+modern interface is a provisional one for now. Its main menu still says "Work in progress"; the "(i)" beside it says
+this.
+
+### Changed
+- A door or portcullis that has shut makes its sound, as in the original (Ultima Underworld II: the portcullis its
+  own). Doors that shut together sound one after the other, as the original's animation list makes them.
+- Modern scheme: a click on the health flask with the free pointer says how poisoned you are, as the classic flask
+  does.
+- Modern scheme: the automatic key on a locked door can be switched off (Gameplay, Aids), then the key is used by
+  hand as in the original.
+- Modern scheme: freeing the pointer can open the character panel, the rune panel and the bags, each chosen in the
+  Interface window, and locking it closes them again (with "hold to look around": open while the pointer is free,
+  closed while the button is held).
+- Modern scheme: with the character panel open and the bags shut, the first click on a container in the backpack opens
+  the bags with it instead of getting lost.
+- Modern scheme: a click on a thing in the shut backpack opens the bags and takes the thing at once; only a click on a
+  container is spent on opening it.
+- The modern interface's font (modern or original) moved from the layout editor to the Interface window, so every
+  preset can use it.
+- A new Interface window in the settings bar: the game's texts in the modern font, the modern pointer's mode, the
+  windows that come with the free pointer, and the windows' theme and background (until now under Colours). The
+  pointer's mode left the modern game menu, and holding the right button to look around no longer applies to the
+  gamepad: its right stick button frees and locks the pointer as before. Windows opened by the free pointer are there
+  at once instead of sliding in, so the gamepad's pointer lands on the backpack and not on the character panel.
+- The narrow sides of door leaves have the original's colour (in the second game a lighter brown), those of secret doors
+  the flat colour of their wall as in the original.
+- Remastered: the orbs cast shadows like torches and fires, and their sphere glows; fire elementals glow the same way.
+- Remastered: 3D models (bridges, pillars, tables, chests and the rest), doors and portcullises cast torch shadows like
+  the walls.
+- A blow at a portcullis lands on it instead of the wall behind it: it takes no damage, and the weapon wears as in the
+  original.
+- Ultima Underworld II: looking at a carried item rolls the Lore skill against the original's 8 (the first game's 10 until now).
+- Ultima Underworld II: a creature held by Paralyze or a special weapon stays held when struck, as in the original.
+- Ultima Underworld II: the special weapons' powers work as in the original (draining life, smiting undead, a fireball,
+  holding the foe, opening doors).
+- 3D models (bridges, tables, pillars and the like) stand where the original draws them, a quarter of an original unit
+  further: a bridge resting on a pillar no longer flickers at its edge (it covers the floor of its square, and the wall
+  beside it covers its edge, as in the original), and none reaches into the next tile.
+- Remastered: an item or creature behind a pillar, table or other 3D object of its square is hidden by it, as in the
+  palette mode.
+- A sequence in the view window, such as the death, stays in the window when the help closes and the frame slides
+  back.
+- Classic scheme: a held button starts a drag after the same distance as in the original, measured in the original's
+  pixels instead of screen pixels, so a slight wobble on a large window stays a click.
+- Chests, chairs, tables, barrels and the other 3D objects show their painted parts as the original layers them,
+  such as the broad metal bands of a chest.
+- A creature striking a wall makes only the sound of the missed blow; the wall's own sound belongs to the player's
+  blows.
+- Ultima Underworld II preview: with "Fix bugs of the original" every enter trigger of a square goes off, so the
+  Guardian speaks in Killorn Keep and Miranda can meet the player at one more place, which the original never
+  managed.
+- Ultima Underworld II preview: portcullises are grey as in the original, and door frames dark inside.
+- Ultima Underworld II preview: a recorded sound grows fainter while it plays as the player walks away, and a
+  launch sound follows its missile; a blow that lands on a creature or a thing sounds by the player's last weapon,
+  as in the original.
+- Ultima Underworld II preview: the help's Mantras tab lists the teachers met instead, with the skills each can
+  train, read from the conversations.
+- Ultima Underworld II preview: the help window slides the picture aside as in the first game instead of covering it.
+- Ultima Underworld II preview: the mouse as in the original. A right click with a thing on the pointer only puts it
+  down, even in combat mode, a click on the weapon in the weapon hand draws or sheathes it, and a right click that
+  jumps while walking by the pointer no longer looks as well.
+- Ultima Underworld II preview: missiles, the key gems and the cutting of a line of power sound as loud as in the
+  original.
+- Ultima Underworld II preview: the trainers raise a skill for a skill point by the second game's rules, conversations
+  give experience, ask for the Guardian's signet ring and recharge wands.
+- Ultima Underworld II preview: a conversation shows the inventory on the right, and the page before it comes back
+  afterwards with its numbers drawn anew.
+- Ultima Underworld II preview: conversations can send the speaker elsewhere, turn it into another creature, let it die
+  before the player's eyes and make a creature stand apart from its kind.
+- Ultima Underworld II preview: the world's schedules run. The castle's people keep their day, doors close in the
+  night, the goblins of the tower turn hostile together, and the schedules are saved with the game.
+- Ultima Underworld II preview: the story's deaths. The castle's people cannot be killed and call the guards, some
+  foes yield and talk, others speak their last words, and the Listener falls only to Altara's dagger.
+- Ultima Underworld II preview: killed by the castle's guards, the player wakes in jail instead.
+- Ultima Underworld II preview: the view flashes again, red on a creature's critical hit and for traps and spells.
+- Ultima Underworld II preview: the Pits of Carnage. Jospur arranges fights and pays the winner, the pit record
+  counts, and running away ends the fight.
+- Ultima Underworld II preview: traps that make a creature talk open the conversation.
+- Ultima Underworld II preview: the levels' own rules on coming and going: the Prison Tower's alarm, Killorn's
+  fall, the Academy's telekinesis wand that stays behind, the Tombs freed of the undead after Loth's death.
+- Ultima Underworld II preview: the dream plant leads into the Ethereal Void and back, and Killorn Keep counts down
+  to its fall.
+- Ultima Underworld II preview: with a thing on the pointer the command icons wait, as in the original.
+- Ultima Underworld II preview: death outside Britannia fades to black before the blackrock gem, and a level change
+  no longer lets the old picture show through the black.
+- Ultima Underworld II preview: a creature held by Paralyze stays a creature when the game is saved and loaded.
+- Ultima Underworld II preview: the second game's music plays. The main menu has its theme, each world its walking
+  themes, the drawn weapon its own, and the map, conversations and sleep choose as the original does. AdLib, General
+  MIDI and MT-32 play the second game's pieces with its own AdLib timbres.
+- Ultima Underworld II preview: combat has its music (the foe nearly dead, the player in danger), a kill its victory
+  theme, death its theme, and jail, the blackrock gem and waking from the Void their own; dying creatures cry by
+  their kind.
+- Ultima Underworld II preview: the second game's cutscenes play. The title before the menu, the introduction and the
+  acknowledgements, with their wide panning backgrounds, palette fades, colour cycling and the subtitle bar.
+- Ultima Underworld II preview: the story's cutscenes. The dreams by the castle's clock, the Guardian's taunts after
+  a conversation and his speeches on entering new worlds, the final death's skulls in the view, and the ending
+  with its two end screens and the credits.
+- Ultima Underworld II preview: the music plays on while a saved game loads and changes once the world is there.
+- Modern movement: a trigger that lies just inside a wall fires when walking against the wall, as in the classic
+  movement (in Ultima Underworld II the way down from level 5 at a dead end).
+
+### Fixed
+- Ultima Underworld II: the hint of "Music from recordings" in the Sound window names the second game's folder
+  (UW2/Music) and its pieces instead of the first game's.
+
 ## [0.21.0] - 2026-11-16
 
 ### Changed

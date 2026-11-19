@@ -74,6 +74,16 @@ setting.MouseInvertY	Blick hoch/runter umkehren (modern)
 setting.PointerSpeed	Zeigertempo
 setting.PointerSpeed.hint	Im Spiel bewegt die Maus den eigenen Zeiger des Spiels: bei 100 % ist ein Schritt der Maus ein Pixel auf dem Bildschirm, ohne Beschleunigung. Die Menüs nutzen den Zeiger des Systems.
 setting.WalkSlowToggle	Langsam-Taste schaltet um, statt gehalten zu werden (modern)
+setting.AutoKey	Schlüssel automatisch benutzen (modern)
+setting.ModernFont	Spieltexte in moderner Schrift (Taste F)
+setting.ModernFont.hint	Schriftrolle, Gespräche und die übrigen Texte des Spiels in einer modernen, leichter lesbaren Schrift statt der originalen. Die Taste F schaltet sie auch im Spiel um.
+setting.ModernPointerHold	Rechte Taste halten zum Umsehen (modern)
+setting.ModernPointerHold.hint	Aus: Die rechte Taste wechselt zwischen Umsehen und freiem Zeiger. An: Der Zeiger ist frei, und die Sicht dreht sich nur, solange die rechte Taste gehalten wird. Der rechte Stick des Gamepads schaltet immer um, wie mit dieser Option aus.
+setting.AutoKey.hint	An: Benutzen öffnet eine verschlossene Tür mit dem passenden Schlüssel aus den Taschen, und das Fadenkreuz zeigt den Schlüssel neben der Tür. Aus: Du benutzt den Schlüssel selbst an der Tür, wie im Original.
+setting.FreeOpensCharacter	Charakterfenster
+setting.FreeOpensCharacter.hint	Die hier gewählten Fenster sind sofort da, ohne hereinzugleiten, solange der Zeiger frei ist, und schließen sich wieder, wenn er gesperrt wird. Die Taschen öffnen sich mit den zuletzt offenen Behältern. Ein Fenster, das du selbst geöffnet hast, bleibt offen, und mit seiner Taste gleitet es wie gewohnt herein.
+setting.FreeOpensRunes	Runenfenster
+setting.FreeOpensBags	Taschen
 setting.DebugKeys	Debug-Tasten an
 setting.DebugKeys.hint	Tasten zum Testen: Noclip, die Level-Tasten, die Debug-Anzeige und ihre Werkzeuge. Beim Einschalten bleibt eine Debug-Taste leer, deren Taste oben schon belegt ist.
 setting.GamepadButtonStyle	Tastennamen
@@ -101,6 +111,7 @@ setting.MusicDevice.choice.gm	General MIDI
 setting.MusicDevice.choice.mt32	MT-32
 setting.MusicRecordings	Musik aus Aufnahmen
 setting.MusicRecordings.hint	Eigene Aufnahmen der Musik, eine Datei je Stück im Ordner unten (UW1/Music), spielen statt des Geräts oben. Jede heißt nach der Nummer des Stücks im Spiel: 01.ogg die Einleitung, 02 bis 04 die Ebenen, 05 bis 07 der Kampf, 10 Bewaffnet, 11 Sieg, 12 Tod, 13 Flucht, 15 Karten und Legenden (Ogg Vorbis oder WAV). Ein Stück ohne Aufnahme spielt auf dem Gerät.
+setting.MusicRecordings.hint.uw2	Eigene Aufnahmen der Musik, eine Datei je Stück im Ordner unten (UW2/Music), spielen statt des Geräts oben. Jede heißt nach der Nummer des Stücks im Spiel: 01.ogg das Hauptmenü, 02 bis 04 der Kampf, 05 Bewaffnet, 06 Sieg, 07 Tod, 10 bis 17 die Wanderthemen der Welten, die Zwischensequenzen nutzen weitere Nummern (Ogg Vorbis oder WAV). Ein Stück ohne Aufnahme spielt auf dem Gerät.
 setting.ClassicWidescreen	Klassischer Bildschirm in Breitbild
 setting.ViewAngle	Blickwinkel
 setting.ViewGamma	Gamma
@@ -178,7 +189,8 @@ setting.SwimViewMode.choice.original	Original
 setting.SwimViewMode.choice.smooth	Fließend
 setting.SwimViewStrength	Stärke
 setting.ModernUiPercent	UI-Größe
-setting.InterfaceFont	Schrift
+setting.InterfaceFont	Schrift der modernen Oberfläche
+setting.InterfaceFont.hint	Die Fenster und Teile des modernen Schemas in moderner Schrift oder in der des Originals. Im Preset Classic Wide entscheidet der Schalter darüber, wie auf dem klassischen Bildschirm.
 setting.InterfaceFont.choice.modern	Modern
 setting.InterfaceFont.choice.original	Original
 setting.MinimapHidden	Sichtbar
@@ -253,6 +265,13 @@ setup.format.steps_off	Aus
 setup.format.steps	{0} Schritte
 setup.game.title	Spiel
 setup.bar.gameplay	Spielweise
+setup.bar.interface	Oberfläche
+setup.interface.title	Oberfläche
+setup.interface.intro	Wie die Oberfläche aussieht und sich verhält, in beiden Schemata. Wo etwas auf dem Bildschirm steht, stellst du im Layout-Editor ein (modernes Schema, Spielmenü).
+setup.interface.texts	Texte
+setup.interface.modern	Modernes Schema
+setup.interface.freeopens	Freier Zeiger öffnet:
+setup.interface.windows	Fenster
 setup.bar.mods	Mods
 setup.gameplay.title	Spielweise
 setup.gameplay.intro	Diese Optionen ändern, wie sich das Spiel spielt. Aus ist immer wie im Original.
@@ -606,6 +625,26 @@ help.mantras.single	Je eine Fertigkeit, stark verbessert
 help.mantras.quests	Questen
 help.knowledge.learned	Im Spiel gelernt
 help.knowledge.none_yet	Noch nichts.
+help.tab.teachers	Lehrer
+help.teachers.title	Lehrer
+help.teachers.intro	Lehrer schulen deine Fertigkeiten. Eine Lektion kostet einen Fertigkeitspunkt, und mancher Lehrer will vorher etwas von dir.
+help.teachers.points	Freie Fertigkeitspunkte: {0}
+help.teachers.met	Getroffen: {0}.
+help.teachers.place	{0}, Ebene {1}
+help.teachers.level	Ebene {0}
+help.teachers.unknown_place	unbekannter Ort
+help.teachers.not_met	Noch nicht getroffen.
+help.teachers.unknown	Jemand
+help.teachers.to_find	Noch zu treffen: {0}
+help.world.0	Britannia
+help.world.1	Gefängnisturm
+help.world.2	Killorn Keep
+help.world.3	Eishöhlen
+help.world.4	Talorus
+help.world.5	Scintillus-Akademie
+help.world.6	Grab des Praecor Loth
+help.world.7	Grube des Gemetzels
+help.world.8	Ätherische Leere
 help.knowledge.to_find	Noch zu finden: {0}
 help.knowledge.from_book	Aus einem Buch oder einer Schriftrolle.
 help.knowledge.from_writing	Aus einer Inschrift.
@@ -815,13 +854,11 @@ editor.part.stats_panel	Werteleiste
 editor.part.character_page	Charakterseite
 menu.title	Spielmenü
 menu.work_in_progress	In Arbeit
+menu.uw2_alpha_info	Spielbare Alpha\n- Klassische Oberfläche: vollständig\n- Alle Regeln gebaut und mit dem Original verglichen\n- Noch nicht bis zum Ende durchgespielt\n- Moderne Oberfläche: vorläufig\n\nFehlermeldungen sind willkommen.
 menu.update_available	Neu: {0}
 menu.resume	Weiterspielen
 menu.save_game	Spiel speichern
 menu.restore_game	Spiel laden
-menu.pointer.hold	halten zum Umsehen
-menu.pointer.toggle	schaltet den Zeiger um
-menu.pointer.rmb	RMT: {0}
 menu.edit_layout	Layout bearbeiten
 menu.preset.classic	Klassisch
 menu.preset.wide	Breit

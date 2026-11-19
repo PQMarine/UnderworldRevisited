@@ -595,7 +595,7 @@ public class UWModernPanel : UWModernDockedPanel
         // Moved in the layout editor it is a free window: no handle, no peeking, no sliding.
         bool lbFree = UWModernLayout.IsPlaced(UWModernLayout.ElementEnum.CharacterPanel);
         float lfTargetShown = fTargetShown(lfTargetWidth, lbFree);
-        float lfStep = fSlideStep();
+        float lfStep = fTakeSlideStep();
         bool lbPinned = Pinned;
 
         // The rows: the Help tab the screen's, the Character tab what it needs - pinned with the

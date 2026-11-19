@@ -100,10 +100,17 @@ namespace UWDataImport.UWData
 			lORules.Magic.CastingCheck.PerCircle = CastingPerCircle;
 			lORules.Magic.CastDelay.Base = CastDelayBase;
 
+			// get_skill's extra point rolls in skill_rng's ranges, Strength 25, Dexterity 30, Intelligence 15
+			// (SKILLS.C:149; the first game's 25, 40, 10).
+			lORules.Experience.SkillRaise.ChanceRange = (int[])SkillRaiseRanges.Clone();
+
 			return lORules;
 		}
 
 		private const int SkillPointExperience = 1500;
+
+		/// <summary>skill_rng: the extra point's roll range by governing attribute (Strength, Dexterity, Intelligence).</summary>
+		public static readonly int[] SkillRaiseRanges = { 25, 30, 15 };
 
 		private const int CastingPerCircle = 3;
 

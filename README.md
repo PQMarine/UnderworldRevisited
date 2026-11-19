@@ -12,7 +12,9 @@ of the original that can cost you the game are fixed, and can be switched back. 
 translated**: Underworld Revisited's own texts come in English and German, the game's texts by language files
 a translator publishes ([Translating](Docs/TRANSLATING.md)).
 
-Ultima Underworld II can be tried as an early preview ([Docs/UW2-PLAN.md](Docs/UW2-PLAN.md)).
+Ultima Underworld II is a playable alpha: every rule of the game is built and was checked step by step against
+the original, and the classic interface is complete. It has not yet been played through from start to end, and
+its modern interface is a provisional one for now ([Docs/UW2-PLAN.md](Docs/UW2-PLAN.md)).
 
 **You need your own copy of Ultima Underworld I - from GOG.com, Steam or the EA app**, which
 carry the same game files; other releases are not supported (see [Requirements](#requirements)). This repository

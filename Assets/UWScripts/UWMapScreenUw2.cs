@@ -70,6 +70,11 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
         fEnsureCanvas();
         fReleasePointers();
         mOCanvas.gameObject.SetActive(true);
+
+        // A walking theme of the world unless one plays (AUTOMAP.C:101; UW2 plan phase 5 part A).
+        if (!UWMusicSelectorUw2.IsWalking(UWAudioService.Uw2CurrentTheme))
+            UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickFirst, true);
+
         IsOpen = true;
         fShow(UWAutomapStateUw2.OpeningLevel(fPlayerFile(), lOLoader.CurrentLevelIndex + 1));
     }
@@ -86,6 +91,10 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
 
         if (mOCanvas != null)
             mOCanvas.gameObject.SetActive(false);
+
+        // The weapon drawn: the armed theme again (AUTOMAP.C:232).
+        if (UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight)
+            UWAudioService.Uw2RequestNow(UWMusicSelectorUw2.ArmedTheme);
     }
 
     private void OnDestroy()

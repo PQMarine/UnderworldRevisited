@@ -200,12 +200,18 @@ public static class UWShaderIds
     /// shrine's does by two units, so the box needs the real floor.</summary>
     public static readonly int ModelFloorY = Shader.PropertyToID("_UWModelFloorY");
 
+    /// <summary>A bridge's ties with the floor and walls of its tile (UWOwnTile.hlsl, UWModelOwnTileDepth).</summary>
+    public static readonly int TieBias = Shader.PropertyToID("_UWTieBias");
+
     /// <summary>The model faces and the portcullis take their palette index from the vertex
     /// (UWHallucination.hlsl).</summary>
     public static readonly int VertexIndex = Shader.PropertyToID("_UWVertexIndex");
 
     /// <summary>A light source's bright pixels in Remastered, per renderer (UWLightFlicker).</summary>
     public static readonly int SpriteGlow = Shader.PropertyToID("_SpriteGlow");
+
+    /// <summary>How bright a sprite pixel must be to glow (UWLightSourceTable.Row.GlowThreshold).</summary>
+    public static readonly int GlowThreshold = Shader.PropertyToID("_GlowThreshold");
 
     /// <summary>A light source's renderer while the palette glow is on (UWPaletteEffects).</summary>
     public static readonly int GlowSprite = Shader.PropertyToID("_UWGlowSprite");

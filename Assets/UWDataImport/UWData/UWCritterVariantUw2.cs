@@ -32,10 +32,55 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
-		/// <summary>The four cries by the death kind come with the sound (phase 5).</summary>
+		/// <summary>crit_die (AI.C:1437, UW2 plan phase 5 part B): the death kind, the row's byte 8 low three bits - 0
+		/// silent, 2, 3 and 4 the effects 0x22, 0x23 and 0x24, 1 and the rest effect 6. The original reads the kind of
+		/// the creature last damaged (victim, set in damage_critter), which is the dying one on every blow's path.</summary>
 		public int DeathCry(UWObjectClassProperties.Critter pORow)
 		{
-			return -1;
+			switch (pORow.DeathSound)
+			{
+				case 0:
+					return -1;
+
+				case 2:
+					return 0x22;
+
+				case 3:
+					return 0x23;
+
+				case 4:
+					return 0x24;
+
+				default:
+					return UWCritterRules.DeathSound;
+			}
+		}
+
+		/// <summary>critter_ai's step sound (AI.C:1179, UW2 plan phase 5 part B follow-up): per user 2026-11-17 the
+		/// lurkers in the gem room's moat splashed loud in ours - the first game's table gave category 3 effect 5, the
+		/// second game's heavy water landing as a sample, where the second game plays 0x27 on the AdLib.</summary>
+		public int FootstepSound(int piCategory, int piFrame)
+		{
+			switch (piCategory)
+			{
+				case 1: return piFrame == 1 ? UWSoundsDat.AliasOfFirst : piFrame == 3 ? UWSoundsDat.AliasOfSecond : -1;
+				case 2: return 0x17;
+				case 3: return 0x27;
+				case 4: return 0x0E;
+				case 5: return 0x0D;
+				case 6: return piFrame == 1 ? 0x2F : piFrame == 3 ? 0x30 : -1;
+				case 7: return piFrame == 1 || piFrame == 3 ? 0x1D : -1;
+				default: return -1;
+			}
+		}
+
+		public int CombatTheme => UWMusicSelectorUw2.CombatTheme;
+
+		public int FoeHurtTheme => UWMusicSelectorUw2.FoeHurtTheme;
+
+		public bool KeepsPlayingTheme(int piRequested, int piPlaying, bool pbSwing)
+		{
+			return pbSwing && UWMusicSelectorUw2.IsCombat(piPlaying);
 		}
 
 		/// <summary>uw2 critter/PATHFIND.C:151.</summary>
@@ -50,9 +95,19 @@ namespace UWDataImport.UWData
 			return (piDungeonLevel - 1) / LevelsPerWorld == CorpseWorld;
 		}
 
+		/// <summary>death_check is asked for every creature (G6 part 2): mode 1 at the end of every death, mode 0 for one
+		/// with a whoami (the brain's own test, go_into_dying_sequence).</summary>
 		public bool HasSpecialDeath(int piWhoami)
 		{
-			return false;
+			return true;
+		}
+
+		/// <summary>death_check (UWSpecialDeathsUw2) through the world's schedule host; without one the death goes on.</summary>
+		public bool ApplySpecialDeath(UWCreatureRef pOCreature, UWSpecialDeaths.Stage peStage, IUWWorld pOWorld, out System.Action pfAfterTalk)
+		{
+			pfAfterTalk = null;
+
+			return pOWorld == null || UWSpecialDeathsUw2.Check(pOCreature, peStage == UWSpecialDeaths.Stage.Dead ? 1 : 0, pOWorld.Schedules, out pfAfterTalk);
 		}
 
 		/// <summary>

@@ -8,7 +8,8 @@ using UWDataImport.UWData;
 /// one the first game runs. This is its host on the walk's side: the three ways in (the sleep key and the pack's
 /// bedroll, the bed in the world, passing out drunk), the numbers into the record at once, and the night's
 /// presentation. The view goes black on a canvas of its own over the view window, the scene's UWGameUI stands idle.
-/// The dreams are cutscenes and the night's music a theme, both of phase 5; until then the night shows its black.
+/// The night's music comes from UWAudioService (phase 5 part A); the dreams are cutscenes of phase 5 part D, until then
+/// the night shows its black.
 /// </summary>
 public sealed class UWSleepUw2 : MonoBehaviour
 {
@@ -23,6 +24,12 @@ public sealed class UWSleepUw2 : MonoBehaviour
     /// <summary>fadeout3d and fadein3d: twelve steps of the palette, their length by eye (per user, 2026-11-02: "nur
     /// kurz schwarz" when passing out, which has these two and no hold).</summary>
     public const float FadeSeconds = 0.3f;
+
+    /// <summary>The fade's largest step a frame (a level load's long frame would skip the fade out).</summary>
+    private const float MaxBlackStep = 1f / 30f;
+
+    /// <summary>A blink's frame of full black has been shown; its action comes on the next.</summary>
+    private bool mbFullBlackShown;
 
     private float mfBlackLeft;
 
@@ -114,19 +121,120 @@ public sealed class UWSleepUw2 : MonoBehaviour
         if (lOPlayer == null || lOPlayer.Vitals == null || lOWorld == null || IsNight)
             return;
 
+        UWPlayerFile lOFile = UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
+        int liLevel = UWWorldLevels.NumberOr(lOWorld, 1);
+
+        // player_sleep: asleep in the Void, sleeping there wakes (punt_void) and there is no night (G6, the Void).
+        if (!pbPassedOut && lOFile != null && UWVoidRulesUw2.SleepWakes(lOFile, liLevel))
+        {
+            WakeFromVoid();
+
+            return;
+        }
+
         IUWWorld lONight = UWScopedWorld.With(lOWorld, new NightPresentation(this, lOWorld.Presentation, lOWorld.Data));
 
-        UWSleepRules.Sleep(lOPlayer.Vitals, UWWorldLevels.NumberOr(lOWorld, 1), lONight, pbPassedOut, pbBedroll, pbBed);
+        bool lbSlept = UWSleepRules.Sleep(lOPlayer.Vitals, liLevel, lONight, pbPassedOut, pbBedroll, pbBed);
+
+        // The night's music: the world's first walking theme as the night begins, a walking theme by chance on waking
+        // (player_sleep, SKILLS.C:452, :487, :555; UW2 plan phase 5 part A). Ours sleeps in one step: both at once.
+        if (lbSlept || pbPassedOut)
+        {
+            UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickFirst, true);
+            UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickRandom);
+        }
 
         // At once: the record is what comes back before the next tick (UWVitalsUw2.fTakeFromRecord).
         lOPlayer.WriteToRecord();
 
+        // pass_time: the day clock from the clock, and the schedules catch up (WORLDEV.C:163, G6 part 1).
         if (UWGameSession.Current != null && UWGameSession.Current.PlayerFileUw2 != null)
+        {
             UWPlayerRecordUw2.SetDayClockFromClock(UWGameSession.Current.PlayerFileUw2);
+            UWScheduleHostUw2.RunAll();
+        }
 
         // Passing out waits for no dream, only the fades.
         if (pbPassedOut && lOPlayer.Vitals.CurrentHP > 0)
             fShowBlack(0f);
+
+        // dream: after the dream plant the night's dream is the Void (go_void); else a castle dream by the castle clock or
+        // now and then one of the others (UWStoryRulesUw2, phase 5 part D), cutscene 0x18 + n.
+        if (lbSlept && !pbPassedOut && lOFile != null && lOPlayer.Vitals.CurrentHP > 0)
+        {
+            if (UWVoidRulesUw2.DreamIsVoid(lOFile))
+                fGoVoid(lOWorld, lOFile, liLevel);
+            else
+                fDream(lOFile);
+        }
+    }
+
+    /// <summary>The night's dream, when one comes: its cutscene in the night's stead, its bit flipped.</summary>
+    private static void fDream(UWPlayerFile pOFile)
+    {
+        int liDream = UWStoryRulesUw2.PickDream(pOFile, UWSleepRules.LastComfort, UWRandom.Next);
+        UWIntroPlayer lOPlayer = UWScene.IntroPlayer;
+
+        if (liDream < 0 || lOPlayer == null)
+            return;
+
+        Debug.Log("[Walk] The night's dream " + liDream + " (cutscene " + (UWStoryRulesUw2.FirstDreamCutscene + liDream) + ").");
+        UWStoryRulesUw2.MarkDreamShown(pOFile, liDream);
+
+        // The night's black lies over the cutscenes (UWUiSorting.NightUw2 above Intro): the dream takes its place, as
+        // the original's full-screen cutscene covers the faded view (per user 2026-11-17: the view's window stayed
+        // black in the dream's picture until the night's time ran out).
+        if (Current != null)
+            Current.fEndBlack();
+        lOPlayer.PlayCutscene(UWStoryRulesUw2.FirstDreamCutscene + liDream);
+    }
+
+    /// <summary>go_void: "Your dreams are vivid...", quest 48, the place stored, sleepbits drawn anew, level 69.</summary>
+    private static void fGoVoid(UWWorld pOWorld, UWPlayerFile pOFile, int piLevel)
+    {
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+        UWSpot lOSpot = pOWorld.Player.FeetSpot;
+
+        if (lOLoader == null || !lOSpot.IsOnMap)
+            return;
+
+        UWGameScreenUw2.Say(UWText.Block(lOLoader.UWDataImporter, 1, UWVoidRulesUw2.VividDreamString + 1, string.Empty));
+        UWVoidRulesUw2.GoVoid(pOFile, piLevel, lOSpot.Tile.X, lOSpot.Tile.Y, UWHeadings.DegreesToHeadingByte(pOWorld.Player.ViewYawDegrees),
+            UWRandom.Next(UWOriginalRandom.Range), UWRandom.Next(UWOriginalRandom.Range), UWRandom.Next(UWOriginalRandom.Range),
+            UWRandom.Next(UWOriginalRandom.Range), out int liX, out int liY);
+        Debug.Log("[Walk] The dream plant's night: into the Ethereal Void at " + liX + "/" + liY + ".");
+        lOLoader.WalkTeleport(new UWTeleportUw2.Target { Level = UWVoidRulesUw2.VoidLevel, TileX = liX, TileY = liY });
+    }
+
+    /// <summary>
+    /// punt_void (uw2 game/SKILLS.C:747): out of the Void and sleepbits 0, the pointer's thing dropped, back to the
+    /// square, level and heading go_void stored (do_dreamret, with its theme 10), "You awaken after a night of
+    /// extremely lifelike dreams...". From the countdown of sleepbits, sleeping in the Void and dying there.
+    /// </summary>
+    public static void WakeFromVoid()
+    {
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+        UWPlayerFile lOFile = UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
+
+        if (lOLoader == null || lOFile == null)
+            return;
+
+        int liLevel = UWVoidRulesUw2.DreamLevel(lOFile);
+        int liX = UWVoidRulesUw2.DreamX(lOFile);
+        int liY = UWVoidRulesUw2.DreamY(lOFile);
+        int liHeading = UWVoidRulesUw2.DreamHeadingByte(lOFile);
+
+        UWVoidRulesUw2.Wake(lOFile);
+
+        if (UWWalkUw2View.Current != null)
+            UWWalkUw2View.Current.DropCursorItem();
+
+        Debug.Log("[Walk] Awake from the Void: back to level " + liLevel + ", " + liX + "/" + liY + ".");
+        lOLoader.WalkTeleport(new UWTeleportUw2.Target { Level = liLevel, TileX = liX, TileY = liY, HasHeading = true, Heading = liHeading << 8 });
+
+        // do_dreamret's set_new_music(10) (SKILLS.C:717), after the level's walking choice (UW2 plan phase 5 part B).
+        UWAudioService.Uw2Request(UWMusicSelectorUw2.FollowTheme);
+        UWGameScreenUw2.Say(UWText.Block(lOLoader.UWDataImporter, 1, UWVoidRulesUw2.AwakenString + 1, string.Empty));
     }
 
     private void Update()
@@ -142,14 +250,27 @@ public sealed class UWSleepUw2 : MonoBehaviour
         if (mfBlackLeft <= 0f)
             return;
 
-        mfBlackLeft -= Time.unscaledDeltaTime;
+        // A frame's step at most MaxBlackStep: the frame after a level load is long, and the fade out would be gone in it.
+        mfBlackLeft -= Mathf.Min(Time.unscaledDeltaTime, MaxBlackStep);
 
-        // A blink's action at its middle, the full black.
+        // A blink's action at its middle, the full black - ONE FRAME SHOWN FULLY BLACK FIRST (per user 2026-11-17: at a
+        // level change the old picture still showed through the black while the new level loaded; the action ran in the
+        // frame the timer passed the middle, the last frame shown had not reached full black).
         if (mOAtBlack != null && mfBlackLeft <= mfBlackTotal * 0.5f)
         {
+            if (!mbFullBlackShown)
+            {
+                mbFullBlackShown = true;
+                mfBlackLeft = mfBlackTotal * 0.5f;
+                mOBlackImage.color = Color.black;
+
+                return;
+            }
+
             System.Action lOAction = mOAtBlack;
 
             mOAtBlack = null;
+            mbFullBlackShown = false;
             lOAction();
         }
 
@@ -169,6 +290,7 @@ public sealed class UWSleepUw2 : MonoBehaviour
     {
         mfBlackLeft = 0f;
         mOAtBlack = null;
+        mbFullBlackShown = false;
 
         if (mOBlack != null)
             mOBlack.SetActive(false);
@@ -209,7 +331,9 @@ public sealed class UWSleepUw2 : MonoBehaviour
     /// UWHudPictures.FlashWindowColour). Where the black goes: the whole screen in the modern scheme, the frame's hole in
     /// the classic one.
     /// </summary>
-    private void fShowFlash(DataImport pOData, int piPaletteIndex, float pfSeconds)
+    /// <summary>fill_FB: the second game's view in one palette colour for a moment - the night's flashes and, since 2026-11-17,
+    /// every FlashWindow of the walk (UWPresentation: a critical hit, the special-effect trap, the swim check, spells).</summary>
+    public void ShowFlash(DataImport pOData, int piPaletteIndex, float pfSeconds)
     {
         if (pfSeconds <= 0f || pOData == null || pOData.Palettes == null)
             return;
@@ -272,8 +396,8 @@ public sealed class UWSleepUw2 : MonoBehaviour
         return new NightPresentation(this, pOWorld.Presentation, pOWorld.Data);
     }
 
-    /// <summary>The night's lines go to the second game's scroll by its own block, the black to the walk's view; no
-    /// cutscene and no theme yet (phase 5). The rest is the world's.</summary>
+    /// <summary>The night's lines go to the second game's scroll by its own block, the black to the walk's view; a
+    /// cutscene to the world's presentation; the first game's night theme is dropped, the second's comes from fSleep. The rest is the world's.</summary>
     private sealed class NightPresentation : IUWPresentation
     {
         private readonly UWSleepUw2 mOOwner;
@@ -306,9 +430,9 @@ public sealed class UWSleepUw2 : MonoBehaviour
             return UWText.General(mOData, piIndex);
         }
 
-        public void PlaySoundAtPlayer(int piEffect)
+        public void PlaySoundAtPlayer(int piEffect, int piVolume = 0)
         {
-            mOInner.PlaySoundAtPlayer(piEffect);
+            mOInner.PlaySoundAtPlayer(piEffect, piVolume);
         }
 
         public void ShowEffect(int piEffectObjectId, UWSpot pOAt, float pfSeconds, int piStartFrame = 0)
@@ -323,7 +447,7 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
         public void FlashWindow(int piPaletteColour, float pfSeconds)
         {
-            mOOwner.fShowFlash(mOData, piPaletteColour, pfSeconds);
+            mOOwner.ShowFlash(mOData, piPaletteColour, pfSeconds);
         }
 
         public void ShowNightBlack(float pfSeconds)
@@ -331,9 +455,15 @@ public sealed class UWSleepUw2 : MonoBehaviour
             mOOwner.fShowBlack(pfSeconds);
         }
 
+        /// <summary>
+        /// A cutscene goes to the world's presentation (per user 2026-11-18: the Guardian's speech on level 26, a spell
+        /// trap of class 14 behind an enter trigger, logged "NOT BUILT" while the original plays it). Every trap host of
+        /// the second game takes this presentation while the sleep component is there, which is the whole walk, so the
+        /// "no cutscene yet" of before phase 5 part D swallowed them all.
+        /// </summary>
         public bool PlayCutscene(int piCutscene)
         {
-            return false;
+            return mOInner.PlayCutscene(piCutscene);
         }
 
         public void ChangeMusicTheme(int piTheme)

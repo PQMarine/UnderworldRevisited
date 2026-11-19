@@ -303,10 +303,11 @@ namespace UnderworldRevisited.Tools
             Check.Str("english: back", UWText.T("setup.done") + "|" + UWUserSettingsTable.SmoothRampTicks.ChoiceLabels[3], "Done|At once");
         }
 
-        /// <summary>A text without its placeholders and rich text tags: what a reader sees of it.</summary>
+        /// <summary>A text without its placeholders, rich text tags and line breaks: what a reader sees of it (the pseudo
+        /// generator copies line breaks as markup, so a text of many short lines counted them against itself).</summary>
         private static string fVisible(string psText)
         {
-            return Regex.Replace(psText, @"\{\d[^}]*\}|</?(b|i|color|size)(=[^>]*)?>", string.Empty);
+            return Regex.Replace(psText, @"\{\d[^}]*\}|</?(b|i|color|size)(=[^>]*)?>|[\r\n\t]", string.Empty);
         }
 
         /// <summary>A language file: the pseudo texts for every other id, written out and read back,

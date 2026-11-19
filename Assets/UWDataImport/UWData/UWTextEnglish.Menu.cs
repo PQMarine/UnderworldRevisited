@@ -8,15 +8,13 @@ namespace UWDataImport.UWData
 		{
 			fAdd("menu.title", "Game menu");
 			fAdd("menu.work_in_progress", "Work in progress");
+			fAdd("menu.uw2_alpha_info", "Playable alpha\n- Classic interface: complete\n- All rules built and compared with the original\n- Not yet played through to the end\n- Modern interface: provisional\n\nBug reports are welcome.");
 			// GitHub issue 36: above the version in the main menu's corner; {0} the release's title or tag. A click on it
 			// opens the release page (per user, 2026-11-11: "New: 0.20.0 - Theme", no "click to open" in the line).
 			fAdd("menu.update_available", "New: {0}");
 			fAdd("menu.resume", "Resume");
 			fAdd("menu.save_game", "Save game");
 			fAdd("menu.restore_game", "Restore game");
-			fAdd("menu.pointer.hold", "hold to look around");
-			fAdd("menu.pointer.toggle", "toggles the pointer");
-			fAdd("menu.pointer.rmb", "RMB: {0}");
 			fAdd("menu.edit_layout", "Edit layout");
 			fAdd("menu.preset.classic", "Classic");
 			fAdd("menu.preset.wide", "Wide");

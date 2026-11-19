@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using UWDataImport.UWData;
 
 namespace UWDataImport.Audio
 {
@@ -42,19 +43,22 @@ namespace UWDataImport.Audio
 		/// <summary>
 		/// A PIECE A MOD CHANGED (per user, 2026-11-09: an editor's package replaced the main menu's theme, and with the
 		/// recordings on the original's recording still played): true where the game files the mods changed
-		/// (UWModGameFiles.Changed, '/'-separated) hold either of the piece's files, SOUND/UWnn.XMI (MT-32) or
-		/// SOUND/AWnn.XMI (AdLib). Such a piece plays on the device, which reads the changed file; a recording is of the
-		/// original's piece.
+		/// (UWModGameFiles.Changed, '/'-separated) hold either of the piece's files, the MT-32 or the AdLib version
+		/// (UWSoundsDat.MusicName: SOUND/UWnn.XMI and AWnn.XMI in the first game, UWRnn and UWAnn in the second). Such a
+		/// piece plays on the device, which reads the changed file; a recording is of the original's piece.
 		/// </summary>
-		public static bool IsChangedByMods(IEnumerable<string> psChanged, string psNumber)
+		public static bool IsChangedByMods(IEnumerable<string> psChanged, UWGame peGame, string psNumber)
 		{
 			if (psChanged == null || string.IsNullOrEmpty(psNumber))
 				return false;
 
+			string lsRoland = "SOUND/" + UWSoundsDat.MusicPrefix(peGame, true) + psNumber + ".XMI";
+			string lsAdlib = "SOUND/" + UWSoundsDat.MusicPrefix(peGame, false) + psNumber + ".XMI";
+
 			foreach (string lsPath in psChanged)
 			{
-				if (string.Equals(lsPath, "SOUND/UW" + psNumber + ".XMI", StringComparison.OrdinalIgnoreCase)
-					|| string.Equals(lsPath, "SOUND/AW" + psNumber + ".XMI", StringComparison.OrdinalIgnoreCase))
+				if (string.Equals(lsPath, lsRoland, StringComparison.OrdinalIgnoreCase)
+					|| string.Equals(lsPath, lsAdlib, StringComparison.OrdinalIgnoreCase))
 					return true;
 			}
 

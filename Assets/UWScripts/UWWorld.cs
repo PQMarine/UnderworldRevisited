@@ -287,6 +287,13 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
 
         /// <summary>The player's end: the request through the damage pipeline (cleanup step 4.2,
         /// 2026-10-17).</summary>
+        /// <summary>The second game's player object keeps who struck him last (UWDeathRulesUw2.PlayerLastHit, the jail).</summary>
+        public void PlayerStruckBy(int piAttacker)
+        {
+            if (UWWalkUw2.IsWalking && UWGameSession.Current != null)
+                UWDeathRulesUw2.SetPlayerLastHit(UWGameSession.Current.PlayerFileUw2, piAttacker);
+        }
+
         public void DamagePlayer(UWDamageRequest pORequest)
         {
             // The first game's component stands in the second game's scene too, with vitals nothing runs: the blows
@@ -649,6 +656,25 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         UWCritter lOCritter = CritterOf(pOCreature);
 
         return lOCritter != null && lOCritter.PlaceAtSpot(pOTile, piSubX, piSubY);
+    }
+
+    public bool KillCreature(UWObject pOCreature)
+    {
+        UWEntityInfo lOEntity = fEntityOf(pOCreature);
+        UWCritter lOCritter = lOEntity != null ? lOEntity.GetComponentInParent<UWCritter>() : null;
+
+        return lOCritter != null && lOCritter.Actor != null && lOCritter.Actor.KillOutright();
+    }
+
+    /// <summary>The schedule host of the second game's walk (UWScheduleHostUw2.ForTraps), null otherwise.</summary>
+    public IUWScheduleHost Schedules => UWScheduleHostUw2.ForTraps(mOLoader);
+
+    public bool TeleportCreature(UWObject pOCreature, UWTilePos pOTile, int piSubX, int piSubY, int piZPos)
+    {
+        UWEntityInfo lOEntity = fEntityOf(pOCreature);
+        UWCritter lOCritter = lOEntity != null ? lOEntity.GetComponentInParent<UWCritter>() : null;
+
+        return lOCritter != null && lOCritter.Actor != null && lOCritter.Actor.TeleportTo(pOTile, piSubX, piSubY, piZPos);
     }
 
     // ------------------------------------------------- The level's own time (cleanup step 3.6)

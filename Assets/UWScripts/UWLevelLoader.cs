@@ -101,6 +101,9 @@ public class UWLevelLoader : MonoBehaviour
 
     private Material mOBillboardMaterial;
     private Material mODecalMaterial;
+
+    /// <summary>The light mode of a shader's shadow pass (Material.SetShaderPassEnabled).</summary>
+    public const string ShadowCasterPass = "ShadowCaster";
     private Texture2DArray mOTextureArray;
 
     /// <summary>3D models interpreted from uw.exe (shrine/ankh, ...), see
@@ -228,6 +231,10 @@ public class UWLevelLoader : MonoBehaviour
         fChangeAutomapLevel(piLevelIndex);
         miLevelIndex = piLevelIndex;
         fBuildLevel();
+
+        // The second game's level load picks the walking theme as a teleport's does (GAMEWRAP.C:457).
+        if (UWWalkUw2.IsWalking && UWGameScreenUw2.Command != UWGameScreenUw2.CommandEnum.Fight)
+            UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickKeep);
     }
 
     /// <summary>A level change as the second game's automap sees it (UWAutomapStateUw2.ChangeLevel).</summary>
@@ -487,13 +494,55 @@ public class UWLevelLoader : MonoBehaviour
             return;
         }
 
+        bool lbLevelChanged = liLevel != miLevelIndex;
+        UWPlayerFile lOPlayerFile = UWDataImporter.Session != null ? UWDataImporter.Session.PlayerFileUw2 : null;
+
+        // do_teleport: asleep in the Void, no teleport leads out of its world (G6, the Void).
+        if (lOPlayerFile != null && UWVoidRulesUw2.TeleportRefused(lOPlayerFile, pOTarget.Level))
+        {
+            Debug.Log("[Walk] Asleep in the Void: the teleport to level " + pOTarget.Level + " does not go.");
+
+            return;
+        }
+
+        // do_teleport's jail test (G6 part 3): out of the cell by a teleport is an escape (quest 112 off, 124 on).
+        if (lOPlayerFile != null && UWDeathRulesUw2.CheckEscape(lOPlayerFile, pOTarget.Level, pOTarget.TileX, pOTarget.TileY))
+            Debug.Log("[Walk] Out of the jail by a teleport: escaped (quest 124).");
+
+        // do_teleport's pits test (G6 part 4): in a fight, a teleport to another level, out of the arena or into another of
+        // its quarters is running away (arena_player_runs).
+        UWWorld lOTeleportWorld = UWWorld.Of(this);
+
+        if (lOPlayerFile != null && lOTeleportWorld != null && UWPlayerRecordUw2.IsInPits(lOPlayerFile))
+        {
+            UWTilePos lOFrom = lOTeleportWorld.Player.FeetSpot.Tile;
+
+            if (UWArenaRulesUw2.TeleportRuns(lOPlayerFile, liLevel + 1, miLevelIndex + 1, pOTarget.TileX, pOTarget.TileY, lOFrom.X, lOFrom.Y))
+            {
+                IUWScheduleHost lOHost = UWScheduleHostUw2.ForTraps(this);
+
+                UWArenaRulesUw2.PlayerRuns(lOPlayerFile, CurrentLevel, lONpc =>
+                {
+                    if (lONpc != null && lOHost != null && lOHost.Traps != null)
+                        lOHost.Traps.TalkTo(lONpc);
+                });
+                Debug.Log("[Walk] Out of the pit fight by a teleport: running away.");
+            }
+        }
+
+        // do_level_hacks(1, 0): arriving on level 1 the player object forgets who struck him last.
+        if (lbLevelChanged && liLevel == 0 && lOPlayerFile != null)
+            UWDeathRulesUw2.SetPlayerLastHit(lOPlayerFile, 0);
+
         if (liLevel != miLevelIndex)
         {
             // The doors as they stand into the level's data, as a level change does (UWWorldSync).
             UWWorldSync.Capture(this);
 
-            // do_level_hacks(from, 1): the level left moves on as if time had passed (G3 part H5).
+            // do_level_hacks(from, 1): the level left moves on as if time had passed (G3 part H5), then its own cases
+            // with the level still in hand (G6 part 5).
             UWLevelExit.LeaveLevel(WorldEdit, true);
+            fLevelHacksLeaving(miLevelIndex + 1, lOPlayerFile);
             fChangeAutomapLevel(liLevel);
             miLevelIndex = liLevel;
             fBuildLevel();
@@ -533,10 +582,134 @@ public class UWLevelLoader : MonoBehaviour
         }
 
         Debug.Log(string.Format("[Walk] Teleport to level {0}, tile {1}/{2}{3}.", miLevelIndex + 1, liX, liY, pOTarget.Falls ? ", falling" : string.Empty));
+
+        // do_level_hacks(to, 0): the arriving cases (G6 part 5).
+        if (lbLevelChanged)
+            fLevelHacksArriving(miLevelIndex + 1, liX, liY, lOPlayerFile);
+
+        // ChangeLevel's Sched_SetAllClocks: the new level catches up on its schedules (G6 part 1).
+        if (lbLevelChanged)
+            UWScheduleHostUw2.RunAll();
+
+        // The level's load, the weapon sheathed: the world's walking theme, kept within a world (GAMEWRAP.C:457,
+        // set_random_walking_music(-2); UW2 plan phase 5 part A).
+        if (lbLevelChanged && UWGameScreenUw2.Command != UWGameScreenUw2.CommandEnum.Fight)
+            UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickKeep);
+
+        // new_player_pos's npp_func: set_me_inarena after a challenge or a fight's set-up (G6 part 4).
+        if (lOPlayerFile != null && UWArenaRulesUw2.Arrive(lOPlayerFile))
+            Debug.Log("[Walk] In the pits.");
     }
 
     /// <summary>player_setup's ceiling for a falling arrival: 1000 in fine z, 125 in zpos.</summary>
     private const int TeleportCeilingZPos = 1000 >> 3;
+
+    /// <summary>
+    /// do_level_hacks(level, 1) for the second game (UWLevelHacksUw2, G6 part 5), the level still in hand: the Prison
+    /// Tower's alarm and its level 2's two triggers, Killorn's crash, the telekinesis wand put back on level 3 of
+    /// Killorn or the Academy.
+    /// </summary>
+    private void fLevelHacksLeaving(int piLevel, UWPlayerFile pOFile)
+    {
+        if (pOFile == null || CurrentLevel == null)
+            return;
+
+        UWObjectClassProperties lOProperties = UWDataImporter.ObjectClassProperties;
+        IUWScheduleHost lOHost = UWScheduleHostUw2.ForTraps(this);
+
+        if (UWLevelHacksUw2.ChecksPrisonAlarm(piLevel) && UWLevelHacksUw2.PrisonAlarmCheck(CurrentLevel, lOProperties, pOFile) > 0)
+            Debug.Log("[Walk] Leaving the Prison Tower with hostile goblins: the alarm (quest 60).");
+
+        if (UWLevelHacksUw2.FiresPrisonTriggers(piLevel) && lOHost != null && lOHost.Traps != null)
+            foreach (int[] liAt in UWLevelHacksUw2.PrisonLevel2Triggers)
+                UWTrapRulesUw2.FireTriggerAt(liAt[0], liAt[1], lOHost.Traps);
+
+        if (UWLevelHacksUw2.KeepCrashes(piLevel, pOFile))
+        {
+            UWLevelHacksUw2.KeepCrashed(pOFile);
+            Debug.Log("[Walk] Killorn Keep crashes (quest 54).");
+        }
+
+        if (UWLevelHacksUw2.TakesTelekinesisWand(piLevel))
+            fTakeTelekinesisWand();
+    }
+
+    /// <summary>
+    /// remove_TK_wand: the telekinesis wand back to tile 31/29 (fine 3/3, height 0x50) of the level left - from the
+    /// pointer, else from the inventory, else from wherever it lies on the level. A wand inside a container on the
+    /// pointer is not looked for (the original's Obj_Check walks the pointer's contents too).
+    /// </summary>
+    private void fTakeTelekinesisWand()
+    {
+        UWWorld lOWorld = UWWorld.Of(this);
+        UWInventoryModel lOInventory = UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
+        UWObject lOWand = null;
+
+        if (lOInventory != null && UWLevelHacksUw2.IsTelekinesisWand(lOInventory.CursorItem, null))
+            lOWand = lOInventory.TakeCursorItem();
+        else if (lOInventory != null)
+        {
+            lOWand = lOInventory.FindCarried(pOItem => UWLevelHacksUw2.IsTelekinesisWand(pOItem, null));
+
+            if (lOWand != null && !lOInventory.RemoveItem(lOWand))
+                lOWand = null;
+        }
+
+        if (lOInventory != null && lOWand != null)
+            lOInventory.NotifyChanged();
+
+        if (lOWand == null && lOWorld != null)
+        {
+            lOWand = CurrentLevel.Masterlist.Find(pOThing => pOThing != null && pOThing.TileX >= 0 && UWLevelHacksUw2.IsTelekinesisWand(pOThing, CurrentLevel.Masterlist));
+
+            if (lOWand != null && !lOWorld.Remove(lOWand))
+                lOWand = null;
+        }
+
+        if (lOWand == null || lOWorld == null)
+            return;
+
+        lOWand.XPos = UWLevelHacksUw2.WandHomeX8 & 7;
+        lOWand.YPos = UWLevelHacksUw2.WandHomeY8 & 7;
+        lOWand.ZPos = UWLevelHacksUw2.WandHomeZ;
+        lOWorld.PutAt(lOWand, new UWTilePos(UWLevelHacksUw2.WandHomeX8 >> 3, UWLevelHacksUw2.WandHomeY8 >> 3), 3);
+        Debug.Log("[Walk] The telekinesis wand goes back to 31/29.");
+    }
+
+    /// <summary>
+    /// do_level_hacks(level, 0) for the second game: on level 1 the door on the arrival square picked with 0x2D and
+    /// opened (gruesome_door_hack; the original finishes its swing at once, ours lets it swing), in the Tombs after
+    /// Loth's death every undead dies and the floating skulls fall (genocide(0xFF)).
+    /// </summary>
+    private void fLevelHacksArriving(int piLevel, int piX, int piY, UWPlayerFile pOFile)
+    {
+        UWWorld lOWorld = UWWorld.Of(this);
+
+        if (pOFile == null || lOWorld == null)
+            return;
+
+        if (piLevel == 1)
+        {
+            foreach (IUWDoor lODoor in lOWorld.Doors.All)
+            {
+                if (lODoor == null || lODoor.Data == null || lODoor.Data.TileX != piX || lODoor.Data.TileY != piY)
+                    continue;
+
+                UWLockRules.Unlock(lODoor.LockState, null, null, !lODoor.IsClosed, -UWLevelHacksUw2.DoorHackPickSkill, true);
+                lODoor.Open(UWTrapRules.Setter.Thing);
+                Debug.Log("[Walk] Arriving on level 1 at a door: it opens.");
+
+                break;
+            }
+        }
+
+        if (UWLevelHacksUw2.TombsCleansed(piLevel, pOFile))
+        {
+            int liKilled = UWLevelHacksUw2.Genocide(lOWorld, UWDataImporter.ObjectClassProperties, UWDataImporter.CommonObjectProperties, out int liSkulls);
+
+            Debug.Log("[Walk] The Tombs after Loth's death: " + liKilled + " undead die, " + liSkulls + " skulls fall.");
+        }
+    }
 
     /// <summary>
     /// Switches to another level and puts the player on the given tile.
@@ -948,7 +1121,16 @@ public class UWLevelLoader : MonoBehaviour
             string lsSave = pbWalk ? UWWalkUw2.TakeSavePath() : null;
 
             if (lsSave != null)
+            {
                 UWDataImporter.LoadGame(lsSave);
+
+                // The save's sound and music switches, as the first game's (read_player_data turns both, PLAYDATA.C:121;
+                // per user 2026-11-17 ours kept no state in the second game's save).
+                UWPlayerFile lOLoaded = UWDataImporter.Session != null ? UWDataImporter.Session.PlayerFileUw2 : null;
+
+                if (lOLoaded != null)
+                    UWSoundOptions.ApplyFromSave(UWPlayerRecordUw2.MusicOn(lOLoaded), UWPlayerRecordUw2.SoundOn(lOLoaded));
+            }
 
             // A character just created (step 5 part B): the new walk is its game.
             UWPlayerData.NewCharacter lONewCharacter = UWCharacterCreationScreenUw2.TakePendingCharacter();
@@ -969,10 +1151,15 @@ public class UWLevelLoader : MonoBehaviour
         // UW2/rules.json did nothing there).
         fApplyRules();
         HasWorld = false;
-        UWAudioService.StopMusic();
 
+        // THE MENU'S PIECE PLAYS ON THROUGH A LOAD (per user 2026-11-18: loading a save from the second game's menu
+        // cut the running theme at the start of the black, and the follow-up theme 10 started in the dark): a walk
+        // starts from this game's own menu or creation, whose music is this game's, and the walk's first frames
+        // change it (change_music_maybe). Only the menu's start stops what plays - a piece of the first game after a
+        // switch of game.
         if (!pbWalk)
         {
+            UWAudioService.StopMusic();
             UWGameClock.Hold(UWGameClock.NoWorldHold);
 
             Camera lOCamera = Camera.main;
@@ -984,6 +1171,8 @@ public class UWLevelLoader : MonoBehaviour
             if (lOMenu == null)
                 return false;
 
+            // The sound of this game before its menu asks for its theme (UW2 plan phase 5 part A).
+            UWAudioService.Init(UWDataImporter);
             lOMenu.InitWalkMenu(UWDataImporter);
             Debug.Log("[Game] " + UWSettings.Game.Title + ": its main menu (Create Character starts a walk through its world).");
 
@@ -991,6 +1180,11 @@ public class UWLevelLoader : MonoBehaviour
         }
 
         UWWalkUw2.IsWalking = true;
+        UWMainMenu.ForgetOpen();
+
+        // The arena's runtime flags (npp_func, running_away) belong to the walk that set them, not to the next one.
+        UWArenaRulesUw2.InArenaOnArrival = false;
+        UWArenaRulesUw2.RunningAway = false;
 
         fPrepareShared();
         fInitialiseLighting();
@@ -3066,6 +3260,10 @@ public class UWLevelLoader : MonoBehaviour
 
         mODecalMaterial = new Material(lODecalShader);
         mODecalMaterial.name = "UW Decal";
+
+        // A picture on a wall casts no shadow; the model faces, the door leaves and the portcullis do (UW/Decal's
+        // ShadowCaster pass; the copies of this material for model faces and doors switch it on again, UWObjectSpawner).
+        mODecalMaterial.SetShaderPassEnabled(ShadowCasterPass, false);
         mODecalMaterial.mainTexture = mOObjectAtlas.Atlas;
         mODecalMaterial.SetFloat(UWShaderIds.AmbientFloor, lfAmbient);
         mODecalMaterial.SetFloat(UWShaderIds.PointLightCap, lfPointLightCap);

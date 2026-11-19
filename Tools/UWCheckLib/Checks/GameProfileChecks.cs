@@ -142,6 +142,13 @@ namespace UnderworldRevisited.Tools
             lICombat.WeaponEnchantment(0xC, 8, out int liFirstAccuracy, out int liFirstDamage);
 
             Check.Str("uw2 combat: special weapons add nothing but effect 15's damage", liFirstAccuracy + "/" + liFirstDamage + " " + liLastAccuracy + "/" + liLastDamage, "0/0 0/5");
+            Check.Str("uw2 combat: the special power of effect 7 8 13 15, another class, the first game",
+                lICombat.SpecialWeapon(0xC, 7) + " " + lICombat.SpecialWeapon(0xC, 8) + " " + lICombat.SpecialWeapon(0xC, 13) + " " + lICombat.SpecialWeapon(0xC, 15) + " "
+                + lICombat.SpecialWeapon(0xB, 9) + " " + UWGameProfiles.Uw1.Combat.SpecialWeapon(0xC, 9), "0 1 6 8 0 0");
+            Check.Str("the inventory look's Lore target, first and second game", UWGameProfiles.Uw1.Inventory.LoreLookTarget + " " + UWGameProfiles.Uw2.Inventory.LoreLookTarget, "10 8");
+            Check.Str("uw2 combat: a power fires on a critical, power 6 on every hit, none without one",
+                UWCombatVariantUw2.PowerFires(1, true) + " " + UWCombatVariantUw2.PowerFires(1, false) + " " + UWCombatVariantUw2.PowerFires(6, false) + " " + UWCombatVariantUw2.PowerFires(0, true),
+                "True False True False");
             Check.Str("uw2 combat: the kind of a dagger, a cudgel, a jewelled dagger, a sword, the fist, a bow",
                 lICombat.PlayerWeaponKind(3) + " " + lICombat.PlayerWeaponKind(7) + " " + lICombat.PlayerWeaponKind(0xA) + " " + lICombat.PlayerWeaponKind(0) + " "
                 + lICombat.PlayerWeaponKind(UWCombat.FistObjectId) + " " + lICombat.PlayerWeaponKind(0x19), "2 1 2 2 0 0");
@@ -181,8 +188,21 @@ namespace UnderworldRevisited.Tools
             Check.Str("uw1/uw2 a spell missile's launch sound: magic arrow, acid (missile_fire's 0xA; spell_fire's 0x28 and 0xA)",
                 UWGameProfiles.Uw1.Combat.SpellMissileLaunchSound(0x17) + " " + UWGameProfiles.Uw1.Combat.SpellMissileLaunchSound(0x16) + " "
                 + lICombat.SpellMissileLaunchSound(0x17) + " " + lICombat.SpellMissileLaunchSound(0x16), "10 10 40 10");
+            Check.Str("uw1/uw2 animations ending in one step (toast_animobj moves the last into the gap, the loop skips it)",
+                fEndInOneStep(1) + " " + fEndInOneStep(2) + " " + fEndInOneStep(3) + " " + fEndInOneStep(4), "0| 0|1 01|2 01|32");
+            Check.Str("uw1/uw2 a missile launch's added volume: uw1 none; uw2 arrow, magic arrow, acid, snowball, throw (MISSILE.C)",
+                UWGameProfiles.Uw1.Combat.MissileLaunchVolume(UWSoundEffectId.Miss, 0x10) + " "
+                + lICombat.MissileLaunchVolume(UWSoundEffectId.Miss, 0x10) + " " + lICombat.MissileLaunchVolume(0x28, 0x17) + " "
+                + lICombat.MissileLaunchVolume(UWSoundEffectId.Miss, 0x16) + " " + lICombat.MissileLaunchVolume(UWSoundEffectId.Miss, 0x1C) + " "
+                + lICombat.MissileLaunchVolume(0x1C, 0x20), "0 20 20 0 0 0");
+            Check.Str("uw1/uw2 the sound of a blow on anything but the player: uw1 always 4; uw2 by the player's last swing - fist, blunt, edged, launcher, none (do_damage)",
+                UWGameProfiles.Uw1.Combat.OtherHitSound(UWCombatVariantUw2.SharpWeapon) + " " + lICombat.OtherHitSound(UWCombatVariantUw2.FistWeapon) + " "
+                + lICombat.OtherHitSound(UWCombatVariantUw2.BluntWeapon) + " " + lICombat.OtherHitSound(UWCombatVariantUw2.SharpWeapon) + " "
+                + lICombat.OtherHitSound(UWCombatVariantUw2.LauncherWeapon) + " " + lICombat.OtherHitSound(UWCombatVariantUw2.LauncherWithoutAmmunition), "4 4 4 27 4 4");
             Check.Str("uw1/uw2 the own missile's impact sound (SpawnImpactAnimo's 7; mts_doanim none)",
                 UWGameProfiles.Uw1.Combat.OwnMissileImpactSound + " " + lICombat.OwnMissileImpactSound, "7 " + UWAttackResolution.NoSound);
+            Check.Str("uw1/uw2 the view's flash on a creature's critical hit (0xB8; fill_FB(0x23))",
+                UWGameProfiles.Uw1.Combat.CriticalFlashColour.ToString("X") + " " + lICombat.CriticalFlashColour.ToString("X"), "B8 23");
         }
 
         /// <summary>The second game's record holds sequences: the brain's slots go in and come back.</summary>
@@ -1016,6 +1036,10 @@ namespace UnderworldRevisited.Tools
                 + lIConversation.DemandGivesIn(3, 2, false) + " " + lIConversation.DemandGivesIn(2, 2, false) + " " + lIConversation.DemandGivesIn(2, 2, true) + " "
                 + lIConversation.GivingInLowersAttitude(0) + " " + lIConversation.GivingInLowersAttitude(1),
                 "True True True False True False True False True");
+            Check.Str("uw1/uw2 do_inv_create joins a like pile of the partner (npc_inv_create): first game, second game",
+                UWGameProfiles.Uw1.Conversation.InvCreateJoinsStack + " " + UWGameProfiles.Uw2.Conversation.InvCreateJoinsStack, "True False");
+            Check.Str("uw1/uw2 x_obj_stuff writes the link with bit 0x200 (LINK_SPECIAL): first game, second game",
+                UWGameProfiles.Uw1.Conversation.XObjStuffLinkSpecial + " " + UWGameProfiles.Uw2.Conversation.XObjStuffLinkSpecial, "True False");
             Check.Bool("profile: ... and a hostile attacker does not answer in the first game", UWClickRules.CreatureAnswers(5, 5, 1, UWNpc.AttitudeHostile, false), false);
 
             // The first game's tables: built once for its profile, sealed, and the spy is not in them.
@@ -1124,6 +1148,10 @@ namespace UnderworldRevisited.Tools
             public bool DemandGivesIn(int piPlayerScore, int piNpcScore, bool pbAlly) => false;
 
             public bool GivingInLowersAttitude(int piAttitude) => false;
+
+            public bool InvCreateJoinsStack => true;
+
+            public bool XObjStuffLinkSpecial => true;
         }
 
         /// <summary>A motion variant whose steps give themselves away: the lava spares nobody.</summary>
@@ -1208,7 +1236,22 @@ namespace UnderworldRevisited.Tools
 
             public int DeathCry(UWObjectClassProperties.Critter pORow) => 77;
 
+            public int FootstepSound(int piCategory, int piFrame) => -1;
+
+            public int CombatTheme => 6;
+
+            public int FoeHurtTheme => 5;
+
+            public bool KeepsPlayingTheme(int piRequested, int piPlaying, bool pbSwing) => false;
+
             public bool HasSpecialDeath(int piWhoami) => false;
+
+            public bool ApplySpecialDeath(UWCreatureRef pOCreature, UWSpecialDeaths.Stage peStage, IUWWorld pOWorld, out System.Action pfAfterTalk)
+            {
+                pfAfterTalk = null;
+
+                return true;
+            }
 
             public int BloodObject(int piBloodIndex) => -1;
 
@@ -1254,8 +1297,22 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>A combat variant whose every step gives itself away.</summary>
+        private static string fEndInOneStep(int piCount)
+        {
+            List<int> lONow = new List<int>();
+            List<int> lOLeft = new List<int>();
+
+            UWAnimListRules.EndInOneStep(piCount, lONow, lOLeft);
+
+            return string.Concat(lONow) + "|" + string.Concat(lOLeft);
+        }
+
         private sealed class SpyCombat : IUWCombatVariant
         {
+            public int OtherHitSound(int piPlayersLastWeaponKind) => 0;
+
+            public int SpecialWeapon(int piMajor, int piMinor) => 0;
+
             public void WeaponEnchantment(int piMajor, int piMinor, out int piAccuracy, out int piDamage)
             {
                 piAccuracy = 99;
@@ -1301,6 +1358,10 @@ namespace UnderworldRevisited.Tools
             public int OwnMissileImpactSound => UWAttackResolution.NoSound;
 
             public int SpellMissileLaunchSound(int piProjectileId) => UWSoundEffectId.Miss;
+
+            public int MissileLaunchVolume(int piLaunchSound, int piProjectileId) => 0;
+
+            public int CriticalFlashColour => 0;
         }
 
         private sealed class SpyMagic : IUWMagicVariant

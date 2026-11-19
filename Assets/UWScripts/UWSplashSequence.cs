@@ -14,6 +14,16 @@ public sealed class UWSplashSequence
     /// <summary>The animated title, CS011 - the file name is octal.</summary>
     private const int TitleCutscene = 9;
 
+    /// <summary>The second game's introduction, cutscenes 0 and 1.</summary>
+    private const int IntroductionCutscene = 0;
+
+    private const int IntroductionSecondCutscene = 1;
+
+    /// <summary>Has the second game's opening been shown in this run?</summary>
+    private static bool msUw2OpeningShown;
+
+    private static bool fIsUw2 => UnderworldRevisited.UWSettings.Game != null && UnderworldRevisited.UWSettings.Game.Game == UWGame.Uw2;
+
     private readonly UWIntroPlayer mOPlayer;
 
     private readonly UWCutsceneView mOView;
@@ -79,6 +89,7 @@ public sealed class UWSplashSequence
         if (!UWUserSettings.ShowOpeningSequence)
             return;
 
+
         // THE WHOLE OPENING RUNS HERE, logos and title. Until 2026-09-22 a serialized
         // switch stood in front of it which defaulted to OFF ("they get in the way during
         // testing") - and since this component is created at runtime by Interaction, that
@@ -109,6 +120,19 @@ public sealed class UWSplashSequence
         if (mbSplashWhenDataReady && !mOPlayer.IsPlaying && fIsDataReady())
         {
             mbSplashWhenDataReady = false;
+
+            // THE SECOND GAME'S OPENING ONCE A RUN (per user 2026-11-17: loading SAVE3 from its menu played the logos and
+            // the title again over the world): the original shows them at program start only (main: titlescr), and the
+            // second game's walk starts and loads through a scene restart none of the first game's flags marks. Asked
+            // here, by the data loaded: at OnStart the game in the settings is not yet the one starting.
+            if (fDataIsUw2())
+            {
+                if (msUw2OpeningShown)
+                    return;
+
+                msUw2OpeningShown = true;
+            }
+
             mbOpeningAtStartup = true;
             mOPlayer.PlaySplashScreens();
         }
@@ -128,6 +152,14 @@ public sealed class UWSplashSequence
     public void OnStop()
     {
         mbTitleRunning = false;
+    }
+
+    private static bool fDataIsUw2()
+    {
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        return lOLoader != null && lOLoader.UWDataImporter != null && lOLoader.UWDataImporter.GameData != null
+            && lOLoader.UWDataImporter.GameData.Profile.Game == UWGame.Uw2;
     }
 
     private bool fIsDataReady()
@@ -163,8 +195,9 @@ public sealed class UWSplashSequence
         // of PlaySplashScreens. When it has run it carries on by itself.
         mOPlayer.PlayCutscene(TitleCutscene, AfterSplashScreens);
 
-        // ... and after mfTitleSeconds at the latest, which Update watches.
-        if (mOPlayer.IsPlaying)
+        // ... and after mfTitleSeconds at the latest, which Update watches - the first game's, whose title repeats;
+        // the second game's ends by itself (CS011's end at frame 37, UW2 plan phase 5 part C).
+        if (mOPlayer.IsPlaying && !fIsUw2)
         {
             mbTitleRunning = true;
             mfTitleEndsAt = Time.unscaledTime + Mathf.Max(0f, mOPlayer.TitleSeconds);
@@ -183,10 +216,22 @@ public sealed class UWSplashSequence
             return;
         }
 
+        // THE SECOND GAME'S INTRODUCTION WITHOUT A SAVE (real_start's do_intro_scene(1), MAINMENU.C:65): after the
+        // title, cutscenes 0 and 1, before the menu (UW2 plan phase 5 part D). Part of the opening, as the first
+        // game's intro is.
+        if (lbAtStartup && fIsUw2 && !UWMainMenu.AnyWalkSave)
+        {
+            mOPlayer.PlayCutscene(IntroductionCutscene, () => mOPlayer.PlayCutscene(IntroductionSecondCutscene));
+
+            return;
+        }
+
         // THE GAME MUST NOT FLASH UP between the title and the main menu (per user,
         // 2026-09-22). The menu only appears in its own Update, a frame later - so black goes up
         // right here, in the same frame the picture goes, and UWMainMenu.Show takes it down.
-        if (lbAtStartup && UWMainMenu.WillAutoShow)
+        // Not for the second game: its walk menu stood up behind the opening already and takes no cover down (per user
+        // 2026-11-17: after the title the screen stayed black).
+        if (lbAtStartup && UWMainMenu.WillAutoShow && !fIsUw2)
             UWScreenUi.ShowLoadingCover();
     }
 

@@ -3,6 +3,8 @@ namespace UWDataImport.UWData
 	/// <summary>The first game's inventory steps: UWArmorItemMap's tables, as before the variant.</summary>
 	public sealed class UWInventoryVariantUw1 : IUWInventoryVariant
 	{
+		public int LoreLookTarget => UWLoreCheck.LoreTarget;
+
 		public int CarryLimit(DataImport pOData)
 		{
 			return pOData != null && pOData.InitialPlayer != null ? pOData.InitialPlayer.MaxWeight : -1;

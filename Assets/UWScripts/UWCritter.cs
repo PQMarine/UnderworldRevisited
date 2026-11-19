@@ -614,8 +614,9 @@ public class UWCritter : MonoBehaviour, ICreatureView, IUWAttackDefender
     /// (UWCritterCombat.GetBlockedSound, through UWAttackResolution).</summary>
     public void PlayStruckSound(in UWAttackOutcome pOOutcome)
     {
+        // The second game asks the player's last swing whoever struck (do_damage's player_weapon, OtherHitSound).
         if (pOOutcome.Hit)
-            UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, mOBody, pOOutcome.HitVolume);
+            UWAudioService.PlayEffectAt(UWGameSession.Current.Game.Combat.OtherHitSound(UWAttackUw2.LastPlayerWeaponKind), mOBody, pOOutcome.HitVolume);
         else
             UWAudioService.PlayEffectAt(pOOutcome.BlockedSound, mOBody);
     }

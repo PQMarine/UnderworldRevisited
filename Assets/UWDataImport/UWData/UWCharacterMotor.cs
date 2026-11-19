@@ -498,8 +498,15 @@ namespace UWDataImport.UWData
 			// LEANING ON A SOLID OBJECT looks again without a new cell (per user 2026-11-16, the large blackrock gem's
 			// north facets: the body entered its cell short of them and came to rest against the gem within it, where the
 			// core's scan of the blocked move meets them) - each trigger once until the centre enters another cell.
-			if (mOProperties == null || (!lbNewCell && mOPushed.Count == 0))
+			// LEANING ON A WALL too, and then the touch reaches as far as the body's wall radius (per user 2026-11-17: on
+			// UW2 level 5 the trigger down to level 4 lies two eighths inside the wall at the dead end 44/33; the core's
+			// blocked step reaches it, Modern's body stops a radius short and never fired it).
+			bool lbOnWall = Touched;
+
+			if (mOProperties == null || (!lbNewCell && mOPushed.Count == 0 && !lbOnWall))
 				return;
+
+			double lfReach = (lbOnWall ? Math.Max(Radius, ObjectPad) : ObjectPad) + TouchSlack;
 
 			if (lbNewCell)
 			{
@@ -512,7 +519,7 @@ namespace UWDataImport.UWData
 
 			foreach (Box lOBox in mOBoxes)
 			{
-				if ((!lOBox.Trigger && !lOBox.UsedOnMover) || !fInHeight(lOBox) || fBoxDistance(lOBox) > ObjectPad + TouchSlack)
+				if ((!lOBox.Trigger && !lOBox.UsedOnMover) || !fInHeight(lOBox) || fBoxDistance(lOBox) > lfReach)
 					continue;
 
 				if (!mOLeaning.Add(lOBox.Index) && !lbNewCell)

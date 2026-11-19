@@ -656,7 +656,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `PrintFlaskHealthManaMessage` (seg024_10F) | UWClickRules.cs |
 | `DrawWeapon` (seg024_1531) | UWMusicSelector.cs, Interaction.cs |
 | `PutAwayWeapon` (seg024_15C0) | UWMusicSelector.cs, UWPlayerMotion.cs, Interaction.cs |
-| `seg024_24DC_109B` | UWItemDescriptions.cs, UWLoreCheck.cs |
+| `seg024_24DC_109B` | IUWInventoryVariant.cs, UWItemDescriptions.cs, UWLoreCheck.cs |
 | `SetInteractionMode` (seg024_24DC_13D5) | UWClickRules.cs, UWCommandMode.cs, UWMusicSelector.cs, Interaction.cs, AudioMixChecks.cs |
 | `seg024_24DC_26F` | UWClickRules.cs, InputRuleChecks.cs |
 | `PlayerUpdateTick` (seg024_24DC_3A4) | UWPlayerTick.cs, UWPlayerVitals.cs, UWWornRegeneration.cs, UWCharacter.cs, UWClassicHud.cs, PlayerStatusChecks.cs |

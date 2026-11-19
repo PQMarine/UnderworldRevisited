@@ -163,11 +163,15 @@ namespace UWDataImport.UWData
 					return null;
 
 				var lOBlock = pOStrings.Blocks[piBlock];
+				// The conversation's string n stands one higher in our numbering, as the session reads it when the
+				// game plays (UWConversationSession.fGetConversationString). Until 2026-11-18 the hint showed string n - 1
+				// (per user with Miranda's greeting: the dump's lines came one too early).
+				int liIndex = piIndex + 1;
 
-				if (piIndex < 0 || piIndex >= lOBlock.Strings.Count)
+				if (piIndex < 0 || liIndex >= lOBlock.Strings.Count)
 					return null;
 
-				string lsResult = lOBlock.Strings[piIndex];
+				string lsResult = lOBlock.Strings[liIndex];
 
 				return string.IsNullOrWhiteSpace(lsResult) ? null : lsResult.TrimEnd('\r', '\n');
 			}

@@ -18,7 +18,7 @@ using UWDataImport.UWData;
 /// scheme this class still runs the conversation, with the classic screen hidden: UWModernConversation draws its
 /// view (UWModernConversationHostUw2) and tells where the pointer is on it.
 ///
-/// NOT BUILT: EncumCheck on taking, the pause built-in's wait.
+/// NOT BUILT: the pause built-in's wait (EncumCheck on taking came in G5).
 /// </summary>
 public sealed class UWConversationScreenUw2 : MonoBehaviour
 {
@@ -85,6 +85,9 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     private readonly UWConversationView mOView = new UWConversationView();
 
     private UWConversationSession mOSession;
+
+    /// <summary>talking_to: the creature of the conversation open, for the schedules run at its end.</summary>
+    private UWNpc mOPartner;
 
     private readonly List<RawImage> mOPieces = new List<RawImage>();
 
@@ -181,9 +184,13 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         fEnsureBuilt();
 
         mOSession = lOSession;
+        mOPartner = pONpc;
         mOView.Begin(lOSession, pONpc, piSlot, null);
         IsOpen = true;
         msOCurrent = this;
+
+        // The world's first walking theme while talking (strt_converse, CONVERSE.C:172; UW2 plan phase 5 part A).
+        UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickFirst, true);
         mbClosing = false;
         miOpenedFrame = Time.frameCount;
         miTradeVersion = -1;
@@ -754,7 +761,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             return;
         }
 
-        if ((UWPointer.Position - mOPressedAt).magnitude < UWWalkUw2View.DragToTakePixels)
+        if (!UWDragDistance.Crossed(mOPressedAt, UWPointer.Position))
             return;
 
         int liSlot = miPressedSlot;
@@ -955,6 +962,9 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         IsOpen = false;
         mbClosing = false;
 
+        // A walking theme by chance afterwards (free_converse, CONVERSE.C:235).
+        UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickRandom);
+
         foreach (RawImage lOPiece in mOPieces)
             lOPiece.gameObject.SetActive(false);
 
@@ -964,6 +974,14 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         foreach (string lsCall in lOSession.MissingFunctions)
             Debug.Log("[Walk] The conversation called " + lsCall + ", which is not built.");
 
+        // free_converse: Sched_SetAllClocks(1) while the partner is still talking_to (a kill row spares it), then
+        // do_babl_teleport (G6 part 1).
+        UWScheduleHostUw2.RunAll(mOPartner);
+
+        // do_babl_teleport: the talker first in ours, the player's move below changes the level (G5 part 2).
+        if (lOSession.HasTalkerTeleport && !lOSession.DoTalkerTeleport())
+            Debug.Log("[Walk] The talker's teleport to " + lOSession.TalkerTeleportX + "/" + lOSession.TalkerTeleportY + " found no room.");
+
         if (lOSession.HasPlayerTeleport && UWScene.LevelLoader != null)
         {
             UWScene.LevelLoader.WalkTeleport(new UWTeleportUw2.Target
@@ -972,6 +990,19 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
                 TileX = lOSession.TeleportX,
                 TileY = lOSession.TeleportY
             });
+        }
+
+        // cs_check (SKILLS.C:626, free_converse's last step; UW2 plan phase 5 part D): the cutscene the conversation left
+        // in quest 143, cutscene 2 the end of the game.
+        UWPlayerFile lOFile = UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
+        int liCutscene = lOFile != null ? UWStoryRulesUw2.TakePendingCutscene(lOFile) : -1;
+
+        if (liCutscene == UWStoryRulesUw2.EndingCutscene)
+            UWEndingUw2.Play();
+        else if (liCutscene >= 0 && UWScene.IntroPlayer != null)
+        {
+            Debug.Log("[Walk] The conversation's cutscene " + liCutscene + ".");
+            UWScene.IntroPlayer.PlayCutscene(liCutscene);
         }
     }
 

@@ -26,8 +26,9 @@ namespace UWDataImport.UWData
 		// without an Interaction.
 
 		/// <summary>A sound effect at the player, without a position (UW.EXE's sound at the
-		/// avatar).</summary>
-		void PlaySoundAtPlayer(int piEffect);
+		/// avatar). piVolume is added to the effect's own volume (play_effect_here's vol; the second game's line of
+		/// power, sound audit 2026-11-17).</summary>
+		void PlaySoundAtPlayer(int piEffect, int piVolume = 0);
 
 		/// <summary>An effect picture stands on a spot for pfSeconds, its animation starting on
 		/// piStartFrame. Nothing when the level has none loaded or the spot is off the map.</summary>
@@ -90,9 +91,9 @@ namespace UWDataImport.UWData
 			return string.Empty;
 		}
 
-		public void PlaySoundAtPlayer(int piEffect)
+		public void PlaySoundAtPlayer(int piEffect, int piVolume = 0)
 		{
-			mOInner?.PlaySoundAtPlayer(piEffect);
+			mOInner?.PlaySoundAtPlayer(piEffect, piVolume);
 		}
 
 		public void ShowEffect(int piEffectObjectId, UWSpot pOAt, float pfSeconds, int piStartFrame = 0)

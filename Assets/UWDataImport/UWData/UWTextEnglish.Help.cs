@@ -157,6 +157,27 @@ namespace UWDataImport.UWData
 			// What the character has learned (GitHub issue 19, UWKnowledge).
 			fAdd("help.knowledge.learned", "Learned in the game");
 			fAdd("help.knowledge.none_yet", "Nothing yet.");
+			// The second game's teachers in the Mantras tab's place (UWTrainersUw2).
+			fAdd("help.tab.teachers", "Teachers");
+			fAdd("help.teachers.title", "Teachers");
+			fAdd("help.teachers.intro", "Teachers train your skills. A lesson costs a skill point, and some teachers want something from you first.");
+			fAdd("help.teachers.points", "Skill points to spend: {0}");
+			fAdd("help.teachers.met", "Met in {0}.");
+			fAdd("help.teachers.place", "{0}, level {1}");
+			fAdd("help.teachers.level", "level {0}");
+			fAdd("help.teachers.unknown_place", "an unknown place");
+			fAdd("help.teachers.not_met", "Not met yet.");
+			fAdd("help.teachers.unknown", "Someone");
+			fAdd("help.teachers.to_find", "Teachers still to meet: {0}");
+			fAdd("help.world.0", "Britannia");
+			fAdd("help.world.1", "the Prison Tower");
+			fAdd("help.world.2", "Killorn Keep");
+			fAdd("help.world.3", "the Ice Caverns");
+			fAdd("help.world.4", "Talorus");
+			fAdd("help.world.5", "the Scintillus Academy");
+			fAdd("help.world.6", "the Tomb of Praecor Loth");
+			fAdd("help.world.7", "the Pits of Carnage");
+			fAdd("help.world.8", "the Ethereal Void");
 			fAdd("help.knowledge.to_find", "Still to find: {0}");
 			fAdd("help.knowledge.from_book", "From a book or scroll.");
 			fAdd("help.knowledge.from_writing", "From a writing.");

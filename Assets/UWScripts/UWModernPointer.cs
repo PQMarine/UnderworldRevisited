@@ -7,8 +7,9 @@ using UWDataImport.UWData;
 /// one state, free or locked for the mouse look, shared by everything that frees it.
 ///
 ///   - The RIGHT BUTTON switches it - by default a click toggles (per user: holding a button all
-///     the time is odd in a first-person game). As an option of the game menu, the MMO way round
-///     (UWUserSettings.ModernPointerHold, per user): the pointer is free and the view turns only
+///     the time is odd in a first-person game). As an option of the Interface window (the game menu's
+///     button left on 2026-11-19), the MMO way round (UWUserSettings.ModernPointerHold, per user;
+///     not for the gamepad, HoldToLook): the pointer is free and the view turns only
 ///     while the right button is held; the left button on the world outside the windows then
 ///     strikes as with the locked pointer (WorldTakesClicks). Over a window of the modern UI the
 ///     right button stays theirs (use).
@@ -53,8 +54,10 @@ public static class UWModernPointer
     /// release.</summary>
     private static bool msbHeldLook;
 
-    /// <summary>The MMO way round: free by default, the view only while the right button is held.</summary>
-    public static bool HoldToLook => UWUserSettings.ModernPointerHold;
+    /// <summary>The MMO way round: free by default, the view only while the right button is held. NOT WITH THE GAMEPAD
+    /// (per user 2026-11-19): while the pad is in use (UWGamepad.IsActive) its R3 frees and locks as in the toggle mode,
+    /// the locked view the rest state; the mouse brings the option back.</summary>
+    public static bool HoldToLook => UWUserSettings.ModernPointerHold && !UWGamepad.IsActive;
 
     private static UWControlScheme fScheme()
     {
@@ -93,10 +96,13 @@ public static class UWModernPointer
 
         lOScheme.HoldPointer(Hold);
 
+        bool lbOpened = lbWasLocked && fOpenChosenWindows();
+
         // The pad's R3 places it in the hold-to-look option as well: there it freed after the
-        // pad's own lock and stayed in the middle (per user, 2026-10-08).
+        // pad's own lock and stayed in the middle (per user, 2026-10-08). A frame later with windows just
+        // opened: their layout and the bags' beside them (LateUpdate each, in no fixed order) both stand then.
         if (pbOnBackpack && lbWasLocked)
-            msiPlaceFrame = Time.frameCount + 1;
+            msiPlaceFrame = Time.frameCount + (lbOpened ? 2 : 1);
     }
 
     /// <summary>The freed pointer onto the backpack's first slot, a frame after the unlock (Free).</summary>
@@ -133,7 +139,84 @@ public static class UWModernPointer
         if (lOScheme != null)
             lOScheme.ReleasePointer(Hold);
 
+        fCloseOpenedWindows();
+
         return true;
+    }
+
+    /// <summary>
+    /// THE WINDOWS THAT COME WITH THE FREE POINTER (2026-11-19, a wish from a forum post: the character panel, the rune
+    /// panel and the bags, each its own switch, off by default - UWUserSettings.FreeOpens*): freeing the pointer opens
+    /// those chosen that are shut, locking it closes again only what it opened - a window the player opened himself
+    /// stays. WITH "HOLD TO LOOK AROUND" AS WELL (per user the same day, after first leaving it out against the flicker:
+    /// "whoever sets it so shall have it so"): the windows are there at rest and go while the right button is held. They
+    /// come and go at once (SnapNextLayout), never sliding. Nothing else touches the pointer's state for it, so a menu
+    /// or a question that frees the pointer opens nothing.
+    /// </summary>
+    private static bool msbOpenedCharacter;
+
+    private static bool msbOpenedRunes;
+
+    private static bool msbOpenedBags;
+
+    /// <summary>Opens the chosen windows that are shut; true when it opened one.</summary>
+    private static bool fOpenChosenWindows()
+    {
+        bool lbOpened = false;
+
+        UWModernPanel lOPanel = UWModernPanel.Instance;
+        UWModernRunePanel lORunes = UWModernRunePanel.Instance;
+        UWModernBags lOBags = UWModernBags.Instance;
+
+        if (UWUserSettings.FreeOpensCharacter && lOPanel != null && !lOPanel.IsOpen)
+        {
+            lOPanel.Open(UWModernPanel.TabEnum.Character);
+            lOPanel.SnapNextLayout();
+            msbOpenedCharacter = true;
+            lbOpened = true;
+        }
+
+        if (UWUserSettings.FreeOpensRunes && lORunes != null && !lORunes.IsOpen)
+        {
+            lORunes.Open(UWModernRunePanel.TabEnum.Runes);
+
+            // Classic Wide turns its frame's page instead (UWModernRunePanel.Open): nothing slides there.
+            if (lORunes.IsOpen)
+                lORunes.SnapNextLayout();
+            msbOpenedRunes = true;
+            lbOpened = true;
+        }
+
+        if (UWUserSettings.FreeOpensBags && lOBags != null && !lOBags.IsOpen)
+        {
+            lOBags.Open();
+            msbOpenedBags = true;
+            lbOpened = true;
+        }
+
+        return lbOpened;
+    }
+
+    private static void fCloseOpenedWindows()
+    {
+        if (msbOpenedCharacter && UWModernPanel.Instance != null && UWModernPanel.Instance.IsOpen)
+        {
+            UWModernPanel.Instance.Close();
+            UWModernPanel.Instance.SnapNextLayout();
+        }
+
+        if (msbOpenedRunes && UWModernRunePanel.Instance != null && UWModernRunePanel.Instance.IsOpen)
+        {
+            UWModernRunePanel.Instance.Close();
+            UWModernRunePanel.Instance.SnapNextLayout();
+        }
+
+        if (msbOpenedBags && UWModernBags.Instance != null && UWModernBags.Instance.IsOpen)
+            UWModernBags.Instance.Close();
+
+        msbOpenedCharacter = false;
+        msbOpenedRunes = false;
+        msbOpenedBags = false;
     }
 
     /// <summary>Leaving the modern scheme: the hold goes, whatever hangs on the pointer stays
@@ -146,6 +229,9 @@ public static class UWModernPointer
             lOScheme.ReleasePointer(Hold);
 
         msbHeldLook = false;
+        msbOpenedCharacter = false;
+        msbOpenedRunes = false;
+        msbOpenedBags = false;
     }
 
     /// <summary>With the right button held to look and the pointer free otherwise, the left button

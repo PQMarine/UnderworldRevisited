@@ -440,7 +440,7 @@ public class UWItemDrag : MonoBehaviour
 
         Vector2 lOMousePos = fPointerPosition();
 
-        if (Vector2.Distance(mOPendingStartPos, lOMousePos) < ClickMoveThreshold)
+        if (!UWDragDistance.Crossed(mOPendingStartPos, lOMousePos))
             return; // Button still held, but no significant movement yet.
 
         meState = DragState.Idle;

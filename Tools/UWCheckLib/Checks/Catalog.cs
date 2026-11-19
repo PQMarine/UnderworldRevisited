@@ -241,6 +241,15 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("Pickable", pOContext => fCheckPickable(pOContext), false, "data", "original");
             lOCatalog.Add("Uw2CarriedSpells", pOContext => fCheckUw2CarriedSpells(), false, "uw2", "original");
             lOCatalog.Add("Uw2Tools", pOContext => fCheckUw2Tools(), false, "uw2", "original");
+            lOCatalog.Add("Uw2ConversationEffects", pOContext => fCheckUw2ConversationEffects(), false, "uw2", "original");
+            lOCatalog.Add("Uw2TalkerEffects", pOContext => fCheckUw2TalkerEffects(pOContext), true, "uw2", "original").MutatesData = true;
+            lOCatalog.Add("Uw2Schedules", pOContext => fCheckUw2Schedules(pOContext), false, "uw2", "original");
+            lOCatalog.Add("Uw2SpecialDeaths", pOContext => fCheckUw2SpecialDeaths(pOContext), false, "uw2", "original");
+            lOCatalog.Add("Uw2Arena", pOContext => fCheckUw2Arena(pOContext), false, "uw2", "original");
+            lOCatalog.Add("Uw2LevelHacks", pOContext => fCheckUw2LevelHacks(pOContext), false, "uw2", "original");
+            lOCatalog.Add("Uw2Void", pOContext => fCheckUw2Void(pOContext), false, "uw2", "original");
+            lOCatalog.Add("Uw2Music", pOContext => fCheckUw2Music(pOContext), false, "uw2", "original");
+            lOCatalog.Add("Uw2Cutscenes", pOContext => fCheckUw2Cutscenes(pOContext), false, "uw2", "original");
             lOCatalog.Add("ModFolderArgument", pOContext => fCheckModFolderArgument(), false, "data", "format");
             lOCatalog.Add("Uw2Vectors", pOContext => fCheckUw2Vectors(pOContext), false, "uw2", "original");
             lOCatalog.Add("Uw2GameData", pOContext => fCheckUw2GameData(pOContext), false, "uw2", "format");

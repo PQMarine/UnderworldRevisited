@@ -474,6 +474,102 @@ bool UWPainterModelPaintsAfter(float2 pTile, float3 pSurfaceWS, float pfSpritePl
     return lfModel > 0.5 && UWPainterModelAfter(lfModel, pTile, pfSpritePlace, pfSpriteChain);
 }
 
+// THE REMASTERED PATH'S QUESTION (per user 2026-11-19: an item behind a pillar showed in front of it in Remastered, hidden
+// in the palette mode as in the original): does a 3D model of the sprite's own tile come after it in the painter's order?
+// Remastered puts a sprite on a plane at the near edge of its tile (UWOwnTileSpriteDepth), in front of every model there;
+// where a model comes after the sprite, the palette path lets that model's nearer surfaces cover it - so Remastered takes
+// the sprite's true depth (the own-tile box) in such a tile. Any of the noted models counts; more than four, all do.
+// Whether a noted model of the tile comes after a sprite at pfPlace in the painter's order (any of them; more than four,
+// all do).
+bool UWPainterTileModelsAfter(float2 pTile, float pfPlace, float pfSpriteChain)
+{
+    if (!UWPainterTileHasModel(pTile))
+        return false;
+
+    float4 lModels = LOAD_TEXTURE2D(_UWModelOrder, int2(pTile));
+
+    if (lModels.r < 0.0)
+        return true;
+
+    return (lModels.r > 0.5 && UWPainterModelAfter(lModels.r, pTile, pfPlace, pfSpriteChain))
+        || (lModels.g > 0.5 && UWPainterModelAfter(lModels.g, pTile, pfPlace, pfSpriteChain))
+        || (lModels.b > 0.5 && UWPainterModelAfter(lModels.b, pTile, pfPlace, pfSpriteChain))
+        || (lModels.a > 0.5 && UWPainterModelAfter(lModels.a, pTile, pfPlace, pfSpriteChain));
+}
+
+// THE TILES INWARD IN THE SAME ROW (per user the same day: boots beside a pillar standing one column further in still
+// showed over it): the painter does the inner columns of a row after the outer ones, so a model there comes after the
+// sprite at the same depth - beyond the near-edge plane the sprite was put on. Nearer rows lie in front of that plane
+// anyway, and the true depth decides them.
+bool UWPainterInnerHasModel(float2 pTile)
+{
+    float2 lAhead;
+    float2 lRight;
+
+    UWPainterAxes(lAhead, lRight);
+
+    float lfColumn = dot(pTile - UWPainterTileOf(_WorldSpaceCameraPos.xz), lRight);
+    float2 lInward = -lRight * sign(lfColumn);
+
+    // Up to three columns in (per user the same day: a guard in the throne room two columns outside the pillars), as far
+    // as the plane rule counts the column order (UWOwnTileSpriteDepth); never past the viewer's own column.
+    for (int liStep = 1; liStep <= 3; liStep++)
+        if (abs(lfColumn) > liStep - 0.5 && UWPainterTileHasModel(pTile + (lInward * liStep)))
+            return true;
+
+    return false;
+}
+
+// A bridge's deck in the tile (UWOwnTile.RegisterBridge: the plane texture's g 2). Bridges are not in the model table.
+bool UWPainterTileHasDeck(float2 pTile)
+{
+    if (_UWDoorPlanesReady < 0.5 || any(pTile < 0.0) || any(pTile > 63.0))
+        return false;
+
+    float4 lPlane = LOAD_TEXTURE2D(_UWDoorPlanes, int2(pTile));
+
+    return lPlane.r > 0.5 && lPlane.g > 1.5;
+}
+
+// A 3D model or a bridge's deck in the tile or one of its eight neighbours (per user 2026-11-19, UW1 SAVE3: a spider under a
+// bridge two tiles long showed through the deck - its ray crossed the deck in the next tile, which the deck rule of its own
+// tile does not ask, and the near-edge plane put it in front of that deck).
+bool UWPainterModelAround(float2 pTile)
+{
+    for (int liX = -1; liX <= 1; liX++)
+        for (int liY = -1; liY <= 1; liY++)
+            if (UWPainterTileHasModel(pTile + float2(liX, liY)) || UWPainterTileHasDeck(pTile + float2(liX, liY)))
+                return true;
+
+    return false;
+}
+
+bool UWPainterModelAfterSprite(float3 pPivotWS, float pfBigRadius, float pfKeyBonus, float pfSpriteChain)
+{
+    float2 lOwn = UWPainterTileOf(pPivotWS.xz);
+    float2 lTile;
+    float lfPart;
+
+    UWPainterObjectPlace(pPivotWS, pfBigRadius, pfKeyBonus, lTile, lfPart);
+
+    float lfPlace = UWPainterPlace(lTile, lfPart);
+
+    if (UWPainterTileModelsAfter(lOwn, lfPlace, pfSpriteChain) || UWPainterInnerHasModel(lOwn))
+        return true;
+
+    // A BIG OBJECT PAINTED WITH THE NEARER ROW OR THE INNER COLUMN (UWPainterObjectPlace; per user the same day: the
+    // castle's people walked in front of its pillars): its plane lies at that tile's near edge, so that tile's models and
+    // the one inward from it are asked as well.
+    if (any(abs(lTile - lOwn) > 0.5) && (UWPainterTileModelsAfter(lTile, lfPlace, pfSpriteChain) || UWPainterInnerHasModel(lTile)))
+        return true;
+
+    // THE EDGE CASES (per user the same day: now and then one of them still stood in front of a pillar two columns in or
+    // diagonally ahead): a sprite takes its true depth wherever a model stands around it or around the tile it is painted
+    // with - against a model the true depth is what the eye expects, and its own tile's faces still do not cover it (the
+    // own-tile box). Not every creature is marked big (COMOBJ's animated bit), so it holds for every sprite.
+    return UWPainterModelAround(lOwn) || UWPainterModelAround(lTile);
+}
+
 // pfSpritePart is the sprite's part from UWPainterObjectPlace, pfSpriteChain its place in the
 // tile's chain (_ChainIndex). pfNearer is the sprite's _DepthBias: where the true depths decide,
 // it counts that many units nearer - the flash on a struck door, chest or barrel stands in the

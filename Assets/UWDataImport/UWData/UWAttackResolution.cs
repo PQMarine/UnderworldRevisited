@@ -254,7 +254,7 @@ namespace UWDataImport.UWData
 			get
 			{
 				if (DefenderKind == UWDefenderKind.Player)
-					return UWBlow.ToPlayer(PlayerRequest);
+					return UWBlow.ToPlayer(PlayerRequest, Attacker);
 
 				if (IsMissile)
 					return UWBlow.Missile(Damage, DamageType, Attacker);
@@ -334,9 +334,21 @@ namespace UWDataImport.UWData
 				return UWSkillCheck.ResultEnum.Success;
 
 			int liProtection = pIDefender.DefenderKind == UWDefenderKind.Player ? pIDefender.ProtectionAt(piPart) : 0;
+			UWSkillCheck.ResultEnum leResult = UWCritterCombat.ResolveHit(pOAttacker.Score, pOAttacker.Flank, liProtection, pIDefender.Defence);
 
-			return UWCritterCombat.ResolveHit(pOAttacker.Score, pOAttacker.Flank, liProtection, pIDefender.Defence);
+			LastCritical = leResult == UWSkillCheck.ResultEnum.CriticalSuccess;
+
+			return leResult;
 		}
+
+		/// <summary>
+		/// THE ORIGINAL'S CRITICAL FLAG (frp_check's criti, UnderworldExhumed uw2 combat/COMBAT.C:327; per user 2026-11-19:
+		/// "as the original"): every roll against a creature or the player sets it, by anyone; a blow at a thing has no roll
+		/// and returns before the reset, so the flag keeps the last roll's value; a missile's hit clears it (missile_thwack).
+		/// The second game's special weapons ask it after a hit (player_attack), so power 5 opens a struck door only when it
+		/// happens to be set - no weapon of the shipped game has power 5.
+		/// </summary>
+		public static bool LastCritical { get; private set; }
 
 		/// <summary>
 		/// What follows the check, in its order: a miss gives the blocked sound and nothing else (no
@@ -527,6 +539,9 @@ namespace UWDataImport.UWData
 		public static UWAttackOutcome Missile(int piBaseDamage, int piDamageType, int piAttacker, IUWAttackDefender pIDefender,
 			int piPart, int piOwner)
 		{
+			// missile_thwack clears the critical flag (LastCritical).
+			LastCritical = false;
+
 			UWDefenderKind leKind = pIDefender != null ? pIDefender.DefenderKind : UWDefenderKind.Object;
 			int liRolled = RollMissile(piBaseDamage);
 			int liDamage = leKind == UWDefenderKind.Creature

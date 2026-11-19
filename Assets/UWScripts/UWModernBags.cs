@@ -340,6 +340,22 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         return Drag.ReturnCursorItem();
     }
 
+    /// <summary>
+    /// THE SHUT BACKPACK WITH THE CHARACTER PANEL OPEN (per user 2026-11-19: the first click on a container was lost once
+    /// the free pointer had opened the panel, or locking it had closed the bags it opened while the panel stayed): the
+    /// panel makes the bags take clicks (IsActive), so a click on the backpack went on as if the bags were open - and
+    /// with them shut nothing showed. A click on the backpack's own window opens them as with the panel shut, unless a
+    /// thing hangs on the pointer (it goes into the slot) or a spell waits (the panels hold). Off a container the click
+    /// then goes on as with the bags open (ClickShutBackpack).
+    /// </summary>
+    private bool fShutBackpackTakesClick()
+    {
+        UWInventory lOInventory = fInventory();
+
+        return !UWModernPointer.PanelsHeld && (lOInventory == null || lOInventory.CursorItem == null)
+            && Clicks.IsOverBackpack(UWPointer.Position);
+    }
+
     /// <summary>The bags take clicks while their pointer is out, the character panel is open or
     /// the original's character page shows (UWModernInventoryPage).</summary>
     internal bool IsActive => mbOpen || (UWModernPanel.Instance != null && UWModernPanel.Instance.IsOpen) || UWModernBagPages.IsPageShown;
@@ -414,14 +430,16 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         }
         else if (lOControls.Player.ModernBags.WasPressedThisFrame())
             fToggle();
-        else if (!IsActive && UWModernPointer.IsFree && UWPointer.HasMouse && !UWModernUi.IsHelpUnderPointer
+        else if (!mbOpen && UWModernPointer.IsFree && UWPointer.HasMouse && !UWModernUi.IsHelpUnderPointer
             && (lOControls.Player.CursorDrag.WasPressedThisFrame()
-                || UWInput.PressedUnheld(lOControls, UWAct.Interact)))
+                || UWInput.PressedUnheld(lOControls, UWAct.Interact))
+            && (!IsActive || fShutBackpackTakesClick()))
         {
-            // The click that opens the bags does nothing else - the same click handled below as
-            // well closed the container it had just opened (per user, 2026-10-04).
-            Clicks.ClickShutBackpack(UWPointer.Position);
-            return;
+            // The click that opens the bags on a container does nothing else - the same click handled below as
+            // well closed the container it had just opened (per user, 2026-10-04). Any other click on the backpack goes
+            // on below with the bags now open (per user, 2026-11-19).
+            if (Clicks.ClickShutBackpack(UWPointer.Position))
+                return;
         }
 
         if (!IsActive)

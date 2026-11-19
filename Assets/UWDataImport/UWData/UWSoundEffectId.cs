@@ -85,6 +85,15 @@ namespace UWDataImport.UWData
 
 		public const int Portcullis = 0x14;
 
+		/// <summary>
+		/// A DOOR COMING TO REST SHUT (the animation's end in EFFECT.C, a door that was closing; sound audit 2026-11-17,
+		/// built 2026-11-18): the first game always plays 0xC (uw1 obj/EFFECT.C:132), the second 0xC for a door and 0x26 for
+		/// a portcullis (uw2 obj/EFFECT.C:119-124). Ours played nothing there.
+		/// </summary>
+		public const int DoorShut = 0xC;
+
+		public const int PortcullisShutUw2 = 0x26;
+
 		/// <summary>An enchanted item used again too soon: UW.EXE CastSpellFromObject_seg040_1F04
 		/// plays it instead of casting (seg040_352B_1F54).</summary>
 		public const int MagicItemRefused = 0x15;

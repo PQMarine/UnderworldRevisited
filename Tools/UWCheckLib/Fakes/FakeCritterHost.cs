@@ -183,7 +183,7 @@ namespace UnderworldRevisited.Tools
 
             public void PlaySound(int piSound) => Events.Add("sound " + piSound);
 
-            public void PlayMusic(int piTheme) => Events.Add("music " + piTheme);
+            public void PlayMusic(int piTheme, bool pbSwing) => Events.Add("music " + piTheme);
 
             public void OnDrowned() => Events.Add("drowned");
 

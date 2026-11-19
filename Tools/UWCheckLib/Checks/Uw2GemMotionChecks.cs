@@ -55,6 +55,56 @@ namespace UnderworldRevisited.Tools
                     + lfFurthest.ToString("F2") + ", triggers " + string.Join(",", lOWorld.Triggers) + ")",
                     (lbNorth ? lOWorld.Triggers.Exists(i => lOLevel.Masterlist[i].TileY == 40 && lOLevel.Masterlist[i].YPos == 6) : lOWorld.Triggers.Contains(liFacet)).ToString(), "True");
             }
+
+            fWallTriggerWalk(pOImport);
+        }
+
+        /// <summary>
+        /// A MOVE TRIGGER INSIDE A WALL (per user 2026-11-17: on level 5 the way down to level 4 fired only now and then in
+        /// Modern): at the dead end 44/33 the trigger lies in the solid tile 44/32 at fine 3/6, two eighths behind the wall
+        /// face; walking south from 44/35 into the wall must fire it in each motion mode.
+        /// </summary>
+        private static void fWallTriggerWalk(DataImport pOImport)
+        {
+            UWLevel lOLevel = pOImport.Levels[4];
+            UWObject lOTrigger = lOLevel.GetTile(44, 32).ObjectsInTile.Find(o => o != null && o.ID == UWObjectMechanics.MoveTriggerId);
+            int liTrigger = lOLevel.Masterlist.IndexOf(lOTrigger);
+            List<string> lOResults = new List<string>();
+
+            foreach (int liMode in new[] { 0, 1, 2 })
+            foreach (int liYaw in new[] { 0x8000, 0x7800, 0x8800 })
+            {
+                LevelMotionWorld lOWorld = new LevelMotionWorld(lOLevel, pOImport.Terrain, 5);
+                UWPlayerMotion lOPlayer = new UWPlayerMotion(lOWorld, pOImport.CommonObjectProperties);
+
+                lOPlayer.PlaceInTile(44, 35);
+                lOPlayer.CameraYaw = liYaw;
+                lOPlayer.MotionYaw = liYaw;
+                lOPlayer.Precise = liMode > 0;
+                lOPlayer.FineTicks = liMode > 0;
+                lOPlayer.Modern = liMode == 2;
+                lOPlayer.RampFrameTicks = 0;
+                lOPlayer.TerrainWordAt = (piTx, piTy) =>
+                {
+                    UWTile lOTile = lOLevel.GetTile(piTx, piTy);
+
+                    return lOTile != null ? pOImport.Terrain.Uw2.Word(lOTile.TextureFloor) : 0;
+                };
+
+                int liRate = liMode == 0 ? 32 : 60;
+
+                for (int liFrame = 0; liFrame < 4 * liRate; liFrame++)
+                {
+                    lOPlayer.MotionCommand = UWPlayerMotion.Command.Walk;
+                    lOPlayer.Walk = UWPlayerMotion.WalkRun;
+                    lOPlayer.Frame(liMode == 0 ? 8 : (liFrame & 1) == 0 ? ModernFrameA : ModernFrameB);
+                }
+
+                lOResults.Add(lOWorld.Triggers.Contains(liTrigger) ? "1" : "0");
+            }
+
+            Check.Str("uw2 level 5: walking south into the dead end 44/33 fires the trigger in the wall 44/32 (Original, Smooth, Modern; straight, a little left, a little right)",
+                string.Join("", lOResults), "111111111");
         }
     }
 }

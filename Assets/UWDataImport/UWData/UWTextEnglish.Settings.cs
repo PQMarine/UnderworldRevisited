@@ -88,6 +88,16 @@ namespace UWDataImport.UWData
 			fAdd("setting.PointerSpeed", "Pointer speed");
 			fAdd("setting.PointerSpeed.hint", "In the game the mouse moves the game's own pointer: at 100 % one step of the mouse is one pixel on the screen, without acceleration. The menus use the system's pointer.");
 			fAdd("setting.WalkSlowToggle", "Slow walk key switches on and off instead of being held (modern)");
+			fAdd("setting.AutoKey", "Automatically use keys (modern)");
+			fAdd("setting.ModernFont", "Game texts in a modern font (key F)");
+			fAdd("setting.ModernFont.hint", "The scroll, the conversations and the other texts of the game in a modern font that is easier to read, instead of the original one. The key F switches it in the game as well.");
+			fAdd("setting.ModernPointerHold", "Hold the right button to look around (modern)");
+			fAdd("setting.ModernPointerHold.hint", "Off, the right button switches between looking around and a free pointer. On, the pointer is free and the view turns only while the right button is held. The gamepad's right stick button always switches, as with this option off.");
+			fAdd("setting.AutoKey.hint", "On, using a locked door opens it with the fitting key from your bags, and the crosshair shows the key beside the door. Off, you use the key on the door yourself, as in the original.");
+			fAdd("setting.FreeOpensCharacter", "Character panel");
+			fAdd("setting.FreeOpensCharacter.hint", "The windows chosen here are there at once, without sliding in, while the pointer is free, and close again when it is locked. The bags open with the containers you had open last. A window you opened yourself stays open, and its key still slides it in as before.");
+			fAdd("setting.FreeOpensRunes", "Rune panel");
+			fAdd("setting.FreeOpensBags", "Bags");
 			fAdd("setting.DebugKeys", "Debug keys on");
 			fAdd("setting.DebugKeys.hint", "Keys for testing: noclip, the level keys, the debug display and its tools. Switched on, a debug key whose key is already used above is left empty.");
 
@@ -121,6 +131,8 @@ namespace UWDataImport.UWData
 			fAdd("setting.MusicDevice.choice.mt32", "MT-32");
 			fAdd("setting.MusicRecordings", "Music from recordings");
 			fAdd("setting.MusicRecordings.hint", "Your own recordings of the music, one file per piece in the folder below (UW1/Music), play in place of the device above. Name each by the number of the game's piece: 01.ogg for the introduction, 02 to 04 the levels, 05 to 07 combat, 10 Armed, 11 Victory, 12 Death, 13 Fleeing, 15 Maps and Legends (Ogg Vorbis or WAV). A piece without a recording plays on the device.");
+			// The second game's pieces (UWMusicSelectorUw2: 1 menu, 2-4 combat, 5 armed, 6 victory, 7 death, 8-15 walking, octal file numbers).
+			fAdd("setting.MusicRecordings.hint.uw2", "Your own recordings of the music, one file per piece in the folder below (UW2/Music), play in place of the device above. Name each by the number of the game's piece: 01.ogg for the main menu, 02 to 04 combat, 05 Armed, 06 Victory, 07 Death, 10 to 17 the worlds' walking themes; the cutscenes use further numbers (Ogg Vorbis or WAV). A piece without a recording plays on the device.");
 
 			// The graphics.
 			fAdd("setting.ClassicWidescreen", "Classic screen widescreen");
@@ -206,7 +218,8 @@ namespace UWDataImport.UWData
 
 			// The layout editor's inspector.
 			fAdd("setting.ModernUiPercent", "UI size");
-			fAdd("setting.InterfaceFont", "Font");
+			fAdd("setting.InterfaceFont", "Font of the modern interface");
+			fAdd("setting.InterfaceFont.hint", "The windows and parts of the modern scheme in the modern font or in the original's. In the Classic Wide preset the switch above decides, as on the classic screen.");
 			fAdd("setting.InterfaceFont.choice.modern", "Modern");
 			fAdd("setting.InterfaceFont.choice.original", "Original");
 			fAdd("setting.MinimapHidden", "Shown");

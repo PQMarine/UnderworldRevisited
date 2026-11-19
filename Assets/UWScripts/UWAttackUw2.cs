@@ -10,8 +10,8 @@ using UWDataImport.UWData;
 /// view; the pointer's ninth picks the kind and the height. Modern: the attack button, the view's pitch picks it. The
 /// blow itself is UWPlayerMelee's, this class its host: the target, the wall, the wear, the blood and the eyes. A bow
 /// or sling in the hand does not charge: the idle steps to the hold, the gem at once full and the aiming pointer, and
-/// a release in the view shoots (player_attack's fire_mode, UWPlayerMissiles). The special weapons' powers are still
-/// to come.
+/// a release in the view shoots (player_attack's fire_mode, UWPlayerMissiles). The special weapons' powers fire after a
+/// hit (WeaponPowerOnHit).
 /// </summary>
 public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 {
@@ -90,6 +90,73 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
     public bool ShowsFoeCondition => UWGameScreenUw2.Current != null;
 
+    /// <summary>
+    /// THE SPECIAL WEAPONS' POWERS (player_attack, UnderworldExhumed uw2 combat/COMBAT.C:790; per user 2026-11-19): after a
+    /// hit that fires (UWCombatVariantUw2.PowerFires). Powers 1 to 4 need a creature (IsMobElem; tx is its square): 1 heals
+    /// the player by the damage done (only with tx > 0), 2 sp_ward_undead, 3 a fireball on its square (tx > 0), 4 sp_hold -
+    /// the spells with the player as caster. 5 and 6 on a door: the Open spell's pick, then OpenDoor.
+    /// </summary>
+    public void WeaponPowerOnHit(int piPower, UWEntityInfo pOTarget, int piDamageDone)
+    {
+        UWObject lOTarget = pOTarget != null ? pOTarget.ObjectData : null;
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+        UWWorld lOWorld = lOLoader != null ? UWWorld.Of(lOLoader) : null;
+
+        if (lOTarget == null || lOWorld == null)
+            return;
+
+        bool lbCreature = pOTarget.GetComponentInParent<UWCritter>() != null;
+        int liTileX = lOTarget.TileX;
+
+        switch (piPower)
+        {
+            case UWCombatVariantUw2.HealPower:
+                if (lbCreature && liTileX > 0 && MeleeVitals != null)
+                    MeleeVitals.Heal(piDamageDone);
+
+                break;
+
+            case UWCombatVariantUw2.WardUndeadPower:
+            case UWCombatVariantUw2.HoldPower:
+                IUWSpellHost lIHost = lbCreature ? fPowerSpellHost(lOWorld) : null;
+
+                if (lIHost != null)
+                    UWTargetSpellRulesUw2.Cast(piPower == UWCombatVariantUw2.HoldPower ? UWTargetSpellRulesUw2.Paralyze : UWTargetSpellRulesUw2.SmiteUndead,
+                        lOTarget, lIHost);
+
+                break;
+
+            case UWCombatVariantUw2.FireballPower:
+                if (lbCreature && liTileX > 0 && lOLoader.CurrentLevel != null)
+                    UWAreaSpellRulesUw2.WeaponFireball(lOWorld, lOLoader.CurrentLevel.GetTile(liTileX, lOTarget.TileY));
+
+                break;
+
+            case UWCombatVariantUw2.OpenDoorPower:
+            case UWCombatVariantUw2.EveryHitPower:
+                UWDoor lODoor = pOTarget.IsDoor ? pOTarget.GetComponentInParent<UWDoor>() : null;
+
+                if (lODoor == null)
+                    break;
+
+                UWObjectSpellUw2.OpenByWeapon(lOTarget, pOTarget, lOLoader.CurrentLevel, this);
+                lODoor.Open(UWTrapRules.Setter.Player);
+
+                break;
+        }
+    }
+
+    /// <summary>The player as the caster of a power's spell (sp_ward_undead and sp_hold with src 1).</summary>
+    private static IUWSpellHost fPowerSpellHost(UWWorld pOWorld)
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+
+        if (lOPlayer == null || lOPlayer.Vitals == null || UWSleepUw2.Current == null)
+            return null;
+
+        return new UWSpellHostUw2(lOPlayer, UWScene.LevelLoader, UWSleepUw2.Current.ScrollPresentation(pOWorld));
+    }
+
     public void ShowFoeCondition(int piHitPoints, int piTableHitPoints, string psName)
     {
         UWGameScreenUw2.Current.ShowEyes(piHitPoints, piTableHitPoints);
@@ -146,6 +213,20 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
     /// <summary>The click belongs to the waiting spell: while it waits, and in the frame its click released it - no
     /// blow and no look start from that click.</summary>
     public bool SpellTookClick => IsSpellWaiting || IsTargetSpellWaiting || miSpellClickFrame == Time.frameCount;
+
+    /// <summary>The frame a right press put the thing on the pointer into the world.</summary>
+    private int miDropFrame = -1;
+
+    /// <summary>
+    /// THE PRESS THAT PUTS THE POINTER'S THING DOWN IS NO BLOW (per user 2026-11-18: with the fight mode on, ours wound
+    /// up the weapon as well): mous_in_3d with GameInputMode 1 hands the press to DoSpecialActions(0x17) and waits for
+    /// the button to come up (mouse_release), player_3dattack never sees it. The view drops the thing in its Update,
+    /// so a later Update here found the pointer empty and aimed.
+    /// </summary>
+    public void TakeDropPress()
+    {
+        miDropFrame = Time.frameCount;
+    }
 
     // ------------------------------------------------- A target spell waiting for its target (UW2 plan G1 part D)
 
@@ -253,8 +334,11 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
             liTargetZ = lOData.ZPos;
         }
 
+        // UsingPole (UseUtil, uses part 2): the pole waiting for its switch reaches twice as far.
+        bool lbPole = lbUseOn && mOUseOnItem != null && mOUseOnItem.ID == UWToolRulesUw2.Pole;
+
         if (!UWReachRules.CanReach(UWTileQueries.WorldToEighths(lOFeet.x), UWTileQueries.WorldToEighths(lOFeet.z), UWUnits.WorldToZPos(lOFeet.y),
-            liTargetX, liTargetY, liTargetZ, UWReachRules.GetDistanceSquared(false, lbTelekinesis), false))
+            liTargetX, liTargetY, liTargetZ, UWReachRules.GetDistanceSquared(lbPole, lbTelekinesis), lbPole))
         {
             AddGeneralMessage(CannotReachString);
 
@@ -565,9 +649,11 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
     /// <summary>A launcher without ammunition refused the press; spent until the button is up (mouse_release).</summary>
     private bool mbRefused;
 
+    private static bool fModal => UWGameScreenUw2.IsModalOpen;
+
     private static bool fBusy => UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen || UWGameScreenUw2.IsOptionsOpen || UWGameScreenUw2.IsAskingCount
-        || UWGameScreenUw2.IsAskingYesNo
-        || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed;
+        || UWGameScreenUw2.IsAskingYesNo || UWGameScreenUw2.IsWaitingForPage
+        || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed || UWVitalsUw2.PlayerAsleepInVoid;
 
     /// <summary>player_attack, over the step flags of the weapon's animation: the lead-in gives way when the button
     /// comes up, the hold charges while it stays down, and the strike's step lands the blow.</summary>
@@ -579,10 +665,17 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         if (lOScreen == null || lOVitals == null || lOVitals.Vitals == null)
             return;
 
+        // A SCREEN OF ITS OWN STOPS THE BLOW WHERE IT IS (per user 2026-11-18: spoken to with the weapon drawn back,
+        // ours let the blow go during the talk; the original strikes only after it): player_attack does not run while
+        // a conversation, the map, the options or a prompt has the game - nothing charges, nothing is released, and
+        // afterwards the button as it is then decides. Until then the open screen counted as a let-go button.
+        if (fModal)
+            return;
+
         fUpdateSpellAim(lOScreen);
 
         if (fWentDown())
-            mbAimed = !SpellTookClick && fCanAim(lOScreen) && fPressed(lOScreen);
+            mbAimed = !SpellTookClick && miDropFrame != Time.frameCount && fCanAim(lOScreen) && fPressed(lOScreen);
 
         if (mbRefused && !fHeld())
             mbRefused = false;
@@ -754,6 +847,14 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         return Mouse.current != null && Mouse.current.rightButton.isPressed;
     }
 
+    /// <summary>
+    /// player_weapon (uw2 combat/COMBAT.C:85): the kind GetPlayerWeapon found when the player's last swing began - 0 the
+    /// fist, 1 blunt, 2 edged, 3 a launcher with its ammunition, 4 without. do_damage takes it for the sound of every
+    /// blow that lands on anything but the player, whoever strikes (UWCombatVariantUw2.OtherHitSound; sound audit
+    /// point 4, 2026-11-18). Not saved, as the original's; the fist until the first swing.
+    /// </summary>
+    public static int LastPlayerWeaponKind { get; private set; } = UWCombatVariantUw2.FistWeapon;
+
     private void fBegin(UWGameScreenUw2 pOScreen)
     {
         mbFireMode = mOMissiles.HoldsLauncher();
@@ -763,9 +864,15 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         {
             mbFireMode = false;
             mbRefused = true;
+            LastPlayerWeaponKind = UWCombatVariantUw2.LauncherWithoutAmmunition;
 
             return;
         }
+
+        UWObject lOSwung = fWeapon(pOScreen);
+
+        LastPlayerWeaponKind = mbFireMode ? UWCombatVariantUw2.LauncherWeapon
+            : UWGameSession.Current.Game.Combat.PlayerWeaponKind(lOSwung != null ? lOSwung.ID : UWCombat.FistObjectId);
 
         Camera lOCamera = UWViewpoint.Current;
         AttackTypes leKind = UWGameScreenUw2.IsModernScheme && lOCamera != null

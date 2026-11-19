@@ -288,6 +288,195 @@ namespace UWDataImport.UWData
 			piTarget += piCount;
 		}
 
+		// ------------------------------------------------- The second game's player (UW2 plan phase 5 part C)
+
+		/// <summary>A colour cycle of the header (0x80, 16 of 8 bytes): its rate as read_anmhdr keeps it, (word &gt;&gt; 8)
+		/// &amp; 0x3F, which anm_cycle divides 0x38E by (0 is no cycle), and the entries it rotates.</summary>
+		public struct ColourCycle
+		{
+			public int Rate;
+
+			public int First;
+
+			public int Last;
+		}
+
+		private const int CycleTable = 0x80;
+
+		private const int CycleCount = 16;
+
+		/// <summary>The header's 16 colour cycles.</summary>
+		public ColourCycle[] Cycles
+		{
+			get
+			{
+				ColourCycle[] lOCycles = new ColourCycle[CycleCount];
+
+				for (int liAt = 0; liAt < CycleCount && myData.Length >= HeaderSize; liAt++)
+				{
+					int liEntry = CycleTable + (liAt * 8);
+
+					lOCycles[liAt] = new ColourCycle { Rate = (fU16(liEntry + 2) >> 8) & 0x3F, First = myData[liEntry + 6], Last = myData[liEntry + 7] };
+				}
+
+				return lOCycles;
+			}
+		}
+
+		/// <summary>Has the last record a delta back to the first (header 0x1A)? The second game's player leaves it out.</summary>
+		public bool HasLastDelta => myData.Length >= HeaderSize && myData[0x1A] != 0;
+
+		/// <summary>The records the second game's player plays: every large page's records, the last page's loop-back
+		/// delta left out (cuts_process_lp's nrec).</summary>
+		public int PlayedRecords
+		{
+			get
+			{
+				int liRecords = 0;
+
+				for (int liPage = 0; liPage < miLargePages && liPage < 256; liPage++)
+					liRecords += fU16(LargePageTable + (liPage * 6) + 2) & 0x3FFF;
+
+				return Math.Max(0, liRecords - (HasLastDelta && liRecords > 0 ? 1 : 0));
+			}
+		}
+
+		/// <summary>The large pages (header 0x06).</summary>
+		public int PageCount => miLargePages;
+
+		/// <summary>The records of large page piPage (its table entry's count).</summary>
+		public int PageRecords(int piPage)
+		{
+			return piPage >= 0 && piPage < miLargePages && piPage < 256 ? fU16(LargePageTable + (piPage * 6) + 2) & 0x3FFF : 0;
+		}
+
+		/// <summary>The first record of large page piPage.</summary>
+		public int PageFirstRecord(int piPage)
+		{
+			return piPage >= 0 && piPage < miLargePages && piPage < 256 ? fU16(LargePageTable + (piPage * 6)) : 0;
+		}
+
+		/// <summary>A record's size in its page's table (cuts_process_lp's sizes[i]), 0 when there is none.</summary>
+		public int RecordSize(int piRecord)
+		{
+			return fFindRecord(piRecord, out _, out int liSize) ? liSize : 0;
+		}
+
+		/// <summary>DrawRecord onto a buffer of its own, clipped to it.</summary>
+		public bool DrawRecord(int piRecord, byte[] pyTarget, int piTargetWidth, int piTargetHeight, int piX, int piY, int piRows)
+		{
+			return DrawRecord(piRecord, piRows, (piPx, piPy, pyPixel) =>
+			{
+				int liX = piX + piPx;
+				int liY = piY + piPy;
+
+				if (liX >= 0 && liY >= 0 && liX < piTargetWidth && liY < piTargetHeight)
+					pyTarget[(liY * piTargetWidth) + liX] = pyPixel;
+			});
+		}
+
+		/// <summary>
+		/// DRAWS ONE RECORD (cuts_process_lp: show for a whole frame, draw_rsd for a delta; UW2 plan phase 5 part C): the
+		/// record's picture is a frame 320 wide of which piRows rows count; pFPut gets each pixel it writes, at its place
+		/// in that frame - a delta's skips write nothing, so what is there stays. A record of 4 bytes or fewer draws
+		/// nothing (its size - 4 is 0). True when it drew.
+		/// </summary>
+		public bool DrawRecord(int piRecord, int piRows, Action<int, int, byte> pFPut)
+		{
+			if (!fFindRecord(piRecord, out int liStart, out int liSize) || liSize <= 4)
+				return false;
+
+			int liEnd = Math.Min(liStart + liSize, myData.Length);
+			int liBody = liStart + 2;
+
+			if (myData[liStart + 1] != 0)
+				liBody = liStart + 4 + ((fU16(liStart + 2) + 1) & ~1);
+
+			if (liBody + 2 > liEnd)
+				return false;
+
+			int liType = myData[liBody];
+			int liSource = liBody + 2;
+			int liFrameWidth = Width > 0 ? Width : 320;
+			int liPixels = liFrameWidth * Math.Max(0, piRows);
+
+			if (liType == 0)
+			{
+				for (int liAt = 0; liAt < liPixels && liSource + liAt < liEnd; liAt++)
+					pFPut(liAt % liFrameWidth, liAt / liFrameWidth, myData[liSource + liAt]);
+
+				return true;
+			}
+
+			if (liType != 1)
+				return false;
+
+			int liCursor = 0;
+
+			while (liSource < liEnd && liCursor < liPixels)
+			{
+				int liOp = myData[liSource++];
+
+				if (liOp == 0x00)
+				{
+					if (liSource + 2 > liEnd)
+						break;
+
+					int liCount = myData[liSource++];
+
+					fRun(pFPut, liFrameWidth, liPixels, ref liCursor, liCount, myData[liSource++]);
+				}
+				else if (liOp < 0x80)
+					fDump(pFPut, liFrameWidth, liPixels, ref liCursor, ref liSource, liEnd, liOp);
+				else if (liOp > 0x80)
+					liCursor += liOp & 0x7F;
+				else
+				{
+					if (liSource + 2 > liEnd)
+						break;
+
+					int liWord = fU16(liSource);
+
+					liSource += 2;
+
+					if (liWord == 0)
+						break;
+
+					if (liWord < 0x8000)
+						liCursor += liWord;
+					else if (liWord < 0xC000)
+						fDump(pFPut, liFrameWidth, liPixels, ref liCursor, ref liSource, liEnd, liWord & 0x3FFF);
+					else
+					{
+						if (liSource >= liEnd)
+							break;
+
+						fRun(pFPut, liFrameWidth, liPixels, ref liCursor, liWord & 0x3FFF, myData[liSource++]);
+					}
+				}
+			}
+
+			return true;
+		}
+
+		private static void fRun(Action<int, int, byte> pFPut, int piFrameWidth, int piPixels, ref int piCursor, int piCount, byte pyPixel)
+		{
+			for (int liAt = 0; liAt < piCount && piCursor < piPixels; liAt++, piCursor++)
+				pFPut(piCursor % piFrameWidth, piCursor / piFrameWidth, pyPixel);
+		}
+
+		private void fDump(Action<int, int, byte> pFPut, int piFrameWidth, int piPixels, ref int piCursor, ref int piSource, int piEnd, int piCount)
+		{
+			for (int liAt = 0; liAt < piCount; liAt++, piCursor++, piSource++)
+			{
+				if (piSource >= piEnd)
+					return;
+
+				if (piCursor < piPixels)
+					pFPut(piCursor % piFrameWidth, piCursor / piFrameWidth, myData[piSource]);
+			}
+		}
+
 		/// <summary>Finds the start and size of a record via the large page table.</summary>
 		private bool fFindRecord(int piRecord, out int piStart, out int piSize)
 		{

@@ -254,7 +254,12 @@ public class UWIntroPlayer : MonoBehaviour
     {
         Stop();
 
-        if (!fPrepare())
+        // The second game's logos need only the canvas: its title goes through its own player (fPlayUw2). The first
+        // game's preparation reads the intro's script by the first game's table, which the second's does not pass
+        // ("CS000.N00 not found" at every start, and no logos - per user 2026-11-17, UW2 plan phase 5 part D).
+        if (fEnsureData() && fIsUw2)
+            mOView.EnsureCanvas();
+        else if (!fPrepare())
             return;
 
         // As for every sequence (see Play): no other input, and the cursor is off - set
@@ -318,7 +323,9 @@ public class UWIntroPlayer : MonoBehaviour
             {
                 // A cutscene's click goes to its interpreter; the logos' and the victory
                 // screens' to mbAdvanceRequested.
-                if (mORunner != null)
+                if (mORunnerUw2 != null)
+                    mORunnerUw2.RequestInput();
+                else if (mORunner != null)
                     mORunner.RequestAdvance();
                 else
                     mbAdvanceRequested = true;
@@ -334,6 +341,18 @@ public class UWIntroPlayer : MonoBehaviour
         // to come afterwards - the victory screens for the end sequence -, still comes. Unless
         // the script forbade it (opcode 0x0C, the title CS011): then Escape is a key like any
         // other, a click (show_anm, Exhumed audit row 32, 2026-10-27).
+        // The second game's player takes keys as input too (mouse_get_input), and Escape as its own: it ends the
+        // cutscene where the script lets it, with the fade-out after the file (gobble_input_events).
+        if (IsPlaying && mORunnerUw2 != null)
+        {
+            if (UWBack.Takes(UWBackOwner.Cutscene))
+                mORunnerUw2.RequestEscape();
+            else if (UnityEngine.InputSystem.Keyboard.current.anyKey.wasPressedThisFrame && Time.frameCount != miPlayStartFrame)
+                mORunnerUw2.RequestInput();
+
+            return;
+        }
+
         if (IsPlaying && UWBack.Takes(UWBackOwner.Cutscene))
         {
             if (mORunner != null && !mORunner.EscapeEnds)
@@ -352,6 +371,14 @@ public class UWIntroPlayer : MonoBehaviour
     public void Play()
     {
         Stop();
+
+        // The second game's cutscenes have a player of their own (UW2 plan phase 5 part C).
+        if (fEnsureData() && fIsUw2)
+        {
+            fPlayUw2();
+
+            return;
+        }
 
         // The click that started the sequence must not skip it: the right click that confirms
         // the repair question starts the anvil sequence, and the same frame's click then tore
@@ -486,6 +513,188 @@ public class UWIntroPlayer : MonoBehaviour
         }
     }
 
+    // ------------------------------------------------- The second game (UW2 plan phase 5 part C)
+
+    /// <summary>The second game's player while one of its cutscenes runs (UWCutsceneRunnerUw2).</summary>
+    private UWCutsceneRunnerUw2 mORunnerUw2;
+
+    private readonly byte[] myScreenUw2 = new byte[UWCutsceneScreenUw2.ScreenWidth * UWCutsceneScreenUw2.ScreenHeight];
+
+    private bool fIsUw2 => mOData != null && mOData.GameData != null && mOData.GameData.Profile.Game == UWGame.Uw2;
+
+    /// <summary>A second-game cutscene: its script by the second game's table, the runner over the indexed screen, the
+    /// picture full screen (the 3D view's window comes with the cutscenes that use it, phase 5 part D).</summary>
+    private void fPlayUw2()
+    {
+        mbAdvanceRequested = false;
+        miPlayStartFrame = Time.frameCount;
+
+        if (mOSoundPlayer == null)
+        {
+            mOSoundPlayer = GetComponent<UWSoundPlayer>();
+
+            if (mOSoundPlayer == null)
+                mOSoundPlayer = gameObject.AddComponent<UWSoundPlayer>();
+        }
+
+        string lsScript = Path.Combine(fGetCutsPath(), UWCutscene.FileName(miCutscene, 0));
+        UWCutsceneScript lOScript = new UWCutsceneScript(lsScript, UWGame.Uw2);
+
+        if (!lOScript.IsLoaded)
+        {
+            Debug.LogWarning("UWIntroPlayer: " + Path.GetFileName(lsScript) + " not found.");
+
+            return;
+        }
+
+        CutsceneHostUw2 lOHost = new CutsceneHostUw2(this);
+        bool lbSubtitles = UWCutsceneSubtitles.WithSpeech(UWUserSettings.CutsceneSubtitles, miCutscene, mOData.GameData.GameText);
+
+        // A cutscene in the 3D view's window starts from the game's palette (st.palette is the DAC's: PALS.DAT's
+        // game palette, 0); a full-screen one fades it out first and takes its files' palettes.
+        bool lbWindowed = miCutscene >= UWCutsceneRunner.FirstViewportCutscene;
+
+        mORunnerUw2 = new UWCutsceneRunnerUw2(miCutscene, lOScript, mOData.Strings, lOHost, lbWindowed ? lOHost.LoadQuickPalette(0) : null, true, lbSubtitles);
+
+        mOView.InViewport = lbWindowed;
+        mOView.EnsureCanvas();
+
+        if (lbWindowed)
+            mOView.PlaceWindow(mORunnerUw2.WindowX, mORunnerUw2.WindowTop, mORunnerUw2.WindowWidth, mORunnerUw2.WindowHeight);
+        else
+            mOView.PlacePicture(false);
+
+        mOView.ShowSubtitle(null, Color.white);
+        fSetInputLock(true);
+        UWPointer.IsShown = false;
+        Debug.Log("[Cutscene] " + miCutscene + " (" + Path.GetFileName(lsScript) + ").");
+        mOPlayback = StartCoroutine(fRunCutsceneUw2());
+    }
+
+    private IEnumerator fRunCutsceneUw2()
+    {
+        bool lbRunning = mORunnerUw2.Start();
+
+        fPresentUw2();
+
+        while (lbRunning)
+        {
+            yield return null;
+
+            lbRunning = mORunnerUw2.Tick(Time.unscaledDeltaTime);
+            fPresentUw2();
+        }
+
+        fFinish();
+    }
+
+    private void fPresentUw2()
+    {
+        if (mORunnerUw2 == null)
+            return;
+
+        mORunnerUw2.Screen.Compose(myScreenUw2);
+        mOView.ShowIndexed(myScreenUw2, mORunnerUw2.Screen.Shown, mORunnerUw2.Screen.Overlay, mORunnerUw2.Screen.Unfaded);
+    }
+
+    /// <summary>What the second game's runner asks for: the CUTS folder, PALS.DAT, the BSP recordings, the music, the
+    /// subtitle in FONT_BIG.</summary>
+    private sealed class CutsceneHostUw2 : UWCutsceneRunnerUw2.IHost
+    {
+        private readonly UWIntroPlayer mOPlayer;
+
+        private float mfSpeechUntil = -1f;
+
+        public CutsceneHostUw2(UWIntroPlayer pOPlayer)
+        {
+            mOPlayer = pOPlayer;
+        }
+
+        public UWCutscene OpenAnimation(string psFileName)
+        {
+            string lsPath = Path.Combine(mOPlayer.fGetCutsPath(), psFileName);
+
+            try
+            {
+                return File.Exists(lsPath) ? new UWCutscene(lsPath) : null;
+            }
+            catch (System.Exception lOError)
+            {
+                Debug.LogWarning("UWIntroPlayer: " + psFileName + " not readable - " + lOError.Message);
+
+                return null;
+            }
+        }
+
+        public byte[] LoadBack(int piNumber)
+        {
+            string lsPath = Path.Combine(mOPlayer.fGetCutsPath(), "LBACK" + System.Convert.ToString(piNumber, 8).PadLeft(3, '0') + ".BYT");
+
+            return File.Exists(lsPath) ? File.ReadAllBytes(lsPath) : null;
+        }
+
+        public byte[] LoadQuickPalette(int piNumber)
+        {
+            string lsPath = Path.Combine(mOPlayer.mOData.DataPath, "PALS.DAT");
+
+            if (!File.Exists(lsPath))
+                return null;
+
+            byte[] lyAll = File.ReadAllBytes(lsPath);
+
+            if (piNumber < 0 || (piNumber + 1) * UWCutsceneScreenUw2.PaletteBytes > lyAll.Length)
+                return null;
+
+            byte[] lyPalette = new byte[UWCutsceneScreenUw2.PaletteBytes];
+
+            System.Array.Copy(lyAll, piNumber * UWCutsceneScreenUw2.PaletteBytes, lyPalette, 0, lyPalette.Length);
+
+            return lyPalette;
+        }
+
+        public bool StartSpeech(int piVoice)
+        {
+            string lsName = "BSP" + piVoice.ToString("00");
+            AudioClip lOClip = mOPlayer.mOSoundPlayer.GetClip(lsName);
+
+            if (lOClip == null)
+            {
+                Debug.LogWarning("UWIntroPlayer: recording '" + lsName + "' missing, the line shows its text.");
+
+                return false;
+            }
+
+            mOPlayer.mOSoundPlayer.StopSpeech();
+            mOPlayer.mOSoundPlayer.Play(lsName);
+            mfSpeechUntil = Time.unscaledTime + lOClip.length;
+
+            return true;
+        }
+
+        public bool IsSpeechPlaying => Time.unscaledTime < mfSpeechUntil;
+
+        public void StopSpeech()
+        {
+            mfSpeechUntil = -1f;
+            mOPlayer.mOSoundPlayer.StopSpeech();
+        }
+
+        public void Music(int piTheme)
+        {
+            if (piTheme == 0)
+                UWAudioService.StopMusic();
+            else
+                UWAudioService.Uw2RequestNow(piTheme);
+        }
+
+        public void DrawText(UWCutsceneScreenUw2 pOScreen, string psText, int piColour)
+        {
+            UWFont lOFont = mOPlayer.mOData.Fonts != null ? mOPlayer.mOData.Fonts.Get(UWFonts.FontType.Big) : null;
+
+            UWCutsceneTextUw2.Draw(pOScreen, lOFont, UWTextLayout.CleanText(psText), piColour);
+        }
+    }
+
     /// <summary>Frame in which Play was called - its click does not count, see Play.</summary>
     private int miPlayStartFrame = -1;
 
@@ -502,6 +711,7 @@ public class UWIntroPlayer : MonoBehaviour
         }
 
         mORunner = null;
+        mORunnerUw2 = null;
 
         mOView.ShowSubtitle(null, Color.white);
 

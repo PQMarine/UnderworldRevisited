@@ -139,6 +139,12 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
     /// </summary>
     public static bool PlayerParalysed => Current != null && Current.IsParalysed;
 
+    /// <summary>sleepbits and in_void (G6, the Void): the panel, the inventory and the fight are shut.</summary>
+    public static bool PlayerAsleepInVoid => UWGameSession.Current != null && UWVoidRulesUw2.IsAsleepInVoid(UWGameSession.Current.PlayerFileUw2);
+
+    /// <summary>Freeze Time is on (TimeStop): Killorn's countdown holds.</summary>
+    private bool mbTimeFrozen;
+
     /// <summary>The real seconds toward the next step down of the paralysis.</summary>
     private float mfParalysisSeconds;
 
@@ -279,6 +285,13 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         mOVitals.DayStepDue += fStepDay;
         mOVitals.StatusPassDue += RequestStatusPass;
 
+        // The view's flash of a landed request (a creature's critical, the curse, the leech, drowning), as UWCharacter
+        // shows it in the first game (per user, 2026-11-17: no red flash when hit), and the combat music (phase 5 part B).
+        mOVitals.Damaged += fOnDamaged;
+
+        // A creature the player killed: the victory theme (player_killed_a, COMBAT.C:940; UW2 plan phase 5 part B).
+        mOVitals.KillRewarded += fOnKill;
+
         // G3 part H5: the level's share of the 30-tick block (duration_check, uw2 PLAYTIME.C:139) - the wandering
         // monsters' one-in-four roll (DoWanderingMonsters(1), out of the player's reach) and yearly_checkup.
         mOVitals.FiveMinuteBlockDue += fOnFiveMinuteBlock;
@@ -288,11 +301,18 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         {
             if (UWScene.PlayerTerrain != null)
                 UWScene.PlayerTerrain.RunSwimCheck();
+
+            // duration_check's next two (G6): Killorn's countdown and the Void's sleep.
+            fKillornCountdown();
+
+            if (UWVoidRulesUw2.TickSleep(mOFile))
+                UWSleepUw2.WakeFromVoid();
         };
         mOVitals.ActiveSpellsChanged += (pbHastened, pbRoamingSight, pbTimeFrozen, pbTelekinesis) =>
         {
             mbSpellsChanged = true;
             mbRoaming = pbRoamingSight;
+            mbTimeFrozen = pbTimeFrozen;
         };
         UWCombatVariantUw2.PlayerArmour = GetArmourAt;
         mOVitals.Initialise(pOData, UWPlayerVitals.StartValues.Default, UWPlayerData.FromSecondGame(pOFile));
@@ -360,10 +380,59 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         return true;
     }
 
-    /// <summary>The hour; the schedules that run on it come with phase 4's list item 6.</summary>
+    private void fOnDamaged(UWDamageRequest pORequest, UWDamageOutcome pOOutcome)
+    {
+        // damage_critter on the player by someone (a creature's blow, a miss's 0 included, or a missile, his own too):
+        // the danger or combat theme - not when it killed him (crit_die returns first, AI.C:1505).
+        if (pORequest.TellsMusic && !pOOutcome.Died)
+            UWAudioService.Uw2PlayerDamaged(mOVitals.CurrentHP, mOVitals.MaxHP);
+
+        if (!pOOutcome.Landed || pORequest.FlashColour == UWDamageRequest.NoFlash)
+            return;
+
+        UWWorld lOWorld = UWWorld.Of(UWScene.LevelLoader);
+
+        if (lOWorld != null)
+            lOWorld.Presentation.FlashWindow(pORequest.FlashColour, pORequest.FlashSeconds);
+    }
+
+    /// <summary>player_killed_a: the victory theme for every creature the player kills, reward or not.</summary>
+    private void fOnKill(bool pbRewarded)
+    {
+        UWAudioService.Uw2Request(UWMusicSelectorUw2.VictoryTheme);
+    }
+
+    /// <summary>Killorn's countdown (UWVoidRulesUw2.KillornCountdown): the shake each check, at the end the crash, the
+    /// schedules and 0xFF to the player.</summary>
+    private void fKillornCountdown()
+    {
+        UWVoidRulesUw2.CountdownEnum leStep = UWVoidRulesUw2.KillornCountdown(mOFile, mbTimeFrozen);
+
+        if (leStep == UWVoidRulesUw2.CountdownEnum.None)
+            return;
+
+        UWScreenShake lOShake = UWScreenShake.Ensure();
+
+        if (lOShake != null)
+            lOShake.Shake(UWScreenShake.LargeChannel, UWVoidRulesUw2.CountdownShake);
+
+        if (leStep != UWVoidRulesUw2.CountdownEnum.Crash)
+            return;
+
+        Debug.Log("[Walk] Killorn Keep crashes.");
+        UWScheduleHostUw2.RunAll();
+
+        UWWorld lOWorld = UWWorld.Of(UWScene.LevelLoader);
+
+        if (lOWorld != null)
+            lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Plain(UWVoidRulesUw2.CrashDamage, UWDamageTypes.None)));
+    }
+
+    /// <summary>The hour: X clock 0 one step on, and block 0 of the schedules run up to it (PLAYTIME.C:155, G6 part 1).</summary>
     private void fStepDay()
     {
         UWPlayerRecordUw2.StepDayClock(mOFile);
+        UWScheduleHostUw2.StepDay();
     }
 
     /// <summary>A failed sip, or waking from the drink.</summary>
@@ -411,6 +480,18 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         UWPlayerRecordUw2.WriteDrink(mOFile, mOVitals.Intoxication, mOVitals.Hallucination);
         UWPlayerRecordUw2.WriteActiveSpells(mOFile, mOVitals.ActiveSpells);
         UWPlayerRecordUw2.WriteExperience(mOFile, mOVitals.Experience, mOVitals.Level, mOVitals.SkillPoints, mOVitals.SkillPointsTotal);
+    }
+
+    /// <summary>A skill raised in a conversation (x_skills, G5 part 1): the twenty skills, the maxima player_compute gave
+    /// and the skill points into the record, which the save, the panel and the next conversation read.</summary>
+    public void WriteSkillsToRecord()
+    {
+        if (mOFile == null || mOVitals == null)
+            return;
+
+        UWPlayerRecordUw2.WriteSkills(mOFile, mOVitals.GetSkillByNumber);
+        UWPlayerRecordUw2.WriteMaxima(mOFile, mOVitals.MaxHP, mOVitals.MaxMana);
+        WriteToRecord();
     }
 
     // ------------------------------------------------- IUWVitalsHost

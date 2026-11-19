@@ -137,6 +137,12 @@ namespace UWDataImport.UWData
 			fText(PointerSpeed, true);
 			PointerSpeed.Format = UWSettingFormat.Percent;
 			fText(WalkSlowToggle);
+			fText(AutoKey, true);
+			fText(ModernFont, true);
+			fText(ModernPointerHold, true);
+			fText(FreeOpensCharacter, true);
+			fText(FreeOpensRunes);
+			fText(FreeOpensBags);
 			fText(DebugKeys, true);
 
 			// The gamepad.
@@ -260,7 +266,7 @@ namespace UWDataImport.UWData
 		{
 			fText(ModernUiPercent);
 			ModernUiPercent.Format = UWSettingFormat.WholePercent;
-			fText(InterfaceFont);
+			fText(InterfaceFont, true);
 			fChoices(InterfaceFont, new[] { "modern", "original" });
 
 			fText(MinimapHidden);

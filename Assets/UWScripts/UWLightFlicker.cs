@@ -78,6 +78,27 @@ public class UWLightFlicker : MonoBehaviour
     /// property block - critters, for example, keep their current frame in it.
     /// Hence read first, then write.
     /// </summary>
+    /// <summary>A light source's own glow threshold (UWLightSourceTable.Row.GlowThreshold), set once when its light is
+    /// made; 0 leaves the material's.</summary>
+    public static void SetGlowThreshold(Renderer[] pORenderers, float pfThreshold, ref MaterialPropertyBlock pOBlock)
+    {
+        if (pORenderers == null || pfThreshold <= 0f)
+            return;
+
+        if (pOBlock == null)
+            pOBlock = new MaterialPropertyBlock();
+
+        foreach (Renderer lORenderer in pORenderers)
+        {
+            if (lORenderer == null)
+                continue;
+
+            lORenderer.GetPropertyBlock(pOBlock);
+            pOBlock.SetFloat(UWShaderIds.GlowThreshold, pfThreshold);
+            lORenderer.SetPropertyBlock(pOBlock);
+        }
+    }
+
     public static void SetGlow(Renderer[] pORenderers, float pfGlow, ref MaterialPropertyBlock pOBlock)
     {
         if (pORenderers == null)

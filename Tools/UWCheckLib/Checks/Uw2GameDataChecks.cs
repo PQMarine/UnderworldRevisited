@@ -445,6 +445,16 @@ namespace UnderworldRevisited.Tools
                 // failed the first save with something carried).
                 + " " + lOBack.CountWord + " " + lOBack.Workspace.Length,
                 "7F-20-00-6C-00-00-00-00-23-00-00-00-00-00-00-00-00-00-00-00-00-01-00-4F-00-00-FD | Tester 5 3 True True 25/15/14 35 35 3 1 625 9,7,0,8 465000 1 0 1 99");
+
+            // Part C: a save's place goes into the player object too, as a DOS save of 2026-11-16 has it (record 30/42 fine
+            // 35/241, z 646, facing 32497 -> object word 2 zpos 80 heading 3 fine 1/7, tile 30/42 at 0x16).
+            UWPlayerRecordUw2.WritePosition(lONew, (30 << 8) | 35, (42 << 8) | 241, 646, 32497, 1);
+            int liPos = UWBinary.ReadU16(lONew.Workspace, UWPlayerRecordUw2.PlayerPosOffset);
+            int liHome = UWBinary.ReadU16(lONew.Workspace, UWPlayerRecordUw2.PlayerHomeOffset);
+
+            Check.Str("a save's place in the player object: zpos heading finex finey | tile x/y | low bits kept",
+                (liPos & 0x7F) + " " + ((liPos >> 7) & 7) + " " + ((liPos >> 13) & 7) + " " + ((liPos >> 10) & 7) + " | "
+                + ((liHome >> 10) & 0x3F) + "/" + ((liHome >> 4) & 0x3F) + " | " + (liHome & 0xF), "80 3 1 7 | 30/42 | 0");
         }
 
         /// <summary>

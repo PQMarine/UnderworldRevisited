@@ -26,6 +26,9 @@ namespace UWDataImport.UWData
 		/// <summary>One line the recording says otherwise.</summary>
 		public sealed class Change
 		{
+			/// <summary>The game whose cutscene it is (the second game's since UW2 plan phase 5 part D).</summary>
+			public UWGame Game = UWGame.Uw1;
+
 			public int Cutscene;
 
 			public int Index;
@@ -40,6 +43,11 @@ namespace UWDataImport.UWData
 		private static Change fChange(int piCutscene, int piIndex, uint puCheck, params string[] psEdits)
 		{
 			return new Change { Cutscene = piCutscene, Index = piIndex, WrittenCheck = puCheck, Edits = psEdits };
+		}
+
+		private static Change fChangeUw2(int piCutscene, int piIndex, uint puCheck, params string[] psEdits)
+		{
+			return new Change { Game = UWGame.Uw2, Cutscene = piCutscene, Index = piIndex, WrittenCheck = puCheck, Edits = psEdits };
 		}
 
 		private static readonly Change[] msChanges =
@@ -59,25 +67,81 @@ namespace UWDataImport.UWData
 			fChange(0, 25, 0xF4455148, "piercing blue", "hard gray"),
 			fChange(0, 33, 0x3BF9A8B0, "the comings of", "the coming of"),
 			fChange(0, 38, 0x6A4241B7, "thy lies", "then thy lies"),
-			fChange(0, 40, 0xCF2AEDF8, "until Arial's voice do I hear", "till I hear Arial's voice")
+			fChange(0, 40, 0xCF2AEDF8, "until Arial's voice do I hear", "till I hear Arial's voice"),
+
+			// THE SECOND GAME (UW2 plan phase 5 part D; transcribed with faster-whisper and confirmed by the user by
+			// listening, 2026-11-17). The first castle dream (CS030, BSP00): one recording for the four lines.
+			fChangeUw2(24, 1, 0xACD24175, "friends", "associates"),
+			fChangeUw2(24, 2, 0xBC56BD8E, "near Cove", "on Cove"),
+			fChangeUw2(24, 3, 0xD89B1117, "Wish thou", "As it is said on your world, wish thou"),
+
+			// The fourth castle dream (CS033, BSP04): the recording begins otherwise and does not say the second line.
+			fChangeUw2(27, 0, 0x906E30B3, "I shall", "Patience, Avatar, I shall", ", Avatar.", "."),
+			fChangeUw2(27, 1, 0x5FE44E02, WholeLine, string.Empty)
 		};
+
+		/// <summary>When a recording reaches a later line it speaks (the dreams' 998 lines), in seconds from its start:
+		/// the port's subtitles with speech show the line then, not at the script's frame, which paces the text for
+		/// reading without speech (per user 2026-11-17: the dream's lines came some seconds after the voice). Word
+		/// times by faster-whisper, 2026-11-17.</summary>
+		public sealed class Timing
+		{
+			public UWGame Game;
+
+			public int Cutscene;
+
+			public int Index;
+
+			public float Seconds;
+		}
+
+		private static readonly Timing[] msTimings =
+		{
+			new Timing { Game = UWGame.Uw2, Cutscene = 24, Index = 1, Seconds = 1.7f },
+			new Timing { Game = UWGame.Uw2, Cutscene = 24, Index = 2, Seconds = 5.25f },
+			new Timing { Game = UWGame.Uw2, Cutscene = 24, Index = 3, Seconds = 8.7f },
+			new Timing { Game = UWGame.Uw2, Cutscene = 25, Index = 1, Seconds = 3.6f }
+		};
+
+		/// <summary>The lines a recording speaks after its first, with their times (see Timing).</summary>
+		public static IEnumerable<Timing> TimingsOf(UWGame peGame, int piCutscene)
+		{
+			foreach (Timing lOTiming in msTimings)
+			{
+				if (lOTiming.Game == peGame && lOTiming.Cutscene == piCutscene)
+					yield return lOTiming;
+			}
+		}
+
+		/// <summary>An edit whose written words are the whole line: the line becomes what is said instead (nothing
+		/// where the recording does not say it).</summary>
+		public const string WholeLine = "";
 
 		/// <summary>The subtitle for a line spoken by its recording: what is said, where it differs from the
 		/// English text and the text is still that English one; else the text as it is.</summary>
 		public static string Subtitle(int piCutscene, int piIndex, string psText)
+		{
+			return Subtitle(UWGame.Uw1, piCutscene, piIndex, psText);
+		}
+
+		/// <summary>The same for either game's cutscenes.</summary>
+		public static string Subtitle(UWGame peGame, int piCutscene, int piIndex, string psText)
 		{
 			if (string.IsNullOrEmpty(psText))
 				return psText;
 
 			foreach (Change lOChange in msChanges)
 			{
-				if (lOChange.Cutscene != piCutscene || lOChange.Index != piIndex)
+				if (lOChange.Game != peGame || lOChange.Cutscene != piCutscene || lOChange.Index != piIndex)
 					continue;
 
 				if (Check(psText) != lOChange.WrittenCheck)
 					return psText;
 
 				string lsText = psText.Trim();
+
+				if (lOChange.Edits.Length == 2 && lOChange.Edits[0] == WholeLine)
+					return lOChange.Edits[1];
 
 				for (int i = 0; i + 1 < lOChange.Edits.Length; i += 2)
 				{

@@ -4,7 +4,7 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// THE SECOND GAME'S COMBAT STEPS (UW2 plan phase 4), from Underworld Exhumed's uw2 combat/COMBAT.C and DAMAGE.C.
-	/// The special weapons' powers wait for the spells they cast.
+	/// The special weapons' powers fire after a hit (SpecialWeapon, PowerFires; the deeds in UWAttackUw2.WeaponPowerOnHit).
 	/// </summary>
 	public sealed class UWCombatVariantUw2 : IUWCombatVariant
 	{
@@ -88,6 +88,42 @@ namespace UWDataImport.UWData
 				piAccuracy = (piMinor * 2) - 7;
 		}
 
+		/// <summary>DoPlayerWeapon's specweap: effect - 7 for a weapon enchantment of effect 8 and up, 0 otherwise.</summary>
+		public int SpecialWeapon(int piMajor, int piMinor)
+		{
+			return piMajor == WeaponEnchantmentClass && piMinor >= PlainEnchantments ? piMinor - (PlainEnchantments - 1) : 0;
+		}
+
+		// ------------------------------------------------- The special weapons' powers (player_attack, COMBAT.C:790)
+
+		/// <summary>Heals the player by the damage done (get_hp_back).</summary>
+		public const int HealPower = 1;
+
+		/// <summary>sp_ward_undead on the target.</summary>
+		public const int WardUndeadPower = 2;
+
+		/// <summary>A fireball on the target's square: the explosion, its flames and damage_square kind 1.</summary>
+		public const int FireballPower = 3;
+
+		/// <summary>sp_hold on the target.</summary>
+		public const int HoldPower = 4;
+
+		/// <summary>On a door: the Open spell's lock pick (obj_spells 0xC), then OpenDoor.</summary>
+		public const int OpenDoorPower = 5;
+
+		/// <summary>As OpenDoorPower, and it fires on every hit, not only a critical.</summary>
+		public const int EveryHitPower = 6;
+
+		/// <summary>
+		/// WHETHER THE POWER FIRES after a hit (player_attack: do_attack() and specweap and (criti or specweap == 6)). criti
+		/// is UWAttackResolution.LastCritical, the original's flag: on a door it keeps the last creature roll's value, so
+		/// power 5 opens a door only when that happens to be set (as the original; no shipped weapon has power 5).
+		/// </summary>
+		public static bool PowerFires(int piPower, bool pbCritical)
+		{
+			return piPower > 0 && (pbCritical || piPower == EveryHitPower);
+		}
+
 		/// <summary>rand() % (poison + 6) must beat twice the armour at the hit (COMBAT.C:911).</summary>
 		public bool PoisonGetsThrough(in UWAttackerStats pOAttacker, in UWAttackOutcome pOOutcome)
 		{
@@ -154,6 +190,28 @@ namespace UWDataImport.UWData
 		/// played the miss's 0xA until 2026-11-12 (per user: the imps' Magic Arrow sounded like a missed blow).</summary>
 		public int SpellMissileLaunchSound(int piProjectileId) => piProjectileId == 0x16 || piProjectileId == 0x1C ? UWSoundEffectId.Miss : 0x28;
 
+		/// <summary>See IUWCombatVariant.MissileLaunchVolume.</summary>
+		public int MissileLaunchVolume(int piLaunchSound, int piProjectileId)
+		{
+			if (piLaunchSound == ThrowLaunchSound)
+				return 0;
+
+			if (piLaunchSound == UWSoundEffectId.Miss && (piProjectileId == 0x16 || piProjectileId == 0x1C))
+				return 0;
+
+			return LaunchVolume;
+		}
+
+		/// <summary>missile_fire's own sound for a throw (neither bow nor spell): 0x1C at its plain volume.</summary>
+		private const int ThrowLaunchSound = 0x1C;
+
+		private const int LaunchVolume = 0x14;
+
+		/// <summary>fill_FB(0x23) on a critical against the player (COMBAT.C:332).</summary>
+		public const int CriticalFlash = 0x23;
+
+		public int CriticalFlashColour => CriticalFlash;
+
 		/// <summary>The pile, for what names no item.</summary>
 		public int RollDebris()
 		{
@@ -192,6 +250,16 @@ namespace UWDataImport.UWData
 		{
 			return piWeaponKind == SharpWeapon ? SharpHitSound : UWSoundEffectId.HitCritter;
 		}
+
+		public int OtherHitSound(int piPlayersLastWeaponKind)
+		{
+			return MeleeHitSound(piPlayersLastWeaponKind);
+		}
+
+		/// <summary>GetPlayerWeapon's other kinds: a bow or sling with its ammunition (3), without (4).</summary>
+		public const int LauncherWeapon = 3;
+
+		public const int LauncherWithoutAmmunition = 4;
 
 		public int WallSound(int piWeaponKind)
 		{

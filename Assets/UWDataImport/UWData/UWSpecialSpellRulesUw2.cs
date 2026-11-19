@@ -57,6 +57,11 @@ namespace UWDataImport.UWData
 
 		public const int CutSoundB = 0x2A;
 
+		/// <summary>What the two sounds add to their own volume (SPELLS2.C:809-810).</summary>
+		public const int CutVolumeA = 0x28;
+
+		public const int CutVolumeB = 0x14;
+
 		public static bool IsBuilt(int piMinor)
 		{
 			return piMinor != MindBlastSpell;
@@ -259,8 +264,9 @@ namespace UWDataImport.UWData
 
 			if (lbCut)
 			{
-				pIHost.World.Presentation.PlaySoundAtPlayer(CutSoundA);
-				pIHost.World.Presentation.PlaySoundAtPlayer(CutSoundB);
+				// play_effect_here(0x12, 0x40, 0x28) and (0x2A, 0x40, 0x14): louder than their entries (sound audit).
+				pIHost.World.Presentation.PlaySoundAtPlayer(CutSoundA, CutVolumeA);
+				pIHost.World.Presentation.PlaySoundAtPlayer(CutSoundB, CutVolumeB);
 			}
 			else
 				pIHost.World.Presentation.AddGeneralMessage(UWExtraSpellRulesUw2.NoEffectString);

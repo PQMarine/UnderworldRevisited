@@ -33,6 +33,8 @@ Shader "UW/Billboard"
         // Set for creatures (UWCritterAnimator) and items (UWLevelLoader), see UWOwnTile.hlsl.
         [Toggle(_UW_OWN_TILE)] _OwnTile ("Own tile does not cover", Float) = 0
         [HideInInspector] _BigRadius ("A big object's radius in eighths (creatures), 0 for items", Float) = 0
+        [HideInInspector] _KeyBonus ("Added to the painter sort key (-1 for animations)", Float) = 0
+        [HideInInspector] _ChainIndex ("Place in the tile's chain, for ties with 3D models (63 = last)", Float) = 63
 
         // Translucent sprites (mist, ghosts - see UWTransparencyTables) need
         // real blending instead of the hard alpha cutoff. So that no second shader
@@ -82,7 +84,8 @@ Shader "UW/Billboard"
             #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "UWOwnTile.hlsl"
+            // The own-tile rule, and the painter's model order for a tile with a 3D model (UWPainterModelAfterSprite).
+            #include "UWPainterOrder.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareOpaqueTexture.hlsl"
             #include "UWHallucination.hlsl"
@@ -103,6 +106,8 @@ Shader "UW/Billboard"
                 float _DepthBias;
                 float _OwnTile;
                 float _BigRadius;
+                float _KeyBonus;
+                float _ChainIndex;
                 float _SrcBlend;
                 float _DstBlend;
                 float _ZWrite;
@@ -204,7 +209,15 @@ Shader "UW/Billboard"
                 if (UWOwnTileBehindRock(IN.positionWS, IN.pivotWS))
                     discard;
 
-                outDepth = UWOwnTileSpriteDepth(IN.positionWS, IN.pivotWS, IN.pivotWS.y, IN.positionCS.z, _BigRadius);
+                // UNDER A BRIDGE'S DECK (per user 2026-11-19, UW1 SAVE3: a spider below a bridge showed through it in
+                // Remastered): the palette path's geometric rule (UWPainterUnderDeck) - the deck covers its whole tile.
+                if (UWPainterUnderDeck(IN.positionCS.xy, IN.pivotWS))
+                    discard;
+
+                // A model of its tile painted after it covers it where nearer: the true depth in the own-tile box.
+                outDepth = UWPainterModelAfterSprite(IN.pivotWS, _BigRadius, _KeyBonus, _ChainIndex)
+                    ? UWOwnTileDepthBesideTrue(IN.positionWS, IN.pivotWS, IN.pivotWS.y, IN.positionCS.z)
+                    : UWOwnTileSpriteDepth(IN.positionWS, IN.pivotWS, IN.pivotWS.y, IN.positionCS.z, _BigRadius);
                 #endif
 
                 // THE HALLUCINATION AND THE GHOSTS (UWHallucination.hlsl), where the atlas has an
@@ -337,7 +350,8 @@ Shader "UW/Billboard"
             #pragma multi_compile_local _ _UW_OWN_TILE
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "UWOwnTile.hlsl"
+            // The own-tile rule, and the painter's model order for a tile with a 3D model (UWPainterModelAfterSprite).
+            #include "UWPainterOrder.hlsl"
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
@@ -352,6 +366,8 @@ Shader "UW/Billboard"
                 float _DepthBias;
                 float _OwnTile;
                 float _BigRadius;
+                float _KeyBonus;
+                float _ChainIndex;
                 float _SrcBlend;
                 float _DstBlend;
                 float _ZWrite;
@@ -445,7 +461,15 @@ Shader "UW/Billboard"
                 if (UWOwnTileBehindRock(IN.positionWS, IN.pivotWS))
                     discard;
 
-                outDepth = UWOwnTileSpriteDepth(IN.positionWS, IN.pivotWS, IN.pivotWS.y, IN.positionCS.z, _BigRadius);
+                // UNDER A BRIDGE'S DECK (per user 2026-11-19, UW1 SAVE3: a spider below a bridge showed through it in
+                // Remastered): the palette path's geometric rule (UWPainterUnderDeck) - the deck covers its whole tile.
+                if (UWPainterUnderDeck(IN.positionCS.xy, IN.pivotWS))
+                    discard;
+
+                // A model of its tile painted after it covers it where nearer: the true depth in the own-tile box.
+                outDepth = UWPainterModelAfterSprite(IN.pivotWS, _BigRadius, _KeyBonus, _ChainIndex)
+                    ? UWOwnTileDepthBesideTrue(IN.positionWS, IN.pivotWS, IN.pivotWS.y, IN.positionCS.z)
+                    : UWOwnTileSpriteDepth(IN.positionWS, IN.pivotWS, IN.pivotWS.y, IN.positionCS.z, _BigRadius);
                 #endif
 
                 return 0;

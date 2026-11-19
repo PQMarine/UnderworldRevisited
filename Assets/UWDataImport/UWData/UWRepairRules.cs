@@ -128,6 +128,29 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool TryGetQuestion(UWObject pOItem, DataImport pOData, int piRepairSkill, out string psQuestion)
 		{
+			return TryGetQuestion(pOItem, pOData, piRepairSkill, UWGame.Uw1, out psQuestion);
+		}
+
+		/// <summary>
+		/// THE SECOND GAME'S STRINGS (2026-11-18, the anvil, uses part 2): repair_item, get_rep_diff and do_repair are the
+		/// first game's in uw2 event/WORLDEV.C (the rules the same, compared line by line), the lines elsewhere in block 1:
+		/// the estimate 0xE7, 0xE8, 0xE9 and the words from 0xEA, the outcomes from 0x9C (the first game's 0xD8, 0xD9, 0xDA,
+		/// 0xDB and 0x8E). The second game plays no anvil cutscene and passes the time with pass_time (the caller's).
+		/// </summary>
+		public static int CannotRepairMessageOf(UWGame peGame) => peGame == UWGame.Uw2 ? Uw2CannotRepairMessage : CannotRepairMessage;
+
+		private const int Uw2RepairEstimatePrefix = 0xE7 + 1;
+
+		private const int Uw2RepairEstimateInfix = 0xE8 + 1;
+
+		private const int Uw2RepairEstimateSuffix = 0xE9 + 1;
+
+		private const int Uw2FirstRepairDifficultyWord = 0xEA + 1;
+
+		public const int Uw2CannotRepairMessage = 0x9C + 1;
+
+		public static bool TryGetQuestion(UWObject pOItem, DataImport pOData, int piRepairSkill, UWGame peGame, out string psQuestion)
+		{
 			psQuestion = null;
 
 			int liDurability = GetDurability(pOItem, pOData);
@@ -139,7 +162,7 @@ namespace UWDataImport.UWData
 
 			int liWord = liScore < 0 ? 0 : (liScore > 30 ? 4 : 1 + (liScore / 10));
 
-			psQuestion = EstimateQuestion(pOData, pOItem.ID, liWord);
+			psQuestion = EstimateQuestion(pOData, pOItem.ID, liWord, peGame);
 
 			return true;
 		}
@@ -147,11 +170,14 @@ namespace UWDataImport.UWData
 		/// <summary>The estimate's question: "You think it will be ", the word (piWord 0 "trivial" to
 		/// 4 "very difficult"), " to repair the ", the name and the question - pieces of block 1, in
 		/// the frame msg.repair.estimate (translation step 3A), the name in the accusative.</summary>
-		public static string EstimateQuestion(DataImport pOData, int piObjectId, int piWord)
+		public static string EstimateQuestion(DataImport pOData, int piObjectId, int piWord, UWGame peGame = UWGame.Uw1)
 		{
-			return UWText.Sentence(pOData, "msg.repair.estimate", fFragment(pOData, RepairEstimatePrefix),
-				fFragment(pOData, FirstRepairDifficultyWord + piWord), fFragment(pOData, RepairEstimateInfix),
-				UWText.TheObject(pOData, piObjectId, UWGrammarCase.Accusative), fFragment(pOData, RepairEstimateSuffix));
+			bool lbUw2 = peGame == UWGame.Uw2;
+
+			return UWText.Sentence(pOData, "msg.repair.estimate", fFragment(pOData, lbUw2 ? Uw2RepairEstimatePrefix : RepairEstimatePrefix),
+				fFragment(pOData, (lbUw2 ? Uw2FirstRepairDifficultyWord : FirstRepairDifficultyWord) + piWord),
+				fFragment(pOData, lbUw2 ? Uw2RepairEstimateInfix : RepairEstimateInfix),
+				UWText.TheObject(pOData, piObjectId, UWGrammarCase.Accusative), fFragment(pOData, lbUw2 ? Uw2RepairEstimateSuffix : RepairEstimateSuffix));
 		}
 
 		/// <summary>The number of difficulty words of the estimate.</summary>
@@ -159,9 +185,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>The line of an attempt's outcome: the outcome's string of block 1 and, but for
 		/// NotRepairable, the item's name (accusative) and a full stop - the frame msg.repair.result.</summary>
-		public static string ResultMessage(DataImport pOData, OutcomeEnum peOutcome, int piObjectId)
+		public static string ResultMessage(DataImport pOData, OutcomeEnum peOutcome, int piObjectId, UWGame peGame = UWGame.Uw1)
 		{
-			string lsMessage = fMessage(pOData, CannotRepairMessage + (int)peOutcome);
+			string lsMessage = fMessage(pOData, CannotRepairMessageOf(peGame) + (int)peOutcome);
 
 			if (peOutcome == OutcomeEnum.NotRepairable)
 				return lsMessage;
@@ -206,7 +232,7 @@ namespace UWDataImport.UWData
 		/// reference has Math.Min there, which would cap it at 15 instead. Taken before the roll,
 		/// from the quality before the attempt, and whatever the outcome.
 		/// </summary>
-		public static Result Attempt(UWObject pOItem, DataImport pOData, int piRepairSkill)
+		public static Result Attempt(UWObject pOItem, DataImport pOData, int piRepairSkill, UWGame peGame = UWGame.Uw1)
 		{
 			Result lOResult = new Result();
 
@@ -219,7 +245,7 @@ namespace UWDataImport.UWData
 			if (liDurability == -1)
 			{
 				lOResult.Outcome = OutcomeEnum.NotRepairable;
-				lOResult.Message = fMessage(pOData, CannotRepairMessage);
+				lOResult.Message = fMessage(pOData, CannotRepairMessageOf(peGame));
 
 				return lOResult;
 			}
@@ -235,7 +261,7 @@ namespace UWDataImport.UWData
 
 			lOResult.Outcome = leOutcome;
 			lOResult.Destroyed = leOutcome == OutcomeEnum.Destroyed;
-			lOResult.Message = ResultMessage(pOData, leOutcome, pOItem.ID);
+			lOResult.Message = ResultMessage(pOData, leOutcome, pOItem.ID, peGame);
 
 			return lOResult;
 		}

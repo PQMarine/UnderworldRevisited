@@ -10,7 +10,15 @@ Decisions 2 to 4 taken 2026-10-28 (as proposed); PHASE 1 COMPLETE 2026-10-29 (th
 and LZSS both ways, LEV.ARK per game, PLAYER.DAT, schedules, light, screens, sounds, music, 3D models,
 the tools, UE's vectors). PHASE 2 COMPLETE 2026-10-29 (a walk through Britannia: UW2's data and
 world, its levels in Unity, walking with its motion, doors, level changes, saving and loading both ways
-with the original - confirmed in the game by the user). Phase 3 (the screen and the hands) is next. Written 2026-10-27 from a read of
+with the original - confirmed in the game by the user). STATE 2026-11-19 (header corrected, it still
+said phase 3 was next): phases 0-4 complete (G0-G6), phase 5 parts A-D confirmed 2026-11-18; built and
+confirmed 2026-11-19: the special weapons' powers, held creatures ignore blows (goal 15), the portcullis
+takes blows, the inventory look's Lore target 8. Next: 5E (a full play-through against the original),
+THE MODERN INTERFACE FOR UW2 (decided per user 2026-11-19: before the beta - what phase 3 step 8 built is a
+stopgap, UWModernHudUw2; missing are the first game's windows: the character and rune panels, the bag windows,
+the presets Modern, Classic Modular and Classic Wide, the layout editor, the backs, the automatic key, the
+windows with the free pointer, the [MORE] details 86.2/86.3), then the beta gate (the classic scheme against
+the original, phase 6), phase 6's docs, then the second cleanup as a long branch. Written 2026-10-27 from a read of
 [Underworld Exhumed](https://github.com/abedegno/underworld-exhumed) (UE, at commit e5deadd) and a
 read-only survey of this repository's code. Line numbers in UE are its own and will drift; the
 routine and file names will not. Comes after the points under *Next* in
@@ -665,7 +673,9 @@ art is not found (UW2's own format). The rest loads. The steps:
    kept) and gives it back in the write-back (`phys_affect_player`: lasth/lasts, the head-on stop only
    off the ice and without a current, the view's follow only while nothing pushes). The floor words
    come from the host (`TerrainWordAt`). Original and Smooth run it (Smooth's ice strength per original
-   frame); MODERN's own motor does not yet. DEVIATIONS: the skid effect (`set_effect(0x80, 4)`) is not
+   frame); MODERN's own motor does not yet (BUILT, stale entry corrected 2026-11-19: Modern's ice strength
+   and wall bounce built 2026-11-14, `UWPlayerMotion.fIceStrength` and `UWCharacterMotor.WallBounce` on
+   `State.Ice`). DEVIATIONS: the skid effect (`set_effect(0x80, 4)`) is not
    made; on flat ice the original's push angle is an uninitialised local, ours 0. The walk's debug jump
    (Shift+F7 "level,X,Y") builds the level and stands the player there. Test spots (measured): ice
    level 33 tile 34/31 and level 42 tile 16/29 (grip 0), level 25 is mostly grip 7 (no effect);
@@ -836,7 +846,10 @@ step by step: from step 2 on it has a character, from step 5 on a new game makes
    rectangles, the model's fitting, stacking, combining, swapping), an empty weapon hand toggles the
    fight, the right button looks; the object on the pointer is its picture. Not yet: the stack's "Move
    how many?", food into the head's place, the lights' lit ids, UW2's combining rule (any listed pair),
-   the carrying limit (CanCarry needs the first game's player data). Saving the moved inventory is part D.
+   the carrying limit (CanCarry needs the first game's player data) (BUILT but the combining rule, stale
+   entry corrected 2026-11-19: `UWGameScreenUw2.AskCount`, `UWFoodUw2.IsEatenFromHead`,
+   `UWItemUse.ToggleLight` from the UW2 screen, `UWInventoryVariantUw2.CarryLimit`; UW2's combining rule
+   still open). Saving the moved inventory is part D.
    PART B BUILT 2026-10-29 (e0274bd9), CONFIRMED in the game by the user the same day after b21211c9 (carried objects got no picture and vanished when dropped): picking up and putting down are the same code in
    both games (UE player_3dget, ReturnObject) but for strings and UW2's pressure plates. The right button
    in the view: with an object on the pointer it is dropped in front (UWPlayerThrow.TryFindDropSpot, lifted
@@ -844,7 +857,10 @@ step by step: from step 2 on it has a character, from step 5 on a new game makes
    command or Look a drag takes and a release looks (mous_in_3d's "look and drag to get") - within the
    hand's reach (UWReachRules.CanReach; too far says 0x6A), the thing out of its tile onto the pointer, a
    container with its contents. Not yet: the terrain between (BlockingTerrain), the weight limit, theft,
-   moonstones, pick-up triggers and pressure plates, the throw - the second game's rules (phase 4).
+   moonstones, pick-up triggers and pressure plates, the throw - the second game's rules (phase 4) (BUILT
+   but the terrain between, stale entry corrected 2026-11-19: `UWWalkUw2View.fTakeCount` checks
+   CanCarry, the theft, the moonstone, the pick-up trigger and the plates (G3 part H4), `fTryThrow` throws;
+   the terrain between the hand and the thing is still not tested).
    PART C1 BUILT 2026-10-29 (c65e80d2), CONFIRMED in the game by the user the same day with the arrow fix 1becce45 (nested bags, the rune bag refusing other things; key ring and quiver not yet tried): the bag code is the same in both games (UE
    BAGS.C) over other numbers. `IUWInventoryVariant.MatchesContainerMask` (UW1 through UWContainerCapacity
    unchanged; UW2 by ItemFitsSlot: key ring 0x8C keys and key rings, quiver 0x8D missiles and wands, scroll
@@ -928,7 +944,7 @@ step by step: from step 2 on it has a character, from step 5 on a new game makes
 6. **The map**: `BYT.ARK` block 0, three pixels a tile in UW2's automap byte order (the painter is
    UW1's today), the gem choosing a world (Britannia and eight worlds, 6 and 7 swapped, only those
    visited lit), the level arrows within a world, the level number, the notes (100 a level, 46
-   characters, `FONT_4X5P`), the eraser; the automap that can be off and the map scraps. PART A BUILT 2026-10-30 (UWAutomapScreenUw2, UWMapScreenUw2): the screen, the tiles (UWAutomapPainter with UWGame.Uw2: ice, three colours), the gem, the corners, closing; opened with M and by using the map; user-confirmed. PART B BUILT 2026-10-30: the notes on UWMapNotesModel and UWMapNoteRules (the first game's, note->x/y = mx/my + 2 here), the eraser, the level number, the pen and eraser as the game screen's pointer, either button acting; check MapScreenUw2; user-confirmed with the cursors in the map's palette. FOUND 2026-10-31 by the user's test: UWPlayerTerrain, which writes the automap, was made only with the first game's interface, so the walk wrote nothing and the flag never came back; made in fStartUw2 now, its automap part only. PART C BUILT 2026-10-30 (UWAutomapStateUw2): the flag and map_scrap in the record, the map opening on the scrap's level with no arrow while off, drawn tiles not written then, the teleport trap's bit, the Void, player_newsq, the bit of a map (eight in the shipped file, pages 74 and 79). Left for the rules of phase 4: the scrap's experience, Locate, waking from the Void, the crystal ball.
+   characters, `FONT_4X5P`), the eraser; the automap that can be off and the map scraps. PART A BUILT 2026-10-30 (UWAutomapScreenUw2, UWMapScreenUw2): the screen, the tiles (UWAutomapPainter with UWGame.Uw2: ice, three colours), the gem, the corners, closing; opened with M and by using the map; user-confirmed. PART B BUILT 2026-10-30: the notes on UWMapNotesModel and UWMapNoteRules (the first game's, note->x/y = mx/my + 2 here), the eraser, the level number, the pen and eraser as the game screen's pointer, either button acting; check MapScreenUw2; user-confirmed with the cursors in the map's palette. FOUND 2026-10-31 by the user's test: UWPlayerTerrain, which writes the automap, was made only with the first game's interface, so the walk wrote nothing and the flag never came back; made in fStartUw2 now, its automap part only. PART C BUILT 2026-10-30 (UWAutomapStateUw2): the flag and map_scrap in the record, the map opening on the scrap's level with no arrow while off, drawn tiles not written then, the teleport trap's bit, the Void, player_newsq, the bit of a map (eight in the shipped file, pages 74 and 79). Left for the rules of phase 4: the scrap's experience, Locate, waking from the Void, the crystal ball (BUILT, stale entry corrected 2026-11-19: `UWGameScreenUw2.fUseMapScrap` pays CopyScrap's experience, `UWExtraSpellRulesUw2` Locate turns the automap on, the Void's world gives it back on leaving (`UWAutomapStateUw2.ChangeLevel`) and the gem's waking turns it on (`UWDeathUw2`), the crystal ball is hack 2 in `UWTrapRulesUw2` on the remote camera, which leaves the player's automap alone).
 7. **Conversations**: `BYT.ARK` block 2, the portraits (`CHARHEAD.GR`, `GHED.GR`, `HEADS.GR`), the
    names, the two scrolls, six trade slots a side with UW2's regions, the VM with UW2's 51 built-ins
    (the nine new ones: `babl_hack`, `give_all_stuff`, `set_sequence`, `switch_pic`, `teleport_player`,
@@ -946,7 +962,8 @@ step by step: from step 2 on it has a character, from step 5 on a new game makes
    answers in the answer scroll, the wisp, the object pictures' black edge, a look from the panel in the
    answer scroll, the partner's goods (35c136ff: UWObjectVariantUw2, the valuable's roll) and AskHowMany in the
    pack, the slots and the world (fe28c123: UWCountAskUw2 on UWCountPrompt, classic scheme only). Left:
-   EncumCheck on taking from a slot, a container's refusal, pause's wait, splitting on the modern scheme
+   EncumCheck on taking from a slot (BUILT, stale entry corrected 2026-11-19: G5,
+   `UWConversationScreenUw2.fTakeCountFromSlot`, "That is too heavy to take."), a container's refusal, pause's wait, splitting on the modern scheme
    (step 8).
 8. **The modern scheme on UW2** (decision 5): the presets, Classic Wide, the bags, the minimap and the
    modern conversation over UW2's art and numbers. SURVEYED 2026-10-30: the UWModern* classes hang on
@@ -1002,7 +1019,10 @@ and ResolveMelee, player_attack's steps read from WEAP.DAT's flags (0x20 lead-in
 0 slash, 1 bash, 2 stab), the power gem on the classic screen, UWCritterRemains for the second game (blood 0xD9 + n,
 corpse always in the eighth world), experience into the record. Target by ray and sphere before the eye; the classic box
 probe needs the first game's character. Open: weapon wear, Valor, special weapons, missiles, blood and shake, eyes,
-creature resistances, the second game's death_check (HasSpecialDeath false), the gem in the modern scheme.
+creature resistances, the second game's death_check (HasSpecialDeath false), the gem in the modern scheme
+(BUILT, stale entry corrected 2026-11-19: `UWAttackUw2` has the wear, Valor, the blood, the eyes, the missiles
+and the special weapons' powers (2026-11-19), `UWVitalsUw2` the combat shake, `UWCombatVariantUw2` the
+resistances, `UWCritterVariantUw2.HasSpecialDeath` true (G6), `UWModernHudUw2` the gem).
 THE PLAYER'S BLOWS, EXPERIENCE AND DEATH CONFIRMED 2026-11-02: the blow, kills, exploring, map scraps and conversations
 pay; UWDeathRulesUw2 and UWDeathUw2 take a ninth of the experience and wake the player by the gem below Britannia, in it
 the game ends. Jail waits for triggers and schedules (it fires a scheduled trigger and needs Lord British's place), and
@@ -1017,7 +1037,9 @@ as reported) found the rest. THE ROOT: in the second game UWScene.Character, Int
 they stand there uninitialised, so a call to them succeeds and reads or writes dead state. The groups, in the order
 to build them:
 
-- G0 WIRING (small, each a few lines, makes built things work; first):
+- G0 WIRING (small, each a few lines, makes built things work; first) (BUILT but F9, stale entry corrected
+  2026-11-19: the setup bar is whole in the walk (`UWSetupMenu`), F7 turns the panel and F8 casts
+  (`UWGameScreenUw2.fChooseCommand`), the wiring spot-checked in the code; only F9 Track is still open in UW2):
   the player read from the idle first-game parts - Acrobat for falls (UWPlayerMovement takes it from UWCharacter,
   Swimming is already the record's), the drawn weapon creatures see (UWCreatureWorld from Interaction; take
   UWPlayerRecordUw2.IsWeaponDrawn), the hallucination palette (UWRenderPathHost from UWCharacter.Vitals), the help's
@@ -1247,30 +1269,125 @@ to build them:
      InBed), hacks 30/31 nothing outside a pit fight (in_pits; inside one not built, G6), the moonstones'
      two places on drop, throw and take (UWMoonstoneRules.OnPutIntoWorldSecondGame, OnTakenFromWorldSecondGame). G4 IS
      COMPLETE but for the arena inside a pit fight. Self-check Uw2Tools; test list section 61.
+  G5 PLAN 2026-11-16 (survey of the 102 conversations by uwdump conv --game uw2, every call with its arguments;
+     the rules from uw2 conv/BABLHACK.C, game/SKILLS.C, event/WORLDEV.C, critter/CRITTIME.C). ALREADY BUILT: x_traps,
+     x_clock, teleport_player, switch_pic, gronk_door, set_attitude, set_race_attitude, x_obj_stuff, x_obj_pos,
+     place_object, remove_talker, give_all_stuff, babl_hack 3/8/9, the trade's carry check (UseTradeSlot's EncumCheck,
+     "That is too heavy to take." 0x10C) and creature-started talk (test list section 51). LEFT, by use in the data:
+     - x_exp(n) 15 calls in 13 conversations (45 to 9999; e.g. the goblin guard 45 when he turns on the player, Lord
+       British 300, Blog 1000, Jerry the Rat 9999; names are block 7 at whoami + 17):
+       player_get_exp(n), the total / 16 back - the shared UWExperience.Change with the second game's variant.
+     - x_skills 54 calls: value 10001 in 16 conversations (the trainers: Geoffrey 0/1, Dupre 3/4/5, Iolo 6/18/19,
+       Julia 10/14/16, Nystul 7/9, Nelson 8/11, Patterson and Lady Tory 15, Fissif 10/13/16/17, Syria 2/3, ...) spends a skill point on grant_skill_advance(skill) -
+       get_skill: nothing above twice the governing attribute or at 30, else +1, +1 more when the attribute is not
+       strength and half of it is above the skill, +1 more by chance (attribute - skill) / {25, 30, 15} while below
+       the attribute; lore also clears the lore tries; player_compute after (the groups -1/-2/-3 are not called by
+       any conversation, built anyway as the routine has them); 1 when it rose, else 0. Value 9999 only reads (14
+       calls of skill 15). 10000 (get_skill without a point) and 0..30 (set) are not called but kept.
+     - babl_hack 10 (Silanus and two soldiers, conversations 34, 51, 104): the Guardian's signet ring 0x35 on either ring slot.
+     - babl_hack 7 (Merzan, conversation 105): useNSpellCharges(thing, -5) on a carried wand - UWCarriedSpellRulesUw2.
+     - babl_hack 5 (Nelson, conversation 139): every creature with whoami 140 (Patterson) a loner.
+     - teleport_talker(x, y) 14 calls (Zaria, Dorstag, a warrior, Relk): teleport_critter when the conversation is
+       over (do_babl_teleport): set_gridx_and_y_based_on_tile_type, a flier half way up to 0x80, can_place, the
+       transient bits cleared; nothing when it does not fit.
+     - transform_talker(item, whoami, powerful, terrain) 2 calls (Trystero: creature 8, whoami 27, powerful; Fissif:
+       the fourth value only): transform_creature, -1 keeps a value, settled on the floor unless a flier.
+     - set_sequence(whoami, seq, frame) 1 call (Nelson: whoami 139, sequence 7, frame 0): the animation of every
+       creature with that whoami.
+     LEFT TO G6: babl_hack 0, 1, 2 and 4 (in every conversation: the pit fights, place_pitfighter, running_away,
+     in_pits) with the arena.
+     PART 1 BUILT 2026-11-16 (29afe209): x_exp through ChangeExperience; x_skills by UWConversationRulesUw2.SkillCall,
+     above 10000 IUWConversationHost.AdvancePlayerSkillByPoint -> UWPlayerVitals.GrantSkillAdvance (get_skill =
+     TryIncreaseSkill, the second game's skill_rng 25/30/15 in its rule set), the skills and maxima written into the
+     record (UWVitalsUw2.WriteSkillsToRecord), a set 0..30 into both; babl_hack 10 and 7 (UWConversationRulesUw2).
+     Self-check Uw2ConversationEffects; test list section 62.
+     PART 2 BUILT 2026-11-16 (fb44abd0): UWConversationRulesUw2.MakeLoner, SetSequence (the record's raw sequence),
+     TeleportCritter (IUWWorld.TeleportCreature, UWCreatureActor.TeleportTo; done at the conversation's end by
+     UWConversationSession.DoTalkerTeleport), TransformCreature (the original's terrain field and can_place kept; the
+     creature redrawn). Self-check Uw2TalkerEffects; test list section 63. G5 IS COMPLETE but for babl_hack 0/1/2/4 (G6).
+     PARTS: 1 the player (x_exp, x_skills' advance, the signet ring, the wand's charges); 2 the talker (teleport_talker,
+     transform_talker, set_sequence, the loner bit). Each part engine-free rules (UWConversationRulesUw2) with
+     self-checks, then its test list section from 62.
      DJINN STEP 0 -> 2 BUILT 2026-11-14 (per user, the quest replayed from the start): do_filanium as
      UWDjinnRulesUw2.OilInMud (spell 0xD/3 cast on use, floor texture 0xC1 = level 26's mud at 58-60/15-16), called from
      both water landings (UWMotionHost.Splash for mob_to_static, UWWorldEdit.PutInWater for obj_deal), the line to the
      scroll. The oil is a colorless potion 0xE6 with link 0x243 (levels 3, 57, 59, 67). No conversation sets the clock;
-     Zoranthus (conversation 96, Pits of Carnage) only tells the recipe. Self-check uw2 djinn; test list section 50. STEP 5 -> 6 BUILT the same day: remove_object's bottle branch as UWDjinnRulesUw2.BottleBroken (before 5 the daemon rends, 0xFF untyped; from 5 at level 69 21-22/52-53 absorbed: fill_FB(2), clock 6, castle 0xD -> 0xE, quests[26] bit 1, the bottle gone; elsewhere the flash and debris), hooked into UWMissiles.BecomeDebrisInFlight, UWTileBlast and UWContainerDamage: per user a blow hits the bottle in the original (resolve_attack's ObjectCheck takes every object with a height and the touch bit; of the second game's loose things only 0x116 has a height), so every loose sprite with a body gets health by the data alone (UWObjectSpawner; class 3 takes the blow and no harm, as the models - the fountain in both games, 0x117 in the first; for mods the same rule). UW2's fill_FB flashes were silent: UWSleepUw2's presentation now shows them. Still open: what reads step 6 (the horn, UseUnique; WORLDEV hack 0x8C).
+     Zoranthus (conversation 96, Pits of Carnage) only tells the recipe. Self-check uw2 djinn; test list section 50. STEP 5 -> 6 BUILT the same day: remove_object's bottle branch as UWDjinnRulesUw2.BottleBroken (before 5 the daemon rends, 0xFF untyped; from 5 at level 69 21-22/52-53 absorbed: fill_FB(2), clock 6, castle 0xD -> 0xE, quests[26] bit 1, the bottle gone; elsewhere the flash and debris), hooked into UWMissiles.BecomeDebrisInFlight, UWTileBlast and UWContainerDamage: per user a blow hits the bottle in the original (resolve_attack's ObjectCheck takes every object with a height and the touch bit; of the second game's loose things only 0x116 has a height), so every loose sprite with a body gets health by the data alone (UWObjectSpawner; class 3 takes the blow and no harm, as the models - the fountain in both games, 0x117 in the first; for mods the same rule). UW2's fill_FB flashes were silent: UWSleepUw2's presentation now shows them. Still open: what reads step 6 (the horn, UseUnique; WORLDEV hack 0x8C) (BUILT, stale entry corrected 2026-11-19: the horn in G4 rest part 3A, `UWToolRulesUw2.HornSounds` from `UWToolUseUw2`; whoami 0x8C is Patterson's death_check in G6 part 2, `UWSpecialDeathsUw2` reading the djinn clock for the castle plot).
   LEFT TO G6: the scheduled triggers (mode 0xC, SCDEVENT.C ev_trigger, call_out_the_guards; TEST when built, from test list 51.2 on 2026-11-16: the castle people's day, hack 36 on level 1 (move_folks_around, CRITTIME.C maybe_go_hang_out: whoami 0x81-0x8F and 0xA8 get a new home and goal 1 while quest 109 is set and the castle plot is below 16), fired by the level 1 schedule's trigger at 30/44 every six units and caught up after every conversation (free_converse, Sched_SetAllClocks) - in the original Charles, set to goal 10, talked once and then went home with nearly all of the castle (SAVE3 against the original's SAVE4); TEST when built, moved from test list 48.4 on 2026-11-16: the castle courtyard, hack 34 on level 1 set off only by the scheduled trigger at 28/39 - plants wilt with the castle plot, fountains dry, later mushrooms), fire_trigger_at for plot
-  deaths, jail and the Prison Tower's level 2, do_level_hacks' world rules (the Void's automap, Killorn's crash, the TK
+  deaths; TEST when built, from test list 62.2 on 2026-11-16: the goblin guard of level 10 (conversation 1) sets quest 60
+  on his hostile ending, and SCD.ARK block 15 rows 0-2 for world 1 (level byte 0xF7) test it (event 10, variable 0x13C)
+  and turn every goblin (race 6) hostile with goal 5 on the player (events 8 and 1) - in the original all of them attack
+  at once after the talk, ours only the guard (per user), jail and the Prison Tower's level 2, do_level_hacks' world rules (the Void's automap, Killorn's crash, the TK
   wand, the Tombs' genocide). ORDER: H1, H2 (it finishes section 30), H3, H4, H5, H6; each part its test list section
   and checks on the second game's levels (TrapChecks run on UW1 only today).
-- G4 USING THINGS (needs G3 for levers and G1 for potions and wands): use on a target (keys, lockpicks - a locked
+- G4 USING THINGS (SUPERSEDED OUTLINE, stale entry corrected 2026-11-19: built by the detailed G4 parts above)
+  (needs G3 for levers and G1 for potions and wands): use on a target (keys, lockpicks - a locked
   door only says so), levers, switches, buttons, chests opened in place, shrines, fountains; carried potions, wands,
   keys, picks, instruments, the fishing pole; taking with its consequences (theft anger, pick-up triggers, pressure
   plates, the moonstone).
-- G5 CONVERSATIONS' EFFECTS: x_exp, x_skills (trainers; TryIncreasePlayerSkill only logs), set_sequence,
+- G5 CONVERSATIONS' EFFECTS (SUPERSEDED OUTLINE, stale entry corrected 2026-11-19: built by the detailed G5
+  parts above): x_exp, x_skills (trainers; TryIncreasePlayerSkill only logs), set_sequence,
   transform_talker, teleport_talker, babl_hack (signet ring, pit modes, wand charges), the trade's carry check;
   creature-started talk goes to the first game's Interaction and UWConversationController.
-- G6 THE WORLD: SCD.ARK schedules, plot deaths (HasSpecialDeath false), jail, the Void and the pits on death, goal 15
+- G6 PLAN 2026-11-16 (survey of uw2 event/SCHEDULE.C, SCDEVENT.C, WORLDEV.C, game/SKILLS.C, GAMEWRAP.C and the shipped
+  SCD.ARK: 219 rows in blocks 0 (the day, 51), 1 (the castle plot, 78), 14 (6) and 15 (the world rules, 84); events
+  10 test variables 61, 5 fire scheduled triggers 56, 2 teleport 26, 7 hacks 25 (door closing 12, freeze 3, soldier 3,
+  garg 2, nystul 3, gotha 3), 1 change goal 11, 3 kill 11, 11 remove 10, 8 attitude 9, 9 set a variable 6, 4 a quest
+  bit 1). Ours reads SCD.ARK and copies it with a save, and runs nothing. In parts:
+  1 THE SCHEDULER: the 16 blocks held in the session (the save's SCD.ARK, written back with a save), each level's clock
+    and next row, Sched_SetTime/WrapTime (block 0 by XC_TIME, 72 steps a day, PLAYTIME.C), Sched_SetAllClocks after a
+    conversation, a level change, a restore and an X clock change (x_clock, the clock traps, world events), rows by level
+    (0xFF any, 0xF6 + world), once rows deleted, Sched_Insert and the migration queue. Events 0-11 with gronk_critid's
+    four selections (whoami, race, one object, all, loners skipped where the original does): goal, teleport, kill,
+    quest bit, attitude, variable, the conditional blocks of event 10 and remove; event 5's scheduled triggers (trap
+    minor class 0xC, ev_trigger) and with them hack 34 (courtyard_hacking) and hack 36 (move_folks_around); event 7's
+    hacks 1-7 (garg, soldier, freeze, doors, nystul, gotha). Engine-free UWScheduleRulesUw2 behind a host for the
+    creatures and the world. Tests waiting: the goblins of world 1 after the guard's hostile ending (quest 60), the
+    castle's day and Charles (hack 36), the courtyard (hack 34), doors closing at night.
+    PART 1 BUILT 2026-11-16 (0667ec3c, fixes 528a986d), CONFIRMED in the game per user the same day, test list section
+    64: the goblins, the castle's day, the doors; the original's save of the same test has the same SCD.ARK. The
+    courtyard (hack 34) is not tested yet.
+  2 THE PLOT'S DEATHS: death_check (WORLDEV.C:703) modes 0 and 1 by whoami - the castle's people who cannot die and
+    call_out_the_guards, Lady Tory after castle plot 8, Patterson and Nelson, Altara, Mokpo, Mystell, Bliy Skup, the
+    guard 0x4B turning into a hordling, Freemis, Zaria, Dorstag, Blog, Bishop, Relk, Lord Umbria, Praecor Loth and his
+    liches, Mors Gotha, the Listener and Altara's dagger, Krilner and Fissif who yield and talk (stop_and_talk), race 0xB,
+    the bloodworm count; HasSpecialDeath for the second game.
+    PART 2 BUILT 2026-11-16 (dd62e5d0, fix 8a254b91), CONFIRMED in the game per user the same day, test list section
+    65: the castle guard, Patterson's last talk, Fissif, the Listener and the dagger, the hordling guard, the counted
+    brain creatures. The pit cases wait for part 4.
+  3 THE PLAYER'S DEATH (player_is_dead, SKILLS.C:802, on top of UWDeathRulesUw2's gem and end): jail for a castle
+    guard's kill (put_player_in_jail, WORLDEV.C:2283), waking from the Void (punt_void), the lost pit fight.
+    PART 3 BUILT 2026-11-16 (7aad6e44), CONFIRMED in the game per user 2026-11-17, test list section 66: jail by the
+    castle's people, compared with the original; another killer the end. The Void's waking waits for the Void.
+  4 THE ARENA: babl_hack 0, 1, 2 and 4 (the challenge, running away, place_pitfighter's opponents and Jospur's debt,
+    in_pits), set_me_inarena, remove_opponent and the pit record, the arena hacks 30/31 (arena_player_runs), in_arena.
+    PART 4 BUILT 2026-11-17 (1b0d7cf3, fixes 844d1da7, 2b1bb520, e0d137da), CONFIRMED in the game per user the same
+    day, test list section 68, compared with the original: a fight at Jospur's paid, running away. Hack 31 not built.
+  5 THE LEVEL HACKS (do_level_hacks, GAMEWRAP.C:443): the Prison Tower's alarm on leaving (prison_alarm_check) and its
+    level 2's two triggers, Killorn's crash (Killorn_just_crashed) and the telekinesis wand taken away (remove_TK_wand),
+    the Tombs' genocide after Loth's death, the castle door on arrival (gruesome_door_hack); the Void's automap is built.
+    Goal 15 creatures and a refused spawn rule's objects (the old list) looked at here too.
+    PART 5 BUILT 2026-11-17 (33fab84d), CONFIRMED in the game per user the same day, test list section 69 (the
+    telekinesis wand; the rest in the self-check). STILL OPEN OF G6: the Ethereal Void (go_void, punt_void, do_dreamret),
+    goal 15 creatures, a refused spawn rule's objects. THE VOID AND KILLORN'S COUNTDOWN BUILT 2026-11-17 (3f6d3b3e, fixes
+    28e92a5c, 40c42633, fbad88c9), CONFIRMED the same day, test list section 70, compared with the original. G6 COMPLETE
+    2026-11-17: goal 15 creatures keep their brain over a load (8bc49285, section 71); the refused spawn rule's objects
+    are the phase 2 safety net in UWObjectSpawner, which reports each kind left out - none reported.
+  ORDER: 1 first, as it unlocks most of the waiting tests and parts 2 and 4 lean on it (XC_CHANGED, the castle plot);
+  each part its rules engine-free with self-checks, then its test list section from 64.
+- G6 THE WORLD (SUPERSEDED OUTLINE, stale entry corrected 2026-11-19: the G6 plan above, complete 2026-11-17):
+  SCD.ARK schedules, plot deaths (HasSpecialDeath false), jail, the Void and the pits on death, goal 15
   creatures (pictures only, no brain or hit points), objects left out by a refused spawn rule, the world and level
   hacks (step 7 below).
-- PHASE 5 as it stands: music (none in UW2, the combat flag from the idle Interaction), death cries, cutscenes; the
+- PHASE 5 as it stands (SUPERSEDED OUTLINE, stale entry corrected 2026-11-19: phase 5 parts A-D below, the music
+  and the presentation built, confirmed 2026-11-18): music (none in UW2, the combat flag from the idle Interaction), death cries, cutscenes; the
   world's presentation (UWPresentation over the idle Interaction and UWGameUI) for any rule that does not use the
   NightPresentation wrapper.
 - SAVE: complete as far as built; creature alarms and missiles in flight are not written (UW1 writes them), unsure
   whether the second game keeps them.
+
+THE FIRST OUTLINE OF PHASE 4, kept for its history (SUPERSEDED, stale entry corrected 2026-11-19: the work went by
+the G0-G6 plans above, all complete; its open points are not a to-do list):
 
 1. Player: experience (halving, 1500 per point, the 0x7FFF0 cap), carrying, the slow cycle and
    the X clocks, food, sleep, death (jail, the pits, the blackrock gem), traps on objects.
@@ -1381,9 +1498,124 @@ Cutscenes and speech, the intro and the ending, dreams by the castle clock, the 
 music themes per world and situation, sound effects with digital samples. A full play-through
 compared with the original (DOSBox, or UE's `uw2port`), as UW1's was.
 
+SURVEY 2026-11-17 (Exhumed `sound/SOUND.C`, `gfx/CUTS.C`, `SKILLS.C`; the shipped data):
+- Already game-aware: `UWSoundsDat` (8-byte entries, UWA/UWR names), `UWSound.GetEffectVoc` and
+  `GetMusicTheme`, the digital SPnn/UWnn playback, the effect bank, the CUTS path, the OGG recordings' folders.
+- UW2's themes (`include/sound.h:45-54`): 1 menu, 2 foe hurt, 3 combat, 4 danger, 5 armed, 6 victory,
+  7 death, 8-15 walking by world (`walking_music[9][3]`, SOUND.C:175), 0x18/0x19 intro; 1, 6, 7 are
+  followed by 10 (`loop_music_maybe`). UW1's numbers differ: `UWCritterRules.CombatTheme` 6 would be
+  victory in UW2. `UWAudioMixCore.SelectPiece` asks for UW1 names (UW/AW), so UW2 is silent by missing
+  files; the AdLib device keeps UW1's `UW.AD` after a game switch.
+- Death cries (`crit_die`, AI.C:1432): critter byte 8's low 3 bits, 2/3/4 -> 0x22/0x23/0x24, else 6.
+  `UWCritterVariantUw2.DeathCry` returns -1. `play_effect`'s remap of 0x5A/0x5B and the re-pan of a
+  moving digital source are not in our audio.
+- Cutscenes: the same LPF animations and .N00 scripts, plus LBACK000-007.BYT (raw 320x200). Our
+  `UWCutsceneScript` knows 16 opcodes (opcode 5 with one argument); UW2 has 28 (5 without argument,
+  16-27 new: palette ranges and fades with PALS.DAT, vscreen, focus, lback, pan, splity, music, test,
+  wait_for_sound), data(996) a random CS034-037 picture, speech as BSPnn.VOC with say 998/999. No CS402
+  in UW2 (the view's reference picture). UW1 rules in the runner (cutscenes 1-3 start theme 4).
+- Triggers: title 9, intro 0 then 1 (menu and first start), credits 10, the ending 2 (`player_won_game`,
+  screens 8/9 with stats, credits, back), `cs_check` after a conversation (quest byte 15 - 1, 2 wins),
+  dreams 0x18+n (castle dreams 0-3 at XC_CASTLE 4/6/10/14 by `dreamflags`, else 1 in 4+4*sleepfactor
+  a random 4-6), spell class 14, books with ID_FLAG10, final death 0x103.
+
+PARTS, in build order:
+- **5A Music playback and selector**: the pieces through `GetMusicTheme`, the devices on the game's
+  banks (UW.AD, UW.MT), a UW2 selector (`change_music_maybe` with its 10 s and 8 s, `loop_music_maybe`,
+  the walking table by world, -2 keeping the theme within a world), armed from the UW2 attack state,
+  music on/off on the option panel. Test: menu, a walking theme per world, drawing the weapon.
+  BUILT 2026-11-17: UWMusicSelectorUw2 (SOUND.C's five functions, engine-free; UWAudioService runs it for the
+  second game's data and leaves the first game's requests out there), UWSound.GetMusic and the mods' piece test
+  by UWSoundsDat.MusicPrefix, the AdLib music device on the running game's UW.AD (UWAudioMixCore.UseBank; every
+  timbre UW2's pieces ask for is in its own UW.AD, checked). Hooks: the walk menu's theme 1 then 10, the walk's
+  first theme (MAINMENU.C:224), a level change sheathed (-2), the fight command (pick_fightmode, punt_fightmode),
+  and, from part B, the map (AUTOMAP.C:101, :232), conversations (CONVERSE.C:172, :235) and sleep (SKILLS.C:452,
+  :555). The screens that loop on their own run loop_music_maybe, the walk change_music_maybe every frame (the
+  original on each step of the game clock). The MT-32 path sends no UW.MT timbres, as for the first game. Self-check
+  Uw2Music; one log line a piece ([Music] Theme n). Test list section 72 CONFIRMED by the user 2026-11-17 (fixes: 129f5cfd the main menu's open flag stuck after Create Character, which held the debug keys and kept the music in the menu's loop; 93a72175 the save's sound and music switches, word 0x302).
+- **5B Music by the rules and death cries**: a UW2 critter variant for the combat themes (2/3/4 from
+  AI.C's damage), victory 6, death 7, theme 10 for jail, gem and dreamret, `DeathCry` by byte 8, the
+  0x5A/0x5B remap and the moving source (the sleep and conversation picks came with 5A).
+  BUILT 2026-11-17: IUWCritterVariant.CombatTheme, FoeHurtTheme and KeepsPlayingTheme (the brain asks with the
+  game's numbers; UW2 leaves a playing combat theme alone only on a swing), UWPresentation.ChangeMusicTheme to
+  set_new_music for the second game, the combat timer through UWAudioService.MarkCombat; the player damaged by
+  someone (a miss's 0 and his own missile too, not when it kills) 4 or 3 (UWVitalsUw2); victory on every kill
+  (KillRewarded); death 7 by load_new_music after the pits, 10 at the gem, in jail and on waking from the Void
+  (after the level's walking choice); UWCritterVariantUw2.DeathCry (shipped kinds 0:13 1:24 2:16 3:7 4:4, every
+  cry in SOUNDS.DAT); play_effect's 0x5A/0x5B as 1 and 2. NOT BUILT: the digital source's re-pan and volume as the
+  player moves (update_digi_playback; ours is mono and sets the volume once) (VOLUME BUILT, stale entry corrected
+  2026-11-19: the volume follow built 2026-11-18, `UWAudioService.FollowDigitalSource`; the stereo pan stays out by
+  decision). Test list section 73 CONFIRMED by the user 2026-11-17 (theme 4 giving way quickly to 3 is the original's: the player's own hit always asks for 3, and theme_changed is set only on a combat-to-combat change, so a theme 4 that followed a non-combat theme has no eight-second guard). Test: fights, a kill, jail, the Void,
+  sleeping, talking.
+- **5C The UW2 cutscene player**: a per-game opcode table, opcodes 16-27, LBACK and the virtual screen
+  with pan and splity, PALS fades, data(996), BSP speech and 998/999, the music opcode, the window
+  geometry. Test: title 9, intro 0+1, credits 10, CS403.
+  READ 2026-11-17 (uw2 gfx/CUTS.C whole, GRFX.C fadein/fadeout, COLCYCLE.C rotate_bank, GRCORE/VIDMODE's
+  virtual screen): the second game's player differs from the first's in its model, not only its opcodes -
+  a file plays all its records unless next (5, no argument) or end comes, frame 997 runs before a file
+  opens and 999 after it, loop replays the file with the script pointer left where it is, data(996)
+  draws CS034-037, the palette is the file's (6-bit) set at frame 0 of each file once faded in, palrange
+  and the palette fades (16 time-based tasks stepped every 8 ticks) work on it, colour cycles rotate
+  every 0x38E / ((rate >> 8) & 0x3F) ticks, the virtual screen scrolls above the split and the bar below
+  it holds the subtitles, LBACK pictures go into the virtual screen, LPF records are drawn at the view
+  (the delta stream onto what is there), a record may carry a flag byte with extra data to skip.
+  DECISION: a runner of its own for the second game (UWCutsceneRunnerUw2, after show_anm,
+  cuts_process_anm, cuts_process_lp and cuts_process_opcodes) over an indexed screen model
+  (UWCutsceneScreenUw2); the first game's runner and its segment model stay untouched.
+  PARTS:
+  - C1 engine-free: the script table per game (16-27, the variable palrange and palfade), the record's
+    flag byte and drawing one record onto any buffer (UWCutscene), the screen model, the runner with its
+    flags, waits, tasks, cycles and fades; self-checks: every shipped script parses to its end, every
+    cutscene runs headless to its end with the files, frames and loops the original's code gives.
+  - C2 Unity: the player picks the runner by game, the view shows the indexed screen through the shown
+    palette, the subtitles drawn into the bar in FONTBIG, BSP speech, the music opcode; the walk menu's
+    Introduction (0 then 1) and Acknowledgements (10), the title (9) before the menu. Test: those four.
+  - The viewport cutscenes (0x103's window), the dreams, the ending and the Guardian's speeches are
+    tested with their hooks in 5D.
+  C1 AND C2 BUILT 2026-11-17: UWCutsceneScript by game (UnreadBytes 0 for all 18 shipped scripts),
+  UWCutscene.DrawRecord, PlayedRecords, the pages and the cycles, UWCutsceneScreenUw2, UWCutsceneRunnerUw2,
+  UWCutsceneTextUw2 (FONT_BIG); the intro player plays the second game's through it (UWCutsceneView.ShowIndexed),
+  Escape to the runner (the fade-out after the file), keys as input; the walk menu's Introduction (0, 1) and
+  Acknowledgements (10), the title (9) at the second game's first menu of a run and the introduction after it
+  without a save (do_intro_scene); the music in change mode while a cutscene plays. Self-check Uw2Cutscenes pins
+  the runs (the intro's 13 files N01-N07, N10, N12, N10, N13-N15 by data's octal digits). Frames rendered headless
+  and looked at (intro, title, credits). Test list section 74 CONFIRMED by the user 2026-11-17 against the original (the title, the introduction with its file order, the slow credits, Escape fading out and a click doing nothing in the intro, the menu's theme afterwards). Not yet: the logos before the title (display_screen 5 and 6) (BUILT, stale
+  entry corrected 2026-11-19: in 5D, `UWIntroPlayer.PlaySplashScreens` and `UWSplashSequence` for the second game), the start
+  palette (ours starts black, the original fades from the screen before).
+- **5D The story's hooks**: intro and acknowledgements in the menu and on first start, `dream()` with
+  `dreamflags` and the castle clock, `NightPresentation` passing cutscenes and themes on, `cs_check`
+  and `player_won_game`, 0x103 on the final death, spell class 14 and the ID_FLAG10 books on the UW2
+  walk. Test: the castle clock by the save tool, Lord British's first talk, the Guardian's traps.
+  BUILT 2026-11-17 (part D): the viewport window (show_cutscene's 0x10, 0xB6, 0xD0, 0x7F, 0x103 four rows higher
+  and five taller; a record leaves out the frame's first 320 - w columns and 200 - h rows, the content painted at
+  the bottom right - CS403 rendered), the game palette PALS 0 as the window's start, UWCutsceneView.PlaceWindow;
+  the final death plays 0x103 (real_death(1)) before the menu; dream() as UWStoryRulesUw2.PickDream after the
+  night (UWSleepRules.LastComfort the sleepfactor, dreamflags 0xF7, the castle clock); cs_check after every
+  conversation (quest 143) and player_won_game as UWEndingUw2 (theme 1, cutscene 2, the end screens with
+  game_stats in UWVictoryScreens, credits, the menu); the opening's logos and title through the existing opening
+  (the title not cut short in the second game) and do_intro_scene after it without a save. The spell traps of
+  class 14 play their cutscene (the Guardian's speeches CS004-007 on levels 17, 26, 49, 57) since da34d9e0: every
+  UW2 trap host took UWSleepUw2's NightPresentation, whose PlayCutscene still said no; level 17's never goes off,
+  in the original too (its enter trigger is not the first of its square, Todo: the six dead triggers). The
+  books with ID_FLAG10 (cutscene 0x100 + link) not built: the shipped data has none that the scan found, and only
+  CS403 exists from 0x100 on. Test list section 75 CONFIRMED by the user 2026-11-18 (the final death, the dreams with
+  speech and subtitles, the Guardian after a talk, the ending, the opening, the speech on level 26) - PART D COMPLETE.
+- **5E A full play-through** against the original in DOSBox.
+
 ### Phase 6: the port's own things for UW2 (M)
 
-Remastered details (ice, the new texture set), the help window (stats, map, notes, spells),
+DECIDED 2026-11-17 per user: after phase 5 and this phase's documentation (README, CONTROLS, DEVIATIONS for two
+games) UW2 is declared a BETA, and the second code cleanup starts in its own branch (Todo: 'A second cleanup phase').
+The rest of this phase is built on the cleaned code.
+GATE ADDED 2026-11-18 per user: before UW2 is declared an alpha or a beta, the classic scheme is checked to match the
+original. One deviation is decided: the original moves things in the inventory only by dragging with the right
+button, the first game with either button; ours keeps either button for the second game too (an entry in
+Docs/DEVIATIONS.md).
+
+Remastered details (ice, the new texture set), the help window (stats, map, notes, spells) (BUILT but the worn
+magic, stale entry corrected 2026-11-19: `UWHelpMapTab` with `UWHelpMapUw2`, the UW2 branches of `UWHelpStatsTab`
+and `UWHelpSpellsTab`, the Teachers tab in `UWHelpMantrasTab`, test 89; the worn magic in the Stats tab is still
+missing in UW2),
 `UW2/rules.json` and its template, the translation kit for UW2's texts, the gamepad and the modern
 presets checked on UW2, the documentation (README, CONTROLS, DEVIATIONS) for two games.
 

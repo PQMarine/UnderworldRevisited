@@ -346,6 +346,10 @@ namespace UnderworldRevisited.Tools
 
             foreach (UWCutsceneSpoken.Change lOChange in UWCutsceneSpoken.Changes)
             {
+                // The second game's lines are checked against its strings (Uw2CutsceneChecks).
+                if (lOChange.Game != UWGame.Uw1)
+                    continue;
+
                 liSpoken++;
 
                 string lsGame = UWText.Block(lOStrings, UWCutsceneRunner.GetSpeechBlock(lOChange.Cutscene), lOChange.Index + 1, string.Empty).Trim();

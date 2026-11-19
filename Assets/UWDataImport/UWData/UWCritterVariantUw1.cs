@@ -12,6 +12,29 @@ namespace UWDataImport.UWData
 			return piAttitude == UWNpc.AttitudeHostile;
 		}
 
+		public int FootstepSound(int piCategory, int piFrame)
+		{
+			switch (piCategory)
+			{
+				case 1: return piFrame == 1 ? 1 : 2;
+				case 2: return 0x17;
+				case 3: return 5;
+				case 4: return 0x0E;
+				case 5: return 0x0D;
+				default: return -1;
+			}
+		}
+
+		public int CombatTheme => UWCritterRules.CombatTheme;
+
+		public int FoeHurtTheme => UWCritterRules.HurtCombatTheme;
+
+		public bool KeepsPlayingTheme(int piRequested, int piPlaying, bool pbSwing)
+		{
+			return piRequested == UWCritterRules.CombatTheme
+				&& piPlaying >= UWMusicSelector.FirstCombatTheme && piPlaying <= UWMusicSelector.LastCombatTheme;
+		}
+
 		/// <summary>The death sound when the row's byte 8 low three bits are 1.</summary>
 		public int DeathCry(UWObjectClassProperties.Critter pORow)
 		{
@@ -31,6 +54,16 @@ namespace UWDataImport.UWData
 		public bool HasSpecialDeath(int piWhoami)
 		{
 			return UWSpecialDeaths.HasSpecialDeath(piWhoami);
+		}
+
+		/// <summary>SpecialDeathCases: its talks refuse the death, nothing follows them.</summary>
+		public bool ApplySpecialDeath(UWCreatureRef pOCreature, UWSpecialDeaths.Stage peStage, IUWWorld pOWorld, out System.Action pfAfterTalk)
+		{
+			pfAfterTalk = null;
+
+			int liWhoami = pOCreature.Record != null && pOCreature.Record.Npc != null ? pOCreature.Record.Npc.NPCwhoami : 0;
+
+			return UWSpecialDeaths.Apply(liWhoami, peStage, pOWorld, pOCreature);
 		}
 
 		public int SlotOfRecord(int piRaw, int piCastSlot)

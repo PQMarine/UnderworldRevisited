@@ -22,8 +22,8 @@ using UnityEngine;
 /// </summary>
 public sealed class UWWorldPointer
 {
-    /// <summary>Movement below this many screen pixels is a click, from it on a drag - the
-    /// threshold UWItemDrag has used for the inventory since the beginning.</summary>
+    /// <summary>The modern scheme's click-or-drag distance in screen pixels; the classic screen measures in the
+    /// original's pixels since 2026-11-18 (UWDragDistance, mouse_dragged).</summary>
     public const float DragThreshold = 6f;
 
     public enum EventKind
@@ -102,7 +102,7 @@ public sealed class UWWorldPointer
         if (pbReleased)
             mbPressed = false;
 
-        if (!mbDragStarted && Vector2.Distance(mOAim.PressPosition, pOPosition) >= DragThreshold)
+        if (!mbDragStarted && UWDragDistance.Crossed(mOAim.PressPosition, pOPosition))
         {
             mbDragStarted = true;
 

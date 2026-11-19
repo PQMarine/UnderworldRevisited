@@ -174,12 +174,13 @@ namespace UWDataImport.UWData
 		/// animation overlays and timers inside it (Anim_Save zeroes what follows the count, MAP.C:169),
 		/// each automap and each page's notes, kept or appended by put_arc's rules and compressed where that
 		/// is shorter (decision 4); PLAYER.DAT - the loaded save's, else a walker's (UWPlayerRecordUw2.NewWalker)
-		/// - with the position, facing and level written in; BGLOBALS.DAT from the conversation memory;
+		/// - with the position, facing and level written in and the sound and music switches (pbSound, pbMusic, as
+		/// save_player_data writes them); BGLOBALS.DAT from the conversation memory;
 		/// SCD.ARK copied from where the world came from; DESC. The world then counts as loaded from there.
 		/// Returns null, or what failed.
 		/// </summary>
 		public static string SaveUw2(UWGameSession pOSession, string psSlotPath, string psDescription, int piLevelIndex,
-			int piPositionX, int piPositionY, int piZPosition, int piHeading)
+			int piPositionX, int piPositionY, int piZPosition, int piHeading, bool pbSound, bool pbMusic)
 		{
 			UWSessionWorld lOWorld = pOSession.World;
 			UWLevArkFile lOFile = UWLevArkFile.Uw2;
@@ -228,15 +229,19 @@ namespace UWDataImport.UWData
 				UWPlayerFile lOPlayer = pOSession.PlayerFileUw2 ?? UWPlayerRecordUw2.NewWalker();
 
 				UWPlayerRecordUw2.WritePosition(lOPlayer, piPositionX, piPositionY, piZPosition, piHeading, piLevelIndex + 1);
+				UWPlayerRecordUw2.WriteSoundAndMusic(lOPlayer, pbSound, pbMusic);
 				File.WriteAllBytes(Path.Combine(psSlotPath, PlayerFileName), lOPlayer.ToBytes());
 				pOSession.PlayerFileUw2 = lOPlayer;
 
 				if (pOSession.ConversationMemory != null)
 					File.WriteAllBytes(Path.Combine(psSlotPath, "BGLOBALS.DAT"), pOSession.ConversationMemory.Serialize());
 
+				// The schedules in play (G6 part 1) as they stand; never touched, the file they came from.
 				string lsSchedule = Path.Combine(lsFrom, ScheduleFileName);
 
-				if (File.Exists(lsSchedule) && !string.Equals(Path.GetFullPath(lsFrom), Path.GetFullPath(psSlotPath), System.StringComparison.OrdinalIgnoreCase))
+				if (lOWorld.Schedules != null)
+					File.WriteAllBytes(Path.Combine(psSlotPath, ScheduleFileName), lOWorld.Schedules.ToBytes());
+				else if (File.Exists(lsSchedule) && !string.Equals(Path.GetFullPath(lsFrom), Path.GetFullPath(psSlotPath), System.StringComparison.OrdinalIgnoreCase))
 					File.Copy(lsSchedule, Path.Combine(psSlotPath, ScheduleFileName), true);
 
 				File.WriteAllBytes(Path.Combine(psSlotPath, "DESC"), UWSavegameStore.EncodeDescription(psDescription));

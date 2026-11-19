@@ -230,6 +230,7 @@ public sealed class UWRemasterLights : IUWRemasterFeature
             Renderer[] lORenderers = lOEntity.GetComponentsInChildren<Renderer>(true);
 
             mOGlowingRenderers.AddRange(lORenderers);
+            UWLightFlicker.SetGlowThreshold(lORenderers, lORecipe.GlowThreshold, ref mOBlock);
 
             // Steady light sources glow evenly - setting it once is enough. Flickering ones
             // are set by UWLightFlicker every frame in step with their light.

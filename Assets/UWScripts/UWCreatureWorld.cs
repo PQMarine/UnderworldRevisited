@@ -644,7 +644,8 @@ public sealed class UWCreatureWorld : ICreatureWorld
         if (lOLoader != null)
             lOLoader.SpawnEffectAt(UWObjectMechanics.FlashEffectObjectId, lOAt, UWCritter.BlowEffectSeconds);
 
-        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOAt, piVolume);
+        // do_damage on a thing: the second game asks the player's last swing (OtherHitSound).
+        UWAudioService.PlayEffectAt(UWGameSession.Current.Game.Combat.OtherHitSound(UWAttackUw2.LastPlayerWeaponKind), lOAt, piVolume);
     }
 
     /// <summary>The impact flash and hit sound where the blow met the world. A collider that
@@ -664,13 +665,16 @@ public sealed class UWCreatureWorld : ICreatureWorld
                 * (UWCritterRules.AttackReachRadius * UWWorldScale.SubTileStep));
 
         lOLoader.SpawnEffectAt(UWObjectMechanics.FlashEffectObjectId, lOAt, UWCritter.BlowEffectSeconds);
-        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOAt);
+
+        // NO SOUND OF ITS OWN (sound audit 2026-11-17, built 2026-11-18): attack_hit plays the wall's sound only for the
+        // player's blow (fromwho == 1; uw1 combat/COMBAT.C:213, uw2 :206) - a creature's blow on a wall is the miss alone,
+        // which the attacker plays. Ours played effect 4 here as well.
     }
 
     public void ShowDoorBashed(in UWMeleeContact pOContact, int piVolume)
     {
         if (pOContact.Place is Vector3 lOAt)
-            UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOAt, piVolume);
+            UWAudioService.PlayEffectAt(UWGameSession.Current.Game.Combat.OtherHitSound(UWAttackUw2.LastPlayerWeaponKind), lOAt, piVolume);
     }
 
     // ------------------------------------------------- Missiles

@@ -43,6 +43,10 @@ namespace UWDataImport.UWData
 			"Standing on the second game's ice under Levitate or Fly the player bounces off walls as without the spell (false: as the original, he slides along them and sticks head-on). Set by the Game option Fix bugs of the original.")]
 		public bool GroundedFlightBouncesOnIce = UWPlayerMotion.GroundedFlightBouncesOnIceApplied;
 
+		[UWRule(typeof(UWTrapRulesUw2), nameof(UWTrapRulesUw2.EveryEnterExitTriggerApplied),
+			"Every enter or exit trigger of a square goes off in the second game, not only the first of its list (false: as the original, the Guardian's speech in Killorn Keep and a meeting place of Miranda's never come). Set by the Game option Fix bugs of the original.")]
+		public bool EveryEnterExitTrigger = UWTrapRulesUw2.EveryEnterExitTriggerApplied;
+
 		/// <summary>
 		/// THE GAME WINDOW'S "FIX BUGS OF THE ORIGINAL" (bug plan, per user 2026-11-03: one option for all of them, on by
 		/// default): the switches of the original's bugs that can cost the game, set together before a rules.json is
@@ -54,6 +58,7 @@ namespace UWDataImport.UWData
 			UnpushableNpcs = pbOn;
 			TidyLeakedObjects = pbOn;
 			GroundedFlightBouncesOnIce = pbOn;
+			EveryEnterExitTrigger = pbOn;
 		}
 
 		/// <summary>

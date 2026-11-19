@@ -17,8 +17,9 @@ namespace UWDataImport.UWData
 	/// The state lives in the player's record, so it is saved with it. Without a record (the walk before its first
 	/// save) the automap is on.
 	///
-	/// NOT BUILT: the other two that set the flag come with their rules, the Locate spell (combat/SPELLS2.C) and
-	/// waking from the Void (game/SKILLS.C), and so does the crystal ball, which holds it off while it draws.
+	/// The other two that set the flag came with their rules: the Locate spell (combat/SPELLS2.C, UWExtraSpellRulesUw2)
+	/// and waking from the Void (game/SKILLS.C, UWDeathUw2); the crystal ball draws on the remote camera (hack 2) and
+	/// leaves the player's automap alone (comment corrected 2026-11-19, inventory).
 	/// </summary>
 	public static class UWAutomapStateUw2
 	{

@@ -38,7 +38,10 @@ public sealed class UWVictoryScreens
 
         if (mOView.DrawFullScreenBitmap(UWTexture.TextureTypes.WIN2))
         {
-            fDrawVictoryStats();
+            if (fIsUw2)
+                fDrawVictoryStatsUw2();
+            else
+                fDrawVictoryStats();
             mOView.ShowPicture();
             yield return fWaitForKeyOrClick();
         }
@@ -165,6 +168,104 @@ public sealed class UWVictoryScreens
             fDrawText(lOFont, lsValue,
                 liX + VictorySkillValueRight - lOFont.MeasureText(lsValue, 0, UWFontRenderer.CharacterSpacing), liY, lOColour);
         }
+
+        mOView.UploadPicture();
+    }
+
+    private bool fIsUw2 => mOPlayer.Data != null && mOPlayer.Data.GameData != null && mOPlayer.Data.GameData.Profile.Game == UWGame.Uw2;
+
+    /// <summary>The second game's WIN2 lines (uw2 game/SKILLS.C game_stats, UW2 plan phase 5 part D).</summary>
+    private const int Uw2FirstLineY = 0xAB;
+
+    private const int Uw2FontColour = 0x52;
+
+    private const int Uw2LevelString = 0x2CA;
+
+    private const int Uw2FreedString = 0x2CB;
+
+    private const int Uw2AfterString = 0x2CC;
+
+    private const int Uw2DaysString = 0x2CD;
+
+    private const int Uw2CheatedString = 0x2CE;
+
+    private const int Uw2CheatedColour = 0x1F;
+
+    private const int Uw2CheatedX = 0x32;
+
+    private const int Uw2CheatedY = 0x14;
+
+    /// <summary>Strength, dexterity and intelligence above this together: chargen's rolls cannot get there.</summary>
+    private const int Uw2CheatedSum = 0x40;
+
+    /// <summary>The gap after "A level n class" before "freed Castle British".</summary>
+    private const int Uw2FreedGap = 4;
+
+    /// <summary>
+    /// game_stats: the name; "A level N class" and "freed Castle British" on one line, centred together; "after D days
+    /// imprisoned within the Jewel."; the attributes, hit points, mana and experience / 10 in two columns; the twenty
+    /// skills in three; "AND CHEATED ON THEIR CHARACTER" when strength, dexterity and intelligence add up to more than
+    /// 64. FONT_CHAR in colour 0x52 of palette 7 (display_screen(7, 8) left it), the days the clock / 0x1C2000 / 12.
+    /// </summary>
+    private void fDrawVictoryStatsUw2()
+    {
+        DataImport lOData = mOPlayer.Data;
+        UWFont lOFont = lOData.Fonts.Get(UWFonts.FontType.CharacterGeneration);
+        UWPlayerFile lOFile = UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
+        UWPlayerVitals lOVitals = UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null;
+
+        if (lOFont == null || !lOFont.IsLoaded || lOFile == null || lOVitals == null)
+            return;
+
+        Color32 lOColour = fGetPaletteColour(VictoryPalette, Uw2FontColour);
+        int liHeight = lOFont.Height;
+        int liY = Uw2FirstLineY;
+
+        fDrawCentred(lOFont, UWPlayerRecordUw2.Name(lOFile), liY, lOColour);
+
+        string lsLevel = fGetString(1, Uw2LevelString) + lOVitals.Level + " " + fGetString(2, 0x17 + UWPlayerRecordUw2.CharacterClass(lOFile));
+        string lsFreed = fGetString(1, Uw2FreedString);
+        int liLevelWidth = lOFont.MeasureText(lsLevel, 0, UWFontRenderer.CharacterSpacing);
+        int liX = VictoryCentreX - ((liLevelWidth + lOFont.MeasureText(lsFreed, 0, UWFontRenderer.CharacterSpacing)) / 2);
+
+        liY -= liHeight;
+        fDrawText(lOFont, lsLevel, liX, liY, lOColour);
+        fDrawText(lOFont, lsFreed, liX + liLevelWidth + Uw2FreedGap, liY, lOColour);
+
+        int liDays = (int)((uint)UWPlayerRecordUw2.GameClock(lOFile) / 0x1C2000u) / 12;
+
+        liY -= liHeight;
+        fDrawCentred(lOFont, fGetString(1, Uw2AfterString) + liDays + fGetString(1, Uw2DaysString), liY, lOColour);
+
+        liY -= liHeight;
+
+        int[] liValues = { lOVitals.Strength, lOVitals.Dexterity, lOVitals.Intelligence, lOVitals.MaxHP, lOVitals.MaxMana, lOVitals.Experience / 10 };
+
+        for (int liAt = 0; liAt < liValues.Length; liAt++)
+        {
+            int liColumn = liAt / 3 != 0 ? VictoryAttributeRightX : VictoryAttributeLeftX;
+            int liRowY = liY - ((liAt % 3) * liHeight);
+
+            fDrawText(lOFont, fGetString(2, 0x11 + liAt), liColumn, liRowY, lOColour);
+            fDrawText(lOFont, liValues[liAt].ToString(), liColumn + VictoryAttributeValueOffset, liRowY, lOColour);
+        }
+
+        liY -= 2 * liHeight;
+
+        for (int liAt = 0; liAt < UWPlayerVitals.SkillNumberCount; liAt++)
+        {
+            if (liAt % 3 == 0)
+                liY -= liHeight;
+
+            int liColumn = ((liAt % 3) * VictorySkillColumnWidth) + VictorySkillFirstX;
+            string lsValue = lOVitals.GetSkillByNumber(liAt).ToString();
+
+            fDrawText(lOFont, fGetString(2, 0x1F + liAt), liColumn, liY, lOColour);
+            fDrawText(lOFont, lsValue, liColumn + VictorySkillValueRight - lOFont.MeasureText(lsValue, 0, UWFontRenderer.CharacterSpacing), liY, lOColour);
+        }
+
+        if (lOVitals.Strength + lOVitals.Dexterity + lOVitals.Intelligence > Uw2CheatedSum)
+            fDrawText(lOFont, fGetString(1, Uw2CheatedString), Uw2CheatedX, Uw2CheatedY, fGetPaletteColour(VictoryPalette, Uw2CheatedColour));
 
         mOView.UploadPicture();
     }

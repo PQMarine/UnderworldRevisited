@@ -535,10 +535,12 @@ public sealed class UWPlayerMelee
                 UWPlayerThrow.GetPlayerHeading(mOHost.MeleeFacing) >> 5, lOTarget.ObjectData.Heading);
         }
 
-        // The wielded weapon's Accuracy or Damage enchantment (DoPlayerWeapon).
-        UWPlayerAttack.GetWeaponEnchantment(lOWeapon,
-            fData() != null && fData().InitialPlayer != null ? fData().InitialPlayer.InventoryRecords : null,
-            out int liEnchantAccuracy, out int liEnchantDamage);
+        // The wielded weapon's Accuracy or Damage enchantment (DoPlayerWeapon), and a special weapon's power (specweap).
+        System.Collections.Generic.IList<UWObject> lORecords = fData() != null && fData().InitialPlayer != null ? fData().InitialPlayer.InventoryRecords : null;
+
+        UWPlayerAttack.GetWeaponEnchantment(lOWeapon, lORecords, out int liEnchantAccuracy, out int liEnchantDamage);
+
+        int liWeaponPower = UWPlayerAttack.GetSpecialWeapon(lOWeapon, lORecords);
 
         // THE WEAPON WEARS (UWEquipmentWear, per user 2026-09-28: the dagger lost quality twice
         // in the original, never in ours): a blow at a door on its roll, a critical failure
@@ -616,9 +618,22 @@ public sealed class UWPlayerMelee
         // the player (UWBlow.PlayerBlow).
         UWWorld lOWorld = fLoader() != null ? UWWorld.Of(fLoader()) : UWScene.World;
 
-        if (lOWorld != null)
-            lOWorld.Damage(lOCritterTarget != null ? UWWorld.TargetOf(lOCritterTarget, lODamageable) : UWWorld.TargetOf(lODamageable),
-                lOResult.Outcome.Blow);
+        // using_altaras_dagger (uw2 combat/COMBAT.C:625, G6 part 2): while a blow with the jewelled dagger lands, the
+        // Listener's death_check may break it (UWSpecialDeathsUw2.AltarasDaggerStrike); cleared after the blow.
+        UWSpecialDeathsUw2.AltarasDaggerStrike = UWWalkUw2.IsWalking && lOWeapon != null && lOWeapon.ID == UWSpecialDeathsUw2.JewelledDaggerId
+            ? (System.Action)(() => fBreakAltarasDagger(lOWeapon, lOWorld))
+            : null;
+
+        try
+        {
+            if (lOWorld != null)
+                lOWorld.Damage(lOCritterTarget != null ? UWWorld.TargetOf(lOCritterTarget, lODamageable) : UWWorld.TargetOf(lODamageable),
+                    lOResult.Outcome.Blow);
+        }
+        finally
+        {
+            UWSpecialDeathsUw2.AltarasDaggerStrike = null;
+        }
 
         // The hit sound at the target, louder by the damage BEFORE the armour: the original
         // plays it at label 938 of AttackerAppliesFinalDamage_seg022_8A5 and only subtracts
@@ -647,6 +662,12 @@ public sealed class UWPlayerMelee
             if (mOHost.ShowsFoeCondition && Interaction.IsCreatureEntity(lOTarget))
                 mOFeedback.ShowEyes(lOTarget, lODamageable);
         }
+
+        // THE SPECIAL WEAPON'S POWER after the hit (player_attack, COMBAT.C:790; the second game's, UWAttackUw2).
+        // criti as the original keeps it (UWAttackResolution.LastCritical): this blow's against a creature, the last roll's
+        // against a thing.
+        if (UWCombatVariantUw2.PowerFires(liWeaponPower, UWAttackResolution.LastCritical))
+            mOHost.WeaponPowerOnHit(liWeaponPower, lOTarget, liDamage);
 
         // NO LINE IN THE LOG: AttackerAppliesFinalDamage_seg022_8A5 prints nothing for a blow on
         // a door (per user on the original, 2026-09-27); ours wrote "The door is ..." after
@@ -716,5 +737,33 @@ public sealed class UWPlayerMelee
 
         fInventory().NotifyChanged();
         mOHost.EquipmentWorn();
+    }
+
+    /// <summary>
+    /// The Listener's death by Altara's dagger (death_check, uw2 event/WORLDEV.C:834): the dagger leaves the hand
+    /// (InvRemoveOneObject), becomes a broken dagger (0xC7) and is put down beside the player - near_mob_put_at with
+    /// radius 6, ours DropAroundPlayer's 5.
+    /// </summary>
+    private void fBreakAltarasDagger(UWObject pODagger, UWWorld pOWorld)
+    {
+        UWInventoryModel lOInventory = fInventory();
+
+        if (lOInventory == null || pODagger == null)
+            return;
+
+        lOInventory.RemoveItem(pODagger);
+        pODagger.ID = (ushort)UWSpecialDeathsUw2.BrokenDaggerId;
+
+        // The picture from the new id: a carried thing keeps the texture it was loaded with, and the drop draws that
+        // (per user, test 65.4: the broken dagger lay there as the jewelled one).
+        UWLevelLoader lOLoader = fLoader();
+
+        if (lOLoader != null && lOLoader.UWDataImporter != null)
+            UWObjectAppearance.Apply(pODagger, lOLoader.UWDataImporter.Textures, lOLoader.CurrentLevel != null ? lOLoader.CurrentLevel.TextureInfos : null);
+
+        if (pOWorld != null)
+            pOWorld.DropAroundPlayer(pODagger);
+
+        lOInventory.NotifyChanged();
     }
 }

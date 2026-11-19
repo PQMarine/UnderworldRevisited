@@ -80,10 +80,24 @@ speed, every step into the wall counts it as a blow, and while he rises the blow
 above what hurts, every frame, while he does not rise at all. Ours bounces him off the walls as
 without the spell while he stands on the ice; in the air the spell works as in the original.
 
+**Flat ice in the second game does not push.** Coming off an ice slope onto flat ice, the
+original keeps pushing the player in the slope's direction, with a strength it never sets there:
+whatever happens to be in memory. Ours does not push on flat ice.
+
+**Every enter or exit trigger of a square goes off in the second game.** When the player or a thing
+steps onto a square, the original asks only the first trigger in the square's list whether it is an
+enter (or exit) trigger; after it, the rest are only asked as pressure plates. Six enter or exit
+triggers in the shipped levels lie behind another trigger and never go off. Two of them carry
+content: the Guardian's speech at a square of Killorn Keep (level 17), and on Britannia's third
+level a pair that sets the variable the castle's schedule reads to choose where Miranda meets the
+player; one of her places is never chosen so. The other four lose nothing. Ours asks every
+trigger of the square.
+
 These, and the other fixes of the original's bugs that can cost the game, follow the option
 "Fix bugs of the original" in the Game window (on by default, settings.json FixOriginalBugs).
 A rules.json key decides a single one against it: deviations.conversationPatches,
-deviations.unpushableNpcs, deviations.tidyLeakedObjects, deviations.groundedFlightBouncesOnIce.
+deviations.unpushableNpcs, deviations.tidyLeakedObjects, deviations.groundedFlightBouncesOnIce,
+deviations.everyEnterExitTrigger.
 
 **The debris of a broken potion or scroll can be made to cast nothing.** A thing destroyed by a
 fireball, a trap or its own impact on a wall becomes a pile of debris that keeps the thing's fields.
@@ -148,6 +162,11 @@ by the pointer alone. Ultima Underworld II also steers it with the keys, but in 
 easy movement (a turn of 5.6 degrees or a step ahead at a time, no step back); ours glides, turns
 and goes back on the keys in both games (per user, 2026-11-12).
 
+**Ultima Underworld II's inventory drags with either mouse button.** The original moves things in
+the inventory only by dragging with the right button; the first game takes either. Ours keeps
+either button for the second game too, so both games handle their items the same way (per user,
+2026-11-18).
+
 **F9 and F10 are refused during Roaming Sight.** The original still tracks and makes camp there;
 sleeping then leaves the spell gone and the view stuck.
 
@@ -183,6 +202,10 @@ a note written in ours may sit about a letter's width beside one written in DOSB
 click. Kept on purpose (2026-10-23).
 
 ## Presentation
+
+**The view does not jolt on the second game's ice.** When the speed changes sharply while the
+player slides on ice, the original jerks the view's heading for a few frames. Ours keeps the view
+steady; the slide itself is the original's.
 
 **The map piece shows its picture without the animation.** The piece of the map on level 7 plays
 a short cutscene in the view window in the original; ours shows its first picture.

@@ -209,6 +209,20 @@ namespace UWDataImport.UWData
 		/// (UWPlayerInput.fIsWalkingSlow; issue 4, 2026-10-21).</summary>
 		public bool WalkSlowToggle;
 
+		/// <summary>The modern scheme opens a locked door with the fitting key from the bags by the use itself and shows
+		/// the key beside the door's name at the crosshair (UWUiSchemePolicy.KeyUsedAutomatically, issue 30). Off, the key
+		/// is used by hand as in the original. On by default (2026-11-19, a wish from a forum post).</summary>
+		public bool AutoKey = true;
+
+		/// <summary>Freeing the modern pointer (the right button) opens the character panel, the rune panel, the bags -
+		/// each its own switch - and locking it closes again what it opened (UWModernPointer). Off by default (2026-11-19,
+		/// a wish from a forum post).</summary>
+		public bool FreeOpensCharacter;
+
+		public bool FreeOpensRunes;
+
+		public bool FreeOpensBags;
+
 		/// <summary>The debug keys work (noclip, the level keys, the debug display and tools; the
 		/// Controls window's last section, per user 2026-11-05): off by default, so a player's own key
 		/// on N or Page Down does not also fly the camera.</summary>

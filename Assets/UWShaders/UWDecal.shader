@@ -28,6 +28,8 @@ Shader "UW/Decal"
         // below it, as the shrine's does. Only read with the keyword _UW_OWN_TILE, which only the
         // model face material carries - see UWOwnTile.hlsl.
         [HideInInspector] _UWModelFloorY ("Model Floor", Float) = -100000
+        // A bridge's ties with the planes of its tile, per renderer (UWObjectSpawner) - see UWModelOwnTileDepth.
+        [HideInInspector] _UWTieBias ("Painter tie shift", Float) = 0
     }
 
     SubShader
@@ -81,6 +83,7 @@ Shader "UW/Decal"
                 float _PointLightCap;
                 float _Cull;
                 float _UWModelFloorY;
+                float _UWTieBias;
                 float _UWVertexIndex;
             CBUFFER_END
 
@@ -136,7 +139,7 @@ Shader "UW/Decal"
                 #if defined(_UW_OWN_TILE)
                     // Only the side facing the viewer - see UWOwnTile.hlsl on the back of a model.
                     outDepth = pbFrontFace
-                        ? UWOwnTileDepth(IN.positionWS, TransformObjectToWorld(float3(0, 0, 0)), _UWModelFloorY, IN.positionCS.z)
+                        ? UWModelOwnTileDepth(IN.positionWS, _UWModelFloorY, _UWTieBias, IN.positionCS.z)
                         : IN.positionCS.z;
                 #endif
 
@@ -229,6 +232,31 @@ Shader "UW/Decal"
 
                 return half4(color, 1.0h);
             }
+            ENDHLSL
+        }
+
+        // THE REMASTERED SHADOWS OF THE 3D MODELS AND THE DOORS (per user 2026-11-19: bridges and pillars cast none, nor
+        // did the doors; the walls' pass of UW/Dungeon). Only the model faces, the door leaves and the portcullis keep it:
+        // the plain decal material of the wall pictures switches it off (UWLevelLoader), a picture on a wall needs none.
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode" = "ShadowCaster" }
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            Cull [_Cull]
+
+            HLSLPROGRAM
+            #pragma vertex ShadowPassVertex
+            #pragma fragment ShadowPassFragment
+            #pragma target 3.5
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
             ENDHLSL
         }
     }

@@ -219,6 +219,20 @@ namespace UWDataImport.UWData
 		/// solid tile or the wrong ground for its kind.</summary>
 		bool PlaceCreature(UWCreatureRef pOCreature, UWTilePos pOTile, int piSubX, int piSubY);
 
+		/// <summary>teleport_critter's move (uw2 critter/CRITTIME.C:374, G5 part 2): the creature with this level object
+		/// to the sub-tile spot and zpos the caller worked out (UWConversationRulesUw2.TeleportCritter), its transient
+		/// bits of byte 0x19 cleared. False without a living creature behind the object.</summary>
+		bool TeleportCreature(UWObject pOCreature, UWTilePos pOTile, int piSubX, int piSubY, int piZPos);
+
+		/// <summary>instant_kill (uw2 WORLDEV.C:1703, G6 part 1: a schedule's event 3): the creature gone at once with its
+		/// corpse and what it carries, no death picture drawn. False without a living creature behind the object.</summary>
+		bool KillCreature(UWObject pOCreature);
+
+		/// <summary>The second game's schedule host on this level (UWScheduleRulesUw2, G6): the plot's deaths ask it for
+		/// the record, the triggers and the creature table (UWSpecialDeathsUw2). Null in the first game and without a
+		/// level.</summary>
+		IUWScheduleHost Schedules { get; }
+
 		// ------------------------------------------------- The level's own time (cleanup step 3.6)
 
 		/// <summary>One respawn pass over the level's creation traps (UWRespawnRules.Run); with
@@ -437,6 +451,18 @@ namespace UWDataImport.UWData
 		{
 			return mOInner.PlaceCreature(pOCreature, pOTile, piSubX, piSubY);
 		}
+
+		public bool TeleportCreature(UWObject pOCreature, UWTilePos pOTile, int piSubX, int piSubY, int piZPos)
+		{
+			return mOInner.TeleportCreature(pOCreature, pOTile, piSubX, piSubY, piZPos);
+		}
+
+		public bool KillCreature(UWObject pOCreature)
+		{
+			return mOInner.KillCreature(pOCreature);
+		}
+
+		public IUWScheduleHost Schedules => mOInner.Schedules;
 
 		public int RunRespawn(bool pbAnyDistance)
 		{

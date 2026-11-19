@@ -25,6 +25,13 @@ namespace UWDataImport.UWData
 			// Game.
 			fAdd("setup.game.title", "Game");
 			fAdd("setup.bar.gameplay", "Gameplay");
+			fAdd("setup.bar.interface", "Interface");
+			fAdd("setup.interface.title", "Interface");
+			fAdd("setup.interface.intro", "How the interface looks and behaves, in both schemes. Where things stand on the screen is set in the layout editor (modern scheme, game menu).");
+			fAdd("setup.interface.texts", "Texts");
+			fAdd("setup.interface.modern", "Modern scheme");
+			fAdd("setup.interface.freeopens", "Freeing the pointer opens:");
+			fAdd("setup.interface.windows", "Windows");
 			fAdd("setup.bar.mods", "Mods");
 			fAdd("setup.gameplay.title", "Gameplay");
 			fAdd("setup.gameplay.intro", "These options change how the game plays. Off is always as in the original.");

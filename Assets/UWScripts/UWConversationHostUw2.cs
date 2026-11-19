@@ -47,18 +47,51 @@ public sealed class UWConversationHostUw2 : IUWConversationHost
         return fFile != null && piSkillNumber >= 0 && piSkillNumber <= UWPlayerRecordUw2.SwimmingSkill ? UWPlayerRecordUw2.Skill(fFile, piSkillNumber) : 0;
     }
 
+    /// <summary>The record and the running numbers both (the vitals hold a copy of the skills for combat and magic).</summary>
     public void SetPlayerSkillByNumber(int piSkillNumber, int piValue)
     {
         if (fFile != null && piSkillNumber >= 0 && piSkillNumber <= UWPlayerRecordUw2.SwimmingSkill)
             fFile.Record[UWPlayerRecordUw2.SkillsOffset + piSkillNumber] = (byte)piValue;
+
+        if (fVitals != null)
+            fVitals.Vitals.SetSkillByNumber(piSkillNumber, piValue);
     }
 
+    /// <summary>x_skills at 10000: get_skill without a point (no conversation of the second game asks it).</summary>
     public bool TryIncreasePlayerSkill(int piSkillNumber)
     {
-        Debug.Log("[Walk] A conversation would raise skill " + piSkillNumber + " (its rules come in phase 4).");
+        if (fVitals == null)
+            return false;
 
-        return false;
+        bool lbRose = fVitals.Vitals.TryIncreaseSkill(piSkillNumber);
+
+        fVitals.WriteSkillsToRecord();
+
+        return lbRose;
     }
+
+    /// <summary>x_skills above 10000, the trainers (G5 part 1): a point left, grant_skill_advance, the point spent when
+    /// anything rose (uw2 conv/BABLHACK.C:414).</summary>
+    public bool AdvancePlayerSkillByPoint(int piWhich)
+    {
+        if (fVitals == null || fVitals.Vitals.SkillPoints <= 0)
+            return false;
+
+        bool lbRose = fVitals.Vitals.GrantSkillAdvance(piWhich);
+
+        if (lbRose)
+            fVitals.Vitals.SpendSkillPoint();
+
+        fVitals.WriteSkillsToRecord();
+
+        if (fVitals.Vitals.LogExperience)
+            Debug.Log("[Experience] Skill point on " + piWhich + (lbRose ? ": raised to " + GetPlayerSkillByNumber(piWhich) : ": nothing rose")
+                + ", " + fVitals.Vitals.SkillPoints + " points left.");
+
+        return lbRose;
+    }
+
+    private static UWVitalsUw2 fVitals => UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null ? UWVitalsUw2.Current : null;
 
     public void ApplyConversationValues(int piHunger, int piHitPoints, int piMana, int piPoison)
     {

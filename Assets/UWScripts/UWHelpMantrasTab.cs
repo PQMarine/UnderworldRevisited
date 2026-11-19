@@ -14,12 +14,22 @@ public sealed class UWHelpMantrasTab : UWHelpTab
 
     public override UWHelpTabId Id => UWHelpTabId.Mantras;
 
-    public override string TitleId => "help.tab.mantras";
+    public override string TitleId => fIsSecondGame ? "help.tab.teachers" : "help.tab.mantras";
+
+    /// <summary>The second game has no shrines: the tab shows its teachers instead (fDrawTeachers).</summary>
+    private static bool fIsSecondGame => UWGameSession.Current != null && UWGameSession.Current.PlayerFileUw2 != null;
 
     /// <summary>The list in either form (IUWHelpFlow, cleanup 8b.3, 2026-10-24).</summary>
     protected override void OnFlow(IUWHelpFlow pOFlow)
     {
         DataImport lOData = fData();
+
+        if (fIsSecondGame)
+        {
+            fDrawTeachers(pOFlow, lOData);
+
+            return;
+        }
 
         pOFlow.Line(UWText.T("help.mantras.title"), UWHelpLookEnum.Heading);
         pOFlow.Line(UWText.T("help.mantras.intro"), UWHelpLookEnum.Dim);
@@ -146,6 +156,99 @@ public sealed class UWHelpMantrasTab : UWHelpTab
         if (liLearned < liHidden)
             pOFlow.Line(UWText.F("help.knowledge.to_find", liHidden - liLearned), UWHelpLookEnum.Dim);
     }
+
+    /// <summary>
+    /// THE SECOND GAME'S TEACHERS (2026-11-18, per user: the Mantras tab meant nothing there, its skills are trained by
+    /// people): every conversation that can advance a skill for a skill point (UWTrainersUw2, read from the scripts),
+    /// shown once met - its name as the conversation showed it, the world and level it was held on - or every one with
+    /// "Show every mantra and spell". Above them the skill points to spend. What a teacher wants first is the script's
+    /// own and not listed.
+    /// </summary>
+    private void fDrawTeachers(IUWHelpFlow pOFlow, DataImport pOData)
+    {
+        pOFlow.Line(UWText.T("help.teachers.title"), UWHelpLookEnum.Heading);
+        pOFlow.Line(UWText.T("help.teachers.intro"), UWHelpLookEnum.Dim);
+
+        UWPlayerFile lOFile = UWGameSession.Current.PlayerFileUw2;
+
+        pOFlow.Space(10f);
+        pOFlow.Line(UWText.F("help.teachers.points", UWPlayerRecordUw2.SkillPoints(lOFile)), UWHelpLookEnum.Text);
+        pOFlow.Space(16f);
+
+        Dictionary<int, List<int>> lOAll = UWTrainersUw2.All(pOData != null ? pOData.Conversations : null);
+        UWKnowledge lOKnown = UWKnowledge.Current;
+        bool lbAll = UWUserSettings.KnowledgeShowAll;
+        List<KeyValuePair<int, UWKnowledge.Met>> lOMet = new List<KeyValuePair<int, UWKnowledge.Met>>();
+        List<int> lOUnmet = new List<int>();
+
+        foreach (int liSlot in lOAll.Keys)
+        {
+            if (lOKnown.HasMetTeacher(liSlot, out UWKnowledge.Met lOWhere))
+                lOMet.Add(new KeyValuePair<int, UWKnowledge.Met>(liSlot, lOWhere));
+            else
+                lOUnmet.Add(liSlot);
+        }
+
+        // By the place they were met, the first world's first.
+        lOMet.Sort((pOA, pOB) => pOA.Value.Level != pOB.Value.Level ? pOA.Value.Level.CompareTo(pOB.Value.Level) : pOA.Key.CompareTo(pOB.Key));
+        lOUnmet.Sort();
+
+        foreach (KeyValuePair<int, UWKnowledge.Met> lOEntry in lOMet)
+            fDrawTeacher(pOFlow, pOData, lOAll[lOEntry.Key], string.IsNullOrEmpty(lOEntry.Value.Who) ? UWText.T("help.teachers.unknown") : lOEntry.Value.Who,
+                UWText.F("help.teachers.met", fPlace(lOEntry.Value.Level)));
+
+        if (lbAll)
+        {
+            foreach (int liSlot in lOUnmet)
+            {
+                string lsName = UWTrainersUw2.NameOf(pOData, liSlot);
+
+                fDrawTeacher(pOFlow, pOData, lOAll[liSlot], lsName.Length > 0 ? lsName : UWText.T("help.teachers.unknown"), UWText.T("help.teachers.not_met"));
+            }
+
+            return;
+        }
+
+        if (lOMet.Count == 0)
+            pOFlow.Line(UWText.T("help.knowledge.none_yet"), UWHelpLookEnum.Dim);
+
+        if (lOUnmet.Count > 0)
+            pOFlow.Line(UWText.F("help.teachers.to_find", lOUnmet.Count), UWHelpLookEnum.Dim);
+    }
+
+    private static void fDrawTeacher(IUWHelpFlow pOFlow, DataImport pOData, List<int> pOSkills, string psName, string psWhere)
+    {
+        List<string> lONames = new List<string>();
+
+        foreach (int liSkill in pOSkills)
+            lONames.Add(UWCharacterText.SkillName(pOData != null ? pOData.Strings : null, liSkill).Trim());
+
+        pOFlow.Line("<b>" + UWText.Capitalised(psName) + "</b>", UWHelpLookEnum.Text);
+        pOFlow.Line(string.Format("<color=#{0}>{1}</color>", UWGuiTheme.AccentHex, string.Join(", ", lONames)), UWHelpLookEnum.Text);
+        pOFlow.Line(psWhere, UWHelpLookEnum.Dim);
+        pOFlow.Space(EntrySpacing);
+    }
+
+    /// <summary>The world and its level a dungeon level (1-based) names: eight levels to a world (LEVELS_PER_WORLD).</summary>
+    private static string fPlace(int piLevel)
+    {
+        if (piLevel < 1)
+            return UWText.T("help.teachers.unknown_place");
+
+        int liWorld = (piLevel - 1) / LevelsPerWorld;
+
+        return liWorld < WorldCount
+            ? UWText.F("help.teachers.place", UWText.T(WorldIds[liWorld]), ((piLevel - 1) % LevelsPerWorld) + 1)
+            : UWText.F("help.teachers.level", piLevel);
+    }
+
+    /// <summary>Eight levels to a world (LEVELS_PER_WORLD), nine worlds with names (help.world.0 to 8).</summary>
+    private const int LevelsPerWorld = 8;
+
+    private static readonly string[] WorldIds = { "help.world.0", "help.world.1", "help.world.2", "help.world.3", "help.world.4",
+        "help.world.5", "help.world.6", "help.world.7", "help.world.8" };
+
+    private static int WorldCount => WorldIds.Length;
 
     /// <summary>
     /// THE LIZARD WORDS (GitHub issue 20, 2026-11-08): those Murgo has mimed with their meanings, or every one with

@@ -32,5 +32,9 @@ namespace UWDataImport.UWData
 		{
 			return piAttitude > 0;
 		}
+
+		public bool InvCreateJoinsStack => true;
+
+		public bool XObjStuffLinkSpecial => true;
 	}
 }

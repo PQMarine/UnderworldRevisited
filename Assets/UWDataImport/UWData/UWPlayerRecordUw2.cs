@@ -322,7 +322,8 @@ namespace UWDataImport.UWData
 			return liQuantity < 0x200 && liQuantity > 1 ? liQuantity : 1;
 		}
 
-		/// <summary>Where the game is saved: the fine positions, the fine z, the 16-bit facing, the level.</summary>
+		/// <summary>Where the game is saved: the fine positions, the fine z, the 16-bit facing, the level - and the
+		/// same place in the player object at the workspace's start (WritePlayerObjectPosition).</summary>
 		public static void WritePosition(UWPlayerFile pOFile, int piPositionX, int piPositionY, int piZPosition, int piHeading, int piLevel)
 		{
 			UWBinary.Write16(pOFile.Record, PositionXOffset, piPositionX & 0xFFFF);
@@ -330,6 +331,35 @@ namespace UWDataImport.UWData
 			UWBinary.Write16(pOFile.Record, ZPositionOffset, piZPosition & 0xFFFF);
 			UWBinary.Write16(pOFile.Record, HeadingOffset, piHeading & 0xFFFF);
 			UWBinary.Write16(pOFile.Record, LevelOffset, piLevel);
+
+			WritePlayerObjectPosition(pOFile, piPositionX, piPositionY, piZPosition, piHeading);
+		}
+
+		/// <summary>
+		/// The player object's own place (ThePlayer, which the original moves with the player and INVSAVE.C writes as
+		/// it is): zpos (the fine z / 8), the heading's eighth and the fine spot's eighths in word 2, the tile at 0x16
+		/// (x bits 10-15, y 4-9, the low four bits kept). read_player_data takes the place from the record, so the
+		/// original plays either way, but its saves keep both alike (measured on a DOS save 2026-11-16: record 30/42
+		/// fine 35/241 z 646 facing 32497, object 30/42 fine 1/7 zpos 80 heading 3); until that day ours kept the
+		/// object at the place it was loaded with. Word 2's other bits are only these. The first game's twin is
+		/// UWPlayerData.fWritePlayerObject.
+		/// </summary>
+		public static void WritePlayerObjectPosition(UWPlayerFile pOFile, int piPositionX, int piPositionY, int piZPosition, int piHeading)
+		{
+			if (pOFile == null || pOFile.Workspace == null || pOFile.Workspace.Length < PlayerHomeOffset + 2)
+				return;
+
+			int liZ = System.Math.Max(0, System.Math.Min(0x7F, (piZPosition & 0xFFFF) >> 3));
+			int liHeading = ((piHeading & 0xFFFF) >> 13) & 7;
+			int liFineX = (piPositionX & 0xFF) >> 5;
+			int liFineY = (piPositionY & 0xFF) >> 5;
+
+			UWBinary.Write16(pOFile.Workspace, PlayerPosOffset, liZ | (liHeading << 7) | (liFineY << 10) | (liFineX << 13));
+
+			int liHome = UWBinary.ReadU16(pOFile.Workspace, PlayerHomeOffset);
+
+			UWBinary.Write16(pOFile.Workspace, PlayerHomeOffset, (liHome & 0xF)
+				| (((piPositionY >> 8) & 0x3F) << 4) | (((piPositionX >> 8) & 0x3F) << 10));
 		}
 
 		/// <summary>
@@ -488,9 +518,12 @@ namespace UWDataImport.UWData
 			return lbRemoved;
 		}
 
-		private const int PitFightersOffset = 0x360;
+		public const int PitFightersOffset = 0x360;
 
-		private const int PitFighterCount = 5;
+		public const int PitFighterCount = 5;
+
+		/// <summary>player->pit_fighters[piAt]: a mobile index, 0 for none.</summary>
+		public static int PitFighter(UWPlayerFile pOFile, int piAt) => pOFile != null && piAt >= 0 && piAt < PitFighterCount ? pOFile.Record[PitFightersOffset + piAt] : 0;
 
 		/// <summary>QB_PIT_RECORD and QB_JOSPUR_DEBT.</summary>
 		private const int PitRecordByte = 1;
@@ -537,6 +570,16 @@ namespace UWDataImport.UWData
 
 			pOFile.Record[MaxVitalityOffset] = (byte)piVitality;
 			pOFile.Record[MaxManaOffset] = (byte)piMana;
+		}
+
+		/// <summary>The twenty skills, attack and defence first (the save's numbering), into the record.</summary>
+		public static void WriteSkills(UWPlayerFile pOFile, System.Func<int, int> pfSkill)
+		{
+			if (pOFile == null || pfSkill == null)
+				return;
+
+			for (int liSkill = 0; liSkill <= SwimmingSkill; liSkill++)
+				pOFile.Record[SkillsOffset + liSkill] = (byte)pfSkill(liSkill);
 		}
 
 		/// <summary>What the player's blows earn, into the record.</summary>
@@ -666,6 +709,29 @@ namespace UWDataImport.UWData
 		public const int DetailByteOffset = 0x302;
 
 		public const int DetailShift = 4;
+
+		/// <summary>The music's bits in the same byte (bits 2-3); the sound's are bits 0-1.</summary>
+		public const int MusicShift = 2;
+
+		/// <summary>The sound and music switches of the save (word 0x302 bits 0-1 and 2-3; PLAYDATA.C:97-98 writes
+		/// fx_is_on and music_is_on on saving, :121-122 turns both on loading). A switch is on when its bits are not 0.</summary>
+		public static bool SoundOn(UWPlayerFile pOFile)
+		{
+			return (pOFile.Record[DetailByteOffset] & 3) != 0;
+		}
+
+		public static bool MusicOn(UWPlayerFile pOFile)
+		{
+			return ((pOFile.Record[DetailByteOffset] >> MusicShift) & 3) != 0;
+		}
+
+		/// <summary>The two switches into the save as the original writes them (1 or 0), the detail bits kept.</summary>
+		public static void WriteSoundAndMusic(UWPlayerFile pOFile, bool pbSound, bool pbMusic)
+		{
+			int liByte = pOFile.Record[DetailByteOffset] & ~0x0F;
+
+			pOFile.Record[DetailByteOffset] = (byte)(liByte | (pbSound ? 1 : 0) | ((pbMusic ? 1 : 0) << MusicShift));
+		}
 
 		public const int GameClockOffset = 0x369;
 

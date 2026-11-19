@@ -140,10 +140,12 @@ namespace UnderworldRevisited.Tools
             // A piece a mod changed plays on the device, not from the recording (2026-11-09).
             List<string> lsMusic = new List<string> { "DATA/LEV.ARK", "SOUND/AW06.XMI", "sound/uw01.xmi" };
 
-            Check.Str("music: a piece whose AW or UW file a mod changed, by its number",
-                UWDataImport.Audio.UWMusicRecordings.IsChangedByMods(lsMusic, "01") + " " + UWDataImport.Audio.UWMusicRecordings.IsChangedByMods(lsMusic, "06")
-                + " " + UWDataImport.Audio.UWMusicRecordings.IsChangedByMods(lsMusic, "02") + " " + UWDataImport.Audio.UWMusicRecordings.IsChangedByMods(null, "01"),
-                "True True False False");
+            Check.Str("music: a piece whose AW or UW file a mod changed, by its number; the second game's UWR/UWA names",
+                fModMusic(lsMusic, UWGame.Uw1, "01") + " " + fModMusic(lsMusic, UWGame.Uw1, "06") + " " + fModMusic(lsMusic, UWGame.Uw1, "02")
+                + " " + fModMusic(null, UWGame.Uw1, "01") + " | " + fModMusic(lsMusic, UWGame.Uw2, "06")
+                + " " + fModMusic(new List<string> { "SOUND/UWA06.XMI", "sound/uwr01.xmi" }, UWGame.Uw2, "06")
+                + " " + fModMusic(new List<string> { "SOUND/UWA06.XMI", "sound/uwr01.xmi" }, UWGame.Uw2, "01"),
+                "True True False False | False True True");
 
             // The game files: a made-up extraction and five packages.
             string lsRoot = Path.Combine(Path.GetTempPath(), "uwselfcheck-gamefiles-" + Guid.NewGuid().ToString("N"));
@@ -369,6 +371,11 @@ namespace UnderworldRevisited.Tools
             }
 
             pOOut.Add((byte)piValue);
+        }
+
+        private static bool fModMusic(List<string> psChanged, UWGame peGame, string psNumber)
+        {
+            return UWDataImport.Audio.UWMusicRecordings.IsChangedByMods(psChanged, peGame, psNumber);
         }
     }
 }

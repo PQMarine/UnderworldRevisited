@@ -22,13 +22,43 @@ namespace UWDataImport.UWData
 
 		public int TeleportLevel { get; private set; }
 
+		/// <summary>teleport_talker: the talker's tile, done when the conversation is over (do_babl_teleport).</summary>
+		public bool HasTalkerTeleport { get; private set; }
+
+		public int TalkerTeleportX { get; private set; }
+
+		public int TalkerTeleportY { get; private set; }
+
+		private UWLevel fLevelUw2 => mIHost != null && mIHost.World != null ? mIHost.World.Level : null;
+
+		/// <summary>do_babl_teleport's second half (BABLHACK.C:318): teleport_critter on the talker, on the player's level.
+		/// False when it stays where it is (no room, a solid tile) or nothing was asked.</summary>
+		public bool DoTalkerTeleport()
+		{
+			if (!HasTalkerTeleport || mONpc == null || mIHost == null)
+				return false;
+
+			HasTalkerTeleport = false;
+
+			bool lbFlier = mOData != null && mOData.ObjectClassProperties != null
+				&& mOData.ObjectClassProperties.TryGetCritter(mONpc.ID, out UWObjectClassProperties.Critter lOCritter) && lOCritter.IsFlier;
+
+			return UWConversationRulesUw2.TeleportCritter(mIHost.World, mONpc, TalkerTeleportX, TalkerTeleportY, lbFlier);
+		}
+
+		private void fTransformTalker(int piItem, int piWhoAmI, int piPowerful, int piTerrain)
+		{
+			if (mONpc == null)
+				return;
+
+			UWConversationRulesUw2.TransformCreature(mONpc, piItem, piWhoAmI, piPowerful, piTerrain,
+				mOData != null ? mOData.ObjectClassProperties : null, mIHost != null ? mIHost.World : null);
+
+			if (mIHost != null && mIHost.World != null)
+				mIHost.World.RedrawObject(mONpc);
+		}
+
 		private UWPlayerFile fFileUw2 => mOGame != null ? mOGame.PlayerFileUw2 : null;
-
-		/// <summary>x_skills: above this spends a skill point.</summary>
-		private const int SkillAdvance = 10000;
-
-		/// <summary>x_skills sets a skill up to this.</summary>
-		private const int MaxSkillUw2 = 30;
 
 		/// <summary>x_traps sets a variable up to this.</summary>
 		private const int MaxVariableUw2 = 0x3FF;
@@ -49,8 +79,6 @@ namespace UWDataImport.UWData
 
 		private const int HackFudge = 9;
 
-		private const int HackSignetRing = 10;
-
 		private const int JospurDebtByte = 5;
 
 		internal static void RegisterFunctionsUw2(UWConversationFunctionTable pOTable)
@@ -70,9 +98,12 @@ namespace UWDataImport.UWData
 					return UWPlayerRecordUw2.GetNumbered(pOSession.fFileUw2, pOCall.Argument(0));
 				})
 				.Register("x_clock", leSession, (pOSession, pOCall) => pOSession.fXClock(pOCall.Argument(0), pOCall.Argument(1)))
+				// x_exp(n): player_get_exp(n) - halved as every gain of the second game (UWPlayerVariantUw2) - and the
+				// total / 16 back (BABLHACK.C:276, G5 part 1).
 				.Register("x_exp", leSession, (pOSession, pOCall) =>
 				{
-					pOSession.fNote("x_exp " + pOCall.Argument(0));
+					if (pOSession.mIHost != null)
+						pOSession.mIHost.ChangeExperience(pOCall.Argument(0), pOSession.fDungeonLevel);
 
 					return pOSession.fFileUw2 != null ? (int)(UWPlayerRecordUw2.Experience(pOSession.fFileUw2) >> 4) : 0;
 				})
@@ -81,21 +112,28 @@ namespace UWDataImport.UWData
 				// pause(n): scroll_wait(n * 0x1F4). The machine runs on to the next question here, so the wait
 				// would come after what is said behind it; the text stands at once.
 				.Register("pause", leSession, (pOSession, pOCall) => 1)
+				// set_sequence(whoami, sequence, frame): the first such creature's animation (G5 part 2).
 				.Register("set_sequence", leSession, (pOSession, pOCall) =>
 				{
-					pOSession.fNote("set_sequence " + pOCall.Argument(0) + " " + pOCall.Argument(1) + " " + pOCall.Argument(2));
+					UWConversationRulesUw2.SetSequence(pOSession.fLevelUw2, pOCall.Argument(0), pOCall.Argument(1), pOCall.Argument(2));
 
 					return 0;
 				})
+
+				// transform_talker(item, whoami, powerful, terrain): the talker becomes another creature, drawn anew (G5 part 2).
 				.Register("transform_talker", leSession, (pOSession, pOCall) =>
 				{
-					pOSession.fNote("transform_talker");
+					pOSession.fTransformTalker(pOCall.Argument(0), pOCall.Argument(1), pOCall.Argument(2), pOCall.Argument(3));
 
 					return 0;
 				})
+
+				// teleport_talker(x, y): noted; do_babl_teleport moves the talker when the conversation is over (G5 part 2).
 				.Register("teleport_talker", leSession, (pOSession, pOCall) =>
 				{
-					pOSession.fNote("teleport_talker " + pOCall.Argument(0) + " " + pOCall.Argument(1));
+					pOSession.HasTalkerTeleport = true;
+					pOSession.TalkerTeleportX = pOCall.Argument(0);
+					pOSession.TalkerTeleportY = pOCall.Argument(1);
 
 					return 1;
 				})
@@ -129,23 +167,28 @@ namespace UWDataImport.UWData
 				RulesToCome.Add(psCall);
 		}
 
-		/// <summary>x_skills: the character's rules come in phase 4; until then only the setting and the
-		/// reading are done.</summary>
+		/// <summary>x_skills(skill, value) (BABLHACK.C:402, G5 part 1): above 10000 a skill point on grant_skill_advance,
+		/// 1 when it rose; 10000 get_skill; 0 to 30 set; else read. The skill's value back but for the point.</summary>
 		private int fXSkillsUw2(int piSkill, int piValue)
 		{
-			if (piValue > SkillAdvance)
-			{
-				fNote("x_skills, a skill point on " + piSkill);
-
+			if (mIHost == null)
 				return 0;
+
+			switch (UWConversationRulesUw2.SkillCall(piValue))
+			{
+				case UWConversationRulesUw2.SkillCallEnum.AdvanceByPoint:
+					return mIHost.AdvancePlayerSkillByPoint(piSkill) ? 1 : 0;
+
+				case UWConversationRulesUw2.SkillCallEnum.RaiseWithoutPoint:
+					mIHost.TryIncreasePlayerSkill(piSkill);
+					break;
+
+				case UWConversationRulesUw2.SkillCallEnum.Set:
+					mIHost.SetPlayerSkillByNumber(piSkill, piValue);
+					break;
 			}
 
-			if (piValue == SkillAdvance)
-				fNote("x_skills, get_skill " + piSkill);
-			else if (piValue >= 0 && piValue <= MaxSkillUw2 && mIHost != null)
-				mIHost.SetPlayerSkillByNumber(piSkill, piValue);
-
-			return mIHost != null ? mIHost.GetPlayerSkillByNumber(piSkill) : 0;
+			return mIHost.GetPlayerSkillByNumber(piSkill);
 		}
 
 		private int fXClock(int piClock, int piValue)
@@ -161,17 +204,36 @@ namespace UWDataImport.UWData
 			return 0;
 		}
 
-		/// <summary>babl_hack's odd jobs: modes 0 and 2 (the pit fights), 5 (loners) and 7 (a wand's charges) come
-		/// with their rules.</summary>
+		/// <summary>babl_hack's odd jobs; the pit fights (0, 1, 2) are UWArenaRulesUw2's (G6 part 4).</summary>
 		private int fBablHack(UWConversationFunctionTable.Call pOCall)
 		{
 			int liMode = pOCall.Arguments.Count > 0 ? pOCall.Arguments[pOCall.Arguments.Count - 1] : 0;
 
 			switch (liMode)
 			{
-				case HackRunningAway:
 				case HackSpeech:
 					return 0;
+
+				// The pits (G6 part 4, UWArenaRulesUw2): the challenge, running away, a fight's opponents.
+				case UWArenaRulesUw2.HackChallenge:
+				{
+					UWLevel lOLevel = mIHost != null && mIHost.World != null ? mIHost.World.Level : null;
+
+					UWArenaRulesUw2.Challenge(fFileUw2, mONpc != null && lOLevel != null ? System.Math.Max(0, UWAreaWalk.MobileIndexOf(lOLevel, mONpc)) : 0);
+
+					return 0;
+				}
+
+				case HackRunningAway:
+					return UWArenaRulesUw2.TakeRunningAway();
+
+				case UWArenaRulesUw2.HackSetUpFight:
+				{
+					IUWWorld lIWorld = mIHost != null ? mIHost.World : null;
+
+					return UWArenaRulesUw2.SetUpFight(fFileUw2, fFromEnd(pOCall, 4), fFromEnd(pOCall, 3), fFromEnd(pOCall, 2),
+						(piPower, piX, piY) => UWArenaRulesUw2.PlacePitFighter(lIWorld, piPower, piX, piY));
+				}
 
 				case HackTakeDebt:
 				{
@@ -192,10 +254,25 @@ namespace UWDataImport.UWData
 				case HackInPits:
 					return UWPlayerRecordUw2.IsInPits(fFileUw2) ? 1 : 0;
 
-				case HackSignetRing:
-					fNote("babl_hack, the signet ring");
+				// The Guardian's signet ring on either hand (G5 part 1).
+				case UWConversationRulesUw2.HackSignetRing:
+				{
+					UWInventoryModel lOInventory = mIHost != null && mIHost.World != null && mIHost.World.Player != null
+						? mIHost.World.Player.Inventory : null;
+
+					return lOInventory != null && UWConversationRulesUw2.WearsSignetRing(lOInventory.GetEquipped(UWArmorItemMap.BodySlot.RightRing),
+						lOInventory.GetEquipped(UWArmorItemMap.BodySlot.LeftRing)) ? 1 : 0;
+				}
+
+				// The first creature with that whoami a loner: Nelson's Patterson (G5 part 2).
+				case UWConversationRulesUw2.HackLoner:
+					UWConversationRulesUw2.MakeLoner(fLevelUw2, fFromEnd(pOCall, 2));
 
 					return 0;
+
+				// useNSpellCharges(thing, n) on a carried thing: Merzan's recharge (G5 part 1).
+				case UWConversationRulesUw2.HackWandCharges:
+					return UWConversationRulesUw2.ChangeCharges(Trade != null ? Trade.Resolve(fFromEnd(pOCall, 2)) : null, fFromEnd(pOCall, 3));
 			}
 
 			fNote("babl_hack " + liMode);

@@ -111,6 +111,12 @@ public sealed class UWConversationHost : IUWConversationHost
         return fCharacter != null && fCharacter.Vitals.TryIncreaseSkill(piSkillNumber);
     }
 
+    /// <summary>The second game's; the first game's conversations never spend a point this way.</summary>
+    public bool AdvancePlayerSkillByPoint(int piWhich)
+    {
+        return false;
+    }
+
     public void ApplyConversationValues(int piHunger, int piHitPoints, int piMana, int piPoison)
     {
         if (fCharacter != null)

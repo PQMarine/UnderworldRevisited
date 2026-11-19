@@ -37,7 +37,7 @@ namespace UnderworldRevisited.Tools
 
             public string GetGeneralMessage(int piIndex) { return "text " + piIndex; }
 
-            public void PlaySoundAtPlayer(int piEffect) { Log.Add("sound " + piEffect); }
+            public void PlaySoundAtPlayer(int piEffect, int piVolume = 0) { Log.Add("sound " + piEffect + (piVolume != 0 ? " +" + piVolume : string.Empty)); }
 
             public void ShowEffect(int piEffectObjectId, UWSpot pOAt, float pfSeconds, int piStartFrame = 0)
             {
@@ -318,6 +318,11 @@ namespace UnderworldRevisited.Tools
             /// <summary>Every request the player's end took (cleanup step 4.2), beside its line.</summary>
             public readonly List<UWDamageRequest> PlayerRequests = new List<UWDamageRequest>();
 
+            public void PlayerStruckBy(int piAttacker)
+            {
+                Blows.Add("player struck by " + piAttacker);
+            }
+
             public void DamagePlayer(UWDamageRequest pORequest)
             {
                 PlayerRequests.Add(pORequest);
@@ -591,6 +596,22 @@ namespace UnderworldRevisited.Tools
                 Log.Add("place " + pOCreature.ObjectId + " on " + pOTile.X + "/" + pOTile.Y + " at " + piSubX + "/" + piSubY);
 
                 return true;
+            }
+
+            public bool KillCreature(UWObject pOCreature)
+            {
+                Log.Add("kill " + (pOCreature != null ? pOCreature.ID : -1));
+
+                return pOCreature != null;
+            }
+
+            public IUWScheduleHost Schedules { get; set; }
+
+            public bool TeleportCreature(UWObject pOCreature, UWTilePos pOTile, int piSubX, int piSubY, int piZPos)
+            {
+                Log.Add("teleport " + (pOCreature != null ? pOCreature.ID : -1) + " to " + pOTile.X + "/" + pOTile.Y + " at " + piSubX + "/" + piSubY + " z " + piZPos);
+
+                return pOCreature != null;
             }
 
             public int RunRespawn(bool pbAnyDistance)

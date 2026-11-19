@@ -125,6 +125,10 @@ public class PortcullisMover : MonoBehaviour, IUsableDoor
 
     void Start()
     {
+        // Where the grate's sounds come from, at rest down (see DoorMover.mvSoundAt).
+        mvSoundAt = transform.position;
+        mbSoundAtSet = true;
+
         if (StartsOpen)
         {
             transform.position += Vector3.up * LiftHeight;
@@ -186,12 +190,14 @@ public class PortcullisMover : MonoBehaviour, IUsableDoor
         {
             mbClosing = false;
             IsClosed = true;
+            fPlayShut();
         }
     }
 
     public void StartUsingDoor()
     {
-        UWAudioService.PlayEffectAt(UWDataImport.UWData.UWSoundEffectId.Portcullis, transform.position);
+        UWAudioService.PlayEffectAt(UWDataImport.UWData.UWSoundEffectId.Portcullis, fSoundAt);
+        miStartOrder = UWDoorShutSounds.NextStartOrder();
 
         mfMotionStartLift = mfLiftNow;
 
@@ -229,6 +235,25 @@ public class PortcullisMover : MonoBehaviour, IUsableDoor
         {
             mbClosing = false;
             IsClosed = true;
+            fPlayShut();
         }
     }
+
+    /// <summary>The grate has come to rest down: the second game's own sound for a portcullis, the first game's door
+    /// sound (UWSoundEffectId.DoorShut).</summary>
+    private void fPlayShut()
+    {
+        UWDoorShutSounds.Request(UWWalkUw2.IsWalking ? UWDataImport.UWData.UWSoundEffectId.PortcullisShutUw2
+            : UWDataImport.UWData.UWSoundEffectId.DoorShut, fSoundAt, miStartOrder);
+    }
+
+    private Vector3 mvSoundAt;
+
+    /// <summary>When this grate last began to move, among all doors (UWDoorShutSounds).</summary>
+    private int miStartOrder;
+
+    private bool mbSoundAtSet;
+
+    /// <summary>The sounds' place; before Start has run (a trigger in the level's first frame) the leaf's own.</summary>
+    private Vector3 fSoundAt => mbSoundAtSet ? mvSoundAt : transform.position;
 }

@@ -41,6 +41,10 @@ namespace UWDataImport.UWData
 		/// <summary>Whether the world comes from a save game.</summary>
 		public bool IsSavegame => !string.IsNullOrEmpty(SavegamePath);
 
+		/// <summary>The second game's schedules in play (UWScheduleBookUw2.Of loads them from the save's or the data's
+		/// SCD.ARK the first time they are needed; a save writes them back). Null in the first game.</summary>
+		public UWScheduleBookUw2 Schedules { get; internal set; }
+
 		private readonly List<UWLevel.MapNote>[] mOMapNotes = new List<UWLevel.MapNote>[MapNoteLevelCount];
 
 		/// <summary>The notes of one map page (0-based), null beyond the pages the game keeps. The

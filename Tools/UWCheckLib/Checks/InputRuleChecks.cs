@@ -126,6 +126,12 @@ namespace UnderworldRevisited.Tools
             fExpectBool("flasks: the chain above row 13 turns the panel", UWClickRules.FlaskAt(26, 14) == UWClickRules.FlaskPart.Chain && UWClickRules.FlaskAt(39, 36) == UWClickRules.FlaskPart.Chain, true);
             fExpectBool("flasks: the chain's foot does nothing", UWClickRules.FlaskAt(30, 13) == UWClickRules.FlaskPart.None, true);
             fExpectBool("poison degree: none, barely, egregiously", UWClickRules.PoisonDegree(0) == -1 && UWClickRules.PoisonDegree(3) == 0 && UWClickRules.PoisonDegree(15) == 4, true);
+            fExpectBool("drag distance: more than 6 original pixels, |dx| + |dy| (mouse_dragged): 6 and 3+3 click, 7 and 3+4 drag",
+                !UWClickRules.IsDrag(6f, 0f) && !UWClickRules.IsDrag(3f, -3f) && UWClickRules.IsDrag(7f, 0f) && UWClickRules.IsDrag(-3f, 4f), true);
+            fExpectBool("weapon hand toggles the fight: sword, sling, bow, crossbow, jeweled bow, not arrow, dart, torch",
+                UWClickRules.WeaponHandTogglesFight(0x04) && UWClickRules.WeaponHandTogglesFight(0x18) && UWClickRules.WeaponHandTogglesFight(0x19)
+                && UWClickRules.WeaponHandTogglesFight(0x1A) && UWClickRules.WeaponHandTogglesFight(0x1F) && !UWClickRules.WeaponHandTogglesFight(0x12)
+                && !UWClickRules.WeaponHandTogglesFight(0x1B) && !UWClickRules.WeaponHandTogglesFight(0x95), true);
             fExpectBool("areas include both ends", UWClickRules.RuneShelf.Contains(176, 45) && UWClickRules.RuneShelf.Contains(222, 61) && !UWClickRules.RuneShelf.Contains(223, 61), true);
             fExpectBool("inventory: the helmet at the top middle", UWClickRules.InventorySpotAt(277, 199 - 15) == UWClickRules.InventorySpot.Helmet, true);
             fExpectBool("inventory: row 55 is the legs, not the gloves (first record wins)", UWClickRules.InventorySpotAt(275, 199 - 55) == UWClickRules.InventorySpot.Legs, true);

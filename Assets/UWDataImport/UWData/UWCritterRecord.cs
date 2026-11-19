@@ -346,7 +346,13 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Word 0x0D bit 10: a strong individual, combat bonuses (spec 8.3).</summary>
-		public bool IsStrong => (fWord(UWNpcRecordCodec.AttitudeWord) & UWNpcRecordCodec.StrongBit) != 0;
+		public bool IsStrong
+		{
+			get { return (fWord(UWNpcRecordCodec.AttitudeWord) & UWNpcRecordCodec.StrongBit) != 0; }
+
+			// SET_POWERFUL: the second game's transform_talker (G5 part 2).
+			set { fSetWordBits(UWNpcRecordCodec.AttitudeWord, UWNpcRecordCodec.StrongBit, value ? UWNpcRecordCodec.StrongBit : 0); }
+		}
 
 		/// <summary>Word 0x0D bit 13: talked to (conversation).</summary>
 		public bool TalkedTo => (fWord(UWNpcRecordCodec.AttitudeWord) & UWNpcRecordCodec.TalkedToBit) != 0;
@@ -441,6 +447,14 @@ namespace UWDataImport.UWData
 		{
 			get { return fGame != null ? fGame.SlotOfRecord(fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F, SpellSlot) : fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F; }
 			set { fSetBits(UWNpcRecordCodec.AnimationByte, 0x3F, fGame != null ? fGame.RecordOfSlot(value) : value); }
+		}
+
+		/// <summary>Byte 0x15 bits 0-5 as the game keeps them (SET_SEQ): the second game's set_sequence writes the
+		/// sequence number itself, which Animation reads through the game's variant (G5 part 2).</summary>
+		public int RawSequence
+		{
+			get { return fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F; }
+			set { fSetBits(UWNpcRecordCodec.AnimationByte, 0x3F, value & 0x3F); }
 		}
 
 		/// <summary>Byte 0x15 bit 6: standing, no motion needed.</summary>

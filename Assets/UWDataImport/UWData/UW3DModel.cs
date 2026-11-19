@@ -84,6 +84,27 @@ namespace UWDataImport.UWData
         public System.Collections.Generic.Dictionary<int, byte> VertexDarkValues = new System.Collections.Generic.Dictionary<int, byte>();
     }
 
+    /// <summary>
+    /// One back-face test of the original's model program (jnorm, opcodes 58 and 5E to 68; INTERP.ASM): the face
+    /// after it is drawn only when the sum of n * (p + origin) over the axes is not negative, the origin being the
+    /// eye's place relative to the object as the interpreter keeps it - with Else the other way round (the part a
+    /// jump at the region's end skips to). Raw words in the program's order; an axis the opcode lacks is zero.
+    /// </summary>
+    public sealed class UW3DModelSideTest
+    {
+        public int NX, PX, NY, PY, NZ, PZ;
+
+        public bool Else;
+
+        /// <summary>A register skip instead (opcodes 14 and 16): the face is drawn when model variable Address is above
+        /// (RunIfGreater, 14) or below (16) Value - the object renderer sets those variables per object.</summary>
+        public bool Register;
+
+        public int Address, Value;
+
+        public bool RunIfGreater;
+    }
+
     public class UW3DModelFace
     {
         public List<int> VertexIndices = new List<int>();
@@ -100,6 +121,10 @@ namespace UWDataImport.UWData
         /// Only relevant for faces without Uvs (single-coloured); unused for textured faces.
         /// </summary>
         public int ColorIndex;
+
+        /// <summary>The back-face tests the original makes before drawing this face, outermost first; null when it
+        /// is always drawn. The mesh is built double-sided regardless (see UW3DModelImport).</summary>
+        public System.Collections.Generic.List<UW3DModelSideTest> SideTests;
 
         /// <summary>The colour register the face was painted from (before the model's colour record resolved it) - for
         /// the models whose registers the game sets per draw (the large blackrock gem, UWBlackrockGemLook).</summary>

@@ -28,6 +28,8 @@ Shader "UW/ModelPalette"
         // below it, as the shrine's does. Only read with the keyword _UW_OWN_TILE, which only the
         // model face material carries - see UWOwnTile.hlsl.
         [HideInInspector] _UWModelFloorY ("Model Floor", Float) = -100000
+        // A bridge's ties with the planes of its tile, per renderer (UWObjectSpawner) - see UWModelOwnTileDepth.
+        [HideInInspector] _UWTieBias ("Painter tie shift", Float) = 0
     }
 
     SubShader
@@ -62,6 +64,7 @@ Shader "UW/ModelPalette"
             CBUFFER_START(UnityPerMaterial)
                 float _Cull;
                 float _UWModelFloorY;
+                float _UWTieBias;
             CBUFFER_END
 
             struct Attributes
@@ -104,7 +107,7 @@ Shader "UW/ModelPalette"
                 #if defined(_UW_OWN_TILE)
                     // Only the side facing the viewer - see UWOwnTile.hlsl on the back of a model.
                     outDepth = pbFrontFace
-                        ? UWOwnTileDepth(IN.positionWS, TransformObjectToWorld(float3(0, 0, 0)), _UWModelFloorY, IN.positionCS.z)
+                        ? UWModelOwnTileDepth(IN.positionWS, _UWModelFloorY, _UWTieBias, IN.positionCS.z)
                         : IN.positionCS.z;
                 #endif
 

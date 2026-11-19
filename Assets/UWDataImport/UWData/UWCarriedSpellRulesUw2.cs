@@ -78,6 +78,28 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// checkSpell in the world (how 0, uw2 obj/OBJUSE.C:353): the thing itself is the source and there is no wait; the
+		/// player touching an unbroken wand casts nothing. Decode, the cast on the one who used it, one charge. True when
+		/// cast.
+		/// </summary>
+		public static bool CheckSpellInWorld(UWObject pOThing, IList<UWObject> pORecords, Func<int, int, bool> pfCast)
+		{
+			if (pOThing == null || IsWand(pOThing.ID))
+				return false;
+
+			if (!UWEnchantSpellRulesUw2.TryDecode(pOThing, pORecords, out UWObject _, out int liMajor, out int liEffect, out bool lbCastOnUse)
+				|| !lbCastOnUse)
+				return false;
+
+			if (pfCast != null)
+				pfCast(liMajor, liEffect);
+
+			UseCharges(pOThing, pORecords, 1);
+
+			return true;
+		}
+
+		/// <summary>
 		/// checkSpell for the player (how nonzero): decode, the wait, the cast, one charge. pfCast(major, effect) casts -
 		/// a major of 0 or more by class and minor, -1 by the spell's number (effect).
 		/// </summary>

@@ -13,8 +13,8 @@ using UWDataImport.UWData;
 ///
 /// AND ITS DOORS (step 4): the walk has no interface to use things with, so the use key of the modern
 /// scheme or a click opens and closes the door in front - the one the view's centre (or the free
-/// pointer) points at within DoorReach. A locked door stays shut; no trigger of the door fires (its
-/// traps are the second game's rules, phase 4).
+/// pointer) points at within DoorReach. A locked door stays shut; its triggers and traps are the second game's
+/// rules (G3, built).
 /// </summary>
 public class UWWalkUw2View : MonoBehaviour
 {
@@ -68,6 +68,10 @@ public class UWWalkUw2View : MonoBehaviour
         // The game screen around the view (phase 3 step 1).
         if (mOLoader != null)
             mOScreen = UWGameScreenUw2.Attach(Camera.main, mOLoader.UWDataImporter);
+
+        // The walk's first theme, the world's first walking theme (MAINMENU.C:224 at the end of real_start; UW2 plan
+        // phase 5 part A); the menu's theme gives way at once.
+        UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickFirst);
     }
 
     private UWGameScreenUw2 mOScreen;
@@ -87,7 +91,7 @@ public class UWWalkUw2View : MonoBehaviour
     private bool fIsInputTaken()
     {
         return UWControlScheme.SharedControls == null || UWSetupMenu.IsCapturingInput || UWGameScreenUw2.IsOptionsOpen || UWMapScreenUw2.IsOpen
-            || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || UWGameScreenUw2.IsAskingYesNo || UWControls.IsTextEntryActive
+            || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || UWGameScreenUw2.IsAskingYesNo || UWGameScreenUw2.IsWaitingForPage || UWControls.IsTextEntryActive
             || (UWSleepUw2.Current != null && UWSleepUw2.Current.IsNight) || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed;
     }
 
@@ -142,7 +146,7 @@ public class UWWalkUw2View : MonoBehaviour
             Debug.Log("[Savegame] Modern's place moved to the nearest one the original accepts.");
 
         string lsError = UWSaveCodec.SaveUw2(lOSession, lsSlot, psDescription, lOLoader.CurrentLevelIndex, liX, liY, liZ,
-            lOMovement.Motion.CameraYaw);
+            lOMovement.Motion.CameraYaw, UWSoundOptions.SoundEnabled, UWSoundOptions.MusicEnabled);
 
         if (lsError == null)
         {
@@ -197,7 +201,17 @@ public class UWWalkUw2View : MonoBehaviour
 
             // An object on the pointer goes into the world (mous_in_3d with GameInputMode 1: ReturnObject).
             if (lOInventory != null && lOInventory.CursorItem != null)
+            {
+                if (UWAttackUw2.Current != null)
+                    UWAttackUw2.Current.TakeDropPress();
+
                 fDrop(lOInventory);
+            }
+            // The right click that jumps during a walk by pointer does nothing else (mous_in_3d, GameInputMode 0: with
+            // the left button down every command but the fight breaks off; per user 2026-11-18 ours looked). A thing
+            // on the pointer still goes (GameInputMode 1 asks no button).
+            else if (UWPlayerInput.ConsumesRightClick())
+                return;
             else if (leCommand == UWGameScreenUw2.CommandEnum.None || leCommand == UWGameScreenUw2.CommandEnum.Look)
                 fBeginLookPress();
             else if (leCommand == UWGameScreenUw2.CommandEnum.Get)
@@ -226,7 +240,7 @@ public class UWWalkUw2View : MonoBehaviour
     }
 
     /// <summary>The modern use key: a creature in front is talked to, what can be taken goes onto the pointer
-    /// with the bags open, a door opens or closes; the rest of using is the second game's rules (phase 4).</summary>
+    /// with the bags open, a door opens or closes; the rest of using is the second game's rules (G4, built).</summary>
     private void fModernUse()
     {
         // A key or a lockpick waiting for its lock takes the use key as its click (G4 part A).
@@ -270,8 +284,6 @@ public class UWWalkUw2View : MonoBehaviour
 
     private UseTarget mOPressTarget;
 
-    /// <summary>How far the pointer moves, in screen pixels, before a held right button takes.</summary>
-    public const float DragToTakePixels = 6f;
 
     private void fBeginLookPress()
     {
@@ -301,7 +313,7 @@ public class UWWalkUw2View : MonoBehaviour
             return;
         }
 
-        if (mbDragUsePending || (UWPointer.Position - mOLookPressAt).magnitude < DragToTakePixels)
+        if (mbDragUsePending || !UWDragDistance.Crossed(mOLookPressAt, UWPointer.Position))
             return;
 
         // The frontmost door or thing that is not taken goes to the release; else what can be taken is.
@@ -371,7 +383,7 @@ public class UWWalkUw2View : MonoBehaviour
     /// second game's pressure plates): something that can be taken and lies within the hand's reach
     /// (InPickRange, UWReachRules.CanReach; the terrain between is not tested yet) leaves its tile and
     /// goes onto the pointer, a container with its contents; a stack asks how many first. The theft, the
-    /// moonstone and the pick-up trigger are the second game's rules (phase 4). pbSay: Get says what it cannot
+    /// moonstone and the pick-up trigger are the second game's rules (built, fTakeCount). pbSay: Get says what it cannot
     /// take.
     /// </summary>
     private void fTake(UWEntityInfo pOEntity, UWInventoryModel pOInventory, bool pbSay)
@@ -687,6 +699,43 @@ public class UWWalkUw2View : MonoBehaviour
         if (UWTriggerSystem.UseWallControlUw2(lOObject, mOLoader))
             return;
 
+        // UseRect's minor 1 (uses part 2, 2026-11-18): a barrel or a chest not marked as a quantity is emptied as a
+        // container (UseCont with how 0), and its owner, if it can have one, counts it once more (player_did_bad after
+        // DumpTheBag's own; for a locked one too).
+        if ((lOObject.ID == BarrelId || lOObject.ID == ChestId) && !lOObject.HasQuantity)
+        {
+            fDumpTheBag(lOThing);
+
+            DataImport lOData = mOLoader.UWDataImporter;
+
+            if (lOData != null && lOData.CommonObjectProperties != null
+                && lOData.CommonObjectProperties.TryGet(lOObject.ID, out UWCommonObjectProperties.Entry lOEntry) && lOEntry.CanHaveOwner)
+                UWTriggerSystem.PlayerDidBadUw2(lOObject.Owner, mOLoader, UWGameScreenUw2.Say);
+
+            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+
+            return;
+        }
+
+        // UseRune: the flam rune burns and explodes, the tym rune holds the player; it is gone either way.
+        if (UWRuneRulesUw2.IsRune(lOObject.ID))
+        {
+            UWWorld lOWorld = UWWorld.Of(mOLoader);
+
+            if (lOWorld != null && UWVitalsUw2.Current != null)
+                UWRuneRulesUw2.Touch(lOObject, null, new UWSpellHostUw2(UWVitalsUw2.Current, mOLoader, lOWorld.Presentation));
+
+            return;
+        }
+
+        // UseUtil in the world: the anvil and the pole ask for their target (UWToolUseUw2.UseInWorld).
+        if (UWToolUseUw2.UseInWorld(lOObject, mOLoader.UWDataImporter, mOScreen != null ? mOScreen.Inventory : null))
+        {
+            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+
+            return;
+        }
+
         // UseCont in the world: a locked container says so, any other is emptied onto the floor (DumpTheBag; G4 rest part 3).
         if (lOObject.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
         {
@@ -708,13 +757,38 @@ public class UWWalkUw2View : MonoBehaviour
             return;
         }
 
+        // UseBook in the world does nothing, its traps included (UseObj's trap flag is off for the whole class).
+        if ((lOObject.ID & 0x1F0) == UWReadRulesUw2.FirstReadable)
+            return;
+
         // UseRect's minor 2: any other wall picture is looked at (RectLook).
         if ((lOObject.ID & 0x1F0) == WallPictureClass && UWAttackUw2.Current != null && UWAttackUw2.Current.Look != null)
             UWAttackUw2.Current.Look.LookAtTarget(lOThing, null);
-        else if (pbSayOther)
-            UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
+        // UseLight in the world: "Lights may only be used if equipped."
+        else if (UWObjectMechanics.IsAnyLight(lOObject.ID))
+            UWGameScreenUw2.Say(UWText.Block(mOLoader.UWDataImporter, 1, LightsEquippedString + 1, string.Empty));
 
+        // ANY OTHER THING (2026-11-18: until then "Not yet in the walk"): UseObj's checkTrap with mode 4 and checkSpell,
+        // the thing itself casting on the player without the wait between casts; nothing is said.
         UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+
+        if (UWGameScreenUw2.Current != null && mOLoader.CurrentLevel != null)
+            UWCarriedSpellRulesUw2.CheckSpellInWorld(lOObject, mOLoader.CurrentLevel.Masterlist, UWGameScreenUw2.Current.CastOnPlayer);
+    }
+
+    /// <summary>"Lights may only be used if equipped." (UseLight with how 0, 0x89).</summary>
+    private const int LightsEquippedString = 0x89;
+
+    /// <summary>UseRect's minor 1 containers: the barrel (index 0xB) and the chest (0xD).</summary>
+    private const int BarrelId = 0x15B;
+
+    private const int ChestId = 0x15D;
+
+    /// <summary>UseObj(ThePlayer, thing, 0) for a rule that works a thing in the world from afar (UsePoleOn's switch).</summary>
+    public void UseThing(UWEntityInfo pOThing)
+    {
+        if (pOThing != null)
+            fUseAt(new UseTarget { Thing = pOThing }, false);
     }
 
     /// <summary>
@@ -800,6 +874,10 @@ public class UWWalkUw2View : MonoBehaviour
             ? Interaction.ChunkDescriptionAt(mOLoader != null ? mOLoader.UWDataImporter : null, lOMeasured.FrontmostHit) : null;
 
         UWAttackUw2.Current.Look.LookAtTarget(lOThing, lsChunk);
+
+        // NO BookLook IN THE WORLD (per user 2026-11-18 against the original: a scroll on the floor says "You see a ..."
+        // and is not read): player_3dlook gives the look its detail only within 0x48 AND for a thing that cannot be
+        // picked up (!releaseable, INTERACT.C:421), and every book and scroll can be.
 
         // THE TRAP SEARCH (player_3dlook, G3 part H2): with Look lit on the command bar - or the modern look key, the
         // deliberate look as in the first game (UWUiSchemePolicy.TrapSearchNeedsLookMode) - a Search roll against

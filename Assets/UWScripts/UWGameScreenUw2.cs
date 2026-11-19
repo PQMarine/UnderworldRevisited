@@ -79,8 +79,28 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         Options = 5
     }
 
-    /// <summary>The command the bar has chosen; None is the default, a look (mous_in_3d).</summary>
-    public static CommandEnum Command { get; private set; } = CommandEnum.None;
+    private static CommandEnum meCommand = CommandEnum.None;
+
+    /// <summary>The command the bar has chosen; None is the default, a look (mous_in_3d). The fight command is
+    /// player->drawn: choosing it asks for the armed theme, leaving it for a walking one (pick_fightmode and
+    /// punt_fightmode, INTERACT.C:683, :713, :726; UW2 plan phase 5 part A).</summary>
+    public static CommandEnum Command
+    {
+        get
+        {
+            return meCommand;
+        }
+
+        private set
+        {
+            bool lbWasDrawn = meCommand == CommandEnum.Fight;
+
+            meCommand = value;
+
+            if (lbWasDrawn != (value == CommandEnum.Fight))
+                UWAudioService.Uw2Drawn(!lbWasDrawn);
+        }
+    }
 
     /// <summary>A rule puts the weapon away (UWPlayerAvatar.LeaveCombatMode: the golem's stand-down).</summary>
     public static void LeaveFight()
@@ -108,10 +128,15 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         msfLastSaid = Time.unscaledTime;
         msMessages.Add(psLine);
+        LastPageLines = 0;
 
         while (msMessages.Count > KeptMessages)
             msMessages.RemoveAt(0);
     }
+
+    /// <summary>The lines the last page of a paged text put into the scroll (0 once a plain line followed): the
+    /// modern box shows at least these, its three lines being fewer than a page's four.</summary>
+    public static int LastPageLines { get; private set; }
 
     private DataImport mOData;
 
@@ -210,8 +235,6 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
     private Vector2 mOInventoryPressAt;
 
-    /// <summary>How far the pointer moves, in screen pixels, before a held button takes (mouse_dragged).</summary>
-    public const float DragToTakePixels = 6f;
 
     /// <summary>The walk's inventory for the view's buttons (UWWalkUw2View: taking from and putting into
     /// the world, step 3 part B).</summary>
@@ -257,7 +280,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>The object on the pointer as a picture at the pointer's scale.</summary>
     private Texture2D mOCursorObject;
 
-    private int miCursorObjectKey = -1;
+    private long mlCursorObjectKey = -1;
 
     // The panel's pages and slide (step 2 part B).
     private RectTransform mOInventoryPage;
@@ -469,7 +492,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         // A new walk starts with an empty scroll and no command (the statics outlive the scene).
         msMessages.Clear();
-        Command = CommandEnum.None;
+        // Directly: the walk's start picks its own theme (UWWalkUw2View), no sheathing's.
+        meCommand = CommandEnum.None;
         Current = this;
 
         if (msAfterStart != null)
@@ -686,6 +710,128 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     public static void ClearScroll()
     {
         msMessages.Clear();
+        msPendingPage.Clear();
+        msbPageRelease = false;
+    }
+
+    // ------------------------------------------------- [MORE] (scroll_more, uw2 ui/SCROLLIO.C)
+
+    /// <summary>The lines of a long text not printed yet.</summary>
+    private static readonly List<string> msPendingPage = new List<string>();
+
+    private static int msiPageStartFrame = -1;
+
+    private static int msiPageEndedFrame = -1;
+
+    /// <summary>[MORE] in colour 0x12 (scroll_more).</summary>
+    private const int MoreColourIndex = 0x12;
+
+    /// <summary>After the last page the buttons must come up first (scroll_wait's mouse_release): the click that paged
+    /// is no look or use when it is let go.</summary>
+    private static bool msbPageRelease;
+
+    /// <summary>A long text waits for [MORE] (and the frame its last page came, and until the buttons are up).</summary>
+    public static bool IsWaitingForPage => msPendingPage.Count > 0 || msiPageEndedFrame == Time.frameCount || msbPageRelease;
+
+    /// <summary>
+    /// A text that may be longer than the scroll (per user 2026-11-18 with the original: a book's text stops with
+    /// [MORE] after four lines, the rest comes with a key or a click). The first game's paging (UWMessageLogModel
+    /// .ShowNextPage): the lines come four at a time (the scroll's lines less the [MORE] row), the older lines scroll
+    /// away - so a header printed before a long text, "You read the book...", has left the scroll before the player
+    /// sees it, as in the original. While [MORE] waits the game stands and every key or click only pages on
+    /// (scroll_wait).
+    /// </summary>
+    public static void SayPaged(string psText)
+    {
+        UWFont lOFont = Current != null && Current.mOData != null && Current.mOData.Fonts != null
+            ? Current.mOData.Fonts.Get(UWFonts.FontType.Normal) : null;
+
+        if (lOFont == null || string.IsNullOrEmpty(psText))
+        {
+            Say(psText);
+
+            return;
+        }
+
+        msPendingPage.Clear();
+        msPendingPage.AddRange(UWMessageLogModel.WrapForPaging(lOFont, psText, UWClassicLayoutUw2.MessageLog.Width));
+        msiPageStartFrame = Time.frameCount;
+        Current.fShowNextPage(lOFont);
+    }
+
+    private void fShowNextPage(UWFont pOFont)
+    {
+        int liPerPage = UWMessageLogModel.LinesAboveMore(UWMessageLogModel.CapacityOf(pOFont, UWClassicLayoutUw2.MessageLog.Height));
+
+        LastPageLines = 0;
+
+        for (int liAt = 0; liAt < liPerPage && msPendingPage.Count > 0; liAt++)
+        {
+            msMessages.Add(msPendingPage[0]);
+            msPendingPage.RemoveAt(0);
+            LastPageLines++;
+        }
+
+        while (msMessages.Count > KeptMessages)
+            msMessages.RemoveAt(0);
+
+        msfLastSaid = Time.unscaledTime;
+
+        bool lbWaiting = msPendingPage.Count > 0;
+
+        if (lbWaiting == mbPagingHeld)
+            return;
+
+        mbPagingHeld = lbWaiting;
+
+        if (lbWaiting)
+        {
+            UWGameClock.Hold(UWGameClock.PagingHold);
+
+            if (UWControlScheme.Shared != null)
+                UWControlScheme.Shared.HoldInput(UWGameClock.PagingHold);
+        }
+        else
+        {
+            msiPageEndedFrame = Time.frameCount;
+            msbPageRelease = true;
+            UWGameClock.Release(UWGameClock.PagingHold);
+
+            if (UWControlScheme.Shared != null)
+                UWControlScheme.Shared.ReleaseInput(UWGameClock.PagingHold);
+        }
+    }
+
+    private bool mbPagingHeld;
+
+    /// <summary>scroll_wait for [MORE]: any key, mouse button or pad button pages on. True while a text waits.</summary>
+    private bool fUpdatePaging()
+    {
+        if (msPendingPage.Count == 0)
+        {
+            if (msbPageRelease && !UWMouseButtons.LeftHeld && !UWMouseButtons.RightHeld)
+                msbPageRelease = false;
+
+            return msbPageRelease;
+        }
+
+        if (Time.frameCount == msiPageStartFrame)
+            return true;
+
+        UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
+
+        if ((UWPointer.HasMouse && (UWMouseButtons.LeftPressed || UWMouseButtons.RightPressed))
+            || (lOKeyboard != null && lOKeyboard.anyKey.wasPressedThisFrame) || UWGamepad.AnyPressed(false))
+        {
+            UWFont lOFont = mOData != null && mOData.Fonts != null ? mOData.Fonts.Get(UWFonts.FontType.Normal) : null;
+
+            if (lOFont != null)
+                fShowNextPage(lOFont);
+            else
+                msPendingPage.Clear();
+        }
+
+        return true;
     }
 
     // ------------------------------------------------- Building
@@ -845,8 +991,14 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         mbSwingHeld = false;
     }
 
+    /// <summary>The screens in front of the walk during which player_attack and the weapon's steps do not run (the game
+    /// loop is theirs): a conversation, the map, the options, the count and yes/no prompts, [MORE].</summary>
+    public static bool IsModalOpen => UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen || IsOptionsOpen || IsAskingCount
+        || IsAskingYesNo || IsWaitingForPage;
+
     /// <summary>A step each eighth of a second, one at a time so that the strike's step is never skipped. The
-    /// hold's step stops the weapon until the button comes up (fast_adjust cleared at the 0x40 step).</summary>
+    /// hold's step stops the weapon until the button comes up (fast_adjust cleared at the 0x40 step). It stands while a
+    /// screen of its own is up (IsModalOpen), as the original's swing does in a conversation.</summary>
     private void fUpdateSwing()
     {
         UWWeaponAnimations.Uw2Record lORecord = fSwingRecord();
@@ -858,7 +1010,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        if (mbSwingHeld)
+        if (mbSwingHeld || IsModalOpen)
             return;
 
         mfWeaponTime += Time.unscaledDeltaTime;
@@ -1787,7 +1939,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         if (lOItem == null)
         {
-            if (UWClassicLayoutUw2.Inventory.DisplayToSlot[liHit] == WeaponHandSlot)
+            // toggle_fightmode works in the game's own mode only (inplist->mode 1), not over a conversation.
+            if (UWClassicLayoutUw2.Inventory.DisplayToSlot[liHit] == WeaponHandSlot && !UWConversationScreenUw2.IsOpen)
                 fChoose(CommandEnum.Fight);
 
             return;
@@ -1813,7 +1966,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         bool lbHeld = lOMouse != null && (mbInventoryPressRight ? lOMouse.rightButton.isPressed : lOMouse.leftButton.isPressed);
         UWObject lOItem = fDisplayItem(miInventoryPressHit);
 
-        if (lbHeld && (UWPointer.Position - mOInventoryPressAt).magnitude < DragToTakePixels)
+        if (lbHeld && !UWDragDistance.Crossed(mOInventoryPressAt, UWPointer.Position))
             return;
 
         mbInventoryPress = false;
@@ -1828,7 +1981,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        if (mbInventoryPressRight || Command == CommandEnum.Look)
+        // mous_in_inv: the right button looks unless the Use icon is lit in the game's own mode, the left looks under
+        // the Look icon; everything else is DoSpecialActions' (found with the mouse findings of 2026-11-18; ours looked on every right press).
+        bool lbLook = mbInventoryPressRight
+            ? Command != CommandEnum.Use || UWConversationScreenUw2.IsOpen
+            : Command == CommandEnum.Look;
+
+        if (lbLook)
         {
             // inv_look: checkTrap with mode 5 before the look (G3 part H4).
             if (lOItem != null && UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
@@ -1837,6 +1996,20 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
             if (UWAttackUw2.Current != null)
                 UWAttackUw2.Current.Look.AddItemLookMessages(lOItem);
+
+            // SpecialLook's BookLook: a carried book or scroll is read with its look (the inventory's look has detail).
+            ShowReading(lOItem, UWReadRulesUw2.Look(lOItem));
+
+            return;
+        }
+
+        // DoSpecialActions' case 8 and 9: a weapon or a launcher in the weapon hand draws or sheathes it instead of a
+        // use (per user 2026-11-18 the click on the drawn weapon did nothing); toggle_fightmode in the game's own mode.
+        if (UWClassicLayoutUw2.Inventory.DisplayToSlot[miInventoryPressHit] == WeaponHandSlot
+            && UWClickRules.WeaponHandTogglesFight(lOItem.ID))
+        {
+            if (!UWConversationScreenUw2.IsOpen)
+                fChoose(CommandEnum.Fight);
 
             return;
         }
@@ -1885,8 +2058,76 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         else if (UWCarriedSpellRulesUw2.IsBrokenWand(pOItem.ID))
         {
         }
+        // UseBook: a book or scroll is read, an enchanted scroll cast (its own traps and spell; UseObj runs none after).
+        else if (UWReadRulesUw2.IsReadable(pOItem.ID))
+            fReadCarried(pOItem);
+        // UseWatch and UseCrystal, then UseObj's traps and spell as for any other thing.
         else
-            Say(UWText.T("hud.walk.not_yet"));
+        {
+            if (pOItem.ID == UWReadRulesUw2.Pocketwatch)
+                Say(UWText.Block(mOData, 1, UWReadRulesUw2.WatchString + 1, string.Empty)
+                    + UWReadRulesUw2.WatchTime(UWPlayerRecordUw2.GameClock(UWGameSession.Current.PlayerFileUw2))
+                    + UWText.Block(mOData, 1, UWReadRulesUw2.FullStopString + 1, string.Empty));
+            else if (pOItem.ID == UWReadRulesUw2.StorageCrystal)
+                Say(UWText.Block(mOData, 1, UWReadRulesUw2.CrystalString + 1, string.Empty) + UWReadRulesUw2.CrystalSignature(pOItem.Quality));
+
+            // ANY OTHER THING (2026-11-18: until then "Not yet in the walk"): UseObj's checkTrap with mode 4 and checkSpell,
+            // the spell cast on use that a ring or a jewel may hold; nothing else happens, nothing is said.
+            fCheckCarriedTrap(pOItem);
+            fAfterCarriedCast(UWCarriedSpellRulesUw2.CheckSpell(pOItem, null, fCastClock, fCastCarriedSpell));
+        }
+    }
+
+    /// <summary>UseBook from the pack (UWReadRulesUw2.Use): the text or the cutscene; an enchanted scroll fires its traps,
+    /// casts its spell and is used up once cast (using_punt).</summary>
+    private void fReadCarried(UWObject pOBook)
+    {
+        UWReadRulesUw2.Reading lORead = UWReadRulesUw2.Use(pOBook, true);
+
+        if (lORead.Kind != UWReadRulesUw2.ReadEnum.Spell)
+        {
+            ShowReading(pOBook, lORead);
+
+            return;
+        }
+
+        fCheckCarriedTrap(pOBook);
+
+        UWCarriedSpellRulesUw2.CastEnum leCast = UWCarriedSpellRulesUw2.CheckSpell(pOBook, null, fCastClock, fCastCarriedSpell);
+
+        fAfterCarriedCast(leCast);
+
+        if (leCast == UWCarriedSpellRulesUw2.CastEnum.Cast)
+            UWToolUseUw2.UseUp(pOBook, mOInventory);
+    }
+
+    /// <summary>
+    /// What a read shows (UWReadRulesUw2): a cutscene, or "You read the &lt;name&gt;..." and the text from
+    /// block 3 (text 6 sets quest 106), or the text alone. The use from the pack and the look with detail (BookLook) both
+    /// come here.
+    /// </summary>
+    public void ShowReading(UWObject pOBook, UWReadRulesUw2.Reading pORead)
+    {
+        switch (pORead.Kind)
+        {
+            case UWReadRulesUw2.ReadEnum.Cutscene:
+                if (UWScene.IntroPlayer != null)
+                    UWScene.IntroPlayer.PlayCutscene(pORead.Cutscene);
+                break;
+
+            case UWReadRulesUw2.ReadEnum.HeaderAndText:
+                Say(UWItemMessages.ReadHeader(mOData, pOBook.ID));
+
+                if (pORead.SetsQuest && UWGameSession.Current != null)
+                    UWPlayerRecordUw2.SetQuest(UWGameSession.Current.PlayerFileUw2, UWReadRulesUw2.QuestOfText, 1);
+
+                SayPaged(mOData.GetBookText(pORead.Text + 1));
+                break;
+
+            case UWReadRulesUw2.ReadEnum.TextAlone:
+                SayPaged(mOData.GetBookText(pORead.Text + 1));
+                break;
+        }
     }
 
     /// <summary>UseWand from the pack (G4, 2026-11-16): its traps (checkTrap with mode 4), the spell with the wait
@@ -1928,6 +2169,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
             UWTriggerSystem.CheckTrapUw2(pOThing, UWTrapRulesUw2.UseMode, pOThing.TileX, pOThing.TileY, UWScene.LevelLoader,
                 UWTrapRules.Setter.Player, UWVitalsUw2.Current.Vitals.GetSkill(UWPlayerData.Skill.Search));
+    }
+
+    /// <summary>The same for a thing in the world that casts on the player who used it (checkSpell with how 0).</summary>
+    public bool CastOnPlayer(int piMajor, int piEffect)
+    {
+        return fCastCarriedSpell(piMajor, piEffect);
     }
 
     /// <summary>inanimate_spell with the player as caster and target: by class and minor for a major of 0 or more, by
@@ -1991,6 +2238,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         // traps (G4, 2026-11-16).
         if (leOutcome == UWFoodUw2.OutcomeEnum.Eaten)
         {
+            // The dream plant outside the Void: the next night dreams the Void (UseFood, uw2 obj/USEITEMS.C:294; G6).
+            if (pOFood.ID == UWVoidRulesUw2.DreamPlantId && UWGameSession.Current != null)
+                UWVoidRulesUw2.EatDreamPlant(UWGameSession.Current.PlayerFileUw2, UWRandom.Next(UWOriginalRandom.Range));
+
             UWCarriedSpellRulesUw2.ClearWait();
             fAfterCarriedCast(UWCarriedSpellRulesUw2.CheckSpell(pOFood, null, fCastClock, fCastCarriedSpell));
             UWCarriedSpellRulesUw2.ClearWait();
@@ -2245,7 +2496,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>A place's key or click: its piece is used as from the inventory; nothing while it is not carried.</summary>
     private void fUseBar(int piSlot)
     {
-        if (UWVitalsUw2.PlayerParalysed)
+        if (UWVitalsUw2.PlayerParalysed || UWVitalsUw2.PlayerAsleepInVoid)
             return;
 
         UWObject lOItem = mOModernHud.Bar.Carried(piSlot, mOInventory);
@@ -2345,8 +2596,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        // Paralysed, the panel takes nothing (mous_in_panel, part E2).
-        if (UWVitalsUw2.PlayerParalysed)
+        // Paralysed or asleep in the Void, the panel takes nothing (mous_in_panel, part E2; the Void G6).
+        if (UWVitalsUw2.PlayerParalysed || UWVitalsUw2.PlayerAsleepInVoid)
             return;
 
         // The rune page: its click is the classic page's (mous_in_rune); the hollow casts, its right button clears.
@@ -2429,6 +2680,20 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
 
         mbConversationHeld = pbHeld;
+
+        // RightPanelSaved (uw2 conv/CONVERSE.C:178, :236): a conversation shows the inventory on the right, the page
+        // before it comes back afterwards, drawn anew (per user, 2026-11-16: the statistics stood unchanged through
+        // a trainer's lessons).
+        if (pbHeld)
+        {
+            miPageBeforeTalk = miSlideFrame != 0 ? miTargetPage : miPage;
+            fSetPageAtOnce(0);
+        }
+        else if (miPageBeforeTalk >= 0)
+        {
+            fSetPageAtOnce(miPageBeforeTalk);
+            miPageBeforeTalk = -1;
+        }
 
         if (pbHeld)
         {
@@ -3122,6 +3387,17 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             || (mOCountAsk != null && mOCountAsk.IsAsking) || UWKitRows.IsTyping || UWHelpWindow.BlocksGameKeys
             || UWDebugTools.IsTyping || (mOYesNo != null && mOYesNo.IsOpen));
 
+        // [MORE] waits: nothing else runs (scroll_wait).
+        if (fUpdatePaging())
+        {
+            fUpdatePointer();
+
+            if (mOModernHud != null && !IsClassicShown)
+                fTickModernHud();
+
+            return;
+        }
+
         if (fUpdateYesNo())
         {
             fUpdatePointer();
@@ -3198,8 +3474,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         {
             fChooseCommand();
 
-            // mous_in_panel returns while paralysed (part E2).
-            if (!UWVitalsUw2.PlayerParalysed)
+            // mous_in_panel returns while paralysed (part E2) or asleep in the Void (G6).
+            if (!UWVitalsUw2.PlayerParalysed && !UWVitalsUw2.PlayerAsleepInVoid)
                 fFollowInventoryPress();
         }
 
@@ -3315,8 +3591,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         }
 
         // The pages take nothing while the view roams (mous_in_inv and mous_in_rune under GameInputMode 8) or the player
-        // is paralysed (mous_in_panel returns).
-        if (UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed)
+        // is paralysed or asleep in the Void (mous_in_panel returns).
+        if (UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed || UWVitalsUw2.PlayerAsleepInVoid)
             return;
 
         if (miPage == 0 && miSlideFrame == 0 && mOInventory != null)
@@ -3370,6 +3646,11 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
     private void fStartSlide(int piPage)
     {
+        // A conversation keeps the inventory on the right (RightPanel 0 until free_converse; per user, 2026-11-16: the
+        // chain still slid to the statistics).
+        if (UWConversationScreenUw2.IsOpen)
+            return;
+
         miTargetPage = piPage;
         miSlideFrame = 0;
         mfSlideTime = UWClassicLayoutUw2.PanelSlide.FrameSeconds;
@@ -3378,6 +3659,34 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             fUpdateStatistics();
 
         fSlideStep();
+    }
+
+    /// <summary>The page shown before a conversation, -1 outside one.</summary>
+    private int miPageBeforeTalk = -1;
+
+    /// <summary>A page at once, without the slide (a conversation's RightPanel switch); the statistics drawn anew.</summary>
+    private void fSetPageAtOnce(int piPage)
+    {
+        if (mOInventoryPage == null)
+            return;
+
+        miSlideFrame = 0;
+        mfSlideTime = 0f;
+        miPage = piPage;
+        miTargetPage = piPage;
+
+        RectTransform lOShown = fPageGroup(piPage);
+
+        foreach (RectTransform lOPage in new[] { mOInventoryPage, mOStatisticsPage, mORunesPage })
+        {
+            if (lOPage != null && lOPage != lOShown)
+                lOPage.gameObject.SetActive(false);
+        }
+
+        fShowPage(lOShown, 0);
+
+        if (piPage == 2)
+            fUpdateStatistics();
     }
 
     /// <summary>The slide's frames on the unscaled clock, one each eighth of a second.</summary>
@@ -3494,24 +3803,52 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             UWPointer.SetPicture(lOPicture, new Vector2(lOPicture.width * 0.5f, lOPicture.height * 0.5f));
     }
 
-    /// <summary>An object's picture at the pointer's whole-number scale, kept while it stays the same.</summary>
+    /// <summary>
+    /// An object's picture on the pointer AS LARGE AS IN THE PACK (per user 2026-11-18: a dragged thing looked smaller
+    /// than where it was put down): the frame's rows are UWUiFit.Scale screen pixels tall and its columns that times the
+    /// pixel factor (5/6 with the 4:3 picture), while the pointer's own arrows keep their whole-number scale. Kept while
+    /// the size stays the same.
+    /// </summary>
     private Texture2D fCursorObjectPicture(int piId)
     {
-        int liScale = Mathf.Max(1, Mathf.FloorToInt(UWUiFit.Scale));
-        int liKey = (liScale << 16) | piId;
-
-        if (miCursorObjectKey == liKey && mOCursorObject != null)
-            return mOCursorObject;
-
+        float lfRow = UWUiFit.Scale;
+        float lfColumn = UWUiFit.Scale * UWClassicScreen.HorizontalPixelFactor;
         Sprite lOSprite = fCachedPicture(UWTexture.TextureTypes.OBJECTS, piId);
+
+        if (lOSprite == null)
+            return null;
+
+        int liWidth = Mathf.Max(1, Mathf.RoundToInt(lOSprite.texture.width * lfColumn));
+        int liHeight = Mathf.Max(1, Mathf.RoundToInt(lOSprite.texture.height * lfRow));
+        long llKey = ((long)liWidth << 40) | ((long)liHeight << 20) | (long)piId;
+
+        if (mlCursorObjectKey == llKey && mOCursorObject != null)
+            return mOCursorObject;
 
         if (mOCursorObject != null)
             Destroy(mOCursorObject);
 
-        mOCursorObject = lOSprite != null ? ScaledCopy(lOSprite.texture, liScale, "UW2 pointer object " + piId) : null;
-        miCursorObjectKey = liKey;
+        mOCursorObject = ScaledCopy(lOSprite.texture, liWidth, liHeight, "UW2 pointer object " + piId);
+        mlCursorObjectKey = llKey;
 
         return mOCursorObject;
+    }
+
+    /// <summary>A picture resized to piWidth by piHeight, nearest pixel.</summary>
+    public static Texture2D ScaledCopy(Texture2D pOSource, int piWidth, int piHeight, string psName)
+    {
+        Color32[] lyFrom = pOSource.GetPixels32();
+        Color32[] lyTo = new Color32[piWidth * piHeight];
+
+        for (int liY = 0; liY < piHeight; liY++)
+        {
+            int liFromY = Mathf.Min(pOSource.height - 1, liY * pOSource.height / piHeight);
+
+            for (int liX = 0; liX < piWidth; liX++)
+                lyTo[(liY * piWidth) + liX] = lyFrom[(liFromY * pOSource.width) + Mathf.Min(pOSource.width - 1, liX * pOSource.width / piWidth)];
+        }
+
+        return UWTextureFactory.FromColours(lyTo, piWidth, piHeight, FilterMode.Point, TextureWrapMode.Clamp, psName);
     }
 
     /// <summary>A picture enlarged by a whole number, pixel for pixel.</summary>
@@ -3668,12 +4005,17 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         float lfFactor = UWClassicScreen.HorizontalPixelFactor;
         float lfScale = UWUiFit.Scale;
-        float lfSide = fSideUnits(lfFactor);
+        float lfSide = fLeftUnits(lfFactor);
         float lfVertical = Mathf.Max(0f, (UWUiFit.CanvasHeight - UWUiFit.FrameHeight) / 2f);
 
+        // THE HELP SLIDES THE FRAME TO THE LEFT as in the first game (per user 2026-11-18: the second game's help lay
+        // over the picture): squeezed to 4:3 by the pixel factor, moved by UWHelpLayout.FrameShift.
+        float lfShift = UWHelpLayout.FrameShift(UWUiFit.CanvasWidth);
+
         mOFrame.localScale = new Vector3(lfFactor, 1f, 1f);
+        mOFrame.anchoredPosition = new Vector2(lfShift, mOFrame.anchoredPosition.y);
         mOLeftBar.sizeDelta = new Vector2(lfSide, mOLeftBar.sizeDelta.y);
-        mORightBar.sizeDelta = new Vector2(lfSide, mORightBar.sizeDelta.y);
+        mORightBar.sizeDelta = new Vector2(Mathf.Max(0f, fSideUnits(lfFactor) - lfShift), mORightBar.sizeDelta.y);
         mOTopBar.sizeDelta = new Vector2(mOTopBar.sizeDelta.x, lfVertical);
         mOBottomBar.sizeDelta = new Vector2(mOBottomBar.sizeDelta.x, lfVertical);
 
@@ -3709,6 +4051,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         return Mathf.Max(0f, (UWUiFit.CanvasWidth - (UWUiFit.FrameWidthUnits * pfFactor)) / 2f);
     }
 
+    /// <summary>The frame's left edge from the canvas' left, with the help's slide (UWHelpLayout.FrameShift).</summary>
+    private static float fLeftUnits(float pfFactor)
+    {
+        return Mathf.Max(0f, fSideUnits(pfFactor) + UWHelpLayout.FrameShift(UWUiFit.CanvasWidth));
+    }
+
     /// <summary>The text, wrapped and scrolled by the first game's model; the edges turn a frame with
     /// every scroll (draw_edges).</summary>
     private void fUpdateScroll()
@@ -3723,7 +4071,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         // The description's box blinks after the typed line (wdialog's cursor block).
         bool lbCursor = (miTypingSlot != 0 || mbCountLine) && UWMessageLogModel.IsCursorOn(Time.unscaledTime - mfTypingStart);
 
-        if (!mOLog.Update(lOFont, msMessages, UWClassicLayoutUw2.MessageLog.Width, liCapacity, false, lbCursor))
+        if (!mOLog.Update(lOFont, msMessages, UWClassicLayoutUw2.MessageLog.Width, liCapacity, msPendingPage.Count > 0, lbCursor))
             return;
 
         if (mOLog.Scrolled > 0)
@@ -3731,6 +4079,51 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         UWTextLabel.Get(mOLogText).SetText(lOFont, mOLog.ShownLines, mOLog.Width, fLogColours(),
             UWTextRaster.ColoursEnum.Codes, false, FilterMode.Point, mOLog.CursorOn);
+
+        fDrawMore(lOFont);
+    }
+
+    private RawImage mOMoreText;
+
+    /// <summary>scroll_more's "[MORE]" at the start of the scroll's last row, in colour 0x12, while a text waits.</summary>
+    private void fDrawMore(UWFont pOFont)
+    {
+        if (!mOLog.MoreShown)
+        {
+            if (mOMoreText != null)
+                UWTextLabel.Hide(mOMoreText);
+
+            return;
+        }
+
+        if (mOMoreText == null)
+        {
+            GameObject lOObject = new GameObject("ScrollMore", typeof(RectTransform), typeof(RawImage));
+            lOObject.transform.SetParent(mOLogText.transform.parent, false);
+
+            RectTransform lORect = (RectTransform)lOObject.transform;
+            lORect.anchorMin = new Vector2(0f, 1f);
+            lORect.anchorMax = new Vector2(0f, 1f);
+            lORect.pivot = new Vector2(0f, 1f);
+
+            mOMoreText = lOObject.GetComponent<RawImage>();
+            mOMoreText.raycastTarget = false;
+        }
+
+        UWPalette lOPalette = mOData.Palettes != null ? mOData.Palettes.GetPalette(0) : null;
+        UWColor32 lOColour = lOPalette != null ? lOPalette.GetUWColor(MoreColourIndex) : new UWColor32(255, 255, 255, 255);
+        string lsMore = UWMessageLogModel.MoreMarkerText;
+
+        UWTextLabel.Get(mOMoreText).SetLine(pOFont, lsMore, UWTextRaster.TightWidth(pOFont, lsMore),
+            new Color32(lOColour.R, lOColour.G, lOColour.B, 255), false, FilterMode.Point, FontStyle.Normal, UWTextLabel.MoreMarkerRaise);
+
+        if (UWTextLabel.Get(mOMoreText).Picture == null)
+            return;
+
+        ((RectTransform)mOMoreText.transform).anchoredPosition = new Vector2(UWClassicLayoutUw2.MessageLog.Left,
+            -(UWClassicLayoutUw2.MessageLog.Top + (mOLog.MoreRowShown * (pOFont.Height + UWTextLayout.LineSpacing))));
+        mOMoreText.transform.SetAsLastSibling();
+        UWTextLabel.Get(mOMoreText).Show();
     }
 
     private void fApplyEdges()
@@ -3881,20 +4274,22 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     private void fChoose(CommandEnum peCommand)
     {
         // Paralysed or swimming, fight is not chosen (deal_with_icons, INTERACT.C:676: paralyzed or motion_state bit 0).
-        if (peCommand == CommandEnum.Fight && (UWVitalsUw2.PlayerParalysed
+        if (peCommand == CommandEnum.Fight && (UWVitalsUw2.PlayerParalysed || UWVitalsUw2.PlayerAsleepInVoid
             || (UWScene.PlayerTerrain != null && UWScene.PlayerTerrain.IsSwimming)))
             return;
 
-        // The options icon opens the panel's game page - not with an object on the pointer
-        // (deal_with_icons returns while GameInputMode is set).
+        // AN OBJECT ON THE POINTER: no icon answers (deal_with_icons returns while GameInputMode is set, INTERACT.C:647) -
+        // per user in the original 2026-11-17, with a blackrock gem on the pointer every icon stayed still. Until then
+        // ours held back the options icon alone.
+        if (mOInventory != null && mOInventory.CursorItem != null)
+            return;
+
+        // The options icon opens the panel's game page.
         if (peCommand == CommandEnum.Options)
         {
-            if (mOInventory == null || mOInventory.CursorItem == null)
-            {
-                fBeginOptions();
-                mOOptions.Open(UWOptionsPanelUw2.GroupEnum.Game);
-                fShowOptions();
-            }
+            fBeginOptions();
+            mOOptions.Open(UWOptionsPanelUw2.GroupEnum.Game);
+            fShowOptions();
 
             return;
         }
@@ -4430,7 +4825,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         float lfFactor = UWClassicScreen.HorizontalPixelFactor;
         float lfScale = UWUiFit.Scale;
 
-        pfColumn = (pOScreen.x - (fSideUnits(lfFactor) * lfScale)) / (lfScale * lfFactor);
+        pfColumn = (pOScreen.x - (fLeftUnits(lfFactor) * lfScale)) / (lfScale * lfFactor);
         pfRow = UWUiFit.FrameHeight - ((pOScreen.y - UWUiFit.BottomMarginPixels) / lfScale);
 
         return mbShown && pfColumn >= 0f && pfColumn < UWUiFit.FrameWidthUnits && pfRow >= 0f && pfRow < UWUiFit.FrameHeight;

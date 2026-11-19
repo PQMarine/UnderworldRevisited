@@ -463,12 +463,12 @@ namespace UnderworldRevisited.Tools
 
             // The music: theme 6 at a swing only while no combat theme plays; the timer always.
             lOWorld.Theme = UWMusicSelector.FirstCombatTheme;
-            lIHost.PlayMusic(UWCritterRules.CombatTheme);
+            lIHost.PlayMusic(UWCritterRules.CombatTheme, true);
             fExpectBool("music: a combat theme playing keeps on, the timer starts anew",
                 !lOWorld.WorldFake.Shown.Log.Contains("music " + UWCritterRules.CombatTheme) && lOWorld.Log.Contains("mark combat"), true);
 
             lOWorld.Theme = 1;
-            lIHost.PlayMusic(UWCritterRules.CombatTheme);
+            lIHost.PlayMusic(UWCritterRules.CombatTheme, true);
             fExpectBool("music: else the combat theme", lOWorld.WorldFake.Shown.Log.Contains("music " + UWCritterRules.CombatTheme), true);
 
             // The teleport: refused on a solid tile, else to the tile's centre on its floor.

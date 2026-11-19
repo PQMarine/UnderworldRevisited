@@ -31,6 +31,11 @@ namespace UWDataImport.UWData
 		/// <summary>From this effect on, the second game plays UWnn.VOC.</summary>
 		public const int FirstUwVocEffect = 100;
 
+		/// <summary>play_effect's aliases (uw2 SOUND.C:1095): 0x5A plays as effect 1, 0x5B as effect 2.</summary>
+		public const int AliasOfFirst = 0x5A;
+
+		public const int AliasOfSecond = 0x5B;
+
 		public struct Effect
 		{
 			public int Patch;
@@ -89,10 +94,17 @@ namespace UWDataImport.UWData
 		{
 			string lsNumber = new StringBuilder().Append((char)('0' + (piTheme >> 3))).Append((char)('0' + (piTheme & 7))).ToString();
 
-			if (peGame == UWGame.Uw1)
-				return (pbRoland ? "UW" : "AW") + lsNumber;
+			return MusicPrefix(peGame, pbRoland) + lsNumber;
+		}
 
-			return (pbRoland ? "UWR" : "UWA") + lsNumber;
+		/// <summary>The music files' prefix: the first game's UW (MT-32) and AW (AdLib), the second's UWR and UWA
+		/// (uw2 sound/SOUND.C load_new_music).</summary>
+		public static string MusicPrefix(UWGame peGame, bool pbRoland)
+		{
+			if (peGame == UWGame.Uw1)
+				return pbRoland ? "UW" : "AW";
+
+			return pbRoland ? "UWR" : "UWA";
 		}
 	}
 }

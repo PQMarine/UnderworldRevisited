@@ -212,6 +212,14 @@ public static class UWUserSettings
 
     public static bool MouseInvertY { get => Defs.MouseInvertY.Read(fGet()); set => Defs.MouseInvertY.Write(fGet(), value); }
 
+    public static bool AutoKey { get => Defs.AutoKey.Read(fGet()); set => Defs.AutoKey.Write(fGet(), value); }
+
+    public static bool FreeOpensCharacter { get => Defs.FreeOpensCharacter.Read(fGet()); set => Defs.FreeOpensCharacter.Write(fGet(), value); }
+
+    public static bool FreeOpensRunes { get => Defs.FreeOpensRunes.Read(fGet()); set => Defs.FreeOpensRunes.Write(fGet(), value); }
+
+    public static bool FreeOpensBags { get => Defs.FreeOpensBags.Read(fGet()); set => Defs.FreeOpensBags.Write(fGet(), value); }
+
     public static bool WalkSlowToggle { get => Defs.WalkSlowToggle.Read(fGet()); set => Defs.WalkSlowToggle.Write(fGet(), value); }
 
     public static bool DebugKeys { get => Defs.DebugKeys.Read(fGet()); set => Defs.DebugKeys.Write(fGet(), value); }

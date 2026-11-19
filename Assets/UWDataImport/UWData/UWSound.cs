@@ -256,14 +256,15 @@ namespace UWDataImport.Audio
 			return lOXmi;
 		}
 
-		/// <summary>A music piece. pbAdlib selects the AdLib version (AW..) instead of the
-		/// General MIDI version (UW..).</summary>
+		/// <summary>A music piece by its file number. pbAdlib selects the AdLib version (the first game's AW.., the
+		/// second's UWA..) instead of the MT-32 one (UW.., UWR..; UWSoundsDat.MusicPrefix - until UW2 plan phase 5 part
+		/// A always the first game's names, so the second game found no piece).</summary>
 		public UWXmi GetMusic(string psNumber, bool pbAdlib = false)
 		{
 			if (!IsAvailable)
 				return null;
 
-			string lsName = (pbAdlib ? "AW" : "UW") + psNumber;
+			string lsName = UWSoundsDat.MusicPrefix(Game, !pbAdlib) + psNumber;
 
 			if (mOXmiCache.TryGetValue(lsName, out UWXmi lOCached))
 				return lOCached;

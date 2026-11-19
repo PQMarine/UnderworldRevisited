@@ -104,12 +104,18 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// DAMAGE TO THE PLAYER through the world (cleanup step 4.2, 2026-10-17): the site's request
 		/// - its type, armour, halving, shake, flash and music, the table of section 7.5 - goes
-		/// whole to the player's end, which hands it to UWDamagePipeline. Nobody's: the player keeps
-		/// no attacker.
+		/// whole to the player's end, which hands it to UWDamagePipeline. Nobody's: a trap, a curse, a backfire.
 		/// </summary>
 		public static UWBlow ToPlayer(in UWDamageRequest pORequest)
 		{
 			return new UWBlow(pORequest.Amount, pORequest.Type, Nobody, UWBlowSource.Player, pORequest);
+		}
+
+		/// <summary>A creature's blow or missile on the player, with its attacker's mobile index: the player object's
+		/// last_hit (IUWBlowBodies.PlayerStruckBy, G6 part 3 - the second game's jail asks who killed him).</summary>
+		public static UWBlow ToPlayer(in UWDamageRequest pORequest, int piAttacker)
+		{
+			return new UWBlow(pORequest.Amount, pORequest.Type, piAttacker, UWBlowSource.Player, pORequest);
 		}
 
 		/// <summary>The request the player's end hands to the pipeline: the blow's own for
@@ -302,6 +308,10 @@ namespace UWDataImport.UWData
 		/// 2026-10-17; three methods for plain damage, the curse and the backfire until then).</summary>
 		void DamagePlayer(UWDamageRequest pORequest);
 
+		/// <summary>damage_critter on the player (uw2 critter/AI.C:1493, G6 part 3): the blow's attacker, a mobile index,
+		/// becomes the player object's last_hit - who put him in jail. Only called with one.</summary>
+		void PlayerStruckBy(int piAttacker);
+
 		/// <summary>The damage trap's strike on a thing in flight (UWMissiles.StrikeThing).</summary>
 		void StrikeThingInFlight(int piFlightIndex, int piDamage, int piDamageType);
 	}
@@ -321,6 +331,10 @@ namespace UWDataImport.UWData
 			switch (pOTarget.Kind)
 			{
 				case UWDamageTargetKind.Player:
+					// A known attacker first, as damage_critter writes last_hit before the hit points (who 0 changes nothing).
+					if (pOBlow.Attacker > 0)
+						pIBodies.PlayerStruckBy(pOBlow.Attacker);
+
 					pIBodies.DamagePlayer(pOBlow.ForPlayer());
 
 					return;

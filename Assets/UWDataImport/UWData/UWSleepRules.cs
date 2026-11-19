@@ -45,6 +45,10 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWSleepRules
 	{
+		/// <summary>The last night's comfort (sleepfactor): 1 well fed in a bed or bedroll. The second game's dream reads
+		/// it after the night (UWSleepUw2, UWStoryRulesUw2.PickDream).</summary>
+		public static int LastComfort { get; private set; }
+
 		/// <summary>The bedroll (UWObjectIds since 2026-10-11).</summary>
 		public const int BedrollObjectId = UWObjectIds.Bedroll;
 
@@ -242,6 +246,8 @@ namespace UWDataImport.UWData
 			// The comfort applies to both: recovery AND the probability that a later dream is
 			// rolled. Whoever passed out has none and does not dream.
 			int liComfort = !pbPassedOut && pbBedroll && pOVitals.Hunger > lORules.Recovery.WellFedHunger ? 1 : 0;
+
+			LastComfort = liComfort;
 
 			fRecover(pOVitals, lOShown, liComfort, lORules);
 
