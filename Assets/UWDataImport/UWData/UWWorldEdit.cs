@@ -239,7 +239,7 @@ namespace UWDataImport.UWData
 		public int EffectSlotsHeld => mOEffectSlots.Count;
 
 		/// <summary>
-		/// AN EFFECT TAKES A STATIC SLOT WHILE IT LIVES - decision 8 of Docs/CLEANUP-PLAN.md
+		/// AN EFFECT TAKES A STATIC SLOT WHILE IT LIVES - decision 8 of the cleanup plan
 		/// (2026-10-12): the original's put_effect (EFFECT.C) makes the blood, dust, sparks and
 		/// spell pictures with CreateObj(cls + FIRST_ANIMOBJ, 0), a static record from the free
 		/// list (MAPADDR.C), and makes no effect when it gets none; toast_animobj frees it when

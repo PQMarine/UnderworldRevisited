@@ -4,7 +4,7 @@ using Defs = UWDataImport.UWData.UWUserSettingsTable;
 using Kind = UWSetupRow.KindEnum;
 
 /// <summary>
-/// THE SETUP BAR'S DIALOGS AS PAGES (cleanup step 8.4, 2026-10-24; Docs/CLEANUP-PLAN.md 8.7): each
+/// THE SETUP BAR'S DIALOGS AS PAGES (cleanup step 8.4, 2026-10-24; section 8.7 of the cleanup plan): each
 /// dialog's rows from its title down, as a list the one drawer walks (UWSetupPageDrawer). The places
 /// and steps are the numbers the dialogs drew with; the texts, choices, formats and the greying of
 /// a row come from its setting's entry (UWUserSettingsTable) where the row is a setting. What hangs

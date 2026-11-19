@@ -7,7 +7,7 @@ namespace UnderworldRevisited.Tools
     /// THE PLACEMENT OF AN OBJECT INTO A TILE (cleanup step 2.11, 2026-10-12): the one eighth-spot
     /// formula against the original's numbers (the +0xF of mob_init in OBJPHYS.C), the roll of a
     /// spot within a tile on the open half of a diagonal, the radius clamp, the scatter's tile
-    /// fit, and the conversions the step decided (Docs/CLEANUP-PLAN.md, decisions 20 to 24):
+    /// fit, and the conversions the step decided (the cleanup plan, decisions 20 to 24):
     /// the floor from world to tile and to the eighth cell, the heading byte by truncation, the
     /// compass step, the rounded 16-bit angle. Needs no game data: the maps are synthetic.
     /// </summary>

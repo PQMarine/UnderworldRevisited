@@ -9,7 +9,7 @@ namespace UWDataImport.UWData
 	/// fires the door's open trigger; the rules ask UWDoorRules whether the door is to move at all.
 	///
 	/// WHY: the night's closing doors, the door trap and gronk_door each reached for the scene's
-	/// doors with a scan of their own on the host (section 4.3 of Docs/CLEANUP-PLAN.md); the night's
+	/// doors with a scan of their own on the host (section 4.3 of the cleanup plan); the night's
 	/// rule could not be checked without a scene.
 	/// </summary>
 	public interface IUWDoor

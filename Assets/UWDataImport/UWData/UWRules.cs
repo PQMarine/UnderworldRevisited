@@ -5,7 +5,7 @@ using System.Reflection;
 namespace UWDataImport.UWData
 {
 	/// <summary>
-	/// THE RULE SET (cleanup phase 10, 2026-10-25; Docs/CLEANUP-PLAN.md section 6, the mod plan's
+	/// THE RULE SET (cleanup phase 10, 2026-10-25; section 6 of the cleanup plan, the mod plan's
 	/// section 3.3): the original's gameplay numbers that a player or a mod may change - skill-check
 	/// bands, damage coefficients, mana per circle, the level table, the hours of a night - one C#
 	/// class per domain (UWRulesCombat, UWRulesMagic, UWRulesExperience, UWRulesVitals,

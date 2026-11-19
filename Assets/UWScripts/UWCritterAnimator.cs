@@ -514,7 +514,7 @@ public class UWCritterAnimator : MonoBehaviour
         // (UWPlayerMovement.fTransformYawToAngle): the transform gives 44.99998 for 45 degrees,
         // and a floor made that 8191 - one unit short of the eighth. The view table only needs
         // the 32nd (yaw >> 11), so the switch from the floor is harmless but not identical.
-        // Decision 24 of Docs/CLEANUP-PLAN.md (2026-10-12).
+        // Decision 24 of the cleanup plan (2026-10-12).
         int liCameraYaw = UWHeadings.DegreesToAngleUnits(lOCamera.transform.eulerAngles.y);
         int liFacing = UWHeadings.DegreesToEighth(mOCritter.FacingDegrees);
 

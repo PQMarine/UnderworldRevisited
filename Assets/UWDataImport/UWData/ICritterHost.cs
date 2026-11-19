@@ -140,7 +140,7 @@ namespace UWDataImport.UWData
 	/// Docs/AI/brain-and-host.md.
 	///
 	/// SHRUNK TO THE QUESTIONS ABOUT THE WORLD AROUND THIS CREATURE AND THE EVENTS OUT OF ITS MIND
-	/// (cleanup step 4.13, 2026-10-19; section 7.4 of Docs/CLEANUP-PLAN.md): the random source, the
+	/// (cleanup step 4.13, 2026-10-19; section 7.4 of the cleanup plan): the random source, the
 	/// critter clock, the kin alarm and the path slots are the level's and the session's, not one
 	/// creature's - the brain gets them as ICritterServices in its constructor; its own object
 	/// height and the ammunition table's velocities are constants of its kind and the data, handed

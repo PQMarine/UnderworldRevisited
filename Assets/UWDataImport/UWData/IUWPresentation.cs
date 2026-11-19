@@ -9,7 +9,7 @@ namespace UWDataImport.UWData
 	/// WHY (cleanup step 3.1, 2026-10-17): the trap, spell, sleep, item-use and vitals hosts each
 	/// had their own copy of these bodies - five AddMessage, four AddGeneralMessage, five cutscene
 	/// calls, three shakes - with small differences nobody chose (section 4.5 of
-	/// Docs/CLEANUP-PLAN.md). The hosts now delegate here; the Unity side is UWPresentation.
+	/// the cleanup plan). The hosts now delegate here; the Unity side is UWPresentation.
 	///
 	/// THE SILENT SCOPE: a firing without a message channel (the respawn's create-object traps, a
 	/// cast without an Interaction) drops its lines and still shakes, flashes and plays - see

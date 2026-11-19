@@ -2,7 +2,7 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// THE LEVELS THE STORY KNOWS BY NUMBER, in the rule set (levels.*; cleanup phase 10, wave 2,
-	/// 2026-10-26): not balance but the anchors a total conversion repoints (Docs/CLEANUP-PLAN.md
+	/// 2026-10-26): not balance but the anchors a total conversion repoints (the cleanup plan
 	/// section 6), all ZERO-BASED as the port counts its levels. Each default is UWLevelIds' const;
 	/// see UWRules. The per-level table of the mod plan (section 3.4, levels.json) can grow out of
 	/// this later.

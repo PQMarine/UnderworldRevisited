@@ -9,7 +9,7 @@ namespace UWDataImport.UWData
 	/// WHY: until this step UWCritter was the creature's host and its picture in one class of about
 	/// 2,700 lines, so none of the creature's decisions around the mind - the blow's outcome, the
 	/// doors, the casts, the reactions to spells, the record's moves - could run without a scene
-	/// (section 7.4 of Docs/CLEANUP-PLAN.md). The view decides nothing: every member shows or
+	/// (section 7.4 of the cleanup plan). The view decides nothing: every member shows or
 	/// reports what the actor decided.
 	/// </summary>
 	public interface ICreatureView

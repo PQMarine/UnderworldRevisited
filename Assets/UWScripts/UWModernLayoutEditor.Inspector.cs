@@ -7,7 +7,7 @@ using Defs = UWDataImport.UWData.UWUserSettingsTable;
 using Element = UWModernLayout.ElementEnum;
 
 /// <summary>
-/// THE INSPECTOR'S ROWS AS LISTS PER PART (cleanup step 8.4, 2026-10-24; Docs/CLEANUP-PLAN.md 8.7):
+/// THE INSPECTOR'S ROWS AS LISTS PER PART (cleanup step 8.4, 2026-10-24; section 8.7 of the cleanup plan):
 /// what the inspector offers with nothing selected, for each part, and for every part's back. Until
 /// then fGatherItems built them in one switch of some two hundred lines, every switch row writing
 /// its read, its two names and its write by hand.

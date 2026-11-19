@@ -6,7 +6,7 @@ using UWDataImport.Presentation;
 namespace UWDataImport.UWData
 {
 	/// <summary>
-	/// THE SETTINGS OF settings.json AS A TABLE (cleanup step 8.3, 2026-10-24; Docs/CLEANUP-PLAN.md
+	/// THE SETTINGS OF settings.json AS A TABLE (cleanup step 8.3, 2026-10-24; the cleanup plan
 	/// 8.7): one UWSettingDef per field of UWUserData, in the file's order, with its kind, its store,
 	/// its limits and the rule by which the game reads a stored value. Until then the properties of
 	/// UWUserSettings carried their clamps and quirks by hand, about twenty of them, each written

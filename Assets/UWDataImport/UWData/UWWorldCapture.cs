@@ -78,7 +78,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// A creature, FROM ITS RECORD (cleanup step 4.8, 2026-10-18; section 7.4 of
-		/// Docs/CLEANUP-PLAN.md): the record is the creature's one store of hit points, attitude,
+		/// the cleanup plan): the record is the creature's one store of hit points, attitude,
 		/// goal and position, so what is captured is what the brain and the motion core left there.
 		/// Until then the host handed in the body's hit points and the body's world point, which this
 		/// converted back to tile, eighth and zpos - the same numbers, except where the body had not

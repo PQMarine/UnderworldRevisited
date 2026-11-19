@@ -7,7 +7,7 @@ namespace UWDataImport.UWData
 	/// axis (0 to 7, as an object's xpos and ypos) and a height in zpos steps. Cleanup step 3.1
 	/// (2026-10-17): until then every host derived "where the player is" on its own, from the camera,
 	/// the character's transform, the feet or the controller (eight derivations, section 4.2 of
-	/// Docs/CLEANUP-PLAN.md). IUWPlayerAvatar now hands them out as spots, so the rules see one
+	/// the cleanup plan). IUWPlayerAvatar now hands them out as spots, so the rules see one
 	/// shape; the motion core's own record becomes the single source in a later step.
 	///
 	/// ZPos is not clamped here: whoever makes a spot says which height it means (the floor under

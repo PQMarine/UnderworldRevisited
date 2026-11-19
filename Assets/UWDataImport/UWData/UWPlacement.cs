@@ -17,7 +17,7 @@ namespace UWDataImport.UWData
 	/// 0xF of the 32 units of a step, 3.75 of our 8 (UWWorldScale.SubTileOffset). One formula,
 	/// UWUnits.SubTileToWorldAxis, for everything that is placed: a creature's remains, a
 	/// spilled barrel, a barter drop, the item put down in front of the player (decision 22 of
-	/// Docs/CLEANUP-PLAN.md, 2026-10-12: until then one unit into the step).
+	/// the cleanup plan, 2026-10-12: until then one unit into the step).
 	/// </summary>
 	public static class UWPlacement
 	{

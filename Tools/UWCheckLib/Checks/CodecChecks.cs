@@ -8,7 +8,7 @@ namespace UnderworldRevisited.Tools
 {
     /// <summary>
     /// The codecs of the cleanup's phase 2 (UWObjectRecordCodec, UWNpcRecordCodec,
-    /// UWLevArkLayout, UWLevArkCodec; Docs/CLEANUP-PLAN.md step "Codecs", 2026-10-12): the
+    /// UWLevArkLayout, UWLevArkCodec; the cleanup plan step "Codecs", 2026-10-12): the
     /// layout numbers against the original's level.h, the flag bits against object.h (B13,
     /// decision 4), and encode(decode(record)) identity on every record of DATA and of every
     /// save under --saves - plus the LOADED objects written back through the codecs against

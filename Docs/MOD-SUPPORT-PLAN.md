@@ -5,7 +5,7 @@ For programs that install or switch mods (mod managers, editors, launchers): [MO
 Status: PARTLY BUILT (updated 2026-10-27, version 0.10.0). Written 2026-10-11 from five
 read-only surveys of the code (rule constants, level-bound behaviour, logic left on the Unity
 side, data load points, texts). Since then the code cleanup is complete
-([CLEANUP-PLAN.md](CLEANUP-PLAN.md), phases 0 to 10 with 0.9.2), the rule set shipped with 0.9.2
+(phases 0 to 10 with 0.9.2), the rule set shipped with 0.9.2
 and the languages with 0.10.0. What is built is summed up in section 0; sections 2 and 3 say per
 point what the code does today and what is still the plan. Line numbers were right on the day
 they were written and will drift; the file names will not.
@@ -394,7 +394,7 @@ Precedence: the mod set is part of the data root's identity, as the game-text fi
 
 ### 3.3 The rule set (built in 0.9.2)
 
-What is built ([CLEANUP-PLAN.md](CLEANUP-PLAN.md) section 6, phase 10):
+What is built (the cleanup's phase 10):
 
 - `UWRules` with one C# class per domain: `Combat`, `Magic`, `Experience`, `Vitals`, `Sleep`,
   `Critter`, `Respawn`, `Motion`, `Trade`, `Inventory`, `Lights`, `Quirks`, `Deviations`,

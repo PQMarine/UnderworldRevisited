@@ -76,7 +76,7 @@ namespace UWDataImport.UWData
 	///
 	/// WHY: four hosts searched the scene for creatures with a scan of their own (the theft and
 	/// trespass witnesses, the creation trap's crowding, the sleep, Detect Monsters), each with
-	/// its own tile measure and its own tests (section 7.2 of Docs/CLEANUP-PLAN.md).
+	/// its own tile measure and its own tests (section 7.2 of the cleanup plan).
 	/// </summary>
 	public static class UWCreatureSearch
 	{

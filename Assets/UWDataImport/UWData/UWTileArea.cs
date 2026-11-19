@@ -7,7 +7,7 @@ namespace UWDataImport.UWData
 	/// picture's transform) trails it by up to a step (UWCritterRemains). The searches decided by
 	/// different ones before FindCreatures, and each keeps its own: the theft and trespass
 	/// witnesses and the creation trap's crowding count asked the body's tile, the sleep and
-	/// Detect Monsters the record's (section 11 of Docs/CLEANUP-PLAN.md: moving everything to
+	/// Detect Monsters the record's (section 11 of the cleanup plan: moving everything to
 	/// records changes who counts at tile edges, a separate, checked step).
 	/// </summary>
 	public enum UWCreatureTile

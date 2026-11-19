@@ -102,7 +102,7 @@ public class UWCritter : MonoBehaviour, ICreatureView, IUWAttackDefender
     /// <summary>
     /// The enabled creature with this master-list index, or null - index 0 (no data) and the
     /// player's index 1 included. ONE LOOKUP INSTEAD OF A WALK OF Active (cleanup step 4.8,
-    /// 2026-10-18; section 7.4 of Docs/CLEANUP-PLAN.md): the blow's body (UWWorld), the motion
+    /// 2026-10-18; section 7.4 of the cleanup plan): the blow's body (UWWorld), the motion
     /// core's mobiles (UWMotionHost) and a creature's defender each walked the list or the master
     /// list for it. When a slot is taken again in the frame its former creature is still being
     /// destroyed, the new creature is the one found (the walk found the former, first in Active).

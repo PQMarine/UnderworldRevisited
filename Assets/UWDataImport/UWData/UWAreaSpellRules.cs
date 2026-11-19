@@ -41,7 +41,7 @@ namespace UWDataImport.UWData
 	/// Engine-free since 2026-09-18 (P3); the effect pictures and the damage go back through the
 	/// world, the damage charged to the cast's caster (UWCastContext). WHO IS STRUCK comes from the
 	/// squares and their object lists since cleanup step 4.0 (2026-10-18, decision 11 of
-	/// Docs/CLEANUP-PLAN.md): UWAreaWalk walks them as process_area does. Until then the world
+	/// the cleanup plan): UWAreaWalk walks them as process_area does. Until then the world
 	/// collected the targets with a physics sphere (IUWWorld.CollectAreaTargets, held here as
 	/// UWAreaTarget entries) and decided a creature's square by its body.
 	/// </summary>

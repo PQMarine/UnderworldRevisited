@@ -13,7 +13,7 @@ using UnderworldRevisited.Build;
 /// shared by both render paths, kept across scenes (they depend on the game data only).
 ///
 /// OWNERSHIP: the cache creates and destroys these textures, nobody else does - the callers hold
-/// references only (Docs/CLEANUP-PLAN.md section 11, "Texture ownership": moved in one step, or
+/// references only (section 11 of the cleanup plan, "Texture ownership": moved in one step, or
 /// a texture is destroyed twice). Before it destroys one it drops it from UWShaderGlobals
 /// (Invalidate), since the palette effects set the normal array as a global.
 ///

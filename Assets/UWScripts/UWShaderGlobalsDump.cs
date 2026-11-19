@@ -8,7 +8,7 @@ using UnityEngine;
 /// <summary>
 /// Writes every _UW* shader global, the resource counts and where the camera stands into a
 /// text file (Shift+F12, see DebugFunctions). The oracle of the rendering steps of the cleanup
-/// (Docs/CLEANUP-PLAN.md, phase 0 and 6): a dump taken at a known spot before a change and one
+/// (the cleanup plan, phase 0 and 6): a dump taken at a known spot before a change and one
 /// taken there after it must be identical, except for the two values that move with time
 /// (_UWRotationStep and the shadow and light arrays while something moves).
 ///

@@ -5,7 +5,7 @@ using UWDataImport.UWData;
 namespace UnderworldRevisited.Tools
 {
     /// <summary>
-    /// The fresh object (Docs/CLEANUP-PLAN.md, phase 2 step "UWObjectFactory"): CreateObj's
+    /// The fresh object (the cleanup plan, phase 2 step "UWObjectFactory"): CreateObj's
     /// fields against the real COMOBJ.DAT, the pictures UWObjectAppearance hands out, the
     /// create-object trap's copy, and where UWInventoryModel.GiveToPlayer puts a thing.
     /// </summary>

@@ -182,7 +182,7 @@ public static class UWTextureFactory
 
     // THE RENDERER'S LOOKUP TABLES (cleanup step 6.2, 2026-10-24): the bytes come engine-free
     // from UWLookupTables, the texture settings of every table live here - so the frozen flags
-    // (Docs/CLEANUP-PLAN.md section 11: colour tables linear = false, index tables linear = true,
+    // (section 11 of the cleanup plan: colour tables linear = false, index tables linear = true,
     // no mipmaps on index textures) hold by construction. Until 2026-10-24 UWShadePalette,
     // UWTextureArrayBuilder.BuildMaterialLookup and UWPaletteEffects each built theirs with their
     // own "new Texture2D, Point, Clamp, fill, Apply". Every table is Point, Clamp, without mipmaps

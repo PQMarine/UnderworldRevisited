@@ -252,7 +252,7 @@ namespace UWDataImport.Presentation
 	}
 
 	/// <summary>
-	/// THE THEME TABLE OF THE GAME'S OWN WINDOWS (cleanup phase 8d, 2026-10-25; Docs/CLEANUP-PLAN.md
+	/// THE THEME TABLE OF THE GAME'S OWN WINDOWS (cleanup phase 8d, 2026-10-25; the cleanup plan
 	/// phase 8d). Per user the same day: today's look stays as the first theme and the default; a
 	/// second takes the application icon's colours (Art/Icon/ur-icon.svg, Assets/UWIcon/UWRIcon.png).
 	/// The setting is UWUserData.WindowTheme, the carved theme's ground UWUserData.WindowBackground;

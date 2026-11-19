@@ -48,7 +48,7 @@ namespace UWDataImport.UWData
 		/// this rounded the position divided by the tile width (halves to even, as
 		/// Mathf.RoundToInt did; adding half a tile first had put the centre on the rounding
 		/// boundary, user 2026-08-29), which differed from the floor only on an exact boundary -
-		/// decision 20 of Docs/CLEANUP-PLAN.md: one conversion, the floor.
+		/// decision 20 of the cleanup plan: one conversion, the floor.
 		/// </summary>
 		public static UWTilePos WorldToTile(float pfWorldX, float pfWorldZ)
 		{
@@ -90,7 +90,7 @@ namespace UWDataImport.UWData
 		/// fine position from an exact one, and what the trespass trap reads for the player.
 		/// The FLOOR of the point's position in the tile: a point 7.99 units past the tile's
 		/// corner is still cell 0, where WorldToSubTile (the stored spot an object was placed at,
-		/// nearest) would answer 1. Decision 21 of Docs/CLEANUP-PLAN.md (2026-10-12): both stay,
+		/// nearest) would answer 1. Decision 21 of the cleanup plan (2026-10-12): both stay,
 		/// each named for its purpose. Pairs with UWUnits.WorldAxisToTile for the tile.</summary>
 		public static int WorldToEighthFloor(float pfWorldCoordinate)
 		{

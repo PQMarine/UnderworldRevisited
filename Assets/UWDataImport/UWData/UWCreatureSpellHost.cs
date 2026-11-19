@@ -3,7 +3,7 @@ using System;
 namespace UWDataImport.UWData
 {
 	/// <summary>
-	/// A CREATURE'S CAST (cleanup step 4.10, 2026-10-18; B2 and B3 of Docs/CLEANUP-PLAN.md): the
+	/// A CREATURE'S CAST (cleanup step 4.10, 2026-10-18; B2 and B3 of the cleanup plan): the
 	/// spell host a creature hands UWSpellCasting.CastSpell, so its spells take the one effect path
 	/// the player's runes, wands and the spell traps take (UWSpellCasting.ApplyEffect), as the
 	/// original's do take one: the mind's cast sequence calls cast(spells[i], critter, 0) at frame 4

@@ -494,7 +494,7 @@ public static class UWPlayerThrow
     /// (UWUnits.EighthsToWorldAxis, see UWPlacement). Until 2026-10-12 the drop went one unit
     /// into the step instead, "so that the rounding of the level loader lands on this spot and
     /// not on the neighbouring tile at xpos 0" - the loader rounds to the nearest spot, which
-    /// the common formula hits exactly; decision 22 of Docs/CLEANUP-PLAN.md (the item put down
+    /// the common formula hits exactly; decision 22 of the cleanup plan (the item put down
     /// in front of the player and the fit test's spot move 2.75 units into their eighth, the
     /// user tests a drop onto a floor edge before and after).</summary>
     private static Vector3 fEighthToWorld(int piEighthX, int piEighthY, float pfHeight)

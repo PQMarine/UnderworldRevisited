@@ -19,7 +19,7 @@ using UWDataImport.UWData;
 ///
 /// LONG-LIVED: one per level object, for the whole game. What belongs to one firing, one cast or
 /// one conversation (the triggering creature, the message channel of a firing, the area targets)
-/// stays on the per-call hosts and never moves in here (section 11 of Docs/CLEANUP-PLAN.md).
+/// stays on the per-call hosts and never moves in here (section 11 of the cleanup plan).
 ///
 /// The presentation and the avatar are plain objects owned here rather than components of their
 /// own: neither keeps state of its own, both only read scene services (UWScene, Camera.main) on
@@ -513,7 +513,7 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     /// <summary>
     /// The creature behind a level object an area spell's walk hands over (UWAreaWalk over the
     /// squares' lists): the entity the loader made for it. Since cleanup step 4.0 (2026-10-18,
-    /// decision 11 of Docs/CLEANUP-PLAN.md) the rules choose the creatures by the tile lists, as
+    /// decision 11 of the cleanup plan) the rules choose the creatures by the tile lists, as
     /// process_area does; until then this world collected the area targets with the physics
     /// (CollectAreaTargets: everything damageable within (radius + 2) * 1.5 tiles of the centre,
     /// each on the tile its transform stood on).
@@ -723,7 +723,7 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     /// <summary>
     /// A world point as a spot: the tile it lies in (UWTileQueries.WorldToTile, clamped to the
     /// map) and the eighth CELL it lies in (UWTileQueries.WorldToEighthFloor, the original's
-    /// (pos &gt;&gt; 5) &amp; 7 - decision 21 of Docs/CLEANUP-PLAN.md), at the given zpos.
+    /// (pos &gt;&gt; 5) &amp; 7 - decision 21 of the cleanup plan), at the given zpos.
     /// </summary>
     public static UWSpot SpotAt(Vector3 pOPoint, int piZPos)
     {

@@ -2,7 +2,7 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// WHERE A CREATURE'S HIT POINTS LIVE: its record's byte 8 (UWCritterRecord.HitPoints), the one
-	/// store since cleanup step 4.8 (2026-10-18; section 7.4 of Docs/CLEANUP-PLAN.md). Until then
+	/// store since cleanup step 4.8 (2026-10-18; section 7.4 of the cleanup plan). Until then
 	/// UWHealth counted its own copy beside the record, kept in step at six places, and the save took
 	/// the copy clamped to at least 1 - so a golem whose death was refused saved with 1 hit point
 	/// although his record held 0 (B23).

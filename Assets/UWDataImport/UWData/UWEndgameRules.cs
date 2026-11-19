@@ -91,7 +91,7 @@ namespace UWDataImport.UWData
 		/// SPELLS.C: a critter or the player is refused on an anti-magic square of its own or with
 		/// PlayerLevel 9, before the class switch). Since cleanup step 4.10 (2026-10-18) the
 		/// creatures' spells go through it as well (UWCreatureSpellHost.IsMagicBlocked, the caster's
-		/// tile); until then a creature's missile spell flew in the Void (B2 of Docs/CLEANUP-PLAN.md,
+		/// tile); until then a creature's missile spell flew in the Void (B2 of the cleanup plan,
 		/// the Exhumed audit's row 30) and its area spell and summoning had a copy of this test.
 		/// </summary>
 		public static bool IsMagicBlocked(UWLevel pOLevel, int piLevelIndex, UWTilePos pOTile)

@@ -5,7 +5,7 @@ using UWDataImport.UWData;
 namespace UnderworldRevisited.Tools
 {
     /// <summary>
-    /// The inventory-side rules the cleanup touches first (Docs/CLEANUP-PLAN.md, phase 1 step
+    /// The inventory-side rules the cleanup touches first (the cleanup plan, phase 1 step
     /// "self-check additions"): the hand's reach, the items applied to things, the locks, the
     /// inventory model's carrying, splitting, consuming and putting away, and eating. Pinned
     /// here before UWPickupRules, UWItemTargetRules and UWDoorRules take these over, so the

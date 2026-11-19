@@ -2,7 +2,7 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// WHAT A CREATURE ASKS OF THE WORLD (cleanup step 4.11, 2026-10-18; section 7.4 of
-	/// Docs/CLEANUP-PLAN.md): the level's part that its engine-free actor (UWCreatureActor) cannot
+	/// the cleanup plan): the level's part that its engine-free actor (UWCreatureActor) cannot
 	/// answer from the data alone - the motion engines, the other creatures' actors, the player's
 	/// body as the mind sees it and as a blow's defender, the melee defender search, the missile
 	/// launch, the talk, the music. Everything the rules already have a world member for - the

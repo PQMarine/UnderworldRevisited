@@ -1,7 +1,7 @@
 namespace UWDataImport.UWData
 {
 	/// <summary>
-	/// THE GAME'S OWN POINTER, ENGINE-FREE (cleanup step 7.7B, 2026-10-25; Docs/CLEANUP-PLAN.md 8.5,
+	/// THE GAME'S OWN POINTER, ENGINE-FREE (cleanup step 7.7B, 2026-10-25; section 8.5 of the cleanup plan,
 	/// the goal decided 2026-10-23): in the running game the system pointer is locked and hidden and
 	/// the pointer is ours - kept from the mouse's counts as the DOS mouse driver kept it, drawn by us
 	/// (UWPointer). This is its arithmetic, in screen pixels with y up:

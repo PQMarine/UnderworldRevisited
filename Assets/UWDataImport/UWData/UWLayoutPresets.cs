@@ -16,7 +16,7 @@ namespace UWDataImport.UWData
 	}
 
 	/// <summary>
-	/// THE LAYOUT EDITOR'S STARTING POINTS AS TABLES (cleanup step 8.4, 2026-10-24; Docs/CLEANUP-PLAN.md
+	/// THE LAYOUT EDITOR'S STARTING POINTS AS TABLES (cleanup step 8.4, 2026-10-24; the cleanup plan
 	/// 8.7): for each preset the layout settings it copies into the own layout, entry and value. Until
 	/// then UWModernLayoutEditor.fChooseStart set some twenty fields by hand, one line each.
 	///

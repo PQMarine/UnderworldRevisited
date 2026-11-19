@@ -3,7 +3,7 @@ using System;
 namespace UWDataImport.UWData
 {
 	/// <summary>Where damage to the player comes from - one per site that lowers his hit points
-	/// (cleanup step 4.2, 2026-10-17; the table of section 7.5 of Docs/CLEANUP-PLAN.md).</summary>
+	/// (cleanup step 4.2, 2026-10-17; the table of section 7.5 of the cleanup plan).</summary>
 	public enum UWDamageSource
 	{
 		/// <summary>A creature's blow (UWCritter.fStrikePlayer), or its miss.</summary>
@@ -105,7 +105,7 @@ namespace UWDataImport.UWData
 	/// ONE DAMAGE TO THE PLAYER, as a site hands it to UWDamagePipeline (cleanup step 4.2,
 	/// 2026-10-17). Until then the sites lowered the hit points through four methods and did the
 	/// rest themselves - the armour, the easy halving, the shake, the flash, the music - each in
-	/// its own way (B6 of Docs/CLEANUP-PLAN.md). The factories below ARE the table of section 7.5:
+	/// its own way (B6 of the cleanup plan). The factories below ARE the table of section 7.5:
 	/// each site's type, armour, halving, resistance, flash and music in one place; only the sounds
 	/// stay with the sites (they come before the armour, from the site's own numbers).
 	///

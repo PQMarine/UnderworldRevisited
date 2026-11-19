@@ -6,7 +6,7 @@ using UnityEngine.InputSystem.LowLevel;
 using UWDataImport.UWData;
 
 /// <summary>
-/// THE POINTER, IN ONE PLACE (cleanup step 7.7A, 2026-10-25; Docs/CLEANUP-PLAN.md 8.5): where the
+/// THE POINTER, IN ONE PLACE (cleanup step 7.7A, 2026-10-25; section 8.5 of the cleanup plan): where the
 /// pointer is (Position, screen pixels with y up), how the mouse moved and turned its wheel this frame
 /// (Delta, Scroll), its three buttons (pressed, held, released this frame), whether the system pointer
 /// is captured (IsCaptured / IsFree) and who placed the pointer last (Source). Until 7.7A 33 classes

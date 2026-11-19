@@ -65,7 +65,7 @@ namespace UnderworldRevisited.Tools
 
         /// <summary>
         /// Every constant and table of the engine-free layer as "Type.Name = value", sorted - the
-        /// inventory the rule set is cut from domain by domain (Docs/CLEANUP-PLAN.md section 6): about
+        /// inventory the rule set is cut from domain by domain (section 6 of the cleanup plan): about
         /// 300 of them are gameplay numbers that become rules, the rest are file-format facts that
         /// stay. It is the self-check's constant pin (Pins/rule-constants.txt) byte for byte. Until
         /// cleanup phase 10 this was rules-template. A filter keeps the lines whose name contains it

@@ -6,7 +6,7 @@ namespace UWDataImport.UWData
 	/// <summary>
 	/// WHO AN AREA SPELL OR A BLAST STRIKES, chosen as the original chooses it: by the squares of
 	/// the area and the object list of each square, no physics (cleanup step 4.0, decision 11 of
-	/// Docs/CLEANUP-PLAN.md, decided by the user 2026-10-18).
+	/// the cleanup plan, decided by the user 2026-10-18).
 	///
 	/// WHY: until 2026-10-18 the Unity side gathered the targets with a physics sphere and put a
 	/// creature on the square its body stood on (the transform, which trails the record by up to a

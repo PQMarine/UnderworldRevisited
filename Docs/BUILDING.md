@@ -91,8 +91,8 @@ makes the kit alone, without a built player; `-NoKit` leaves it out.
 Everything that reads and interprets the original data lives in `Assets/UWDataImport` and
 knows nothing about any game engine: file formats, strings and conversations, object and
 critter tables, the OPL2 emulation and the music drivers, the cutscene decoder, the 3D models
-from `UW.EXE`, and the game rules - since the code cleanup ([CLEANUP-PLAN.md](CLEANUP-PLAN.md),
-complete with 0.9.2) the player, the creatures, combat, magic, traps, the world and the rule set
+from `UW.EXE`, and the game rules - since the code cleanup (complete
+with 0.9.2) the player, the creatures, combat, magic, traps, the world and the rule set
 live here, and the interface is described here for both schemes. Unity enforces this - the assembly
 definition sets `noEngineReferences`, so a single `using UnityEngine` in there fails to
 compile.

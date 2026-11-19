@@ -52,7 +52,7 @@ public sealed class UWMissiles
     /// The heading ROUNDS and is not UWHeadings.DegreesToHeadingByte on purpose: that one
     /// truncates the player's yaw as the original shifts its facing, while the original derives
     /// these headings from its arctangent table, not from the player (decision 23 of
-    /// Docs/CLEANUP-PLAN.md, 2026-10-12).</summary>
+    /// the cleanup plan, 2026-10-12).</summary>
     public static void AimFromDirection(Vector3 pODirection, int piSpeedByte, out int piHeading, out int piPitch)
     {
         float lfHorizontal = Mathf.Sqrt((pODirection.x * pODirection.x) + (pODirection.z * pODirection.z));

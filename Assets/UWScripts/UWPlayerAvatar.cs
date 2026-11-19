@@ -44,7 +44,7 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
 
     /// <summary>The cell under the eye at the floor's zpos there, clamped - the trespass trap's
     /// formula (UWTrapHost.AngerRaceNearPlayer, the cell since decision 21 of
-    /// Docs/CLEANUP-PLAN.md).</summary>
+    /// the cleanup plan).</summary>
     public UWSpot FloorSpot
     {
         get

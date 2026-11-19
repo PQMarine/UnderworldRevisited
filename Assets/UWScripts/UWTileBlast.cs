@@ -29,7 +29,7 @@ using UWDataImport.UWData;
 /// WHO IS STRUCK: the tile's object list in its order (UWAreaWalk.DamageSquare, damage_square in
 /// UnderworldExhumed SPELLS.C) - the creatures among them by their record tile, whatever their
 /// height or place within the tile - and the player at its head when he stands there. Since
-/// cleanup step 4.0 (2026-10-18, decision 11 of Docs/CLEANUP-PLAN.md); until then the creatures
+/// cleanup step 4.0 (2026-10-18, decision 11 of the cleanup plan); until then the creatures
 /// were found with a physics sphere around the middle of the tile's floor (0.75 of a tile) and put
 /// on the tile their transform stood on, struck before the objects and the player last.
 ///

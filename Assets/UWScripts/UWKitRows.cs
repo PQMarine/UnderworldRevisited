@@ -10,7 +10,7 @@ using UWDataImport.UWData;
 /// THE WINDOWS' ROWS ON THE KIT (cleanup 8b.1, 2026-10-24; phase 8b, decision 26): the same row
 /// vocabulary as UWGuiRows (IUWRows) drawn with the uGUI kit (UWUiKit) on a canvas of its own
 /// (UWUiSorting.KitWindows), so the setup bar and its windows leave IMGUI - the precondition for a
-/// pointer of our own (UWPointer part B, Docs/CLEANUP-PLAN.md 8.5): no window takes its clicks from
+/// pointer of our own (UWPointer part B, section 8.5 of the cleanup plan): no window takes its clicks from
 /// the system pointer's IMGUI events any more.
 ///
 /// DRAWN LIKE IMGUI, KEPT LIKE uGUI: the host calls the rows once a frame between Begin and End, in

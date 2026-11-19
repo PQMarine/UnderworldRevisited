@@ -7,7 +7,7 @@ namespace UWDataImport.UWData
 	/// 3.1, 2026-10-17): the data, the level and its tiles, the travel between levels, and the way
 	/// to the presentation and to the player's body. The creature search (FindCreatures) came with
 	/// step 3.2, the blows (Damage) with step 3.3; the doors, the objects, a found creature's acts
-	/// and the level's own time with step 3.6 (section 7.2 of Docs/CLEANUP-PLAN.md).
+	/// and the level's own time with step 3.6 (section 7.2 of the cleanup plan).
 	///
 	/// WHY: nine host interfaces repeated these members with their own bodies (section 4.5) - the
 	/// level alone in four index conventions. Since step 3.6 (2026-10-17) the rules take the world
@@ -241,7 +241,7 @@ namespace UWDataImport.UWData
 	/// world inside, only the presentation is the one handed in - the night's lines to the
 	/// Interaction the sleep was given, a trap firing's or a cast's lines to its own channel or the
 	/// silent scope. This is how the call state of one firing, one cast or one night travels with
-	/// the world without the long-lived world keeping it (section 7.2 of Docs/CLEANUP-PLAN.md).
+	/// the world without the long-lived world keeping it (section 7.2 of the cleanup plan).
 	/// </summary>
 	public sealed class UWScopedWorld : IUWWorld
 	{

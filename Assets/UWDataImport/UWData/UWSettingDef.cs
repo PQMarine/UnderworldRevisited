@@ -123,7 +123,7 @@ namespace UWDataImport.UWData
 	}
 
 	/// <summary>
-	/// ONE SETTING OF settings.json, DESCRIBED (cleanup step 8.3, 2026-10-24; Docs/CLEANUP-PLAN.md
+	/// ONE SETTING OF settings.json, DESCRIBED (cleanup step 8.3, 2026-10-24; the cleanup plan
 	/// 8.7): its key, which is the JSON field name and the UWUserData field and is never renamed,
 	/// what kind of row it is, where it lives, its limits and the rule by which a stored value is
 	/// read (Normalize). UWUserSettingsTable lists one per field of UWUserData, in the file's order.

@@ -853,7 +853,7 @@ public static class UWTriggerSystem
             // player's spot in eighths and at his zpos plus the player object's height plus 12,
             // as for a stolen item (UWCritterRules.GetTheftSightZ).
             // The cell the point lies in, the original's (pos >> 5) & 7 - not the nearest stored
-            // spot (UWTileQueries.WorldToEighthFloor, decision 21 of Docs/CLEANUP-PLAN.md); the zpos
+            // spot (UWTileQueries.WorldToEighthFloor, decision 21 of the cleanup plan); the zpos
             // is the floor's under the eye, clamped. That is the avatar's FloorSpot since cleanup
             // step 3.1 (2026-10-17), Nowhere without a view, as this answered 0 without a camera.
             UWSpot lOPlayer = mOWorld != null ? mOWorld.Player.FloorSpot : UWSpot.Nowhere;

@@ -16,7 +16,7 @@ namespace UnderworldRevisited.Tools
     /// rules-template until cleanup phase 10); the pin check uses it too since cleanup 9.6 (the
     /// same day), so the two lists cannot drift apart.
     ///
-    /// It is the inventory the rule set (UWRules, Docs/CLEANUP-PLAN.md section 6) is cut from
+    /// It is the inventory the rule set (UWRules, section 6 of the cleanup plan) is cut from
     /// domain by domain; `uwdump rules-template` prints the rule set itself.
     /// </summary>
     internal static class UWConstantScan

@@ -97,7 +97,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The damage trap on the player: type 4 as on everything else (WORLDEV.C
-		/// whack_thing), untyped until 2026-10-17 - B5 of Docs/CLEANUP-PLAN.md, decided by the
+		/// whack_thing), untyped until 2026-10-17 - B5 of the cleanup plan, decided by the
 		/// original; the same for the player, whose proof has no bit 4 (UWDamageRequest.Trap).</summary>
 		private static void fDamagePlayer(IUWTrapHost pIHost, int piDamage)
 		{

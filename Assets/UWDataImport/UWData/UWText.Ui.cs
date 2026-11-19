@@ -6,7 +6,7 @@ using System.Text;
 namespace UWDataImport.UWData
 {
 	/// <summary>
-	/// THE PORT'S OWN TEXTS (cleanup step 8.5, 2026-10-24; Docs/CLEANUP-PLAN.md 8.7): every word the
+	/// THE PORT'S OWN TEXTS (cleanup step 8.5, 2026-10-24; section 8.7 of the cleanup plan): every word the
 	/// port itself shows - the setup bar and its dialogs, the help window, the layout editor, the key
 	/// and button names, the effects screen, the letter grid, the modern game menu and the modern
 	/// interface's own words - by a stable id ("setup.bar.motion", "help.tab.spells"). T(id) gives the

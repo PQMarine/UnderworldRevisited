@@ -39,7 +39,7 @@ namespace UWDataImport.UWData
 
 	/// <summary>
 	/// ONE BLOW, as every damage site hands it to IUWWorld.Damage (cleanup step 3.3, 2026-10-17;
-	/// section 7.2 of Docs/CLEANUP-PLAN.md). Until then each site called UWDamageable.ApplyDamage or
+	/// section 7.2 of the cleanup plan). Until then each site called UWDamageable.ApplyDamage or
 	/// UWCharacter.ApplyDamage itself and told the creature its attacker in one of three ways - the
 	/// missile and the blast through AnnounceAttacker, the creature's blow by setting the pending
 	/// attacker around the call, the trap, the ward and the lava through ApplyDamageWithoutAttacker

@@ -7,7 +7,7 @@ using UWDataImport.UWData;
 namespace UnderworldRevisited.Tools
 {
     /// <summary>
-    /// The pins of the cleanup (Docs/CLEANUP-PLAN.md, phase 0): checks that compare the current
+    /// The pins of the cleanup (the cleanup plan, phase 0): checks that compare the current
     /// state of the code against a recorded one, so that a refactor which changes a byte of a
     /// save, a rule constant or a pixel of the composed HUD art is caught at once. Recorded with
     /// --record into Tools/UWSelfCheck/Pins; a run without that option compares. The save round

@@ -2,7 +2,7 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// THE STORY'S FIXED PLACES AND IDS, in the rule set (story.*; cleanup phase 10, wave 2,
-	/// 2026-10-26): not balance but the anchors a total conversion repoints (Docs/CLEANUP-PLAN.md
+	/// 2026-10-26): not balance but the anchors a total conversion repoints (the cleanup plan
 	/// section 6) - the talking door's conversation, the conversation trap's partner, the emerald
 	/// puzzle, the quest tiles of UWQuestPlaces, the bullfrog puzzle's game variables and the
 	/// start tile. Their levels are levels.*. Each default is the const that held it; see UWRules.

@@ -12,7 +12,7 @@ using UnityEngine;
 /// Loads every settings.json fixture under Tools/Fixtures/settings, reads every public property
 /// of UWUserSettings from it and compares the values with the recorded file next to the fixture
 /// (the .expected.txt), and what JsonUtility writes back with the .written file (since cleanup
-/// step 8.3, 2026-10-24). The oracle of the settings steps of the cleanup (Docs/CLEANUP-PLAN.md,
+/// step 8.3, 2026-10-24). The oracle of the settings steps of the cleanup (the cleanup plan,
 /// phase 0 and 8): a fixture written by an old version must read the same values after the
 /// settings table replaces the hand-written properties, legacy quirks included (a mouse speed
 /// of 0 reads as 1, an invalid frame count as 8).

@@ -5,7 +5,7 @@ namespace UWDataImport.UWData
 	/// <summary>
 	/// THE PLAYER'S THINGS ON A LEVEL CHANGE - one order for loading a game (UWLevelLoader.Start)
 	/// and for walking into another level (UWLevelLoader.TravelTo), decision 9 of
-	/// Docs/CLEANUP-PLAN.md (2026-10-12).
+	/// the cleanup plan (2026-10-12).
 	///
 	/// The original keeps the inventory in the static records of the level the player is on
 	/// (UWCarriedSlots). Its GetLevel (GAMEWRAP.C) runs SavePlayerInv (the inventory into the

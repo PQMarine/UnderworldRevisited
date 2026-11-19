@@ -8,7 +8,7 @@ namespace UWDataImport.UWData
 	/// WHY (cleanup step 3.1, 2026-10-17): the trap, spell, sleep, conversation and shrine hosts
 	/// each worked out "where is the player" for themselves - from Camera.main, from the
 	/// character's transform, from the feet of the CharacterController, from the controller's
-	/// transform - with different fallbacks (section 4.2 of Docs/CLEANUP-PLAN.md). On the Unity
+	/// transform - with different fallbacks (section 4.2 of the cleanup plan). On the Unity
 	/// side all of these share one horizontal position: UWCharacter sits on the Main Camera, a child
 	/// of the controller at local x/z 0 that only ever moves up and down (head bob, swimming). They
 	/// differ in the HEIGHT they mean, and that is what the two spots below keep apart until the

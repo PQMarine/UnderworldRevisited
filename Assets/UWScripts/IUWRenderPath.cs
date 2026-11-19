@@ -42,7 +42,7 @@ public interface IUWRenderPath
 
     /// <summary>A node built after the level - an object picture, a remains, the rebuilt geometry
     /// (UWWorldView, the one exit for those). Every runtime view needs it, or it stays on the
-    /// other path (Docs/CLEANUP-PLAN.md section 11, "Palette path").</summary>
+    /// other path (section 11 of the cleanup plan, "Palette path").</summary>
     void OnObjectSpawned(GameObject pOSpawned);
 
     /// <summary>The material this path draws a source material with, or null for the source

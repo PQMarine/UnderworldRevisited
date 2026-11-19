@@ -11,7 +11,7 @@ namespace UWDataImport.UWData
 	/// north, so every conversion here is a scale by 45, 360/256 or 360/65536 - and, towards the
 	/// original, a ROUNDING, halves to even as everywhere (UWUnits.RoundToInt) - except the
 	/// 256-step heading of the player, which the original takes by a shift and
-	/// DegreesToHeadingByte therefore TRUNCATES (decision 23 of Docs/CLEANUP-PLAN.md,
+	/// DegreesToHeadingByte therefore TRUNCATES (decision 23 of the cleanup plan,
 	/// 2026-10-12). Each function replaced copies that were numerically identical; the
 	/// truncating UWUnits.DegreesToAngle stays for its own callers.
 	///
@@ -70,7 +70,7 @@ namespace UWDataImport.UWData
 		/// PlayerFacing &gt;&gt; 8 (SET_FINEHEAD in PHYSICS.C; OBJPHYS.C reads a mobile's the same
 		/// way, pp-&gt;heading &gt;&gt; 8), never rounded. The throw's heading and the compass disc
 		/// read the camera this way - one conversion since 2026-10-12, decision 23 of
-		/// Docs/CLEANUP-PLAN.md; until then the compass rounded (halves to even) and could sit
+		/// the cleanup plan; until then the compass rounded (halves to even) and could sit
 		/// one step ahead of the throw. UWMissiles.AimFromDirection still ROUNDS: the
 		/// original takes those headings from its arctangent table, not from the player's yaw.</summary>
 		public static int DegreesToHeadingByte(float pfDegrees)
@@ -92,7 +92,7 @@ namespace UWDataImport.UWData
 		/// compass disc's right arrow did nothing (per user, 2026-10-10; see
 		/// UWPlayerMovement.fTransformYawToAngle). The save game writes the heading this way too,
 		/// and since 2026-10-12 the creature animator's camera yaw as well (it floored before;
-		/// decision 24 of Docs/CLEANUP-PLAN.md). UWUnits.DegreesToAngle is the TRUNCATING variant
+		/// decision 24 of the cleanup plan). UWUnits.DegreesToAngle is the TRUNCATING variant
 		/// and stays for its own callers.</summary>
 		public static int DegreesToAngleUnits(float pfDegrees)
 		{

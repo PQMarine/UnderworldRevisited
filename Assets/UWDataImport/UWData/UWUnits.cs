@@ -33,7 +33,7 @@ namespace UWDataImport.UWData
 		/// <summary>Which tile a world coordinate lies in, on one axis: the FLOOR, the original's
 		/// pos &gt;&gt; 8 (a point on a tile boundary belongs to the tile it starts). Not clamped to
 		/// the map; UWTileQueries.WorldToTile is the clamped pair for both axes, and since
-		/// 2026-10-12 the one world-to-tile conversion (decision 20 of Docs/CLEANUP-PLAN.md).</summary>
+		/// 2026-10-12 the one world-to-tile conversion (decision 20 of the cleanup plan).</summary>
 		public static int WorldAxisToTile(float pfWorld)
 		{
 			return UWRounding.Floor((pfWorld + UWWorldScale.TileHalfSize) / UWWorldScale.TileSize);
@@ -44,7 +44,7 @@ namespace UWDataImport.UWData
 		/// original's (tile &lt;&lt; 8) + (xpos &lt;&lt; 5) + 0xF in our units (see UWPlacement).
 		/// Until the cleanup step 2.11 (2026-10-12) the level loader's snap out of rock added
 		/// the spawner's 0.1 draw offset on top and the drop in front of the player used one
-		/// unit instead of the 3.75 (decision 22 of Docs/CLEANUP-PLAN.md).</summary>
+		/// unit instead of the 3.75 (decision 22 of the cleanup plan).</summary>
 		public static float SubTileToWorldAxis(int piTile, int piSubTile)
 		{
 			return TileToWorldAxis(piTile) + (piSubTile * UWWorldScale.SubTileStep) + UWWorldScale.SubTileOffset;

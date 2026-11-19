@@ -272,7 +272,7 @@ namespace UWDataImport.UWData
 
 	/// <summary>
 	/// ONE BLOW, WHOEVER STRIKES WHOM (cleanup step 4.9, 2026-10-18; section 7.4 of
-	/// Docs/CLEANUP-PLAN.md): what the original computes in common for a creature's blow
+	/// the cleanup plan): what the original computes in common for a creature's blow
 	/// (critter_attack -> do_attack), the player's melee (DoPlayerWeapon -> do_attack) and a missile
 	/// on the player (missile_thwack -> do_damage), UnderworldExhumed combat/COMBAT.C:
 	///

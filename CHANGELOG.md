@@ -812,7 +812,7 @@ against its code and, where noted, by playing the original. The deliberate excep
 - The debug display (Shift+F1) is clearer: sections that fold, values that light up when they
   change, and the Shift+F7/Shift+F10 tools as its second tab.
 - Internal: rendering, audio, input, menus, settings, the help window and the cutscene player are
-  restructured (code cleanup phases 6, 7, 8, 8b and 8c, see Docs/CLEANUP-PLAN.md). Underworld
+  restructured (code cleanup phases 6, 7, 8, 8b and 8c). Underworld
   Revisited's own texts are in one table and can be translated with a language file beside the
   game (Languages/<code>.tsv).
 
@@ -873,8 +873,7 @@ The map
   original's (Docs/DEVIATIONS.md).
 - Internal: the interface is restructured for both schemes - the classic and the modern one are
   drawn from shared, engine-free descriptions of what they show, and the game asks one interface
-  object instead of testing the scheme in many places (code cleanup phase 5, see
-  Docs/CLEANUP-PLAN.md). The classic layout's values moved out of the Inspector into one table.
+  object instead of testing the scheme in many places (code cleanup phase 5). The classic layout's values moved out of the Inspector into one table.
 
 ## [0.8.4] - 2026-10-21
 
@@ -941,8 +940,7 @@ Combat
   original (Docs/DEVIATIONS.md).
 - The F1 overlay shows whether the last hit shook the view, and how hard.
 - Internal: the player's damage, death, terrain and movement, and the creatures' game side, their
-  attacks, spells and death, are restructured into engine-free rules (code cleanup phase 4, see
-  Docs/CLEANUP-PLAN.md).
+  attacks, spells and death, are restructured into engine-free rules (code cleanup phase 4).
 
 ## [0.8.2] - 2026-10-18
 
@@ -955,7 +953,7 @@ Combat
   every frame rate and pauses behind a menu.
 - Internal: traps, spells, conversations and sleep reach the world through one interface, every
   blow on a creature or a thing takes one road, and timed events run on the game's clock
-  (code cleanup phase 3, see Docs/CLEANUP-PLAN.md). Nothing else should change in play.
+  (code cleanup phase 3). Nothing else should change in play.
 
 ## [0.8.1] - 2026-10-17
 
@@ -1276,7 +1274,7 @@ World
   looks at the thing under the pointer in the bags during a conversation.
 
 ### Changed
-- A large code cleanup (phases 0 to 2 of [Docs/CLEANUP-PLAN.md](Docs/CLEANUP-PLAN.md)): rules
+- A large code cleanup (phases 0 to 2 of the cleanup plan): rules
   that existed several times now have one home, and the self-check covers them. Each game is
   its own session, so nothing of one game carries over into the next after New Game or Load,
   and its random numbers come from the original's own generator.

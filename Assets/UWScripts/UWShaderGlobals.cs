@@ -16,7 +16,7 @@ using UnityEngine;
 /// would have written. A texture filled anew in place (SetPixelData and Apply on the same object,
 /// as the sweep mask and the light map do) needs no new write - the global holds the object.
 ///
-/// STALE CACHE (Docs/CLEANUP-PLAN.md section 11, "Palette path"): a texture that is destroyed
+/// STALE CACHE (section 11 of the cleanup plan, "Palette path"): a texture that is destroyed
 /// while it is set must be dropped from the cache with Invalidate before or when it goes, so the
 /// next set writes again whatever it is. The cache also starts empty with every play session
 /// (SubsystemRegistration), as the editor may keep statics with domain reload off.

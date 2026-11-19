@@ -60,7 +60,7 @@ public readonly struct UWChoiceColumns
 }
 
 /// <summary>
-/// ONE ROW OF A SETUP DIALOG'S PAGE (cleanup step 8.4, 2026-10-24; Docs/CLEANUP-PLAN.md 8.7): what
+/// ONE ROW OF A SETUP DIALOG'S PAGE (cleanup step 8.4, 2026-10-24; section 8.7 of the cleanup plan): what
 /// it is, where it stands, what it shows and what a change does. A row that is a setting names its
 /// entry of the settings table (Def) and takes its label, hint, choice texts, format and conditions
 /// from there unless it says otherwise; a row the table does not hold (the colour help's live

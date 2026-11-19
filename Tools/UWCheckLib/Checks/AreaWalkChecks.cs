@@ -5,7 +5,7 @@ using UWDataImport.UWData;
 namespace UnderworldRevisited.Tools
 {
     /// <summary>
-    /// Cleanup step 4.0 (2026-10-18, decision 11 of Docs/CLEANUP-PLAN.md): who an area spell or a
+    /// Cleanup step 4.0 (2026-10-18, decision 11 of the cleanup plan): who an area spell or a
     /// blast strikes comes from the squares and their object lists, as process_area and
     /// damage_square choose it (UnderworldExhumed SPELLS.C) - no physics. Checked on the fake
     /// world's level: the walk order (x, then y, then the list), the square reaching centre +

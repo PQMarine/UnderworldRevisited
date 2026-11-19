@@ -5,7 +5,7 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// ONE CREATURE OF THE GAME, ENGINE-FREE (cleanup step 4.11, 2026-10-18; section 7.4 of
-	/// Docs/CLEANUP-PLAN.md): its record (UWCritterRecord over its UWNpc), its table row, its index in
+	/// the cleanup plan): its record (UWCritterRecord over its UWNpc), its table row, its index in
 	/// the level's master list and its mind (UWCritterBrain), and everything the mind asks of the
 	/// world around it - the ICritterHost - with the creature's own decisions around the mind: the
 	/// blow's outcome and aftermath, the doors, the missiles and spells, the talk, the music, the
@@ -1397,7 +1397,7 @@ namespace UWDataImport.UWData
 		// ------------------------------------------------- Death: one state machine (cleanup step 4.12)
 
 		// THE DEATH OF A CREATURE, AS THE ORIGINAL RUNS IT (UnderworldExhumed critter/AI.C), in one
-		// place since cleanup step 4.12 (2026-10-19; B22, section 7.4 of Docs/CLEANUP-PLAN.md):
+		// place since cleanup step 4.12 (2026-10-19; B22, section 7.4 of the cleanup plan):
 		//
 		//   Alive   - damage_critter takes the hit points to 0 and crit_die asks a named creature
 		//             first (go_into_dying_sequence: death_check(obj, 0), UWSpecialDeaths.Stage.Dying);

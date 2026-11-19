@@ -2268,7 +2268,7 @@ public class UWLevelLoader : MonoBehaviour
     /// shaders' _DepthBias): the flash on a struck chest stands at the chest's own spot as in
     /// the original, and still draws over the model.
     ///
-    /// OFF THE MODEL PATH since 2026-10-12 (decision 8 of Docs/CLEANUP-PLAN.md): the effect holds
+    /// OFF THE MODEL PATH since 2026-10-12 (decision 8 of the cleanup plan): the effect holds
     /// a static slot while it lives, as put_effect's CreateObj takes one (UWWorldEdit.
     /// TryTakeEffectSlot), and there is no effect when the level has none free - no culling for
     /// it, no tile list, no liquid swallowing it, no registry entry; UWEffectLifetime gives the
@@ -2484,7 +2484,7 @@ public class UWLevelLoader : MonoBehaviour
 
         // The floor, as the original takes a tile (pos >> 8) and as WorldToTile does - NOT
         // clamped: outside the map there is no tile, and that counts as rock below. Until
-        // 2026-10-12 this rounded (decision 20 of Docs/CLEANUP-PLAN.md).
+        // 2026-10-12 this rounded (decision 20 of the cleanup plan).
         int liX = UWUnits.WorldAxisToTile(pOPoint.x);
         int liZ = UWUnits.WorldAxisToTile(pOPoint.z);
 

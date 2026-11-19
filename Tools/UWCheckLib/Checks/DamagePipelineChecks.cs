@@ -5,7 +5,7 @@ namespace UnderworldRevisited.Tools
 {
     /// <summary>
     /// Cleanup step 4.2 (2026-10-17): UWDamagePipeline, the one road of damage to the player.
-    /// Pinned: each site's row of the table in section 7.5 of Docs/CLEANUP-PLAN.md as its
+    /// Pinned: each site's row of the table in section 7.5 of the cleanup plan as its
     /// UWDamageRequest carries it, and what the pipeline makes of it - the armour of the part, the
     /// easy halving, the proof, the shake, the record and the dragons' count, the backfire's dice
     /// and floor, the Void's drain - and the decisions of B5 taken from the original.
