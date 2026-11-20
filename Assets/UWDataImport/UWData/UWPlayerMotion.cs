@@ -1,3 +1,4 @@
+using System;
 namespace UWDataImport.UWData
 {
 	/// <summary>
@@ -514,6 +515,23 @@ namespace UWDataImport.UWData
 
 		/// <summary>The player as the collision scan sees him: index 1, item 0x7F, at the params'
 		/// eighth and coarse height.</summary>
+		private Func<int, UWMotionBody, bool> mfPassesThrough;
+
+		/// <summary>The pass test of the player's movement (UWCreaturePass, set by the host): on the core and on the
+		/// modern motor, both of which move him. Null, every body is an obstacle as in the original.</summary>
+		public Func<int, UWMotionBody, bool> PassesThrough
+		{
+			get { return mfPassesThrough; }
+			set
+			{
+				mfPassesThrough = value;
+				Core.PassesThrough = value;
+
+				if (mOMotor != null)
+					mOMotor.PassesThrough = value;
+			}
+		}
+
 		public UWMotionBody Body
 		{
 			get
@@ -1218,7 +1236,7 @@ namespace UWDataImport.UWData
 			UWMotionParams p = Params;
 
 			if (mOMotor == null)
-				mOMotor = new UWCharacterMotor(mOWorld, mOProperties) { Height = miHeight };
+				mOMotor = new UWCharacterMotor(mOWorld, mOProperties) { Height = miHeight, PassesThrough = mfPassesThrough };
 
 			fInitialCalc(piDt);
 
@@ -1917,7 +1935,7 @@ namespace UWDataImport.UWData
 			piState = UWMotionTables.ContactGround;
 
 			if (mOMotor == null)
-				mOMotor = new UWCharacterMotor(mOWorld, mOProperties) { Height = miHeight };
+				mOMotor = new UWCharacterMotor(mOWorld, mOProperties) { Height = miHeight, PassesThrough = mfPassesThrough };
 
 			mOMotor.Place((p.X + (p.XFrac / 256.0)) / 256.0, (p.Y + (p.YFrac / 256.0)) / 256.0, p.Z + (p.ZFrac / 256.0));
 

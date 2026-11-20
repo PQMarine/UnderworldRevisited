@@ -607,16 +607,40 @@ namespace UWDataImport.UWData
 				if (liField == 2 && !fHasIdentificationField(lOItem))
 					continue;
 
-				// The second game writes the link raw (IUWConversationVariant.XObjStuffLinkSpecial).
-				if (lbSet && liField == LinkObjectField && mOGame != null && !mOGame.Game.Conversation.XObjStuffLinkSpecial)
-					lOItem.Quantity = (ushort)(liValue & 0x3FF);
-				else if (lbSet)
+				// The link by the game's rule (IUWConversationVariant.XObjStuffLinkSpecial).
+				if (liField == LinkObjectField)
+				{
+					bool lbSpecial = mOGame == null || mOGame.Game.Conversation.XObjStuffLinkSpecial;
+
+					if (lbSet)
+						lOItem.Quantity = (ushort)XObjStuffLinkWritten(lbSpecial, liValue);
+					else
+						mOVm.WriteMemory(pOAddresses[liField], XObjStuffLinkRead(lbSpecial, lOItem.Quantity));
+
+					continue;
+				}
+
+				if (lbSet)
 					fSetObjectField(lOItem, liField, liValue);
 				else
 					mOVm.WriteMemory(pOAddresses[liField], fGetObjectField(lOItem, liField));
 			}
 
 			return 0;
+		}
+
+		/// <summary>The link x_obj_stuff reads back from an item's quantity field: without bit 0x200 in the first game
+		/// (link &amp; 0x1FF), the raw ten bits in the second (IUWConversationVariant.XObjStuffLinkSpecial).</summary>
+		public static int XObjStuffLinkRead(bool pbLinkSpecial, int piQuantity)
+		{
+			return piQuantity & (pbLinkSpecial ? 0x1FF : 0x3FF);
+		}
+
+		/// <summary>The quantity field x_obj_stuff writes for a link: with bit 0x200 set in the first game
+		/// (LINK_SPECIAL | link), the raw ten bits in the second.</summary>
+		public static int XObjStuffLinkWritten(bool pbLinkSpecial, int piValue)
+		{
+			return (pbLinkSpecial ? piValue | 0x200 : piValue) & 0x3FF;
 		}
 
 		private bool fHasIdentificationField(UWObject pOItem)
@@ -683,9 +707,9 @@ namespace UWDataImport.UWData
 			// 4 flags
 			new ObjectField(pOItem => pOItem.Flags & UWObjectRecordCodec.FlagsMask,
 				(pOItem, piValue) => pOItem.Flags = (ushort)(piValue & UWObjectRecordCodec.FlagsMask)),
-			// 5 link
-			new ObjectField(pOItem => pOItem.Quantity & 0x1FF,
-				(pOItem, piValue) => pOItem.Quantity = (ushort)((piValue | 0x200) & 0x3FF)),
+			// 5 link (read and written in fXObjStuff by the game's rule: XObjStuffLinkRead, XObjStuffLinkWritten)
+			new ObjectField(pOItem => XObjStuffLinkRead(true, pOItem.Quantity),
+				(pOItem, piValue) => pOItem.Quantity = (ushort)XObjStuffLinkWritten(true, piValue)),
 			// 6 flag1
 			new ObjectField(pOItem => ((pOItem.Flags >> 1) & 0x1) << 10,
 				(pOItem, piValue) => pOItem.Flags = (ushort)((pOItem.Flags & ~0x2) | ((piValue & 0x1) << 1))),

@@ -98,6 +98,7 @@ namespace UWDataImport.UWData
 			fChoices(SkillRaises, new[] { "off", "highest", "fixed" });
 			fText(IceGrip, true);
 			fChoices(IceGrip, new[] { "off", "half", "full" });
+			fText(PassPeaceful, true);
 			// The language: its choices are the files found beside the game, listed by the Game window
 			// (UWLanguage.Available), not a fixed set.
 			fText(Language, true);

@@ -29,7 +29,7 @@ namespace UWDataImport.UWData
 		/// <summary>npc_inv_create (uw2 conv/BARTER.C:999): CreateObj, quality 0x3F, Obj_Add, its index.</summary>
 		public bool InvCreateJoinsStack => false;
 
-		/// <summary>x_obj_stuff: obj->ol.f.link = *link, the raw ten bits.</summary>
+		/// <summary>x_obj_stuff: obj->ol.f.link = *link and *link = obj->ol.f.link, the raw ten bits.</summary>
 		public bool XObjStuffLinkSpecial => false;
 	}
 }

@@ -211,6 +211,8 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
             return;
         }
 
+        fStepByPad();
+
         if (fFollowPress())
             return;
 
@@ -263,12 +265,11 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
     /// </summary>
     private bool fFollowPress()
     {
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse == null || !UWPointer.HasMouse)
+        // The system mouse's buttons and the gamepad's (A) through UWPointer (per user 2026-11-19).
+        if (!UWPointer.HasMouse)
             return false;
 
-        if (!mbPress && (lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame || lOMouse.middleButton.wasPressedThisFrame))
+        if (!mbPress && UWPointer.AnyPressed)
             mbPress = true;
 
         if (!mbPress)
@@ -279,7 +280,7 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
         if (liAnswer >= 0)
             fLight(liAnswer);
 
-        if (lOMouse.leftButton.isPressed || lOMouse.rightButton.isPressed || lOMouse.middleButton.isPressed)
+        if (UWPointer.AnyHeld)
             return true;
 
         mbPress = false;
@@ -288,6 +289,53 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
             fChoose(liAnswer);
 
         return true;
+    }
+
+    /// <summary>
+    /// THE GAMEPAD (per user 2026-11-19: it did nothing in the second game's creation): the d-pad and the walk stick
+    /// put the pointer onto the answers and A chooses (UWPadEntryStepper, as the second game's main menu and the first
+    /// game's creation do). A new question snaps onto its first answer - not the manual dealing of the points, whose
+    /// plus and minus are pressed again and again. While the pad drives the pointer the lit answer follows it.
+    /// </summary>
+    private readonly UWPadEntryStepper mOPadStepper = new UWPadEntryStepper();
+
+    private readonly List<Rect> mOPadRects = new List<Rect>();
+
+    private string msSteppedStage;
+
+    private void fStepByPad()
+    {
+        mOPadRects.Clear();
+
+        foreach (Answer lOAnswer in mOAnswers)
+        {
+            Rect lORect = UWScreenUi.ScreenRectOf(lOAnswer.Image);
+
+            if (lORect.width > 0f)
+                mOPadRects.Add(lORect);
+        }
+
+        string lsStage = mOGeneration.CurrentStage == UWCharacterGeneration.Stage.Attributes
+            ? mOGeneration.CurrentStage.ToString()
+            : mOGeneration.CurrentStage + "|" + string.Join("|", mOGeneration.Choices);
+
+        if (lsStage != msSteppedStage)
+        {
+            msSteppedStage = lsStage;
+            mOPadStepper.Opened();
+
+            return;
+        }
+
+        mOPadStepper.Update(mOPadRects);
+
+        if (UWGamepad.IsActive && !mbPress)
+        {
+            int liUnder = fAnswerUnderPointer();
+
+            if (liUnder >= 0)
+                fLight(liUnder);
+        }
     }
 
     private int fAnswerUnderPointer()
@@ -364,6 +412,13 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
             fShowTyped();
         }
 
+        // The letter grid shown or gone: the box moves above it or back (fNameBoxY).
+        if (UWLetterGrid.IsShown != mbNameAboveGrid)
+        {
+            fPlaceNameBox();
+            fShowTyped();
+        }
+
         // pickopt reads no Escape in the name: the press is the name's and goes nowhere.
         UWBack.Takes(UWBackOwner.CharacterName);
 
@@ -426,10 +481,36 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
             mONameEntry.End();
     }
 
-    /// <summary>The name box's top: drawopt's y for a question without answers (0x6B).</summary>
+    /// <summary>
+    /// The name box's top: drawopt's y for a question without answers (0x6B) - the middle of the right page, where the
+    /// gamepad's letter grid stands. While the grid is shown the box goes up to the page's top, as the first game's
+    /// name box stands (per user 2026-11-19: the grid covered the name); without the grid it is the original's.
+    /// </summary>
     private static int fNameBoxY()
     {
+        if (UWLetterGrid.IsShown)
+            return NameBoxTopAboveGrid;
+
         return UWChargenLayoutUw2.Arrange(0, 1, UWClassicLayoutUw2.Chargen.AnswerHeight, true).QuestionY;
+    }
+
+    /// <summary>The name box's top while the letter grid is shown: the first game's row 25 from the top
+    /// (UWCharacterCreationScreen.NameBoxTop), as this page counts its y - UP from the bottom row (fRow). 25 itself put the
+    /// box at the bottom, under the grid (per user 2026-11-19, with a picture).</summary>
+    private const int NameBoxTopAboveGrid = UWScreenUi.ScreenHeight - 1 - 25;
+
+    /// <summary>Whether the name box was last placed above the grid: a change moves it (fUpdateTyping).</summary>
+    private bool mbNameAboveGrid;
+
+    /// <summary>The name box and its prompt at fNameBoxY.</summary>
+    private void fPlaceNameBox()
+    {
+        int liY = fNameBoxY();
+
+        mbNameAboveGrid = UWLetterGrid.IsShown;
+        fPicture(mONameBox, UWClassicLayoutUw2.Chargen.NameBoxPicture, false, UWClassicLayoutUw2.Chargen.QuestionLeft, liY);
+        fText(mONamePrompt, mOGeneration.QuestionText, UWClassicLayoutUw2.Chargen.QuestionLeft + UWClassicLayoutUw2.Chargen.NamePromptIndent,
+            liY - UWClassicLayoutUw2.Chargen.TextDrop);
     }
 
     // ------------------------------------------------- Drawing
@@ -451,11 +532,7 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
         if (leStage == UWCharacterGeneration.Stage.Name)
         {
             // The name box (CHRBTNS.GR 6) where the question stands, "Name:" four columns in.
-            int liY = fNameBoxY();
-
-            fPicture(mONameBox, UWClassicLayoutUw2.Chargen.NameBoxPicture, false, UWClassicLayoutUw2.Chargen.QuestionLeft, liY);
-            fText(mONamePrompt, mOGeneration.QuestionText, UWClassicLayoutUw2.Chargen.QuestionLeft + UWClassicLayoutUw2.Chargen.NamePromptIndent,
-                liY - UWClassicLayoutUw2.Chargen.TextDrop);
+            fPlaceNameBox();
 
             return;
         }

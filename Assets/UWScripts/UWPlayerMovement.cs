@@ -450,6 +450,8 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         {
             mOMotionWorld = lOWorld;
             Motion = new UWPlayerMotion(lOWorld, lOLoader.UWDataImporter.CommonObjectProperties);
+            // Walking through peaceful people in the second game's castle (UWCreaturePass, per user 2026-11-19).
+            Motion.PassesThrough = lOWorld.PassesThrough;
 
             // The second game's floor terrain words, for its ice and currents (UWPlayerMotion.TerrainWordAt).
             UWTerrainUw2 lOUw2 = lOLoader.UWDataImporter.Terrain != null ? lOLoader.UWDataImporter.Terrain.Uw2 : null;

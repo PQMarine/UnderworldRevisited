@@ -99,7 +99,25 @@ public class UWCharacterCreationScreen : MonoBehaviour
 
     private const int NameBoxLeft = 167;
 
-    private const int NameBoxTop = 25;
+    /// <summary>
+    /// THE NAME BOX WHERE THE ORIGINAL DRAWS IT (per user 2026-11-19, as in the second game): CHARGEN.C's y 0x6B, counted
+    /// up from the bottom row - the middle of the right page, where the gamepad's letter grid stands. While the grid is
+    /// shown the box goes up to row 25 (NameBoxTopAboveGrid), where it stood always from 2026-09-15 to 2026-11-19.
+    /// </summary>
+    private const int NameBoxTop = UWScreenUi.ScreenHeight - 1 - 0x6B;
+
+    /// <summary>The name box's row while the letter grid is shown.</summary>
+    private const int NameBoxTopAboveGrid = 25;
+
+    /// <summary>Whether the name box was last placed above the grid: a change moves it (fUpdateTyping).</summary>
+    private bool mbNameAboveGrid;
+
+    /// <summary>The name box (its prompt and input are inside it) at the original's row, or above the letter grid.</summary>
+    private void fPlaceNameBox()
+    {
+        mbNameAboveGrid = UWLetterGrid.IsShown;
+        UWScreenUi.Place(mONameBox, NameBoxLeft, mbNameAboveGrid ? NameBoxTopAboveGrid : NameBoxTop);
+    }
 
     private const int NamePromptLeft = 5;
 
@@ -450,6 +468,10 @@ public class UWCharacterCreationScreen : MonoBehaviour
             fDrawNameInput();
         }
 
+        // The letter grid shown or gone: the box moves above it or back (fPlaceNameBox).
+        if (UWLetterGrid.IsShown != mbNameAboveGrid)
+            fPlaceNameBox();
+
         if (pOKeyboard == null)
             return;
 
@@ -612,6 +634,7 @@ public class UWCharacterCreationScreen : MonoBehaviour
             case UWCharacterGeneration.Stage.Name:
                 UWTextLabel.Hide(mOQuestion);
                 UWScreenUi.SetTexture(mONameBox, fGetImage(NameBoxImage, false));
+                fPlaceNameBox();
                 UWScreenUi.SetText(mONamePrompt, mOFont, mOGeneration.QuestionText, mOTextColour, UWClassicFit.Creation.NamePromptWidth, false);
 
                 // THE TYPED NAME STARTS WHERE THE PROMPT ENDS (2026-10-06, per user: "der Text ist

@@ -241,10 +241,17 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             return;
         }
 
+        // [MORE] waits in the answer scroll: nothing else runs (scroll_wait), the trade area neither.
+        if (mOView.IsLookTextShown && IsLookPaging && fUpdateLookPaging())
+            return;
+
         fUpdateTrade();
 
         if (mOView.IsLookTextShown)
         {
+            if (fUpdateLookPaging())
+                return;
+
             if (mOView.IsLookTextOver(Time.unscaledTime) || UWMouseButtons.LeftReleased)
             {
                 mOView.EndLookText();
@@ -618,9 +625,75 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         if (msOCurrent == null || !IsOpen)
             return false;
 
+        // Closing, the click was the end's: nothing is said (IsClosing).
+        if (msOCurrent.mbClosing)
+            return true;
+
         msOCurrent.fShowLook(psText);
 
         return true;
+    }
+
+    /// <summary>A paged text in place of the answers (UWGameScreenUw2.SayPaged in a conversation): it joins the look of
+    /// this frame and waits with [MORE] where it is longer than the scroll.</summary>
+    public static bool ShowLookPaged(string psText)
+    {
+        if (msOCurrent == null || !IsOpen)
+            return false;
+
+        if (msOCurrent.mbClosing)
+            return true;
+
+        msOCurrent.fShowLookPaged(psText);
+
+        return true;
+    }
+
+    /// <summary>A long look waits with [MORE] in the answer scroll, or for the buttons to come up after its last page:
+    /// the walk's panels take no click meanwhile (UWGameScreenUw2.fUpdatePaging).</summary>
+    public static bool IsLookPaging => msOCurrent != null && IsOpen && msOCurrent.mOView != null && msOCurrent.mOView.IsLookTextShown
+        && (msOCurrent.mOLookPending.Count > 0 || msOCurrent.mbLookPageRelease);
+
+    /// <summary>The conversation has ended and closes (the hold before the fade, the fade): a click is taken by the end.</summary>
+    public static bool IsClosing => msOCurrent != null && IsOpen && msOCurrent.mbClosing;
+
+    /// <summary>The frame of the look shown last and its text: what is said in the same frame joins it.</summary>
+    private int miLookFrame = -1;
+
+    /// <summary>The long text being paged (UWMessageLogModel.LastLineJoinsPage).</summary>
+    private string msPagedLookText;
+
+    private string msLookText;
+
+    /// <summary>The look's lines printed so far, the newest last (the scroll shows the last of them).</summary>
+    private readonly List<string> mOLookLines = new List<string>();
+
+    /// <summary>The lines of a long text behind [MORE], not printed yet.</summary>
+    private readonly List<string> mOLookPending = new List<string>();
+
+    /// <summary>The frame the last page came in: the press that brought it pages no further.</summary>
+    private int miLookPageFrame = -1;
+
+    /// <summary>After the last page the buttons must come up first (scroll_wait's mouse_release): the click that paged
+    /// does not end the look when it is let go.</summary>
+    private bool mbLookPageRelease;
+
+    /// <summary>A new look, or more of the one of this frame.</summary>
+    private void fStartOrJoinLook(string psText)
+    {
+        if (miLookFrame != Time.frameCount || msLookText == null)
+        {
+            mOLookLines.Clear();
+            mOLookPending.Clear();
+            mbLookPageRelease = false;
+            msLookText = psText;
+        }
+        else
+        {
+            msLookText = msLookText + "\n" + psText;
+        }
+
+        miLookFrame = Time.frameCount;
     }
 
     private void fShowLook(string psText)
@@ -630,10 +703,130 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         if (lOFont == null || string.IsNullOrEmpty(psText))
             return;
 
-        mOView.ShowLookText(psText, Time.unscaledTime);
+        // THE LINES OF ONE LOOK STAND TOGETHER (LookAt and BookLook print one after another into the scroll of the
+        // moment): "You see a scroll.", "You read the scroll..." and its text (per user 2026-11-19, the original shows the
+        // whole text for the look's moment; ours kept only the last line said). A newline starts a new line, as
+        // scroll_print2 cuts there.
+        fStartOrJoinLook(psText);
+        mOLookLines.AddRange(UWMessageLogModel.WrapForPaging(lOFont, psText, UWClassicLayoutUw2.Conversation.AnswersWidth));
+        fDrawLook();
+    }
+
+    /// <summary>
+    /// A TEXT LONGER THAN THE ANSWER SCROLL WAITS WITH [MORE] (per user 2026-11-20 on the original, Devrow's letter in a
+    /// conversation: four lines and [MORE], then the rest filling the scroll; outside a conversation the smaller walk
+    /// scroll asks twice). The walk scroll's paging (UWGameScreenUw2.fShowNextPage, scroll_more): four lines a page - the
+    /// scroll's five less the [MORE] row -, the older lines scroll away, so "You see a book." and "You read the book..."
+    /// have left the scroll before the first [MORE]. While [MORE] waits no time runs; the look's two seconds start with
+    /// the last page.
+    /// </summary>
+    private void fShowLookPaged(string psText)
+    {
+        UWFont lOFont = fFont;
+
+        if (lOFont == null || string.IsNullOrEmpty(psText))
+            return;
+
+        fStartOrJoinLook(psText);
+
+        // The modern answers show the look whole, without a [MORE] row to wait on.
+        if (IsModern)
+        {
+            mOLookLines.AddRange(UWMessageLogModel.WrapForPaging(lOFont, psText, UWClassicLayoutUw2.Conversation.AnswersWidth));
+            fDrawLook();
+
+            return;
+        }
+
+        mOLookPending.AddRange(UWMessageLogModel.WrapForPaging(lOFont, psText, UWClassicLayoutUw2.Conversation.AnswersWidth));
+        msPagedLookText = psText;
+        fNextLookPage();
+    }
+
+    /// <summary>The answer scroll's lines: five rows of 6 pixels in its 30 (menu_scroll).</summary>
+    private int fLookCapacity()
+    {
+        return UWMessageLogModel.CapacityOf(fFont, UWClassicLayoutUw2.Conversation.AnswersTopRow);
+    }
+
+    private void fNextLookPage()
+    {
+        int liPerPage = UWMessageLogModel.LinesAboveMore(fLookCapacity());
+
+        for (int liAt = 0; liAt < liPerPage && mOLookPending.Count > 0; liAt++)
+        {
+            mOLookLines.Add(mOLookPending[0]);
+            mOLookPending.RemoveAt(0);
+        }
+
+        // The last line in the text's last piece passes without another [MORE] (scroll_print3's flag 0).
+        if (mOLookPending.Count == 1 && UWMessageLogModel.LastLineJoinsPage(msPagedLookText, mOLookPending[0]))
+        {
+            mOLookLines.Add(mOLookPending[0]);
+            mOLookPending.RemoveAt(0);
+        }
+
+        miLookPageFrame = Time.frameCount;
+
+        if (mOLookPending.Count == 0 && miLookFrame != Time.frameCount)
+            mbLookPageRelease = true;
+
+        fDrawLook();
+    }
+
+    /// <summary>The last lines of the look as the scroll holds them, with [MORE] in its last row while lines wait; the
+    /// look's time starts anew with every page, so it runs out only after the last.</summary>
+    private void fDrawLook()
+    {
+        int liCapacity = fLookCapacity();
+        bool lbMore = mOLookPending.Count > 0;
+        int liShown = lbMore ? UWMessageLogModel.LinesAboveMore(liCapacity) : liCapacity;
+        int liFrom = System.Math.Max(0, mOLookLines.Count - liShown);
+        List<UWConversationLayout.RoleEnum> lORoles = new List<UWConversationLayout.RoleEnum>();
+
+        mOView.ShowLookText(msLookText, Time.unscaledTime);
         mOLines.Clear();
-        mOLines.AddRange(UWTextLayout.WrapText(lOFont, psText, UWClassicLayoutUw2.Conversation.AnswersWidth));
-        fDrawLines(mOAnswers, mOLines, null, UWClassicLayoutUw2.Conversation.AnswersWidth);
+
+        for (int liAt = liFrom; liAt < mOLookLines.Count; liAt++)
+        {
+            mOLines.Add(mOLookLines[liAt]);
+            lORoles.Add(UWConversationLayout.RoleEnum.Npc);
+        }
+
+        if (lbMore)
+        {
+            mOLines.Add(UWText.T("msg.scroll.more"));
+            lORoles.Add(UWConversationLayout.RoleEnum.Ui);
+        }
+
+        fDrawLines(mOAnswers, mOLines, lORoles, UWClassicLayoutUw2.Conversation.AnswersWidth);
+    }
+
+    /// <summary>scroll_wait for [MORE]: a key, a mouse button or a pad button brings the next page; then the buttons must
+    /// come up before a click can end the look. True while the look is not to be ended.</summary>
+    private bool fUpdateLookPaging()
+    {
+        if (mOLookPending.Count == 0)
+        {
+            if (mbLookPageRelease && !UWMouseButtons.LeftHeld && !UWMouseButtons.RightHeld)
+            {
+                mbLookPageRelease = false;
+
+                return true;
+            }
+
+            return mbLookPageRelease;
+        }
+
+        if (Time.frameCount == miLookPageFrame)
+            return true;
+
+        UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
+
+        if (UWMouseButtons.AnyPressed || (lOKeyboard != null && lOKeyboard.anyKey.wasPressedThisFrame) || UWGamepad.AnyPressed(false))
+            fNextLookPage();
+
+        return true;
     }
 
     private static int fSlotLeft(bool pbPlayer, int piSlot)

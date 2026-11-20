@@ -11,6 +11,11 @@ namespace UWDataImport.UWData
 	/// SWAP, STO - and then pushes by address (PUSHI_EFF m) with the argument count; this scan follows exactly that.
 	/// Whatever a teacher wants first (a quest done, a mood) lies in each script's own branches and is not read: the
 	/// list says who CAN teach what. Shipped: 16 conversations (self-check).
+	///
+	/// ONLY CODE THE SCRIPT CAN REACH COUNTS (per user 2026-11-19: the help said Dupre teaches the sword, his offer is only
+	/// axe and mace). His script holds a sword lesson - its x_skills call and its two lines - that no CALL, JMP or branch
+	/// leads to, left over from the writing. The scan walks the code from its entry the way the machine runs it
+	/// (fReachable) and takes only the calls on that path.
 	/// </summary>
 	public static class UWTrainersUw2
 	{
@@ -132,6 +137,7 @@ namespace UWDataImport.UWData
 				return lOSkills;
 
 			ushort[] lyCode = pOConversation.Code;
+			bool[] lbReachable = fReachable(lyCode);
 			Dictionary<int, int> lOStored = new Dictionary<int, int>();
 			List<int> lOOpcodes = new List<int>();
 			List<int> lOOperands = new List<int>();
@@ -139,6 +145,7 @@ namespace UWDataImport.UWData
 			for (int liAt = 0; liAt < lyCode.Length; liAt++)
 			{
 				int liOp = lyCode[liAt];
+				int liAddress = liAt;
 				bool lbOperand = UWConversationDisassembler.HasImmediateOperand((UWConversationDisassembler.Opcode)liOp);
 				int liOperand = lbOperand && liAt + 1 < lyCode.Length ? lyCode[liAt + 1] : 0;
 
@@ -157,7 +164,7 @@ namespace UWDataImport.UWData
 					&& lOOpcodes[liN - 4] == (int)UWConversationDisassembler.Opcode.PUSHI)
 					lOStored[lOOperands[liN - 3]] = (short)lOOperands[liN - 4];
 
-				if (liOp != (int)UWConversationDisassembler.Opcode.CALLI || liOperand != liFunction)
+				if (liOp != (int)UWConversationDisassembler.Opcode.CALLI || liOperand != liFunction || !lbReachable[liAddress])
 					continue;
 
 				// Back from the call: the argument count, then the two addresses pushed last (value, then skill) -
@@ -181,6 +188,68 @@ namespace UWDataImport.UWData
 			}
 
 			return lOSkills;
+		}
+
+		/// <summary>
+		/// The instructions the script can reach from its entry (address 0), as UWConversationVM runs it: JMP and CALL to
+		/// their operand (a CALL also on, after its return), BRA to next + operand - 1, BEQ and BNE there and on, RET and
+		/// EXIT_OP nowhere, every other instruction on to the next. No address is computed at run time - RET only goes
+		/// back behind a CALL.
+		/// </summary>
+		private static bool[] fReachable(ushort[] pyCode)
+		{
+			bool[] lbReachable = new bool[pyCode.Length];
+			Stack<int> lOOpen = new Stack<int>();
+
+			lOOpen.Push(0);
+
+			while (lOOpen.Count > 0)
+			{
+				int liAt = lOOpen.Pop();
+
+				if (liAt < 0 || liAt >= pyCode.Length || lbReachable[liAt])
+					continue;
+
+				lbReachable[liAt] = true;
+
+				UWConversationDisassembler.Opcode leOp = (UWConversationDisassembler.Opcode)pyCode[liAt];
+				bool lbOperand = UWConversationDisassembler.HasImmediateOperand(leOp);
+				int liOperand = lbOperand && liAt + 1 < pyCode.Length ? pyCode[liAt + 1] : 0;
+				int liNext = liAt + (lbOperand ? 2 : 1);
+				int liRelative = liNext + (short)liOperand - 1;
+
+				switch (leOp)
+				{
+					case UWConversationDisassembler.Opcode.JMP:
+						lOOpen.Push(liOperand);
+						break;
+
+					case UWConversationDisassembler.Opcode.BRA:
+						lOOpen.Push(liRelative);
+						break;
+
+					case UWConversationDisassembler.Opcode.BEQ:
+					case UWConversationDisassembler.Opcode.BNE:
+						lOOpen.Push(liRelative);
+						lOOpen.Push(liNext);
+						break;
+
+					case UWConversationDisassembler.Opcode.CALL:
+						lOOpen.Push(liOperand);
+						lOOpen.Push(liNext);
+						break;
+
+					case UWConversationDisassembler.Opcode.RET:
+					case UWConversationDisassembler.Opcode.EXIT_OP:
+						break;
+
+					default:
+						lOOpen.Push(liNext);
+						break;
+				}
+			}
+
+			return lbReachable;
 		}
 	}
 }

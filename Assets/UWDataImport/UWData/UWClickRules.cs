@@ -153,13 +153,24 @@ namespace UWDataImport.UWData
 			if (UWGameSession.Current.Game.Conversation.AlwaysAnswers(piWhoami))
 				return true;
 
-			bool lbAgainstPlayer = (piGoal == GoalAttack || piGoal == GoalWithdraw || piGoal == GoalStand)
-				&& piGTarg == PlayerTarget;
-
-			if ((lbAgainstPlayer || piAttitude == UWNpc.AttitudeHostile) && !pbAlly)
+			if (IsAgainstThePlayer(piGoal, piGTarg, piAttitude, pbAlly))
 				return piGoal == GoalTalkAnyway;
 
 			return piWhoami != SilentWhoami || piGoal == GoalTalkAnyway;
+		}
+
+		/// <summary>
+		/// A CREATURE TURNED AGAINST THE PLAYER, as TalkTo_ovr100_0 tells it (CreatureAnswers above): its goal is attack,
+		/// withdraw or making a stand (5, 6, 9) aimed at the player (gtarg 1), or its attitude is hostile - and it is no
+		/// ally (byte 0x19 bit 6). One test for every rule that asks it: the conversation and the aid that lets the
+		/// player walk through peaceful people (UWCreaturePass, 2026-11-19), never a copy beside it.
+		/// </summary>
+		public static bool IsAgainstThePlayer(int piGoal, int piGTarg, int piAttitude, bool pbAlly)
+		{
+			bool lbAgainstPlayer = (piGoal == GoalAttack || piGoal == GoalWithdraw || piGoal == GoalStand)
+				&& piGTarg == PlayerTarget;
+
+			return (lbAgainstPlayer || piAttitude == UWNpc.AttitudeHostile) && !pbAlly;
 		}
 
 		/// <summary>String block 1: "There is no reaction from the princess." - talking to Arial on her wall.</summary>

@@ -347,6 +347,11 @@ public class UWMainMenu : MonoBehaviour
     {
         fRefreshColours();
 
+        // The second game's own pointer over its menu, save list and creation (UWMenuPointerUw2, per user 2026-11-19),
+        // in place of the provisional system arrow.
+        if (IsOpen && IsWalkMenu && meMode != Mode.Hidden && meMode != Mode.Cutscene)
+            UWMenuPointerUw2.Apply(mOData);
+
         AcceptsMenuBar = IsOpen && (meMode == Mode.Buttons || meMode == Mode.SaveList || meMode == Mode.ScreenOnly);
 
         // The menu bar, one of its menus or dialogs has the mouse.
@@ -952,11 +957,22 @@ public class UWMainMenu : MonoBehaviour
     {
         pbBack = false;
 
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse != null && UWPointer.HasMouse)
+        // The gamepad steps the pointer over the buttons (fStepByPad): the light follows it, as the keys move it (per user
+        // 2026-11-19: the pointer stood on one button and another stayed lit). The mouse lights only while pressed, as
+        // the original's mousopt.
+        if (UWGamepad.IsActive && !mbWalkPress)
         {
-            if (!mbWalkPress && (lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame || lOMouse.middleButton.wasPressedThisFrame))
+            int liUnderPad = pFUnderPointer();
+
+            if (liUnderPad >= 0)
+                miWalkLit = liUnderPad;
+        }
+
+        // The buttons through UWPointer: the system mouse's and the gamepad's (A clicks; per user 2026-11-19 the pad
+        // stepped through the menu but could not choose - Mouse.current is the system mouse alone).
+        if (UWPointer.HasMouse)
+        {
+            if (!mbWalkPress && UWPointer.AnyPressed)
                 mbWalkPress = true;
 
             if (mbWalkPress)
@@ -966,7 +982,7 @@ public class UWMainMenu : MonoBehaviour
                 if (liUnder >= 0)
                     miWalkLit = liUnder;
 
-                if (lOMouse.leftButton.isPressed || lOMouse.rightButton.isPressed || lOMouse.middleButton.isPressed)
+                if (UWPointer.AnyHeld)
                     return -1;
 
                 mbWalkPress = false;

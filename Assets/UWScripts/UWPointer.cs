@@ -499,7 +499,11 @@ public static class UWPointer
     /// The walk's classic screen has the game's pointers since phase 3 step 1 (UWGameScreenUw2).
     /// </summary>
     private static bool fSystemArrow => UnderworldRevisited.UWSettings.Game != null && UnderworldRevisited.UWSettings.Game.Game == UWGame.Uw2
-        && !UWGameScreenUw2.IsClassicActive;
+        && !UWGameScreenUw2.IsClassicActive && !UWMenuPointerUw2.IsActive && !fCutscenePlaying;
+
+    /// <summary>A cutscene plays (UWIntroPlayer): it hides the pointer, and the arrow must not force it back (per user
+    /// 2026-11-19: the system arrow stood over the second game's introduction).</summary>
+    private static bool fCutscenePlaying => UWScene.IntroPlayer != null && UWScene.IntroPlayer.IsPlaying;
 
     /// <summary>Whether the plain arrow has been put in place of a picture (fSystemArrow).</summary>
     private static bool msbArrowWritten;

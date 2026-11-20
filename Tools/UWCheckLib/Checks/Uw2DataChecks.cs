@@ -156,9 +156,10 @@ namespace UnderworldRevisited.Tools
             foreach (KeyValuePair<int, List<int>> lOTeacher in UWTrainersUw2.All(lOImport.Conversations))
                 lsTeachers.Add(lOTeacher.Key + ":" + string.Join(",", lOTeacher.Value));
 
+            // Only reachable code (per user 2026-11-19): Dupre (132) has an unused sword lesson, 4,5 not 4,5,3.
             Check.Str("uw2 teachers: the conversations that advance a skill for a skill point (x_skills above 10000) and their skills",
                 string.Join(" ", lsTeachers),
-                "4:2 41:3 43:8 45:9,7 102:4,5 128:16,13,10,17 130:7,9 132:4,5,3 133:0,1 134:6,19,18 135:10,16,14 139:8,11 140:15 141:15 144:12 168:3,2");
+                "4:2 41:3 43:8 45:9,7 102:4,5 128:16,13,10,17 130:7,9 132:4,5 133:0,1 134:6,19,18 135:10,16,14 139:8,11 140:15 141:15 144:12 168:3,2");
 
             UWKnowledge lOKnown = new UWKnowledge();
 

@@ -125,6 +125,62 @@ namespace UWDataImport.UWData
 			return Math.Max(1, piCapacity - 1);
 		}
 
+		/// <summary>scroll_print's pieces: at most this many characters, cut at the last space in them.</summary>
+		public const int PrintPieceLength = 0x31;
+
+		/// <summary>
+		/// Where the text's last piece begins, the one scroll_print3 prints with flag 0 (uw2 ui/SCROLL.C): scroll_print cuts
+		/// the text into pieces of at most 49 characters at their last space and passes 1 for all but the last; scroll_print1
+		/// passes 1 for a piece followed by more text at a backslash escape, scroll_print2 for every piece ended by a newline
+		/// that is not the text's last character.
+		/// </summary>
+		public static int FinalPieceStart(string psText)
+		{
+			if (string.IsNullOrEmpty(psText))
+				return 0;
+
+			int liAt = 0;
+			int liRemaining = psText.Length;
+
+			while (liRemaining > PrintPieceLength)
+			{
+				int liSpace = psText.LastIndexOf(' ', liAt + PrintPieceLength - 1, PrintPieceLength);
+				int liLength = liSpace < 0 ? PrintPieceLength : System.Math.Max(1, liSpace - liAt);
+
+				liAt += liLength;
+				liRemaining -= liLength;
+			}
+
+			int liNewline = psText.Length >= 2 ? psText.LastIndexOf('\n', psText.Length - 2) : -1;
+
+			if (liNewline + 1 > liAt)
+				liAt = liNewline + 1;
+
+			int liEscape = psText.LastIndexOf('\\');
+
+			if (liEscape > liAt)
+				liAt = liEscape;
+
+			return liAt;
+		}
+
+		/// <summary>
+		/// WHETHER A PAGE TAKES THE TEXT'S LAST LINE AS A FIFTH (per user 2026-11-20 on the original: Devrow's letter in a
+		/// conversation pages once, four lines and [MORE], then five; ours asked twice). scroll_print3 scrolls while
+		/// start_line - flag is not negative: after [MORE] the budget lets four lines pass, and a line begun in the last piece
+		/// (flag 0) one more - so the last line joins the page when it is the only one left and starts in that piece.
+		/// </summary>
+		public static bool LastLineJoinsPage(string psText, string psLastLine)
+		{
+			if (string.IsNullOrEmpty(psText) || psLastLine == null)
+				return false;
+
+			string lsLine = psLastLine.Trim();
+			int liStart = lsLine.Length == 0 ? psText.Length : psText.TrimEnd().LastIndexOf(lsLine, System.StringComparison.Ordinal);
+
+			return liStart >= 0 && liStart >= FinalPieceStart(psText);
+		}
+
 		/// <summary>The row [MORE] is drawn in, counted from the top: the scroll's last.</summary>
 		public static int MoreRow(int piCapacity)
 		{

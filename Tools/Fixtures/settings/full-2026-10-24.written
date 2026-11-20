@@ -18,6 +18,7 @@
     "ModernFontLanguage": "",
     "SkillRaises": 0,
     "IceGrip": 0,
+    "PassPeaceful": false,
     "HelpOpen": true,
     "HelpTab": 5,
     "CluebookConfirmed": false,

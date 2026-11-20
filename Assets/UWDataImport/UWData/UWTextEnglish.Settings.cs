@@ -40,6 +40,8 @@ namespace UWDataImport.UWData
 			fAdd("setting.SkillRaises.choice.fixed", "Fixed");
 			fAdd("setting.IceGrip", "Ice grip");
 			fAdd("setting.IceGrip.hint", "In Ultima Underworld II you slide on ice and cannot steer at speed, as in the original. Half lets the ice follow your steering with a delay: you drift on for about two seconds, and it still bounces you off walls. Full makes flat ice grip like ground, without sliding or bouncing off walls. Icy slopes always push you down as in the original, since puzzles may need it. For every motion mode, at once.");
+			fAdd("setting.PassPeaceful", "Walk through peaceful people");
+			fAdd("setting.PassPeaceful.hint", "In Ultima Underworld II's castle you pass through people who are not hostile, instead of waiting for them to step aside. Someone who turns hostile blocks your way again, and you can still strike anyone. Off, as in the original.");
 			fAdd("setting.IceGrip.choice.off", "Off");
 			fAdd("setting.IceGrip.choice.half", "Half");
 			fAdd("setting.IceGrip.choice.full", "Full");

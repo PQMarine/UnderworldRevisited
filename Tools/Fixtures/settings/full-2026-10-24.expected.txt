@@ -97,6 +97,7 @@ PaletteGrime = 2.5
 PaletteGrimeTone = 2
 PaletteGroundShadows = 1
 PaletteLightSources = True
+PassPeaceful = False
 PointerSpeed = 1
 RemoveExploits = False
 ResolutionHeight = 1080

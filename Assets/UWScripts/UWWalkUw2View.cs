@@ -364,18 +364,32 @@ public class UWWalkUw2View : MonoBehaviour
         return lOMeasured.Pickable != null || !pbOrFrontmost ? lOMeasured.Pickable : lOMeasured.Frontmost;
     }
 
-    /// <summary>The nearest thing with object data the pointer points at, within DoorReach.</summary>
+    /// <summary>The nearest thing with object data the pointer points at, within DoorReach - in the order of what is drawn
+    /// along the ray (UWWorldPicker: a model at its shape, a sprite at its pixels).</summary>
     private UWEntityInfo fFirstEntity()
     {
-        foreach (RaycastHit lOHit in fHits())
+        foreach (UWWorldPicker.Hit lOHit in fMeasuredHits(DoorReach))
         {
-            UWEntityInfo lOInfo = lOHit.collider.GetComponentInParent<UWEntityInfo>();
-
-            if (lOInfo != null && lOInfo.ObjectData != null)
-                return lOInfo;
+            if (lOHit.Entity != null && lOHit.Entity.ObjectData != null)
+                return lOHit.Entity;
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// THE HITS ALONG THE POINTER'S RAY AS THE LOOK AND THE TAKING SEE THEM (UWWorldPicker.Measure; per user 2026-11-19:
+    /// the potion on a shelf could be looked at but not taken - the drag asked a raw ray for its use target, whose order
+    /// was the colliders' boxes, so the shelf's box round the potion came first and the drag became a use of the shelf).
+    /// </summary>
+    private List<UWWorldPicker.Hit> fMeasuredHits(float pfRange)
+    {
+        Camera lOCamera = UWViewpoint.Current;
+
+        if (lOCamera == null)
+            return new List<UWWorldPicker.Hit>();
+
+        return UWWorldPicker.Measure(fPointerRay(lOCamera), pfRange).Hits;
     }
 
     /// <summary>
@@ -569,20 +583,6 @@ public class UWWalkUw2View : MonoBehaviour
             mOLoader.CurrentLevelIndex + 1);
     }
 
-    /// <summary>What the view's centre or the free pointer points at within DoorReach (or pfRange), nearest first.</summary>
-    private RaycastHit[] fHits(float pfRange = DoorReach)
-    {
-        Camera lOCamera = UWViewpoint.Current;
-
-        if (lOCamera == null)
-            return new RaycastHit[0];
-
-        RaycastHit[] lOHits = Physics.RaycastAll(fPointerRay(lOCamera), pfRange, ~0, QueryTriggerInteraction.Collide);
-        System.Array.Sort(lOHits, (pOA, pOB) => pOA.distance.CompareTo(pOB.distance));
-
-        return lOHits;
-    }
-
     /// <summary>The classic screen captures the system mouse: our pointer says where it points
     /// (UWPointer.Position); the modern scheme's locked look aims through the middle.</summary>
     private static Ray fPointerRay(Camera pOCamera)
@@ -612,20 +612,18 @@ public class UWWalkUw2View : MonoBehaviour
         // at DoorReach (per user, 2026-11-16). Taking had it since 2026-11-11 (fPickableEntity).
         bool lbTelekinesis = UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.HasTelekinesis;
 
-        foreach (RaycastHit lOHit in fHits(lbTelekinesis ? UWWorldPicker.Range : DoorReach))
+        foreach (UWWorldPicker.Hit lOHit in fMeasuredHits(lbTelekinesis ? UWWorldPicker.Range : DoorReach))
         {
-            UWDoor lODoor = lOHit.collider.GetComponentInParent<UWDoor>();
+            UWDoor lODoor = lOHit.Raw.collider.GetComponentInParent<UWDoor>();
 
             if (lODoor != null)
                 return new UseTarget { Door = lODoor };
 
-            UWEntityInfo lOInfo = lOHit.collider.GetComponentInParent<UWEntityInfo>();
-
-            if (lOInfo != null && lOInfo.ObjectData != null)
-                return new UseTarget { Thing = lOInfo };
+            if (lOHit.Entity != null && lOHit.Entity.ObjectData != null)
+                return new UseTarget { Thing = lOHit.Entity };
 
             // Over the long reach a wall or floor of the level ends the search: nothing behind it is used.
-            if (lbTelekinesis && lOHit.collider.GetComponent<UnderworldRevisited.Build.UWLevelChunk>() != null)
+            if (lbTelekinesis && lOHit.Raw.collider.GetComponent<UnderworldRevisited.Build.UWLevelChunk>() != null)
                 break;
         }
 

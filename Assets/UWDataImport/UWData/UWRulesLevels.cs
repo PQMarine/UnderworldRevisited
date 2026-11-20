@@ -33,5 +33,9 @@ namespace UWDataImport.UWData
 		[UWRule(typeof(UWLevelIds), nameof(UWLevelIds.Void),
 			"The Ethereal Void: no magic, no sleep, drawn unlit, nothing comes to rest (0-based).", Minimum = 0)]
 		public int Void = UWLevelIds.Void;
+
+		[UWRule(typeof(UWCreaturePass), nameof(UWCreaturePass.LevelUw2),
+			"Ultima Underworld II: the level where the aid 'walk through peaceful people' works, the castle (0-based).", Minimum = 0)]
+		public int PassPeacefulUw2 = UWCreaturePass.LevelUw2;
 	}
 }

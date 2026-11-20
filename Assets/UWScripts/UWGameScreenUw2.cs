@@ -719,6 +719,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>The lines of a long text not printed yet.</summary>
     private static readonly List<string> msPendingPage = new List<string>();
 
+    /// <summary>The long text being paged (UWMessageLogModel.LastLineJoinsPage).</summary>
+    private static string msPagedText;
+
     private static int msiPageStartFrame = -1;
 
     private static int msiPageEndedFrame = -1;
@@ -731,7 +734,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     private static bool msbPageRelease;
 
     /// <summary>A long text waits for [MORE] (and the frame its last page came, and until the buttons are up).</summary>
-    public static bool IsWaitingForPage => msPendingPage.Count > 0 || msiPageEndedFrame == Time.frameCount || msbPageRelease;
+    public static bool IsWaitingForPage => msPendingPage.Count > 0 || msiPageEndedFrame == Time.frameCount || msbPageRelease
+        || UWConversationScreenUw2.IsLookPaging;
 
     /// <summary>
     /// A text that may be longer than the scroll (per user 2026-11-18 with the original: a book's text stops with
@@ -746,6 +750,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         UWFont lOFont = Current != null && Current.mOData != null && Current.mOData.Fonts != null
             ? Current.mOData.Fonts.Get(UWFonts.FontType.Normal) : null;
 
+        // A conversation covers the walk's scroll: the text joins the look in its answer scroll and pages there with
+        // [MORE] (per user 2026-11-19: a scroll looked at in a conversation showed "You read the scroll..." alone, its
+        // text went into the covered walk scroll; 2026-11-20 on the original: a long book waits with [MORE] there too).
+        if (UWConversationScreenUw2.ShowLookPaged(psText))
+            return;
+
         if (lOFont == null || string.IsNullOrEmpty(psText))
         {
             Say(psText);
@@ -755,6 +765,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         msPendingPage.Clear();
         msPendingPage.AddRange(UWMessageLogModel.WrapForPaging(lOFont, psText, UWClassicLayoutUw2.MessageLog.Width));
+        msPagedText = psText;
         msiPageStartFrame = Time.frameCount;
         Current.fShowNextPage(lOFont);
     }
@@ -766,6 +777,14 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         LastPageLines = 0;
 
         for (int liAt = 0; liAt < liPerPage && msPendingPage.Count > 0; liAt++)
+        {
+            msMessages.Add(msPendingPage[0]);
+            msPendingPage.RemoveAt(0);
+            LastPageLines++;
+        }
+
+        // The last line in the text's last piece passes without another [MORE] (scroll_print3's flag 0).
+        if (msPendingPage.Count == 1 && UWMessageLogModel.LastLineJoinsPage(msPagedText, msPendingPage[0]))
         {
             msMessages.Add(msPendingPage[0]);
             msPendingPage.RemoveAt(0);
@@ -807,6 +826,16 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>scroll_wait for [MORE]: any key, mouse button or pad button pages on. True while a text waits.</summary>
     private bool fUpdatePaging()
     {
+        // A look's [MORE] in a conversation's answer scroll pages there (UWConversationScreenUw2.fUpdateLookPaging): the
+        // conversation's frame runs from here, as the rest of Update does not (per user 2026-11-20: [MORE] took no input).
+        if (UWConversationScreenUw2.IsLookPaging)
+        {
+            if (mOConversation != null)
+                mOConversation.Tick();
+
+            return true;
+        }
+
         if (msPendingPage.Count == 0)
         {
             if (msbPageRelease && !UWMouseButtons.LeftHeld && !UWMouseButtons.RightHeld)
@@ -2130,6 +2159,27 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// A LOOK AT A THING IN THE TRADE AREA (BARTER.C: LookAt(obj, lore), with 1 + the Lore roll the session made): the
+    /// look sentence at that detail, SpecialLook's line and a book's or scroll's reading (BookLook) - all through Say, so
+    /// they stand together in the answer scroll (per user 2026-11-19; until then the trade slot said only "You see a
+    /// scroll." through the first game's scenery sentence). No checkTrap: BARTER.C does not search, inv_look does.
+    /// </summary>
+    public static void LookInTrade(UWObject pOItem, int piDetail)
+    {
+        if (Current == null || pOItem == null || UWAttackUw2.Current == null || UWAttackUw2.Current.Look == null)
+            return;
+
+        Say(UWAttackUw2.Current.Look.DescribeInventoryItem(pOItem, piDetail));
+
+        string lsSpecial = UWItemDescriptions.SpecialLookLine(pOItem, Current.mOData);
+
+        if (lsSpecial != null)
+            Say(lsSpecial);
+
+        Current.ShowReading(pOItem, UWReadRulesUw2.Look(pOItem));
+    }
+
     /// <summary>UseWand from the pack (G4, 2026-11-16): its traps (checkTrap with mode 4), the spell with the wait
     /// between casts, one charge, and the crack when the spell object is gone.</summary>
     private void fUseWand(UWObject pOWand)
@@ -2722,6 +2772,18 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         }
 
         mOConversation.Tick();
+
+        // THE CLICK THAT ENDS A CONVERSATION IS NO LOOK (per user 2026-11-20 on the original: a right click on a book while
+        // the conversation ends is taken by the end, which comes at once; ours showed the text first): while it closes, the
+        // panels take no press.
+        if (UWConversationScreenUw2.IsClosing)
+        {
+            mbInventoryPress = false;
+            fUpdatePointer();
+
+            return true;
+        }
+
         fFollowInventoryPress();
 
         if (IsClassicScheme)

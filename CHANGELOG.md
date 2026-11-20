@@ -10,6 +10,29 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-11-20
+
+### Changed
+- Ultima Underworld II: a new aid, "Walk through peaceful people" (Gameplay, Aids, off by default), lets you pass
+  through the castle's people who are not hostile instead of waiting for them to step aside, in both schemes and
+  every motion mode. You can still strike anyone, and someone who turns hostile blocks your way again.
+- Character creation: the name box stands in the middle of the page as in the original, and moves up only while
+  the gamepad's letter grid is shown (in the first game it always stood at the top). The second game's creation and
+  main menu take the gamepad's A, show the game's own pointer, and cutscenes end on the gamepad's B too.
+- A thing under a table, or standing on a shelf in the second game, can be looked at and taken again: a 3D model
+  counts where the pointer really meets its shape, not anywhere behind it.
+- Dropping a thing right in front of a barrel or another 3D object says "There is no space to drop that." as in the
+  original; it is put down only on something underfoot, such as a bridge one stands on.
+
+### Fixed
+- Ultima Underworld II: the goblin guard of the prison tower accepts the food delivery voucher. Conversations read
+  an item's special property the way the first game does, which hid the voucher's text from his check.
+- Ultima Underworld II: looking at a scroll or book during a conversation shows its whole text in the answer scroll,
+  as in the original, not only "You read the scroll...". A long text waits with [MORE] there. A look at a thing in the
+  trade area gives the game's full look, with the scroll's text too.
+- Ultima Underworld II: the help's list of teachers no longer says Dupre teaches the sword. His script holds a sword
+  lesson that nothing in the conversation leads to; only the axe and the mace are offered.
+
 ## [0.22.0] - 2026-11-19
 
 Ultima Underworld II is now a playable alpha: every rule of the game is built and was checked step by step against

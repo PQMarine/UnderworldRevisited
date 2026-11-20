@@ -104,12 +104,13 @@ public sealed class UWConversationHostUw2 : IUWConversationHost
             UWVitalsUw2.Current.Vitals.ChangeExperience(piAmount, piDungeonLevel);
     }
 
-    /// <summary>The walk's look: the name in the first game's sentence (phase 4 has the second game's).</summary>
+    /// <summary>The trade slot's look (UWGameScreenUw2.LookInTrade): said straight into the answer scroll, so nothing is
+    /// left to return - the session prints nothing more.</summary>
     public string DescribeItem(UWObject pOItem, int piDetail = UWItemDescriptions.DetailFromLoreCheck)
     {
-        DataImport lOData = UWScene.LevelLoader != null ? UWScene.LevelLoader.UWDataImporter : null;
+        UWGameScreenUw2.LookInTrade(pOItem, piDetail);
 
-        return pOItem != null ? UWItemDescriptions.DescribeScenery(UWText.RawObjectName(lOData, pOItem.ID), null, pOItem, lOData) : null;
+        return null;
     }
 
     public bool ShowLookText(string psText)

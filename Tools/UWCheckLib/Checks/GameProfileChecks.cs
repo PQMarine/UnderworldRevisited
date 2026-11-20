@@ -1040,6 +1040,14 @@ namespace UnderworldRevisited.Tools
                 UWGameProfiles.Uw1.Conversation.InvCreateJoinsStack + " " + UWGameProfiles.Uw2.Conversation.InvCreateJoinsStack, "True False");
             Check.Str("uw1/uw2 x_obj_stuff writes the link with bit 0x200 (LINK_SPECIAL): first game, second game",
                 UWGameProfiles.Uw1.Conversation.XObjStuffLinkSpecial + " " + UWGameProfiles.Uw2.Conversation.XObjStuffLinkSpecial, "True False");
+
+            // Per user 2026-11-19: the prison tower's goblin guard compares the voucher scroll's link with 512 + 33.
+            Check.Str("uw1/uw2 x_obj_stuff reads the link 0x221 (text 33): first game without bit 0x200, second game raw",
+                UWConversationTrade.XObjStuffLinkRead(UWGameProfiles.Uw1.Conversation.XObjStuffLinkSpecial, 0x221) + " "
+                + UWConversationTrade.XObjStuffLinkRead(UWGameProfiles.Uw2.Conversation.XObjStuffLinkSpecial, 0x221), "33 545");
+            Check.Str("uw1/uw2 x_obj_stuff writes the link 8: first game, second game",
+                UWConversationTrade.XObjStuffLinkWritten(UWGameProfiles.Uw1.Conversation.XObjStuffLinkSpecial, 8) + " "
+                + UWConversationTrade.XObjStuffLinkWritten(UWGameProfiles.Uw2.Conversation.XObjStuffLinkSpecial, 8), "520 8");
             Check.Bool("profile: ... and a hostile attacker does not answer in the first game", UWClickRules.CreatureAnswers(5, 5, 1, UWNpc.AttitudeHostile, false), false);
 
             // The first game's tables: built once for its profile, sealed, and the spy is not in them.

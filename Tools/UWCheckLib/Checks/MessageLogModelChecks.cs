@@ -26,6 +26,7 @@ namespace UnderworldRevisited.Tools
             }
 
             fCheckLogBlink();
+            fCheckLogFinalPiece();
             fCheckLogCapacity(lOFont);
             fCheckLogPaging();
             fCheckLogShown(lOFont);
@@ -118,6 +119,23 @@ namespace UnderworldRevisited.Tools
             while (lOPending.Count > 0 && liPage < 20);
 
             return lOPages;
+        }
+
+        /// <summary>scroll_print's last piece and the last line it lets pass without [MORE] (per user 2026-11-20).</summary>
+        private static void fCheckLogFinalPiece()
+        {
+            string lsShort = "Short text.";
+            string lsLong = new string('a', 30) + " " + new string('b', 30) + " " + new string('c', 30) + " -End";
+
+            fExpectInt("last piece: a short text is all one piece", UWMessageLogModel.FinalPieceStart(lsShort), 0);
+            // 49 characters cut at their last space (30), then 49 more from there cut at 61 (the space goes on): the rest from 61.
+            fExpectInt("last piece: a long text's last piece begins after the 49-character cuts", UWMessageLogModel.FinalPieceStart(lsLong), 61);
+            fExpectInt("last piece: a newline inside the last piece starts it anew",
+                UWMessageLogModel.FinalPieceStart("one\ntwo\n"), 4);
+            Check.Bool("last piece: the last line joins the page when it starts in the last piece",
+                UWMessageLogModel.LastLineJoinsPage(lsLong, "-End"), true);
+            Check.Bool("last piece: ... not when the last piece began before the line",
+                UWMessageLogModel.LastLineJoinsPage(lsLong, new string('b', 30) + " " + new string('c', 30) + " -End"), false);
         }
 
         private static void fCheckLogPaging()

@@ -144,6 +144,8 @@ namespace UWDataImport.UWData
 			Fallback = (int)UWIceGripEnum.Off
 		};
 
+		public static readonly UWBoolSettingDef PassPeaceful = fBool(nameof(UWUserData.PassPeaceful), d => d.PassPeaceful, (d, v) => d.PassPeaceful = v);
+
 		public static readonly UWBoolSettingDef KnowledgeShowAll = fBool(nameof(UWUserData.KnowledgeShowAll), d => d.KnowledgeShowAll, (d, v) => d.KnowledgeShowAll = v);
 
 		public static readonly UWBoolSettingDef HelpOpen = fBool(nameof(UWUserData.HelpOpen), d => d.HelpOpen, (d, v) => d.HelpOpen = v);
@@ -476,7 +478,7 @@ namespace UWDataImport.UWData
 		public static readonly UWSettingDef[] All =
 		{
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
-			FixOriginalBugs, RemoveExploits, KnowledgeShowAll, LizardWords, ModernFont, ModernFontLanguage, SkillRaises, IceGrip, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
+			FixOriginalBugs, RemoveExploits, KnowledgeShowAll, LizardWords, ModernFont, ModernFontLanguage, SkillRaises, IceGrip, PassPeaceful, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
 			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
 			ModernBacks, ModernScrollLines, ModernScrollWidth, ModernMessageLines, ModernMessageFade, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,

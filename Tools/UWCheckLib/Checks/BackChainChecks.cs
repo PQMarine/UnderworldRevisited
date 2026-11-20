@@ -110,7 +110,7 @@ namespace UnderworldRevisited.Tools
                 "CharacterCreation", "-", "CharacterCreation");
             fBackCase("creation, the name typed with the letter grid", UWBackState.ScreenMenu | UWBackState.CharacterName | UWBackState.LetterGrid,
                 fOwners(UWBackOwner.CharacterName, UWBackOwner.LetterGrid), "CharacterName", "-", "LetterGrid");
-            fBackCase("the intro, a cutscene", UWBackState.Cutscene, fModern(UWBackOwner.Cutscene), "Cutscene", "-", "-");
+            fBackCase("the intro, a cutscene (pad B ends it since 2026-11-19, per user)", UWBackState.Cutscene, fModern(UWBackOwner.Cutscene), "Cutscene", "-", "Cutscene");
 
             // ------------------------------------------------- The modern scheme
 
@@ -169,9 +169,9 @@ namespace UnderworldRevisited.Tools
                 fModern(UWBackOwner.DebugTools), "DebugTools", "-", "ModernChain");
             fBackCase("modern, the instrument", UWBackState.Instrument, fModern(UWBackOwner.Instrument), "Instrument", "-", "-");
             fBackCase("modern, a cutscene over the bags", UWBackState.Cutscene | UWBackState.ModernClosable, fModern(UWBackOwner.Cutscene),
-                "Cutscene", "-", "-");
+                "Cutscene", "-", "Cutscene");
             fBackCase("a cutscene with the debug panel's tools open (wave 2b: the panel is drawn over it)",
-                UWBackState.Cutscene | UWBackState.DebugTools, fModern(UWBackOwner.Cutscene, UWBackOwner.DebugTools), "DebugTools", "-", "-");
+                UWBackState.Cutscene | UWBackState.DebugTools, fModern(UWBackOwner.Cutscene, UWBackOwner.DebugTools), "DebugTools", "-", "Cutscene");
 
             // Any key pages a long text or hides a window picture (wave 2b: Escape paged and opened the
             // game menu, Start and B paged and closed the bags).

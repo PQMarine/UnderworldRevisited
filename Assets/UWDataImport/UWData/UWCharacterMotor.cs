@@ -206,6 +206,10 @@ namespace UWDataImport.UWData
 		/// <summary>The body's own object index, skipped among the objects (the player is 1).</summary>
 		public int SelfIndex = 1;
 
+		/// <summary>The port's pass test as on UWMotionCore.PassesThrough (UWCreaturePass): a body it answers true for is
+		/// no obstacle. Null, every body counts.</summary>
+		public Func<int, UWMotionBody, bool> PassesThrough;
+
 		/// <summary>The centre in tiles.</summary>
 		public double X;
 
@@ -1216,6 +1220,9 @@ namespace UWDataImport.UWData
 						UWCommonObjectProperties.Entry lOEntry;
 
 						if (lOBody.Index == SelfIndex || !mOProperties.TryGet(lOBody.ItemId, out lOEntry))
+							continue;
+
+						if (PassesThrough != null && PassesThrough(SelfIndex, lOBody))
 							continue;
 
 						if (lOEntry.IsSwitch || (lOEntry.Height == 0 && !lOBody.IsMobile))

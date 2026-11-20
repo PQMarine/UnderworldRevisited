@@ -1277,7 +1277,7 @@ to build them:
      - x_exp(n) 15 calls in 13 conversations (45 to 9999; e.g. the goblin guard 45 when he turns on the player, Lord
        British 300, Blog 1000, Jerry the Rat 9999; names are block 7 at whoami + 17):
        player_get_exp(n), the total / 16 back - the shared UWExperience.Change with the second game's variant.
-     - x_skills 54 calls: value 10001 in 16 conversations (the trainers: Geoffrey 0/1, Dupre 3/4/5, Iolo 6/18/19,
+     - x_skills 54 calls: value 10001 in 16 conversations (the trainers: Geoffrey 0/1, Dupre 4/5 (his sword lesson 3 is unreachable code), Iolo 6/18/19,
        Julia 10/14/16, Nystul 7/9, Nelson 8/11, Patterson and Lady Tory 15, Fissif 10/13/16/17, Syria 2/3, ...) spends a skill point on grant_skill_advance(skill) -
        get_skill: nothing above twice the governing attribute or at 30, else +1, +1 more when the attribute is not
        strength and half of it is above the skill, +1 more by chance (attribute - skill) / {25, 30, 15} while below

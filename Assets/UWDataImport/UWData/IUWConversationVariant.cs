@@ -28,8 +28,10 @@ namespace UWDataImport.UWData
 		/// prize joined the player's fee and nothing was paid out).</summary>
 		bool InvCreateJoinsStack { get; }
 
-		/// <summary>Whether x_obj_stuff writes its link with bit 0x200 set (UW1: LINK_SPECIAL | link, a special property;
-		/// UW2: the raw value, conv/BABLHACK.C:653 - per user 2026-11-17, Jospur's 8 gold came as the special 0x208).</summary>
+		/// <summary>Whether x_obj_stuff writes its link with bit 0x200 set and reads it with that bit masked off (UW1:
+		/// LINK_SPECIAL | link, link &amp; 0x1FF; UW2: the raw ten bits both ways, conv/BABLHACK.C:653 and :667 - per user
+		/// 2026-11-17, Jospur's 8 gold came as the special 0x208; per user 2026-11-19, the prison tower's goblin guard
+		/// refused the food delivery voucher: he compares the scroll's link with 512 + 33, the read had dropped the 512).</summary>
 		bool XObjStuffLinkSpecial { get; }
 	}
 }

@@ -285,7 +285,9 @@ namespace UWDataImport.UWData
 		{
 			fCover(UWBackOwner.Rebind, AnyKey, UWBackState.Rebind),
 			fCover(UWBackOwner.DebugTools, UWBackKey.Escape, UWBackState.DebugTools),
-			fRow(UWBackOwner.Cutscene, UWBackKey.Escape),
+			// A cutscene ends on Escape and on the pad's back button (PadButton, B by default; per user 2026-11-19: the
+			// second game's credits could not be left with the gamepad), as the character creation takes it.
+			fRow(UWBackOwner.Cutscene, UWBackKey.Escape | UWBackKey.PadButton),
 			fRow(UWBackOwner.RoamingSight, UWBackKey.Escape),
 			fCover(UWBackOwner.SetupEffects, UWBackKey.Escape | UWBackKey.Menu | UWBackKey.PadBack | UWBackKey.PadButton, UWBackState.SetupEffects),
 

@@ -141,10 +141,93 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         get
         {
             if (mOCreatureMotion == null && mOLoader != null && mOLoader.UWDataImporter != null)
+            {
                 mOCreatureMotion = new UWCreatureMotion(this, mOLoader.UWDataImporter.CommonObjectProperties);
+                // A peaceful creature in the second game's castle walks through the player (UWCreaturePass).
+                mOCreatureMotion.Core.PassesThrough = PassesThrough;
+            }
 
             return mOCreatureMotion;
         }
+    }
+
+    // ------------------------------------------------- Walking through peaceful people (UWCreaturePass)
+
+    private System.Func<int, UWMotionBody, bool> mfPassesThrough;
+
+    /// <summary>The pass test for the cores that move the player (UWPlayerMovement sets it on UWPlayerMotion) and the
+    /// creatures (CreatureMotion's core); never on the blow's, the doors' or the arrival's core.</summary>
+    public System.Func<int, UWMotionBody, bool> PassesThrough => mfPassesThrough ?? (mfPassesThrough = fPassesThrough);
+
+    /// <summary>The creatures the aid has let pass on this level (by mobile index): such a one keeps passing while it
+    /// overlaps the player, so nobody sticks when it turns hostile or the aid is switched off in the middle.</summary>
+    private readonly HashSet<int> mOPassing = new HashSet<int>();
+
+    private UWLevel mOPassingLevel;
+
+    /// <summary>
+    /// UWCreaturePass for a mover and a body: the player and a creature, either way round. True when the aid works
+    /// here (the setting, the second game, the rule set's level) and the creature is peaceful - or it was let pass
+    /// before and still overlaps the player. Every other pair is the original's.
+    /// </summary>
+    private bool fPassesThrough(int piMover, UWMotionBody pOBody)
+    {
+        int liCreature;
+
+        if (piMover == PlayerMover && pOBody.IsCreature)
+            liCreature = pOBody.Index;
+        else if (pOBody.Index == PlayerMover && piMover != PlayerMover)
+            liCreature = piMover;
+        else
+            return false;
+
+        UWLevel lOLevel = mOLoader != null ? mOLoader.CurrentLevel : null;
+
+        if (lOLevel != mOPassingLevel)
+        {
+            mOPassingLevel = lOLevel;
+            mOPassing.Clear();
+        }
+
+        UWCritter lOCritter = fCritter(liCreature);
+        UWCritterRecord lORecord = lOCritter != null ? lOCritter.Record : null;
+
+        if (lORecord == null || lOLevel == null)
+            return false;
+
+        if (UWCreaturePass.Enabled && UWGameSession.Current != null
+            && UWCreaturePass.WorksOn(UnderworldRevisited.UWSettings.Game.Game, mOLoader.CurrentLevelIndex,
+                UWGameSession.Current.Rules.Levels.PassPeacefulUw2)
+            && UWCreaturePass.IsPeaceful(lORecord.Goal, lORecord.GTarg, lORecord.Attitude, lORecord.IsAlly))
+        {
+            mOPassing.Add(liCreature);
+            return true;
+        }
+
+        if (!mOPassing.Contains(liCreature))
+            return false;
+
+        if (fOverlapsPlayer(lORecord))
+            return true;
+
+        mOPassing.Remove(liCreature);
+
+        return false;
+    }
+
+    /// <summary>Whether the player's box and a creature's overlap (UWCreaturePass.Overlap), from the player's params
+    /// block; false while he does not move on the motion core.</summary>
+    private bool fOverlapsPlayer(UWCritterRecord pORecord)
+    {
+        UWPlayerMovement lOMovement = UWScene.PlayerMovement;
+
+        if (lOMovement == null || !lOMovement.UsesMotionCore || lOMovement.Motion == null)
+            return false;
+
+        UWMotionParams p = lOMovement.Motion.Params;
+
+        return UWCreaturePass.Overlap(p.X >> 5, p.Y >> 5, Entry(UWObjectMechanics.AdventurerObjectId).Radius,
+            (pORecord.TileX << 3) + pORecord.FineX, (pORecord.TileY << 3) + pORecord.FineY, Entry(pORecord.ItemId).Radius);
     }
 
     /// <summary>The COMOBJ entry of an object id, or the empty entry before the data is there.</summary>

@@ -319,13 +319,13 @@ public static class UWPlayerThrow
 
         StepInDirection(liHeading, liDistance, ref liEighthX, ref liEighthY);
 
-        bool lbFits = fFitsAt(liEighthX, liEighthY, liItemRadius, liDistance, lOFeet, pOCamera, pOLevelLoader);
+        bool lbFits = fFitsAt(liEighthX, liEighthY, liItemRadius, liItemHeight, liDistance, lOFeet, pOCamera, pOLevelLoader);
 
         if (lbFits)
         {
             StepInDirection(liHeading, 3, ref liEighthX, ref liEighthY);
 
-            lbFits = fFitsAt(liEighthX, liEighthY, liItemRadius, liDistance, lOFeet, pOCamera, pOLevelLoader);
+            lbFits = fFitsAt(liEighthX, liEighthY, liItemRadius, liItemHeight, liDistance, lOFeet, pOCamera, pOLevelLoader);
         }
 
         pOSpot = fEighthToWorld(liEighthX, liEighthY, pOCamera.position.y);
@@ -342,7 +342,7 @@ public static class UWPlayerThrow
     /// radius, and the floor there is not higher than the player's feet plus the tolerance UW.EXE
     /// passes along (the same distance, in zpos steps).
     /// </summary>
-    private static bool fFitsAt(int piEighthX, int piEighthY, int piItemRadius, int piTolerance,
+    private static bool fFitsAt(int piEighthX, int piEighthY, int piItemRadius, int piItemHeight, int piTolerance,
         Vector3 pOFeet, Transform pOCamera, UWLevelLoader pOLevelLoader)
     {
         Vector3 lOSpot = fEighthToWorld(piEighthX, piEighthY, pOCamera.position.y);
@@ -353,7 +353,7 @@ public static class UWPlayerThrow
         if (pOLevelLoader.GetFloorHeightAt(lOSpot) > pOFeet.y + (piTolerance * UWWorldScale.ZPosStep))
             return false;
 
-        if (fIsBlockedByObject(lOSpot, pOFeet.y, piItemRadius, pOLevelLoader))
+        if (fIsBlockedByObject(lOSpot, pOFeet.y, piItemRadius, piItemHeight, pOLevelLoader))
             return false;
 
         Vector3 lOFrom = pOCamera.position;
@@ -369,15 +369,22 @@ public static class UWPlayerThrow
     }
 
     /// <summary>
-    /// Whether an object stands in the way at the spot - the collision part of
-    /// CheckIfItemFitsInTile_seg026_1008 (reference: TestIfObjectFitsInTile).
+    /// Whether an object stands in the way at the spot - the collision part of can_place (UnderworldExhumed uw1
+    /// motion/COLLIDE.C, CheckIfItemFitsInTile_seg026_1008), at the drop's height, the player's feet.
     ///
-    /// Collisions are found like in ScanForCollisions: a creature always counts, a lying object
-    /// only with a height in COMOBJ.DAT, and they touch as a BOX per axis, |dx| and |dy| at most
-    /// the sum of both radii (CreateCollisonRecord_Seg028_2941_A78). If what is hit is a 3D
-    /// model (flags bit 1), the item may be put on it; anything else refuses.
+    /// Collisions are found like in ScanForCollisions: a creature always counts, a lying object only with a height in
+    /// COMOBJ.DAT, and they touch as a BOX per axis, |dx| and |dy| at most the sum of both radii
+    /// (CreateCollisonRecord_Seg028_2941_A78). process_objlist then sorts them: what does not reach above the drop's
+    /// height is UNDERFOOT, and the highest of those is what the thing would rest on - it must be solid; anything that
+    /// reaches into the thing's own height (its COMOBJ height, one for a flat thing) is IN THE WAY and refuses the drop,
+    /// "There is no space to drop that."
+    ///
+    /// NO EXCEPTION FOR 3D MODELS (per user 2026-11-19 on the original, SAVE3 of the first game: beside the barrels ours
+    /// put a thing down, the original says there is no space): until then every model was let through as something to
+    /// put the thing on, at any height. A model is put on only where it is underfoot - a bridge one stands on, a table
+    /// lower than the feet.
     /// </summary>
-    private static bool fIsBlockedByObject(Vector3 pOSpot, float pfFeet, int piItemRadius, UWLevelLoader pOLevelLoader)
+    private static bool fIsBlockedByObject(Vector3 pOSpot, float pfFeet, int piItemRadius, int piItemHeight, UWLevelLoader pOLevelLoader)
     {
         DataImport lOData = pOLevelLoader.UWDataImporter;
 
@@ -388,6 +395,14 @@ public static class UWPlayerThrow
             UWWorldScale.TileSize, ~0, QueryTriggerInteraction.Ignore);
 
         System.Collections.Generic.HashSet<UWEntityInfo> lODone = new System.Collections.Generic.HashSet<UWEntityInfo>();
+
+        // The thing's top at the drop (z + height + flat: a thing of height 0 counts one).
+        float lfItemTop = pfFeet + (Mathf.Max(piItemHeight, 1) * UWWorldScale.ZPosStep);
+
+        // Underfoot within a hair: a bridge or floor model the player stands on.
+        float lfUnderfoot = pfFeet + (UWWorldScale.ZPosStep * 0.5f);
+        float lfRestTop = float.MinValue;
+        bool lbRestSolid = true;
 
         foreach (Collider lOCollider in lOColliders)
         {
@@ -403,22 +418,34 @@ public static class UWPlayerThrow
 
             bool lbCritter = lOCollider.GetComponentInParent<UWCritter>() != null;
 
-            if ((!lbCritter && lOEntry.Height == 0) || lOEntry.Is3DModel)
+            if (!lbCritter && lOEntry.Height == 0)
                 continue;
 
             Bounds lOBounds = lOCollider.bounds;
-
-            // Only what reaches into the height the item is put down at.
-            if (lOBounds.max.y < pfFeet || lOBounds.min.y > pfFeet + UWWorldScale.TileHalfSize)
-                continue;
-
             float lfReach = (piItemRadius + lOEntry.Radius) * UWWorldScale.SubTileStep;
 
-            if (Mathf.Abs(lOBounds.center.x - pOSpot.x) <= lfReach && Mathf.Abs(lOBounds.center.z - pOSpot.z) <= lfReach)
+            if (Mathf.Abs(lOBounds.center.x - pOSpot.x) > lfReach || Mathf.Abs(lOBounds.center.z - pOSpot.z) > lfReach)
+                continue;
+
+            if (lOBounds.max.y <= lfUnderfoot)
+            {
+                // Underfoot: the highest is what the thing would rest on.
+                if (lOBounds.max.y > lfRestTop)
+                {
+                    lfRestTop = lOBounds.max.y;
+                    lbRestSolid = lOEntry.IsSolid;
+                }
+
+                continue;
+            }
+
+            // Reaching into the thing's height: in the way.
+            if (lOBounds.min.y < lfItemTop)
                 return true;
         }
 
-        return false;
+        // Resting on something that is not solid: no place (can_place's best, ComObjData solid).
+        return lfRestTop > float.MinValue && !lbRestSolid;
     }
 
     /// <summary>

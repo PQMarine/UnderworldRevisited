@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace UWDataImport.UWData
@@ -105,6 +106,14 @@ namespace UWDataImport.UWData
 		public int CalcHeight;
 
 		public int CalcIndex;
+
+		/// <summary>
+		/// THE PORT'S PASS TEST (UWCreaturePass, the aid of 2026-11-19): a body this answers true for (the mover's index,
+		/// the body) is left out of the collision scan as if it were not there. Null - the original - on every core but
+		/// the ones that move the player or a creature, and there whenever the aid does not apply; never on the blow's,
+		/// the doors' or the fit tests' cores.
+		/// </summary>
+		public Func<int, UWMotionBody, bool> PassesThrough;
 
 		/// <summary>+0xC (2774): the terrain flags of the centre; +0xE (2776): OR of the centre and
 		/// the four corners.</summary>
@@ -1774,6 +1783,9 @@ namespace UWDataImport.UWData
 						UWMotionBody lOBody = mOBodies[liN];
 
 						if (lOBody.Index == CalcIndex)
+							continue;
+
+						if (PassesThrough != null && PassesThrough(CalcIndex, lOBody))
 							continue;
 
 						UWCommonObjectProperties.Entry lOEntry = fEntry(lOBody.ItemId);

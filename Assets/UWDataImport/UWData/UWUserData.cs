@@ -78,6 +78,10 @@ namespace UWDataImport.UWData
 		/// 2 Full like ground (UWIceGripEnum), for every motion mode.</summary>
 		public int IceGrip;
 
+		/// <summary>The second game's castle: the player walks through peaceful people (UWCreaturePass, per user
+		/// 2026-11-19), for both schemes and every motion mode. Off by default, as the original.</summary>
+		public bool PassPeaceful;
+
 		/// <summary>The help window as the player left it (per user, 2026-10-01): open or not,
 		/// the tab (UWHelpTabId as a number, 3 = Spells) and how many tiles the map
 		/// tab shows across.</summary>

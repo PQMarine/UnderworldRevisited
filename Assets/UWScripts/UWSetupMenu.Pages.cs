@@ -814,7 +814,10 @@ public partial class UWSetupMenu
             {
                 Kind = Kind.ChoiceRow, Id = Defs.IceGrip.LabelId, Def = Defs.IceGrip, ChoiceColumns = WindowChoiceColumns, Advance = 30f
             })
-            .Add(fHint(Defs.IceGrip, 10f));
+            .Add(fHint(Defs.IceGrip, 10f))
+            // WALK THROUGH PEACEFUL PEOPLE (per user 2026-11-19): the second game's castle, both schemes; at once.
+            .Add(fToggle(Defs.PassPeaceful, 30f))
+            .Add(fHint(Defs.PassPeaceful, 10f));
     }
 
     /// <summary>The save folder row (per user, 2026-10-29): automatic, cloud_saves, the installation's

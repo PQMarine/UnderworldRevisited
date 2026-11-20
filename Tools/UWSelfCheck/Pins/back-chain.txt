@@ -1,6 +1,6 @@
 00 = Rebind | keys Escape, Menu, PadBack, PadEast, PadButton | needs Rebind | under None | covers Rebind
 01 = DebugTools | keys Escape | needs DebugTools | under None | covers DebugTools
-02 = Cutscene | keys Escape | needs None | under None
+02 = Cutscene | keys Escape, PadButton | needs None | under None
 03 = RoamingSight | keys Escape | needs None | under None
 04 = SetupEffects | keys Escape, Menu, PadBack, PadButton | needs SetupEffects | under None | covers SetupEffects
 05 = SetupKeyNav | keys Escape | needs SetupKeyNav | under SetupEffects, KitText | covers SetupKeyNav

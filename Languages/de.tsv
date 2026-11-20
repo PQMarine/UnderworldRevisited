@@ -34,6 +34,8 @@ setting.SkillRaises.choice.highest	Höchste
 setting.SkillRaises.choice.fixed	Fest
 setting.IceGrip	Eisgriff
 setting.IceGrip.hint	In Ultima Underworld II rutscht man auf Eis und kann bei Tempo nicht lenken, wie im Original. Halb lässt das Eis der Steuerung verzögert folgen: Man driftet etwa zwei Sekunden nach und prallt weiter an Wänden ab. Voll lässt ebenes Eis greifen wie Boden, ohne Rutschen und ohne Abprallen an Wänden. Vereiste Rampen schieben immer wie im Original, weil Rätsel das brauchen können. Für jede Bewegungsart, wirkt sofort.
+setting.PassPeaceful	Durch friedliche Leute gehen
+setting.PassPeaceful.hint	Im Schloss von Ultima Underworld II gehst du durch Leute, die nicht feindlich sind, statt zu warten, bis sie Platz machen. Wer feindlich wird, versperrt dir wieder den Weg, und schlagen kannst du weiterhin jeden. Aus: wie im Original.
 setting.IceGrip.choice.off	Aus
 setting.IceGrip.choice.half	Halb
 setting.IceGrip.choice.full	Voll

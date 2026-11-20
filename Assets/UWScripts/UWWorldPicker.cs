@@ -81,6 +81,10 @@ public static class UWWorldPicker
         public UWEntityInfo Entity;
 
         public HitKind Kind;
+
+        /// <summary>How far along the ray the hit lies: the collider's for most, a model's first crossed face (fModelShape) -
+        /// the order the hits are read in.</summary>
+        public float Distance;
     }
 
     /// <summary>What one ray found, read by policy.</summary>
@@ -148,11 +152,21 @@ public static class UWWorldPicker
             if (lOHit.collider.isTrigger && lOEntity == null)
                 continue;
 
-            if (fIsPlayerBody(lOHit) || fMissesModelShape(pORay, lOHit) || fMissesSpritePixels(pORay, lOHit))
+            if (fIsPlayerBody(lOHit) || fMissesSpritePixels(pORay, lOHit))
                 continue;
 
-            lOResult.Hits.Add(new Hit { Raw = lOHit, Entity = lOEntity, Kind = fClassify(lOHit, lOEntity) });
+            float lfDistance = lOHit.distance;
+
+            if (fModelShape(pORay, lOHit, ref lfDistance) == ShapeEnum.Missed)
+                continue;
+
+            lOResult.Hits.Add(new Hit { Raw = lOHit, Entity = lOEntity, Kind = fClassify(lOHit, lOEntity), Distance = lfDistance });
         }
+
+        // THE HITS IN THE ORDER OF WHAT IS DRAWN ALONG THE RAY (per user 2026-11-19, SAVE2 of the second game: the potion on
+        // a shelf and the things under a table could not be clicked): a model counts at its first crossed face, not at its
+        // box's front - the box round a table encloses what lies under it, the shelf's what stands on it.
+        lOResult.Hits.Sort((pOA, pOB) => pOA.Distance.CompareTo(pOB.Distance));
 
         fReadFrontmost(lOResult);
         fReadPickable(lOResult);
@@ -300,29 +314,46 @@ public static class UWWorldPicker
     /// beside a barrel the bread could not be taken, "the barrel is always used"). A model's
     /// collider is a box round its mesh, widened to its COMOBJ.DAT radius for the motion (see
     /// UWObjectSpawner.fSpawn3DModel) - far larger than the barrel as drawn, and the original
-    /// picks by what is drawn under the pointer. So a hit on a model's solid box counts only if
-    /// the ray really crosses one of the model's triangles; otherwise the ray goes on.
+    /// picks by what is drawn under the pointer. So a hit on a model's box counts only if the ray
+    /// really crosses one of the model's triangles, and THERE - the nearest crossing (per user
+    /// 2026-11-19: until then any crossing along the whole ray counted at the box's front, so the
+    /// back legs of a table behind a thing under it stood in front of the thing). A model without
+    /// collision (COMOBJ height 0) is a trigger with a widened pick box (UWObjectSpawner); the
+    /// ammunition, which is taken, keeps that box, the rest (the second game's shelf, whose box
+    /// enclosed the potion on it) is aimed at by its shape too.
     /// </summary>
-    private static bool fMissesModelShape(Ray pORay, RaycastHit pOHit)
+    private enum ShapeEnum
     {
-        if (pOHit.collider == null || pOHit.collider.isTrigger || !(pOHit.collider is BoxCollider))
-            return false;
+        NotAModel,
+        Missed,
+        Crossed
+    }
+
+    private static ShapeEnum fModelShape(Ray pORay, RaycastHit pOHit, ref float pfDistance)
+    {
+        if (pOHit.collider == null || !(pOHit.collider is BoxCollider))
+            return ShapeEnum.NotAModel;
 
         UWEntityInfo lOInfo = pOHit.collider.GetComponent<UWEntityInfo>();
         MeshFilter lOFilter = pOHit.collider.GetComponent<MeshFilter>();
 
         if (lOInfo == null || !lOInfo.IsModel || lOFilter == null || lOFilter.sharedMesh == null)
-            return false;
+            return ShapeEnum.NotAModel;
+
+        // The arrows and bolts on the floor keep their widened box to be taken by.
+        if (pOHit.collider.isTrigger && lOInfo.CanBePickedUp)
+            return ShapeEnum.NotAModel;
 
         Mesh lOMesh = lOFilter.sharedMesh;
 
         if (!lOMesh.isReadable)
-            return false;
+            return ShapeEnum.NotAModel;
 
         Transform lOTransform = lOFilter.transform;
         Vector3 lOOrigin = lOTransform.InverseTransformPoint(pORay.origin);
         Vector3 lODirection = lOTransform.InverseTransformDirection(pORay.direction);
         Vector3[] laVertices = lOMesh.vertices;
+        float lfNearest = float.MaxValue;
 
         for (int liSub = 0; liSub < lOMesh.subMeshCount; liSub++)
         {
@@ -330,13 +361,22 @@ public static class UWWorldPicker
 
             for (int liAt = 0; liAt + 2 < laTriangles.Length; liAt += 3)
             {
-                if (fRayCrossesTriangle(lOOrigin, lODirection, laVertices[laTriangles[liAt]],
-                    laVertices[laTriangles[liAt + 1]], laVertices[laTriangles[liAt + 2]]))
-                    return false;
+                float lfT = fRayCrossesTriangleAt(lOOrigin, lODirection, laVertices[laTriangles[liAt]],
+                    laVertices[laTriangles[liAt + 1]], laVertices[laTriangles[liAt + 2]]);
+
+                if (lfT > 0f && lfT < lfNearest)
+                    lfNearest = lfT;
             }
         }
 
-        return true;
+        if (lfNearest == float.MaxValue)
+            return ShapeEnum.Missed;
+
+        Vector3 lOWorld = lOTransform.TransformPoint(lOOrigin + (lODirection * lfNearest));
+
+        pfDistance = Vector3.Distance(pORay.origin, lOWorld);
+
+        return ShapeEnum.Crossed;
     }
 
     /// <summary>
@@ -442,7 +482,9 @@ public static class UWWorldPicker
 
     /// <summary>Moeller-Trumbore, both faces - a model's back face counts as well, the pointer
     /// can meet the inside of a barrel's rim.</summary>
-    private static bool fRayCrossesTriangle(Vector3 pOOrigin, Vector3 pODirection, Vector3 pOA, Vector3 pOB, Vector3 pOC)
+    /// <summary>Where along the ray (in pODirection's lengths) it crosses the triangle, 0 or less for not at all
+    /// (Moeller-Trumbore).</summary>
+    private static float fRayCrossesTriangleAt(Vector3 pOOrigin, Vector3 pODirection, Vector3 pOA, Vector3 pOB, Vector3 pOC)
     {
         Vector3 lOEdge1 = pOB - pOA;
         Vector3 lOEdge2 = pOC - pOA;
@@ -450,21 +492,21 @@ public static class UWWorldPicker
         float lfDet = Vector3.Dot(lOEdge1, lOP);
 
         if (Mathf.Abs(lfDet) < 1e-6f)
-            return false;
+            return 0f;
 
         float lfInv = 1f / lfDet;
         Vector3 lOT = pOOrigin - pOA;
         float lfU = Vector3.Dot(lOT, lOP) * lfInv;
 
         if (lfU < 0f || lfU > 1f)
-            return false;
+            return 0f;
 
         Vector3 lOQ = Vector3.Cross(lOT, lOEdge1);
         float lfV = Vector3.Dot(pODirection, lOQ) * lfInv;
 
         if (lfV < 0f || lfU + lfV > 1f)
-            return false;
+            return 0f;
 
-        return Vector3.Dot(lOEdge2, lOQ) * lfInv > 0f;
+        return Vector3.Dot(lOEdge2, lOQ) * lfInv;
     }
 }

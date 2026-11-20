@@ -54,6 +54,8 @@ public static class UWUserSettings
         UWSkillRaise.ModeSource = () => SkillRaises;
         // The ice grip (per user, 2026-11-14): read at every frame on ice.
         UWIceGrip.ModeSource = () => IceGrip;
+        // Walking through peaceful people in the second game's castle (per user, 2026-11-19): read at every move.
+        UWCreaturePass.EnabledSource = () => PassPeaceful;
     }
 
     private static void fThemeChanged(UWUserData pOData)
@@ -211,6 +213,8 @@ public static class UWUserSettings
     public static float MouseLookSpeed { get => Defs.MouseLookSpeed.Read(fGet()); set => Defs.MouseLookSpeed.Write(fGet(), value); }
 
     public static bool MouseInvertY { get => Defs.MouseInvertY.Read(fGet()); set => Defs.MouseInvertY.Write(fGet(), value); }
+
+    public static bool PassPeaceful { get => Defs.PassPeaceful.Read(fGet()); set => Defs.PassPeaceful.Write(fGet(), value); }
 
     public static bool AutoKey { get => Defs.AutoKey.Read(fGet()); set => Defs.AutoKey.Write(fGet(), value); }
 
