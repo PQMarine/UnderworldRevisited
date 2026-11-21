@@ -12,6 +12,11 @@ namespace UWDataImport.UWData
 		/// <summary>The game's spell table (spells[]): the first game's 53, the second's 69.</summary>
 		System.Collections.Generic.IReadOnlyList<UWRunicMagic.Spell> Spells { get; }
 
+		/// <summary>A spell number that is no place in Spells but a packed class and minor (cast, SPELLS.C:59-72; the second
+		/// game: bits 6-7 set, class 12 + (number >> 6), minor number &amp; 0x3F - classes 13 and 14 from one byte; the first
+		/// game has none, a number past its table does nothing). False when the number is a place in the table.</summary>
+		bool TryUnpackSpell(int piSpell, out UWRunicMagic.Spell pOSpell);
+
 		/// <summary>The spells of a circle (UW1: 6, RUNES.C:242; UW2: 8, RUNES.C:227).</summary>
 		int SpellsPerCircle { get; }
 

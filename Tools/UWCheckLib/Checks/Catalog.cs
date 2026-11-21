@@ -68,6 +68,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("TalkRefusal", pOContext => fCheckTalkRefusal(), false, "conversation", "original");
             lOCatalog.Add("ConversationPatches", pOContext => fCheckConversationPatches(pOContext.Data), true, "conversation");
             lOCatalog.Add("ContainsWord", pOContext => fCheckContainsWord(), false, "conversation", "original");
+            lOCatalog.Add("NestedPlaceholders", pOContext => fCheckNestedPlaceholders(), false, "conversation", "original");
             lOCatalog.Add("StartSquare", pOContext => fCheckStartSquare(pOContext.Data), true, "player", "original");
             lOCatalog.Add("ManualAttributes", pOContext => fCheckManualAttributes(pOContext.Data), true, "player", "original");
             lOCatalog.Add("ExplodingBook", pOContext => fCheckExplodingBook(pOContext.Data), true, "inventory", "original");
@@ -102,6 +103,8 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("CharacterMotorHeights", pOContext => fCheckCharacterMotorHeights(pOContext.Data), true, "motion");
             lOCatalog.Add("CharacterMotorObjects", pOContext => fCheckCharacterMotorObjects(pOContext.Data), true, "motion");
             lOCatalog.Add("CreaturePass", pOContext => fCheckCreaturePass(pOContext.Data), true, "motion");
+            lOCatalog.Add("HeightMap", pOContext => fCheckHeightMap(), false, "render");
+            lOCatalog.Add("PlacementFixes", pOContext => fCheckPlacementFixes(), false, "render", "original");
             lOCatalog.Add("ModernMotion", pOContext => fCheckModernMotion(pOContext.Data), true, "motion");
             lOCatalog.Add("OriginalSpot", pOContext => fCheckOriginalSpot(pOContext.Data), true, "motion");
             lOCatalog.Add("HomingDart", pOContext => fCheckHomingDart(), false, "motion", "spell", "original");
@@ -234,6 +237,12 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("GameProfile", pOContext => fCheckGameProfile(pOContext), false, "uw2", "pin");
             lOCatalog.Add("Uw2Data", pOContext => fCheckUw2Data(pOContext), false, "uw2", "env");
             lOCatalog.Add("Uw2IceModes", pOContext => fCheckModernIce(pOContext), false, "uw2", "motion");
+            lOCatalog.Add("Uw2CreatureSpells", pOContext => fCheckUw2CreatureSpells(pOContext), false, "uw2", "magic");
+            lOCatalog.Add("Uw2PitTeleport", pOContext => fCheckUw2PitTeleport(pOContext), false, "uw2", "motion");
+            lOCatalog.Add("Uw2LineOfPower", pOContext => fCheckUw2LineOfPower(pOContext), false, "uw2", "magic");
+            lOCatalog.Add("Uw2VorzRule", pOContext => fCheckUw2VorzRule(pOContext), false, "uw2", "schedule");
+            lOCatalog.Add("Uw2LightSpheres", pOContext => fCheckUw2LightSpheres(pOContext), false, "uw2", "traps");
+            lOCatalog.Add("XbrScaler", pOContext => fCheckXbrScaler(), false, "render");
             lOCatalog.Add("Archives", pOContext => fCheckArchives(pOContext), false, "uw2", "format");
             lOCatalog.Add("Uw2Levels", pOContext => fCheckUw2Levels(pOContext), false, "uw2", "format");
             lOCatalog.Add("PlayerFiles", pOContext => fCheckPlayerFiles(pOContext), false, "uw2", "format");

@@ -484,6 +484,18 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         if (mbHasLastWrittenPosition && (transform.position - mOLastWrittenPosition).sqrMagnitude > 0.01f)
             fPlaceMotionFromTransform();
 
+        // A TELEPORT'S FADE HOLDS THE PLAYER WHERE THE TRIGGER STOPPED HIM (per user 2026-11-22, UW2 level 3, the pit
+        // 50/27: fall damage in both schemes, the original none). The original's fall touches the trigger at its top,
+        // the teleport trap answers 0x10 and stop_me holds him there (uw2 MOTION.C:535-538); new_player_pos then fades
+        // out, moves him and fades in (UWEDIT.C:466) with no physics frame between. Ours ran on during the blink's fade,
+        // the fall reached the floor and hurt. No step, no time gathered, until the blink has reached its black.
+        if (UWWalkUw2.IsWalking && UWSleepUw2.Current != null && UWSleepUw2.Current.IsBlinking)
+        {
+            fStandStill();
+
+            return;
+        }
+
         // THE SWITCH (UWUserSettings.MotionSmooth, the Graphics menu). ORIGINAL runs the
         // original's frame of 16 ticks, step by step, the view interpolated between the steps -
         // UW.EXE at the fixed DOSBox cycles the user measures against (13-17 ticks a frame). Not one frame per rendered frame: the core drops the fraction below a fine unit
@@ -515,6 +527,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         lOMotion.FineTicks = lbSmooth;
         lOMotion.Modern = lbModern;
         lOMotion.RampFrameTicks = lbModern ? UWUserSettings.ModernRampTicks : UWUserSettings.SmoothRampTicks;
+        lOMotion.ImpactRampFrameTicks = UWUserSettings.OriginalFrameTicks;
 
         // A long frame does not become a long step: as the original caps its frame at 0x40
         // ticks, at most that many are simulated here and the rest is dropped (UWMotionStepper).
@@ -599,8 +612,23 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // frame, so that a teleport is not overwritten by the step.
         UWMotionHost lOTriggerWorld = UWScene.LevelLoader != null ? UWMotionHost.Ensure(UWScene.LevelLoader) : null;
 
+        int liTeleportsBefore = UWScene.LevelLoader != null ? UWScene.LevelLoader.WalkTeleportCount : 0;
+
         if (lOTriggerWorld != null)
             lOTriggerWorld.FirePendingPlayerTriggers();
+
+        // The held fall damage (fApplyCoreResult): dropped when the triggers teleported, dealt otherwise.
+        if (miHeldFallDamage > 0)
+        {
+            int liHeld = miHeldFallDamage;
+
+            miHeldFallDamage = 0;
+
+            if (UWScene.LevelLoader == null || UWScene.LevelLoader.WalkTeleportCount == liTeleportsBefore)
+                fDealFallDamage(liHeld);
+            else
+                Debug.Log("[Motion] A fall onto a teleport: no fall damage (" + liHeld + "), as do_zbounce stops on the trigger.");
+        }
 
         miDebugCoreSpeed = lOMotion.Params.Speed;
         msDebugCoreState = lOMotion.CurrentState.ToString();
@@ -707,26 +735,44 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     {
         UWPlayerMotion.FrameResult lOResult = pOMotion.Last;
 
+        // A FALL ONTO A TELEPORT HURTS NOT (per user 2026-11-22, UW2 level 3, the pit 50/27, in both schemes; the original
+        // no). The original's fall touches the trigger on its way down and do_zbounce hands it to do_objhit (uw2
+        // MOTION.C:535): the teleport trap answers 0x10 (do_teleport, WORLDEV.C:226), stop_me, and no impact is left for
+        // phys_affect_player's damage (PHYSICS.C:601). Ours fires the player's move triggers after the frame, the fall
+        // having reached the floor - so a step that queued one holds its fall damage until they have fired.
+        UWMotionHost lOHost = UWWalkUw2.IsWalking && UWScene.LevelLoader != null ? UWMotionHost.Ensure(UWScene.LevelLoader) : null;
+
+        if (lOResult.FallDamage > 0 && lOHost != null && lOHost.HasPendingPlayerTriggers)
+            miHeldFallDamage += lOResult.FallDamage;
+        else if (lOResult.FallDamage > 0)
+            fDealFallDamage(lOResult.FallDamage);
+
+        if (lOResult.LandingSound)
+            UWAudioService.PlayEffect(fLandingSound(), UWImpactRules.GetVolume(lOResult.ImpactValue));
+    }
+
+    /// <summary>Fall damage held while the step's move triggers wait (fApplyCoreResult).</summary>
+    private int miHeldFallDamage;
+
+    private void fDealFallDamage(int piDamage)
+    {
         // The second game's fall and wall hit through the world's player body (UWWorld.DamagePlayer to its vitals,
         // UWVitalsUw2), per user 2026-11-06: a running jump head-on into a wall hurt in the original, ours not -
         // since 2026-10-29 the value was only written to the log, from before the second game had vitals.
-        if (lOResult.FallDamage > 0 && UWWalkUw2.IsWalking)
+        if (UWWalkUw2.IsWalking)
         {
             UWWorld lOWorld = UWScene.World;
 
             if (lOWorld != null)
-                lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Fall(lOResult.FallDamage)));
+                lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Fall(piDamage)));
         }
-        else if (lOResult.FallDamage > 0)
+        else
         {
             UWCharacter lOCharacter = UWScene.Character;
 
             if (lOCharacter != null)
-                lOCharacter.Damage(UWDamageRequest.Fall(lOResult.FallDamage));
+                lOCharacter.Damage(UWDamageRequest.Fall(piDamage));
         }
-
-        if (lOResult.LandingSound)
-            UWAudioService.PlayEffect(fLandingSound(), UWImpactRules.GetVolume(lOResult.ImpactValue));
     }
 
     /// <summary>The transform from the params: the feet at the fine position and height, the

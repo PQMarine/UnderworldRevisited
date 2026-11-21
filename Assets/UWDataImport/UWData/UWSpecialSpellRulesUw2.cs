@@ -9,7 +9,7 @@ namespace UWDataImport.UWData
 	///   3, 4     the view swings, and unless the player resists, he hallucinates (level 2)
 	///   5        hallucination level 3
 	///   7        Map Area: a circle round the player onto the automap
-	///   8, 9     the acid and snowball missiles (not built: stage 2 part C)
+	///   8, 9     the acid and snowball missiles, a creature's as well (the yeti's snowball, spell 73)
 	///   12-15    mana of strength 3, 7, 11, 15 (class 10)
 	/// </summary>
 	public static class UWSpecialSpellRulesUw2
@@ -62,6 +62,13 @@ namespace UWDataImport.UWData
 
 		public const int CutVolumeB = 0x14;
 
+		/// <summary>The sparkle on a marker cut for the first time: put_effect(obj, 7, 4, 0, 7, x, y), the spells'
+		/// sparkle (UWAreaSpellRules.SpellEffectObjectId) at seven eighths of the ring's height (SPELLS2.C:832).</summary>
+		public const int CutSparkleEighths = UWAreaSpellRules.SpellEffectEighths;
+
+		/// <summary>... and the tremor after it: do_sfx(4, 0xF), set_effect(0x40, 0xF &lt;&lt; 1) (SPELLS2.C:842).</summary>
+		public const int CutShake = 0xF << 1;
+
 		public static bool IsBuilt(int piMinor)
 		{
 			return piMinor != MindBlastSpell;
@@ -83,6 +90,17 @@ namespace UWDataImport.UWData
 
 				return true;
 			}
+
+			// do_spell(5, 4) and do_spell(5, 6): the acid and the snowball as missile spells (part C2), the mana already paid -
+			// class 13 is no missile class for player_cast. FOR EVERY CASTER (per user 2026-11-22, SAVE3 on level 26: a yeti
+			// went through its throw and no snowball came, in the original one does): special_spells passes who on to
+			// do_spell (SPELLS.C:1006-1010), and the yeti casts spell 73 (class 13, minor 9) from both its slots. Until then
+			// the player test below came first, and a creature's acid or snowball did nothing.
+			if (piMinor == AcidSpell)
+				return UWSpellCasting.ApplyEffect(new UWRunicMagic.Spell(-1, UWSpellCasting.ProjectileMajorClass, AcidMissile, 0), false, pIHost);
+
+			if (piMinor == SnowballSpell)
+				return UWSpellCasting.ApplyEffect(new UWRunicMagic.Spell(-1, UWSpellCasting.ProjectileMajorClass, SnowballMissile, 0), false, pIHost);
 
 			if (lIPlayer == null)
 				return false;
@@ -115,14 +133,6 @@ namespace UWDataImport.UWData
 
 				case MapAreaSpell:
 					return fMapArea(pIHost, lIPlayer);
-
-				// do_spell(5, 4) and do_spell(5, 6): the acid and the snowball as missile spells (part C2), the mana
-				// already paid - class 13 is no missile class for player_cast.
-				case AcidSpell:
-					return UWSpellCasting.ApplyEffect(new UWRunicMagic.Spell(-1, UWSpellCasting.ProjectileMajorClass, AcidMissile, 0), false, pIHost);
-
-				case SnowballSpell:
-					return UWSpellCasting.ApplyEffect(new UWRunicMagic.Spell(-1, UWSpellCasting.ProjectileMajorClass, SnowballMissile, 0), false, pIHost);
 
 				default:
 					return false;
@@ -221,7 +231,8 @@ namespace UWDataImport.UWData
 		/// Guardian marker within two squares is taken away; if this world's line was not cut yet its bit goes into
 		/// quest byte 128, all eight set quest 14, the ice caverns (world 3) quest 52, and the line's sounds play.
 		/// A marker of a line already cut goes as well, without the sounds: "The spell has no noticeable effect."
-		/// THE MARKER'S EFFECT AND THE DIGITAL SOUND are not built (put_effect(obj, 7, ...), do_sfx(4, 0xF)).
+		/// A first cut sparkles on the marker before it goes and shakes the view (put_effect(obj, 7, 4, 0, 7, x, y),
+		/// do_sfx(4, 0xF); per user 2026-11-22, Altara's wand in the ice caverns: neither came).
 		/// </summary>
 		private static bool fCutLineOfPower(IUWSpellHost pIHost, IUWSpellHostUw2 pIPlayer)
 		{
@@ -240,11 +251,17 @@ namespace UWDataImport.UWData
 							return false;
 
 						pOTarget.DoorDirection = false;
-						pIHost.World.Remove(pOTarget);
 
 						int liLines = UWPlayerRecordUw2.GetQuest(pIPlayer.Record, UWPlayerRecordUw2.LinesOfPowerQuest);
+						bool lbAlready = (liLines & liBit) != 0;
 
-						if ((liLines & liBit) != 0)
+						if (!lbAlready)
+							pIHost.World.ShowEffectAtCreature(pOTarget, UWAreaSpellRules.SpellEffectObjectId,
+								UWAreaSpellRules.EffectSeconds, CutSparkleEighths);
+
+						pIHost.World.Remove(pOTarget);
+
+						if (lbAlready)
 							return true;
 
 						liLines |= liBit;
@@ -257,6 +274,9 @@ namespace UWDataImport.UWData
 							UWPlayerRecordUw2.SetQuest(pIPlayer.Record, UWPlayerRecordUw2.IceLineCutQuest, 1);
 
 						lbCut = true;
+
+						if (pIHost.World.Presentation != null)
+							pIHost.World.Presentation.ShakeScreen(CutShake);
 
 						return true;
 					});

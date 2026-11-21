@@ -153,7 +153,7 @@ public class UWCritterAnimator : MonoBehaviour
         miPaletteUw2 = liPalette;
 
         bool lbShown = fInitialiseWith(lOData, mONpcUw2.ID, (liMap << 8) | liPalette | Uw2AtlasKey,
-            () => UWCritterAtlasBuilder.BuildUw2(lOData, liMap, liPalette, fGetFilterMode()), mOTemplateUw2, mOTranslucentTemplateUw2);
+            () => UWCritterAtlasBuilder.BuildUw2(lOData, liMap, liPalette, fGetFilterMode(), UWLevelLoader.SpriteScalePasses), mOTemplateUw2, mOTranslucentTemplateUw2);
 
         if (lbChange)
         {
@@ -212,7 +212,7 @@ public class UWCritterAnimator : MonoBehaviour
         int liAuxPalette = pOData.CritterAnimations.GetAuxPaletteForObject(piObjectId);
 
         if (!fInitialiseWith(pOData, piObjectId, (liAnimation << 8) | liAuxPalette,
-                () => UWCritterAtlasBuilder.Build(pOData, liAnimation, liAuxPalette, fGetFilterMode()), pOTemplate, pOTranslucentTemplate))
+                () => UWCritterAtlasBuilder.Build(pOData, liAnimation, liAuxPalette, fGetFilterMode(), UWLevelLoader.SpriteScalePasses), pOTemplate, pOTranslucentTemplate))
             return;
 
         // The first game's creature: its stored animation, else standing (below).

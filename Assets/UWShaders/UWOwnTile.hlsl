@@ -338,6 +338,24 @@ bool UWOwnTileBehindRock(float3 pPositionWS, float3 pPivotWS)
     [loop]
     for (int liAt = 0; liAt < 32; liAt++)
     {
+        // THE OWN TILE'S STEP (per user 2026-11-22, UW2 level 42 from 19/33: a shield and a skull on the raised 20/32 showed
+        // through the face of that step in Remastered and Palette colours, the palette mode right): where the line comes
+        // into the sprite's own tile below that tile's floor, it comes through the face of the step up to it, which the
+        // original paints with the lower tile in front, after the sprite. Not for the eye's own tile, not for a slope.
+        if (all(lCell == lOwn) && liAt > 0)
+        {
+            int2 lOwnTexel = int2(lCell);
+
+            if (all(lOwnTexel >= int2(0, 0)) && all(lOwnTexel <= int2(63, 63)))
+            {
+                float2 lOwnTile = LOAD_TEXTURE2D(_UWFloorHeights, lOwnTexel).rg;
+                float lfEntryY = lerp(_WorldSpaceCameraPos, pPositionWS, lfEnter).y;
+
+                if (round(lOwnTile.g) < 5.5 && lOwnTile.r < UW_SOLID_TILE_FLOOR && lfEntryY < lOwnTile.r - UW_STEP_TOLERANCE)
+                    return true;
+            }
+        }
+
         if (all(lCell == lOwn) || all(lCell == lEnd))
             return false;
 

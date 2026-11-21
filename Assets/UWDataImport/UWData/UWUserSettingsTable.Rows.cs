@@ -182,6 +182,8 @@ namespace UWDataImport.UWData
 			ViewAngle.Format = UWSettingFormat.Degrees;
 			fText(ViewGamma, true);
 			ViewGamma.Format = UWSettingFormat.TwoDecimals;
+			fText(XbrTextures, true);
+			fText(XbrSprites, true);
 			fText(OriginalWorldResolution);
 			fText(OriginalWorldResolutionFactor);
 			OriginalWorldResolutionFactor.Format = UWSettingFormat.Factor;
@@ -202,6 +204,8 @@ namespace UWDataImport.UWData
 			// The light of the Remastered paths.
 			fText(AmbientLight, true);
 			AmbientLight.Format = UWSettingFormat.Percent;
+			fText(IceRelief, true);
+			IceRelief.Format = UWSettingFormat.Percent;
 			fText(LightTone, true);
 			fChoices(LightTone, new[] { "warm", "cool", "white" });
 

@@ -51,10 +51,35 @@ namespace UnderworldRevisited.Tools
                 fIceSlopeJump(lOImport);
                 fGemFacetWalk(lOImport);
                 fIceLevelSweep(lOImport, 24);
+                fIceThrownThingRests(lOImport);
             }
             finally
             {
                 UWGameSession.MakeCurrent(lOBefore);
+            }
+        }
+
+        /// <summary>A THING THROWN ONTO ICE COMES TO REST (per user 2026-11-21, SAVE3 in the ice caves, level 25 at 12/31: a
+        /// note thrown on the ice 215 never came to rest, its landing sound went on, a pack thrown before was gone later).
+        /// On ice obj_deal does nothing (OBJPHYS.C:565, IUWMotionVariant.IceHoldsPlacedObjects); without the case the floor
+        /// test saw no floor (bit 8 is 8 &lt;&lt; 3 there) and made it mobile again, round after round.</summary>
+        private static void fIceThrownThingRests(DataImport pOImport)
+        {
+            const int Note = 0x136;
+
+            foreach (int liTerrain in new[] { UWTerrainUw2.ClassIce, 0 })
+            {
+                FakeMotionWorld lOWorld = new FakeMotionWorld();
+                UWMobileObjectMotion lOMotion = new UWMobileObjectMotion(lOWorld, lOWorld, pOImport.CommonObjectProperties);
+
+                lOWorld.Paint(1, 1, FakeMotionWorld.Size - 2, FakeMotionWorld.Size - 2, 1, 2, liTerrain);
+
+                string lsWhere = liTerrain == 0 ? "ground" : "ice";
+                bool lbThrown = fThrow(lOWorld, lOMotion, pOImport, Note, 2, 0, out UWMobileRecord lORecord);
+                int liSteps = lbThrown ? fFly(lOWorld, lOMotion, lORecord, out int liLowest) : -1;
+
+                Check.Bool("ice modes: a note thrown onto " + lsWhere + " comes to rest once (steps " + liSteps + ", rested "
+                    + lOWorld.Rested + ", removed " + lOWorld.Removed + ")", liSteps > 0 && lOWorld.Rested == 1 && lOWorld.Removed == 0, true);
             }
         }
 

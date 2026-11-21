@@ -99,8 +99,9 @@ namespace UnderworldRevisited.Tools
             // game's own folder; 84 since 2026-11-03: Fix bugs of the original; 86 since 2026-11-04: ambient
             // light and light colour; 87 since 2026-11-05: the debug keys; 88 since 2026-11-07: Remove exploits of the
             // original; 89 the same day: the message box's Fade out (issue 18); 90 since 2026-11-08: every mantra
-            // and spell in the help (issue 19).
-            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 103);
+            // and spell in the help (issue 19); 104 since 2026-11-22: the second game's ice relief; 105 the same day: the
+            // xBR texture scaling; 106 the same day: the sprites' xBR.
+            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 106);
 
             // A few texts as the dialogs showed them (the words must not drift before step 8.5).
             Check.Str("rows: the frame rates' texts", string.Join(",", UWUserSettingsTable.OriginalFrameTicks.ChoiceLabels), "64,32,21,16");

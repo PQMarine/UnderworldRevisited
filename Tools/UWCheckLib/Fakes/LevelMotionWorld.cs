@@ -24,6 +24,10 @@ namespace UnderworldRevisited.Tools
         /// <summary>The move triggers met since the last Reset, by master-list index, in order.</summary>
         public readonly List<int> Triggers = new List<int>();
 
+        /// <summary>Called on every report of a move trigger (not only the first), by master-list index - a check that
+        /// plays the trap's effect and the host's pacer.</summary>
+        public System.Action<int> OnTrigger;
+
         public LevelMotionWorld(UWLevel pOLevel, UWTerrain pOTerrain, int piSeed)
         {
             mOLevel = pOLevel;
@@ -125,6 +129,9 @@ namespace UnderworldRevisited.Tools
 
             if (lOTrigger != null && lOTrigger.ID == UWObjectMechanics.MoveTriggerId && !Triggers.Contains(piOtherIndex))
                 Triggers.Add(piOtherIndex);
+
+            if (lOTrigger != null && lOTrigger.ID == UWObjectMechanics.MoveTriggerId && OnTrigger != null)
+                OnTrigger(piOtherIndex);
 
             return 2;
         }

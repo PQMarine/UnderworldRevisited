@@ -306,6 +306,54 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public int RampFrameTicks = OriginalFrameTicks;
 
+		/// <summary>
+		/// THE SHADOW RAMP (per user 2026-11-22: with Modern's ramp at once the full run is there at once, and a jump at a
+		/// wall a step away hurt as after a long run). Beside the speed the ramp gives, Modern keeps the speed the
+		/// original's ramp would have reached OVER THE SAME DISTANCE - MotionWeight per this many ticks, the host's
+		/// Original frame; at that rate a over a run d the speed is sqrt(2 a d), so the shadow's square grows by 2 a v dt
+		/// with the speed v actually run - and a wall met in the air counts only that share of the speed
+		/// (WallImpactShare). Over time instead it lagged: at once the body reaches the wall sooner. The feel and the jump stay as they are;
+		/// after a long run the blow is the whole one, as in the original. The landing's impact is not touched.
+		/// </summary>
+		public int ImpactRampFrameTicks = OriginalFrameTicks;
+
+		/// <summary>The shadow ramp's speed (ImpactRampFrameTicks), never above the speed itself.</summary>
+		private double mdShadowSpeed;
+
+		/// <summary>The share of the speed the shadow ramp has reached, 0 to 1 (1 without Modern or without speed).</summary>
+		public double WallImpactShare(int piSpeed)
+		{
+			if (!Modern || piSpeed <= 0)
+				return 1.0;
+
+			return System.Math.Min(1.0, mdShadowSpeed / piSpeed);
+		}
+
+		/// <summary>The shadow ramp's step on the ground towards the command's target (fInitialCalc).</summary>
+		private void fShadowRamp(int piTarget)
+		{
+			UWMotionParams p = Params;
+
+			if (!Modern || ImpactRampFrameTicks <= 0)
+			{
+				mdShadowSpeed = p.Speed;
+
+				return;
+			}
+
+			double ldRate = MotionWeight / (double)ImpactRampFrameTicks;
+			double ldTicks = fFrameTicks();
+			double ldTarget = System.Math.Max(0, System.Math.Min(piTarget, ForwardSpeed));
+
+			// Up by the distance run (the square by 2 a v dt), down as the ramp brakes (a dt).
+			if (ldTarget > mdShadowSpeed)
+				mdShadowSpeed = System.Math.Min(ldTarget, System.Math.Sqrt((mdShadowSpeed * mdShadowSpeed)
+					+ (2.0 * ldRate * System.Math.Max(0, p.Speed) * ldTicks)));
+			else
+				mdShadowSpeed = System.Math.Max(ldTarget, mdShadowSpeed - (ldRate * ldTicks));
+			mdShadowSpeed = System.Math.Min(mdShadowSpeed, System.Math.Max(0, p.Speed));
+		}
+
 		/// <summary>What the take-off loses in the precision mode so that the continuous arc peaks
 		/// where the original's 16-tick arc does. The Euler half step alone would be g * 16 / 2 =
 		/// 32, but the original's arc also loses a fine z to the dropped fraction on every call,
@@ -646,8 +694,12 @@ namespace UWDataImport.UWData
 						p.Speed = ForwardSpeed;
 					else if (p.Speed < 0)
 						p.Speed = 0;
+
+					fShadowRamp(liTarget);
 				}
 			}
+			else
+				mdShadowSpeed = System.Math.Min(mdShadowSpeed, System.Math.Max(0, p.Speed));
 
 			if (p.Gravity != 0)
 				CameraYaw = (CameraYaw + fTurn(piDt)) & 0xFFFF;
@@ -1272,6 +1324,8 @@ namespace UWDataImport.UWData
 
 			double lfFallGravity = m.Gravity != 0.0 ? m.Gravity : UWCharacterMotor.FallGravity;
 
+			int liSpeedBeforeWall = p.Speed;
+
 			m.Advance(lfTicks);
 			m.WallBounce = -1;
 
@@ -1280,7 +1334,28 @@ namespace UWDataImport.UWData
 			// settling speed 0x8D (do_zbounce: below it the mover rests).
 			bool lbBounced = false;
 
-			if (p.Elastic && m.LandedVz < 0.0 && -m.LandedVz >= FlySpeed)
+			// A FALL INTO WATER STOPS DEAD, without an impact (per user 2026-11-22, UW2: a teleport's falling arrival over
+			// water hurt in Modern, not in Classic nor the original). do_zbounce, before any bounce: on the floor (no object
+			// landed on) with the water's terrain bits (IUWMotionVariant.LandsInWater) stop_me, the splash by the mass, and
+			// return - no impact for the damage (uw2 MOTION.C:514-528, uw1 MOTION.C:505-509; UWMotionCore's zbounce).
+			bool lbIntoWater = m.LandedVz < 0.0 && !m.OnObject && mOWorld.Session.Game.Motion.LandsInWater(m.GroundTerrain);
+
+			if (lbIntoWater)
+			{
+				int liMass = 0;
+
+				if (mOProperties != null && mOProperties.TryGet(UWObjectMechanics.AdventurerObjectId, out UWCommonObjectProperties.Entry lOSelf))
+					liMass = lOSelf.MassTenthStones & 0xFFF;
+
+				int liSplash = mOWorld.Session.Game.Motion.WaterLandingSound(liMass, out int liSplashVolume);
+
+				m.Vx = 0.0;
+				m.Vy = 0.0;
+				p.Speed = 0;
+				mOWorld.PlaySoundAt(liSplash, UWRounding.Floor(m.X * 8.0), UWRounding.Floor(m.Y * 8.0), liSplashVolume);
+			}
+
+			if (!lbIntoWater && p.Elastic && m.LandedVz < 0.0 && -m.LandedVz >= FlySpeed)
 			{
 				m.Jump(-m.LandedVz, lfFallGravity);
 				lbBounced = true;
@@ -1309,10 +1384,12 @@ namespace UWDataImport.UWData
 			// doubled where the core bounces on (its vertical speed after the bounce at 0x8D or more).
 			bool lbDoubled = !m.Grounded;
 
+			// The shadow ramp's share (WallImpactShare): with a quick ramp, a jump from a short run hurts as the
+			// original's from the same run.
 			if (m.WallImpact > 0.0)
-				p.Impact = I16(p.Impact + (I16(UWRounding.Floor(m.WallImpact) * (15 - p.Elasticity)) / 15));
+				p.Impact = I16(p.Impact + (I16(UWRounding.Floor(m.WallImpact * WallImpactShare(liSpeedBeforeWall)) * (15 - p.Elasticity)) / 15));
 
-			if (m.LandedVz < 0.0 && !lbBounced && !p.Elastic)
+			if (m.LandedVz < 0.0 && !lbBounced && !p.Elastic && !lbIntoWater)
 			{
 				int liVz = (int)m.LandedVz;
 				int liBounce = -(liVz / 15);
@@ -1642,6 +1719,7 @@ namespace UWDataImport.UWData
 			Last = default(FrameResult);
 			mOHandler.IgnoreMask = 0;
 			p.Speed = 0;
+			mdShadowSpeed = 0.0;
 			p.Gravity = 0;
 			p.Ax = 0;
 			p.Ay = 0;

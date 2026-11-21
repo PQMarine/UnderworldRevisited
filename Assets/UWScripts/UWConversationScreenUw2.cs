@@ -323,13 +323,19 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         return miButtonsUpFrame >= 0 && Time.frameCount > miButtonsUpFrame && (UWMouseButtons.LeftReleased || UWMouseButtons.RightReleased);
     }
 
+    /// <summary>While the help has the keyboard (typing in its notes, reading the manual) or another entry takes typed
+    /// keys (the split box, a count prompt: UWControls.IsTextEntryActive), the conversation hears no key, as the first
+    /// game's (UWConversationController.IsKeyboardTaken, 2026-10-14): a digit typed in the notes must not choose an
+    /// answer (per user 2026-11-22, the second game's did). Its own typed answer is the one entry it keeps.</summary>
+    private static bool IsKeyboardTaken => UWHelpWindow.BlocksGameKeys || (UWControls.IsTextEntryActive && !IsTyping);
+
     /// <summary>conv_play_menu: the keys 1 to 5, or a click on the scroll's row; both buttons, on the release as
     /// in the first game (per user on the original, 2026-09-18).</summary>
     private int fReadChoice()
     {
         Keyboard lOKeyboard = Keyboard.current;
 
-        if (lOKeyboard != null)
+        if (lOKeyboard != null && !IsKeyboardTaken)
         {
             for (int liAt = 0; liAt < UWClassicLayoutUw2.Conversation.ChoiceKeys && liAt < mOSession.Choices.Count; liAt++)
             {
@@ -373,6 +379,10 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             fDrawTyped();
         }
 
+        // The help's notes have the keyboard: the typed answer waits, as in the first game.
+        if (IsKeyboardTaken)
+            return;
+
         bool lbEscape = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
 
         // wdialog ends on Enter, Escape or a click.
@@ -399,7 +409,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
 
     private void fOnTyped(char pcTyped)
     {
-        if (mbTyping && mOView.TryType(pcTyped, fFont))
+        if (mbTyping && !IsKeyboardTaken && mOView.TryType(pcTyped, fFont))
             fDrawTyped();
     }
 
@@ -823,7 +833,8 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
 
         UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
 
-        if (UWMouseButtons.AnyPressed || (lOKeyboard != null && lOKeyboard.anyKey.wasPressedThisFrame) || UWGamepad.AnyPressed(false))
+        if (UWMouseButtons.AnyPressed || (lOKeyboard != null && !IsKeyboardTaken && lOKeyboard.anyKey.wasPressedThisFrame)
+            || UWGamepad.AnyPressed(false))
             fNextLookPage();
 
         return true;

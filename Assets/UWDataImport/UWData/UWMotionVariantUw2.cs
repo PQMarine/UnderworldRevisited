@@ -68,6 +68,8 @@ namespace UWDataImport.UWData
 
 		public bool PutDownSplashes => true;
 
+		public bool IceHoldsPlacedObjects => true;
+
 		/// <summary>The light splash below this mass, the middle one below MediumSplashMass, else the first game's.</summary>
 		public const int LightSplashMass = 20;
 

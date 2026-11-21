@@ -321,6 +321,12 @@ public static class UWUserSettings
     /// through UWWorldResolution.</summary>
     public static bool OriginalWorldResolution { get => Defs.OriginalWorldResolution.Read(fGet()); set => Defs.OriginalWorldResolution.Write(fGet(), value); }
 
+    /// <summary>Walls, floors and ceilings scaled by xBR in Remastered (UWUserData.XbrTextures, UWLevelLoader.ApplyXbrTextures).</summary>
+    public static bool XbrTextures { get => Defs.XbrTextures.Read(fGet()); set => Defs.XbrTextures.Write(fGet(), value); }
+
+    /// <summary>Creatures and things scaled by xBR in Remastered from the next load on (UWUserData.XbrSprites, UWSpriteXbr).</summary>
+    public static bool XbrSprites { get => Defs.XbrSprites.Read(fGet()); set => Defs.XbrSprites.Write(fGet(), value); }
+
     /// <summary>The palette renderer's ambient occlusion in shade steps, 0 = off - see UWPaletteEffects.</summary>
     public static float PaletteAmbientOcclusion { get => Defs.PaletteAmbientOcclusion.Read(fGet()); set => Defs.PaletteAmbientOcclusion.Write(fGet(), value); }
 
@@ -331,6 +337,9 @@ public static class UWUserSettings
     public static int PaletteGrimeTone { get => Defs.PaletteGrimeTone.Read(fGet()); set => Defs.PaletteGrimeTone.Write(fGet(), value); }
 
     public static float AmbientLight { get => Defs.AmbientLight.Read(fGet()); set => Defs.AmbientLight.Write(fGet(), value); }
+
+    /// <summary>The second game's ice textures' relief depth in Remastered, a factor on the walls' (UWUserData.IceRelief).</summary>
+    public static float IceRelief { get => Defs.IceRelief.Read(fGet()); set => Defs.IceRelief.Write(fGet(), value); }
 
     public static int LightTone { get => Defs.LightTone.Read(fGet()); set => Defs.LightTone.Write(fGet(), value); }
 

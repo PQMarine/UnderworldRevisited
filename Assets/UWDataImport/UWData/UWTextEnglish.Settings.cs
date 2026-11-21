@@ -141,6 +141,10 @@ namespace UWDataImport.UWData
 			fAdd("setting.ViewAngle", "View");
 			fAdd("setting.ViewGamma", "Gamma");
 			fAdd("setting.ViewGamma.hint", "Lifts the dark tones of the 3D view, in both modes; the interface keeps its colours. 1.00 is the picture as drawn.");
+			fAdd("setting.XbrTextures", "xBR texture scaling (4x)");
+			fAdd("setting.XbrTextures.hint", "Walls, floors and ceilings scaled to four times their size with the pixel art scaler xBR (twice 2x); in Remastered. Things and creatures are not scaled.");
+			fAdd("setting.XbrSprites", "xBR creatures, things and weapons (4x, next load)");
+			fAdd("setting.XbrSprites.hint", "Creatures, things and the weapon in the hand scaled to four times their size with the pixel art scaler xBR, with a hard edge; in Remastered, from the next load of a game on.");
 			fAdd("setting.OriginalWorldResolution", "World at the original's resolution");
 			fAdd("setting.OriginalWorldResolutionFactor", "Resolution factor");
 
@@ -156,6 +160,8 @@ namespace UWDataImport.UWData
 			fAdd("setting.PaletteGrimeTone.choice.soot", "Soot");
 			fAdd("setting.AmbientLight", "Ambient light");
 			fAdd("setting.AmbientLight.hint", "How bright the world is without a light of your own, in Remastered and Palette colours. 100 % is as shipped, 0 % dark as in the original.");
+			fAdd("setting.IceRelief", "Ice relief (UW2)");
+			fAdd("setting.IceRelief.hint", "How deep the relief of the second game's ice is in Remastered and Palette colours, against the walls' relief. 100 % as the walls, 0 % smooth.");
 			fAdd("setting.LightTone", "Light colour");
 			fAdd("setting.LightTone.hint", "The colour of torches, lanterns, fires and spells in Remastered. Palette colours keeps the original's colours.");
 			fAdd("setting.LightTone.choice.warm", "Warm");

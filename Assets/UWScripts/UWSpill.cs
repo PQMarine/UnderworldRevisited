@@ -32,6 +32,12 @@ public static class UWSpill
             lOItem.Link = 0;
             pOLoader.SpawnScatteredAround(lOItem, pOCentre, UWScatterRules.LootRadius, pOFallbackTile,
                 pbAvoidWorldContainers);
+
+            // AN INVISIBLE THING FALLS OUT UNSEEN (do_obj, 3d/DRAWOBJ.C of both games, skips ID_INVIS; per user 2026-11-20:
+            // the first game's emptied goblin chest on level 1, 3/50, shows no lock in the original - its lock, like the
+            // other chests', carries the bit and goes down with the rest, drop_link_chain). Ours drew it as "LOCK".
+            if (lOItem.IsHidden && !(lOItem is UWNpc) && pOLoader.TryGetEntity(lOItem, out UWEntityInfo lOEntity) && lOEntity != null)
+                lOEntity.gameObject.SetActive(false);
         }
 
         // THE CHAIN IS CUT (drop_link_chain: cont->ol.f.link = 0) - the head in the container's

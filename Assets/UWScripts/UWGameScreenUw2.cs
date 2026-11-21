@@ -1255,7 +1255,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     private Sprite fWeaponPicture(int piIndex)
     {
         int liSet = mOShownPlayer != null && UWPlayerRecordUw2.Body(mOShownPlayer) == UWClassicLayoutUw2.Weapon.SecondColourMapBody ? 1 : 0;
-        int liKey = (liSet << 16) | piIndex;
+        // The sprites' xBR (UWSpriteXbr.WeaponPasses, per user 2026-11-22): the scaled pictures under keys of their own.
+        int liPasses = UnderworldRevisited.Build.UWSpriteXbr.WeaponPasses;
+        int liKey = (liPasses << 20) | (liSet << 16) | piIndex;
 
         if (mOWeaponPictures.TryGetValue(liKey, out Sprite lOSprite))
             return lOSprite;
@@ -1296,7 +1298,19 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             }
         }
 
-        lOSprite = fWholeSprite(fOwn(UWTextureFactory.Upload(lyRgba, liWidth, liHeight, FilterMode.Point, TextureWrapMode.Clamp, "UW2 weapon " + piIndex)));
+        if (liPasses > 0)
+        {
+            // Scaled, with as many pixels per unit as the scale: the layout (fPlace, UWModernHudUw2.ShowWeapon) divides by
+            // them and keeps the original's size.
+            int liScale = 1 << liPasses;
+            Texture2D lOScaled = fOwn(UWTextureFactory.Upload(UnderworldRevisited.Build.UWSpriteXbr.ScaleRgba(lyRgba, liWidth, liHeight, liPasses),
+                liWidth * liScale, liHeight * liScale, FilterMode.Point, TextureWrapMode.Clamp, "UW2 weapon " + piIndex + " (xBR)"));
+
+            lOSprite = Sprite.Create(lOScaled, new Rect(0f, 0f, lOScaled.width, lOScaled.height), new Vector2(0.5f, 0.5f), liScale);
+        }
+        else
+            lOSprite = fWholeSprite(fOwn(UWTextureFactory.Upload(lyRgba, liWidth, liHeight, FilterMode.Point, TextureWrapMode.Clamp, "UW2 weapon " + piIndex)));
+
         mOWeaponPictures[liKey] = lOSprite;
 
         return lOSprite;
@@ -2055,8 +2069,14 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             if (miSlideFrame == 0 && miPage != UWClassicLayoutUw2.Runes.PanelPage)
                 fStartSlide(UWClassicLayoutUw2.Runes.PanelPage);
         }
+        // UseCont, then UseObj's checkTrap with mode 4 and checkSpell, opened or locked (per user 2026-11-20: Felix's box,
+        // enchanted with Create Food, makes food when it is opened in the original; ours only opened it).
         else if (pOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
+        {
             mOInventory.TryOpenContainer(pOItem);
+            fCheckCarriedTrap(pOItem);
+            fAfterCarriedCast(UWCarriedSpellRulesUw2.CheckSpell(pOItem, null, fCastClock, fCastCarriedSpell));
+        }
         else if (pOItem.ID == UWClassicLayoutUw2.Inventory.MapObject)
         {
             Say(UWText.Block(mOData, 1, UWClassicLayoutUw2.Inventory.UnrollString + 1, string.Empty));
@@ -3395,7 +3415,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (pOSprite == null)
             return;
 
-        UWUiKit.SetRect(pOImage.rectTransform, pfLeft, -pfTop, pOSprite.rect.width, pOSprite.rect.height);
+        // In the original's pixels: a scaled picture (the weapon with the sprites' xBR) has as many pixels per unit as its scale.
+        UWUiKit.SetRect(pOImage.rectTransform, pfLeft, -pfTop, pOSprite.rect.width / pOSprite.pixelsPerUnit, pOSprite.rect.height / pOSprite.pixelsPerUnit);
     }
 
     private static RectTransform fCreateSideBar(string psName, RectTransform pOParent, float pfEdge)

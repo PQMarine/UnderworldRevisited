@@ -121,12 +121,34 @@ public sealed class UWEffectsScreen
         // THE LIGHT (per user, 2026-11-04): the viewer's own like the grime, kept apart from the presets.
         fAddRow("effects.ambient_light", KindEnum.Slider, 0f, 3f,
             v => UWUserSettings.AmbientLight, (v, f) => UWUserSettings.AmbientLight = f);
+
+        // THE ICE'S RELIEF (per user 2026-11-22): the second game's ice textures' depth on its own, the viewer's like the light;
+        // 0 to 100 % ("more does not look good"), in Remastered and Palette colours alike (the same shader).
+        fAddRow("effects.ice_relief", KindEnum.Slider, 0f, 1f,
+            v => UWUserSettings.IceRelief, (v, f) => UWUserSettings.IceRelief = f);
+        // THE xBR TEXTURE SCALING (per user 2026-11-22, here from the Graphics window the same day: "Effekte-Fenster"): the
+        // viewer's own like the light, kept apart from the presets and from ALL ON / OFF; at once (UWLevelLoader.ApplyXbrTextures).
+        // Remastered only: the palette path draws from the index array, which it leaves alone.
+        fAddRow("effects.xbr_textures", KindEnum.Toggle, 0f, 1f, v => UWUserSettings.XbrTextures ? 1f : 0f, (v, f) => fSetXbrTextures(f >= 0.5f));
+        mORows[mORows.Count - 1].RemasteredOnly = true;
+        // THE SPRITES' xBR (per user 2026-11-22, the hard edge): creatures and things, from the next load on
+        // (UWLevelLoader.fSpriteScalePasses); kept apart from the presets and ALL ON / OFF as the textures' row.
+        fAddRow("effects.xbr_sprites", KindEnum.Toggle, 0f, 1f, v => UWUserSettings.XbrSprites ? 1f : 0f, (v, f) => UWUserSettings.XbrSprites = f >= 0.5f);
+        mORows[mORows.Count - 1].RemasteredOnly = true;
         fAddRow("effects.light_colour", KindEnum.LightTone, 0f, UWLightColour.ToneWhite,
             v => UWUserSettings.LightTone, (v, f) => UWUserSettings.LightTone = Mathf.RoundToInt(f));
         mORows[mORows.Count - 1].RemasteredOnly = true;
 
         mOPage = fBuildPage();
         miPageLanguage = UWText.LanguageVersion;
+    }
+
+    private static void fSetXbrTextures(bool pbOn)
+    {
+        UWUserSettings.XbrTextures = pbOn;
+
+        if (UWScene.LevelLoader != null)
+            UWScene.LevelLoader.ApplyXbrTextures();
     }
 
     private void fAddRow(string psLabelId, KindEnum peKind, float pfMin, float pfMax,

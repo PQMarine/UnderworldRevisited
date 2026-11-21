@@ -329,6 +329,10 @@ namespace UWDataImport.UWData
 
 		public static readonly UWBoolSettingDef OriginalWorldResolution = fBool(nameof(UWUserData.OriginalWorldResolution), d => d.OriginalWorldResolution, (d, v) => d.OriginalWorldResolution = v);
 
+		public static readonly UWBoolSettingDef XbrTextures = fBool(nameof(UWUserData.XbrTextures), d => d.XbrTextures, (d, v) => d.XbrTextures = v);
+
+		public static readonly UWBoolSettingDef XbrSprites = fBool(nameof(UWUserData.XbrSprites), d => d.XbrSprites, (d, v) => d.XbrSprites = v);
+
 		/// <summary>1 to 4; UWWorldResolution.Factor keeps the limits.</summary>
 		public static readonly UWIntSettingDef OriginalWorldResolutionFactor = fInt(nameof(UWUserData.OriginalWorldResolutionFactor), UWSettingKind.Int, d => d.OriginalWorldResolutionFactor, (d, v) => d.OriginalWorldResolutionFactor = v);
 
@@ -343,6 +347,14 @@ namespace UWDataImport.UWData
 
 		/// <summary>UWGrimeTint.ToneEnum as a number: none, dirt, moss, soot.</summary>
 		public static readonly UWFloatSettingDef AmbientLight = fFloat(nameof(UWUserData.AmbientLight), d => d.AmbientLight, (d, v) => d.AmbientLight = v);
+
+		/// <summary>0 to 1 (per user 2026-11-22: "the range goes from 0 to 100 %; more does not look good").</summary>
+		public static readonly UWFloatSettingDef IceRelief = new UWFloatSettingDef(nameof(UWUserData.IceRelief), d => d.IceRelief, (d, v) => d.IceRelief = v)
+		{
+			Normalize = UWSettingNormalize.Clamp,
+			Min = 0f,
+			Max = 1f
+		};
 
 		public static readonly UWIntSettingDef LightTone = fInt(nameof(UWUserData.LightTone), UWSettingKind.Choice, d => d.LightTone, (d, v) => d.LightTone = v);
 
@@ -485,8 +497,8 @@ namespace UWDataImport.UWData
 			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle, AutoKey, FreeOpensCharacter, FreeOpensRunes, FreeOpensBags, DebugKeys,
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,
 			RightStickDeadzone, ModernPanelPinned, ModernRunesPinned, ControlScheme, EasyMovementInterval, ShowOpeningSequence,
-			CutsceneSubtitles, RunInBackground, CheckForUpdates, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,
-			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, AmbientLight, LightTone, PaletteGroundShadows,
+			CutsceneSubtitles, RunInBackground, CheckForUpdates, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, XbrTextures, XbrSprites, OriginalWorldResolutionFactor,
+			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, AmbientLight, IceRelief, LightTone, PaletteGroundShadows,
 			PaletteCavity, PaletteDepth, PaletteDitherCell, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,
 			OriginalFrameTicks, SmoothRampTicks, ModernRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath, MusicRecordings,

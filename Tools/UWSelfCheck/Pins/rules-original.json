@@ -91,6 +91,7 @@
   "deviations.everyEnterExitTrigger": true,
   "deviations.followerLandsWhereItCanStand": true,
   "deviations.groundedFlightBouncesOnIce": true,
+  "deviations.misplacedObjectsMoved": true,
   "deviations.orbManaAsideOnlyWhileOrbStands": true,
   "deviations.tidyLeakedObjects": true,
   "deviations.unpushableNpcs": true,

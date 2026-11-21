@@ -496,7 +496,9 @@ public sealed class UWWorldUse
         }
 
         UWTilePos lOTile = fLoader().WorldPositionToTile(pOTarget.transform.position);
-        int liSpilled = UWSpill.Apply(fLoader(), lOContainer, UWSpillRules.Partition(lOContainer.Contents),
+        // The second game frees the locks first (UWSpillRules.LocksFreedOnSpill).
+        int liSpilled = UWSpill.Apply(fLoader(), lOContainer,
+            UWSpillRules.Partition(lOContainer.Contents, UWSpillRules.LocksFreedOnSpill(UWGameSession.Current.Game.Game)),
             pOTarget.transform.position, lOTile, true);
 
         // NOTHING CAME OUT: the original then says so. UW.EXE builds the sentence from three

@@ -103,8 +103,10 @@ internal sealed class UWModernBagDrag
         }
         else
         {
-            pOInventory.BeginDragFromContainerItem(pOWindow.Container, pOWindow.FirstIndex + piSlot);
-            mOOrigin = UWCursorOrigin.Container(pOWindow.Container, pOWindow.FirstIndex + piSlot);
+            int liIndex = UWInventoryModel.ContentIndexOfShown(pOWindow.Container.Contents, pOWindow.FirstIndex + piSlot);
+
+            pOInventory.BeginDragFromContainerItem(pOWindow.Container, liIndex);
+            mOOrigin = UWCursorOrigin.Container(pOWindow.Container, liIndex);
         }
 
         mOBags.OpenBags.Prune();
@@ -174,7 +176,8 @@ internal sealed class UWModernBagDrag
             }
             else
             {
-                lbPlaced = pOInventory.DropCursorItemInContainerAt(lOWindow.Container, lOWindow.FirstIndex + liSlot);
+                lbPlaced = pOInventory.DropCursorItemInContainerAt(lOWindow.Container,
+                    UWInventoryModel.ContentIndexOfShown(lOWindow.Container.Contents, lOWindow.FirstIndex + liSlot));
             }
 
             if (!lbPlaced)

@@ -222,11 +222,22 @@ public static class UWShaderIds
 
     public static readonly int TexArray = Shader.PropertyToID("_TexArray");
 
+    /// <summary>The palette colour slices' colours and the slice they start at (UWTextureArrayBuilder.AttachSwatches).</summary>
+    public static readonly int SwatchColours = Shader.PropertyToID("_SwatchColours");
+
+    public static readonly int SwatchBase = Shader.PropertyToID("_SwatchBase");
+
     public static readonly int IndexArray = Shader.PropertyToID("_IndexArray");
 
     public static readonly int NormalArray = Shader.PropertyToID("_NormalArray");
 
     public static readonly int MaterialLut = Shader.PropertyToID("_MaterialLut");
+
+    /// <summary>The second game's ice slices (UWTextureArrayBuilder.BuildIceSliceTable) and their relief depth, a factor
+    /// (UWUserSettings.IceRelief).</summary>
+    public static readonly int IceSliceTable = Shader.PropertyToID("_IceSliceTable");
+
+    public static readonly int IceRelief = Shader.PropertyToID("_IceRelief");
 
     public static readonly int Cull = Shader.PropertyToID("_Cull");
 

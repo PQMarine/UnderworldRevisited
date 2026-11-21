@@ -640,7 +640,7 @@ namespace UWDataImport.UWData
 						if (lbFiltered && fRead(liFlagPointer + liIndex) == 0)
 							continue;
 
-						PendingChoices.Add(fGetSubstitutedString(liString));
+						PendingChoices.Add(fGetSubstitutedString(liString).TrimEnd('\r', '\n'));
 						mOPendingChoiceStrings.Add(liString);
 					}
 
@@ -767,9 +767,65 @@ namespace UWDataImport.UWData
 		/// @XY&lt;number&gt;, where X is the source (G global, S stack, P pointer) and Y the type
 		/// (S string number, I integer).
 		/// </summary>
+		/// <summary>A string of the conversation with its placeholders put in, as SAY_OP shows it (for the self-check).</summary>
+		public string SubstitutedString(int piStringNumber)
+		{
+			return fGetSubstitutedString(piStringNumber);
+		}
+
 		private string fGetSubstitutedString(int piStringNumber)
 		{
-			string lsText = mOGetString != null ? mOGetString(piStringNumber) : null;
+			return fSubstitute(mOGetString != null ? mOGetString(piStringNumber) : null, 0);
+		}
+
+		/// <summary>How deep a string put in for a placeholder is itself resolved (convert_string calls itself without a
+		/// limit; the limit only guards against a string that names itself).</summary>
+		private const int MaxSubstitutionDepth = 8;
+
+		/// <summary>AtIndex (conv/BABL.C): the index part of an @-variable at piCursor, a variable of its own - G, S or P with
+		/// the type I (another type gives 0), or C a constant - with its own index in turn; its value, the cursor moved past
+		/// it.</summary>
+		private int fAtIndex(string psText, ref int piCursor)
+		{
+			char lcKind = psText[piCursor++];
+			char lcType = 'I';
+
+			if (lcKind != 'C')
+			{
+				if (piCursor >= psText.Length)
+					return 0;
+
+				lcType = psText[piCursor++];
+			}
+
+			if (lcType != 'I')
+				return 0;
+
+			int liStart = piCursor;
+
+			while (piCursor < psText.Length && (char.IsDigit(psText[piCursor]) || psText[piCursor] == '-'))
+				piCursor++;
+
+			int.TryParse(psText.Substring(liStart, piCursor - liStart), out int liParsed);
+
+			int liExtra = 0;
+
+			if (piCursor < psText.Length && (psText[piCursor] == 'G' || psText[piCursor] == 'S' || psText[piCursor] == 'P'
+				|| psText[piCursor] == 'C'))
+				liExtra = fAtIndex(psText, ref piCursor) - 1;
+
+			switch (lcKind)
+			{
+				case 'G': return fRead(liParsed + liExtra);
+				case 'P': return fRead(fRead(miBasePointer + liParsed) + liExtra);
+				case 'S': return fRead(miBasePointer + liParsed + liExtra);
+				default: return liParsed;
+			}
+		}
+
+		private string fSubstitute(string psText, int piDepth)
+		{
+			string lsText = psText;
 
 			if (string.IsNullOrEmpty(lsText) || lsText.IndexOf('@') < 0)
 				return lsText ?? string.Empty;
@@ -815,71 +871,32 @@ namespace UWDataImport.UWData
 				if (lbNegative)
 					liNumber = -liNumber;
 
-				// TWO OPTIONAL PARTS FOLLOW (uw-formats 7.5, the reference's pattern
-				// [@][GSP][SI](-*[0-9]*)([S][I])?([0-9]*)?([C][0-9]*)?):
-				//
-				//   SI<n>  a shift read from the stack: the value at BP + n, minus one.
-				//   C<n>   an index into an array that starts at the named place, counted from one.
-				//
-				// Without them Shak's line "@GI3C2 minutes" printed the wrong variable and left a
-				// stray "C2" in the text (per user with a screenshot, 2026-09-17: "0C2 minutes").
-				int liStackShift = 0;
-				int liArrayIndex = 0;
+				// AN INDEX MAY FOLLOW, ITSELF A VARIABLE (convert_string and AtIndex, conv/BABL.C of both games, read
+				// 2026-11-22): G, S or P with the type I, or C, then its number and, in turn, an index of its own; its value
+				// minus one is added. G reads mem[number + extra], S the local stack[bp + number + extra], P the address in
+				// stack[bp + number] plus extra. Until 2026-11-22 ours knew only SI and C, and @S with SI read the local whose
+				// number stood in the local at the shift: Miranda's "@SS1SI10" named only one of two cut lines of power (per
+				// user with a picture). Before 2026-09-17 the index was left as text ("@GI3C2 minutes" gave "0C2 minutes").
+				int liExtra = 0;
 
-				if (liCursor + 1 < lsText.Length && lsText[liCursor] == 'S' && lsText[liCursor + 1] == 'I')
-				{
-					liCursor += 2;
-
-					int liShiftDigits = 0;
-					int liShift = 0;
-
-					while (liCursor < lsText.Length && lsText[liCursor] >= '0' && lsText[liCursor] <= '9')
-					{
-						liShift = (liShift * 10) + (lsText[liCursor] - '0');
-						liCursor++;
-						liShiftDigits++;
-					}
-
-					if (liShiftDigits > 0)
-						liStackShift = fRead(miBasePointer + liShift) - 1;
-				}
-
-				if (liCursor < lsText.Length && lsText[liCursor] == 'C')
-				{
-					int liIndexAt = liCursor + 1;
-					int liIndexDigits = 0;
-					int liIndexValue = 0;
-
-					while (liIndexAt < lsText.Length && lsText[liIndexAt] >= '0' && lsText[liIndexAt] <= '9')
-					{
-						liIndexValue = (liIndexValue * 10) + (lsText[liIndexAt] - '0');
-						liIndexAt++;
-						liIndexDigits++;
-					}
-
-					if (liIndexDigits > 0)
-					{
-						liArrayIndex = liIndexValue - 1;
-						liCursor = liIndexAt;
-					}
-				}
+				if (liCursor < lsText.Length && (lsText[liCursor] == 'G' || lsText[liCursor] == 'S' || lsText[liCursor] == 'P'
+					|| lsText[liCursor] == 'C'))
+					liExtra = fAtIndex(lsText, ref liCursor) - 1;
 
 				int liValue;
 
 				switch (lcSource)
 				{
 					case 'G':
-						liValue = fRead(liNumber + (lcType == 'S' ? liStackShift : liArrayIndex));
+						liValue = fRead(liNumber + liExtra);
 						break;
 
 					case 'S':
-						liValue = lcType == 'S' && liStackShift != 0
-							? fRead(miBasePointer + fRead(miBasePointer + liStackShift))
-							: fRead(miBasePointer + liNumber + liArrayIndex);
+						liValue = fRead(miBasePointer + liNumber + liExtra);
 						break;
 
 					case 'P':
-						liValue = fRead(fRead(miBasePointer + liNumber));
+						liValue = fRead(fRead(miBasePointer + liNumber) + liExtra);
 						break;
 
 					default:
@@ -887,10 +904,13 @@ namespace UWDataImport.UWData
 						continue;
 				}
 
-				// The substitution can itself contain placeholders again; resolving once
-				// is enough in practice and protects against mutual references.
+				// A STRING PUT IN IS RESOLVED IN TURN (convert_string, conv/BABL.C of both games, calls itself on it; per user
+				// 2026-11-20 with a picture: Nelson of the second game says "@GS70SI1", a line chosen from a list, and the
+				// line "Ah, @GS8, I long to know more..." showed its own placeholder - ours resolved once only).
 				lOOut.Append(lcType == 'S'
-					? (mOGetString != null ? mOGetString(liValue) : liValue.ToString())
+					? (mOGetString != null
+						? (piDepth < MaxSubstitutionDepth ? fSubstitute(mOGetString(liValue), piDepth + 1) : mOGetString(liValue))
+						: liValue.ToString())
 					: liValue.ToString());
 
 				liIndex = liCursor - 1;

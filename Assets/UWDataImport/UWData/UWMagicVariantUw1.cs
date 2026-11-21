@@ -8,6 +8,13 @@ namespace UWDataImport.UWData
 	{
 		public System.Collections.Generic.IReadOnlyList<UWRunicMagic.Spell> Spells => UWRunicMagic.FirstGameSpells;
 
+		public bool TryUnpackSpell(int piSpell, out UWRunicMagic.Spell pOSpell)
+		{
+			pOSpell = default;
+
+			return false;
+		}
+
 		public int SpellsPerCircle => 6;
 
 		public int FailStringBase => 211;

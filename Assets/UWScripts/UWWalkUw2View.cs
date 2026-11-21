@@ -219,7 +219,7 @@ public class UWWalkUw2View : MonoBehaviour
             else if (leCommand == UWGameScreenUw2.CommandEnum.Use)
                 fToggleDoor(true);
             else if (leCommand == UWGameScreenUw2.CommandEnum.Talk && mOScreen != null)
-                mOScreen.TalkTo(fFirstEntity());
+                mOScreen.TalkTo(fTalkEntity());
             else if (leCommand != UWGameScreenUw2.CommandEnum.Fight)
                 UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
 
@@ -292,6 +292,17 @@ public class UWWalkUw2View : MonoBehaviour
         mOPressTarget = fUseTargetNow();
         mbDragUsePending = false;
 
+        // A CREATURE IS TALKED TO AS FAR AS ONE SEES (player_3dget's def_mode branch calls player_3dtalk on the object
+        // drawn under the pointer, with no reach; per user 2026-11-20 on the original: the trilkhai in Killorn Keep
+        // answer a right drag from afar, ours only within the use's reach). Taking and using keep their reach.
+        if (mOPressTarget.Door == null && mOPressTarget.Thing == null)
+        {
+            UWEntityInfo lOFar = fTalkEntity();
+
+            if (lOFar != null && (lOFar.ObjectData is UWNpc || UWTalkRulesUw2.IsWisp(lOFar.ObjectData)))
+                mOPressTarget = new UseTarget { Thing = lOFar };
+        }
+
         fLook();
 
         // Look mode looks and is done (mouse_release); the default waits for the drag.
@@ -362,6 +373,25 @@ public class UWWalkUw2View : MonoBehaviour
         UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(lOCamera));
 
         return lOMeasured.Pickable != null || !pbOrFrontmost ? lOMeasured.Pickable : lOMeasured.Frontmost;
+    }
+
+    /// <summary>
+    /// What the Talk command and a right drag talk to: the frontmost thing under the pointer as far as the light's band
+    /// draws (TalkTo has no reach in the original; per user 2026-11-20) - the first game's aim (UWClassicWorldGesture:
+    /// UWWorldPicker.Measure's Frontmost within Interaction.IsWithinSight) and this walk's look (fLook) alike.
+    /// </summary>
+    private UWEntityInfo fTalkEntity()
+    {
+        Camera lOCamera = UWViewpoint.Current;
+
+        if (lOCamera == null)
+            return null;
+
+        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(lOCamera));
+        bool lbSeen = lOMeasured.HasFrontmost && Interaction.IsInSightBand(lOCamera.transform,
+            lOMeasured.FrontmostHit.point + (lOMeasured.FrontmostHit.normal * 0.5f), fViewingDistance());
+
+        return lbSeen && lOMeasured.Frontmost != null && lOMeasured.Frontmost.ObjectData != null ? lOMeasured.Frontmost : null;
     }
 
     /// <summary>The nearest thing with object data the pointer points at, within DoorReach - in the order of what is drawn
@@ -813,11 +843,68 @@ public class UWWalkUw2View : MonoBehaviour
 
         int liOwner = lOData.CommonObjectProperties != null && lOData.CommonObjectProperties.TryGet(lOBag.ID, out UWCommonObjectProperties.Entry lOEntry)
             && lOEntry.CanHaveOwner ? lOBag.Owner : 0;
-        int liDumped = UWSpill.Apply(mOLoader, lOBag, UWSpillRules.Partition(lOBag.Contents), pOEntity.transform.position,
+        int liDumped = UWSpill.Apply(mOLoader, lOBag, UWSpillRules.Partition(lOBag.Contents, UWSpillRules.LocksFreedOnSpill(UWGame.Uw2)), pOEntity.transform.position,
             mOLoader.WorldPositionToTile(pOEntity.transform.position), true);
 
         UWTriggerSystem.PlayerDidBadUw2(liOwner, mOLoader, UWGameScreenUw2.Say);
         UWGameScreenUw2.Say(liDumped > 0 ? UWItemMessages.Emptied(lOData, lOBag.ID) : UWItemMessages.IsEmpty(lOData, lOBag.ID));
+    }
+
+    /// <summary>
+    /// A SMASHED CHEST OR BARREL (uw2 combat/DAMAGE.C: damage_object's checkTrap with mode 4, then remove_object; per user
+    /// 2026-11-21, SAVE2 on level 3: the chest at 60/45 broke and nothing came out). remove_object frees the first lock
+    /// (remove_lock(obj, 0)) and uses the chest with no one (UseCont(0, obj, 0)): a second lock still locked says "The
+    /// chest is locked." and keeps the contents, else DumpTheBag spills them (its own remove_lock(cont, 1) first) and
+    /// counts as theft from the owner; nothing is said. A chest with the door-direction bit only breaks. Until then the
+    /// spill went through the first game's Interaction, which the second game's walk does not have, and the contents
+    /// went with the chest.
+    /// </summary>
+    public void SpillDestroyedContainer(UWEntityInfo pOEntity)
+    {
+        DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
+        UWObject lOBag = pOEntity != null ? pOEntity.ObjectData : null;
+
+        if (lOData == null || lOBag == null || mOLoader.CurrentLevel == null)
+            return;
+
+        lOBag.EnsureContentsLoaded(mOLoader.CurrentLevel.Masterlist);
+
+        UWTilePos lOTile = mOLoader.WorldPositionToTile(pOEntity.transform.position);
+
+        UWTriggerSystem.CheckTrapUw2(lOBag, UWTrapRulesUw2.UseMode, lOTile.X, lOTile.Y, mOLoader);
+
+        if (lOBag.DoorDirection)
+            return;
+
+        UWSpillRules.TakeFirstLock(lOBag.Contents);
+
+        if (UWSpillRules.FindLockedLock(lOBag.Contents) != null)
+        {
+            UWGameScreenUw2.Say(UWItemMessages.IsLocked(lOData, lOBag.ID));
+
+            return;
+        }
+
+        int liOwner = lOData.CommonObjectProperties != null && lOData.CommonObjectProperties.TryGet(lOBag.ID, out UWCommonObjectProperties.Entry lOEntry)
+            && lOEntry.CanHaveOwner ? lOBag.Owner : 0;
+
+        UWSpill.Apply(mOLoader, lOBag, UWSpillRules.Partition(lOBag.Contents, UWSpillRules.LocksFreedOnSpill(UWGame.Uw2)),
+            pOEntity.transform.position, lOTile, true);
+        UWTriggerSystem.PlayerDidBadUw2(liOwner, mOLoader, UWGameScreenUw2.Say);
+    }
+
+    /// <summary>The use triggers of a destroyed thing that is not used when destroyed (damage_object's checkTrap with
+    /// mode 4).</summary>
+    public void FireDestroyedUseTriggers(UWEntityInfo pOEntity)
+    {
+        UWObject lOThing = pOEntity != null ? pOEntity.ObjectData : null;
+
+        if (lOThing == null || mOLoader == null)
+            return;
+
+        UWTilePos lOTile = mOLoader.WorldPositionToTile(pOEntity.transform.position);
+
+        UWTriggerSystem.CheckTrapUw2(lOThing, UWTrapRulesUw2.UseMode, lOTile.X, lOTile.Y, mOLoader);
     }
 
     /// <summary>The fountain a used thing stands for: itself, or the fountain after a fountain's animation. Null else.</summary>

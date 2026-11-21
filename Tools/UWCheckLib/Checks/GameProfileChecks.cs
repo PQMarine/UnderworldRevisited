@@ -1185,6 +1185,8 @@ namespace UnderworldRevisited.Tools
 
             public bool PutDownSplashes => false;
 
+            public bool IceHoldsPlacedObjects => false;
+
             public int WaterLandingSound(int piMass, out int piVolume) { piVolume = 0; return 5; }
         }
 
@@ -1381,6 +1383,8 @@ namespace UnderworldRevisited.Tools
             private readonly IUWMagicVariant mIUw1 = new UWMagicVariantUw1();
 
             public System.Collections.Generic.IReadOnlyList<UWRunicMagic.Spell> Spells => mIUw1.Spells;
+
+            public bool TryUnpackSpell(int piSpell, out UWRunicMagic.Spell pOSpell) => mIUw1.TryUnpackSpell(piSpell, out pOSpell);
 
             public int SpellsPerCircle => mIUw1.SpellsPerCircle;
 

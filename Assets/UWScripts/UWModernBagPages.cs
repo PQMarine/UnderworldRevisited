@@ -246,8 +246,9 @@ internal sealed class UWModernBagPages
         if (pOWindow.Container == null)
             return piSlot >= 0 && piSlot < lOInventory.Backpack.Length ? lOInventory.Backpack[piSlot] : null;
 
+        // An invisible thing (an enchanted bag's spell) takes no place (UWInventoryModel.ContentIndexOfShown).
         List<UWObject> lOContents = pOWindow.Container.Contents;
-        int liIndex = pOWindow.FirstIndex + piSlot;
+        int liIndex = UWInventoryModel.ContentIndexOfShown(lOContents, pOWindow.FirstIndex + piSlot);
 
         return lOContents != null && liIndex >= 0 && liIndex < lOContents.Count ? lOContents[liIndex] : null;
     }
@@ -475,7 +476,7 @@ internal sealed class UWModernBagPages
     {
         int liScrolled = pOWindow.FirstIndex / Columns;
         int liNeeded = pOWindow.Container != null && pOWindow.Container.Contents != null
-            ? (pOWindow.Container.Contents.Count / Columns) + 1
+            ? (UWInventoryModel.ShownCount(pOWindow.Container.Contents) / Columns) + 1
             : 0;
         bool lbUp = pOWindow.Container != null && liScrolled > 0;
         bool lbDown = pOWindow.Container != null && liScrolled < liNeeded - piRows;

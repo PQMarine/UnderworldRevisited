@@ -1011,6 +1011,20 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         }
     }
 
+    /// <summary>The player was put onto a square since the last frame (PlayerSetUp).</summary>
+    private bool mbPlayerSetUp;
+
+    /// <summary>
+    /// player_setup (uw2 PHYSICS.C:497, after every teleport): the player is put onto his square, not moved there - the
+    /// next frame's comparison runs only the exit plates of the square he left (UWTrapRulesUw2.PlayerSetUp), not the enter
+    /// plates of the one he arrives on (per user 2026-11-22: a drain's teleport onto a square whose enter trigger sends
+    /// back bounced the player back at once).
+    /// </summary>
+    public void PlayerSetUp()
+    {
+        mbPlayerSetUp = true;
+    }
+
     private void fFollowMover(object pOKey, UWSpot pONow, UWCritter pOCritter)
     {
         if (!pONow.IsOnMap)
@@ -1019,6 +1033,16 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         bool lbKnown = mOLastSpots.TryGetValue(pOKey, out UWSpot lOWas);
 
         mOLastSpots[pOKey] = pONow;
+
+        if (pOCritter == null && mbPlayerSetUp)
+        {
+            mbPlayerSetUp = false;
+
+            if (lbKnown && (lOWas.Tile.X != pONow.Tile.X || lOWas.Tile.Y != pONow.Tile.Y))
+                UWTriggerSystem.PlayerSetUpUw2(lOWas.Tile, lOWas.ZPos, mOLoader);
+
+            return;
+        }
 
         if (!lbKnown || (lOWas.Tile.X == pONow.Tile.X && lOWas.Tile.Y == pONow.Tile.Y && lOWas.ZPos == pONow.ZPos))
             return;
@@ -1064,6 +1088,9 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     }
 
     private readonly List<UWObject> mOPendingPlayerTriggers = new List<UWObject>();
+
+    /// <summary>Whether the player's steps queued a move trigger that FirePendingPlayerTriggers has not fired yet.</summary>
+    public bool HasPendingPlayerTriggers => mOPendingPlayerTriggers.Count > 0;
 
     /// <summary>How often one trigger fires at most while the player moves in its reach: once per
     /// clock unit (UWTriggerPacer, which carries the reasoning; PlayerTriggerSpacingSeconds and

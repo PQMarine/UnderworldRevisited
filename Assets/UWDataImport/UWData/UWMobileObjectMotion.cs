@@ -444,6 +444,11 @@ namespace UWDataImport.UWData
 
 				if (((c.Flags | c.AllFlags) & 0x300) != 0 || c.Overlap != 0)
 					lbRemove = true;
+				else if ((c.Flags & 7) == 7 && mOWorld.Session.Game.Motion.IceHoldsPlacedObjects)
+				{
+					// On the second game's ice (terrain 3 plus the floor bit 4): nothing more happens, it lies there
+					// (IUWMotionVariant.IceHoldsPlacedObjects).
+				}
 				else
 				{
 					switch (c.Flags & 7)

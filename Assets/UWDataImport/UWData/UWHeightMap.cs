@@ -90,6 +90,39 @@ namespace UWDataImport.UWData
 		/// <summary>Grain on textures without joints.</summary>
 		public static float GrainFlat = 0.8f;
 
+		/// <summary>
+		/// FAINT JOINTS, THE SECOND GAME'S (per user 2026-11-20 with a picture of the castle's mossy bricks: "the simulated
+		/// shadows in the joints do not fit", on nearly every stone wall). Its joints are thinner and less dark than the
+		/// first game's: at MortarContrast only pieces of them were found, many bricks ran together into one "stone" and
+		/// the edges and shadows fell where the pieces happened to end, across the bricks. With faint joints asked for, a
+		/// texture whose largest stone covers more than FaintJointStoneLimit of it is searched again with each of
+		/// FaintJointContrasts, and the first search whose largest stone is no larger is taken; otherwise it stays as it
+		/// was. Measured on the second game's 256 walls: bricks and stones come out whole (72, 76, 17, 105, 127, 206,
+		/// 207, 222), while water, carpet and mud stay above the limit at every contrast and keep their old relief
+		/// instead of turning to noise.
+		/// </summary>
+		public static float FaintJointStoneLimit = 0.3f;
+
+		public static readonly float[] FaintJointContrasts = { 0.2f, 0.15f, 0.12f };
+
+		/// <summary>
+		/// THE SECOND GAME'S WALLS WITH LIGHT JOINTS (per user 2026-11-20 with a picture: wall 143, red bricks with light grey
+		/// joints and a few black bricks among them). The search takes the dark for joints: here it found the black bricks
+		/// alone and sank them as hollows, and the real joints not at all. On these walls a joint is what is LIGHTER than
+		/// its surroundings by the contrast, and the black bricks are stones (grain only was too flat, per user the same
+		/// day). Measured over the 256 walls: no rule by the joints' width tells them apart - the widest dark areas are
+		/// pictures (172, 164, 166, the stairs 1, the drain 123), and 143's black bricks are too thin for it.
+		/// </summary>
+		public static readonly int[] LightJointWallsUw2 = { 143 };
+
+		/// <summary>
+		/// THE SECOND GAME'S ICE TEXTURES, whose relief depth the viewer sets on its own (UWUserData.IceRelief; per user
+		/// 2026-11-22). The textures TERRAIN.DAT marks as ice that are drawn in its two ramps, pure blue and a whitish blue:
+		/// 48 to 52 and 54; by number, for walls, floors and ceilings alike (T64.TR serves both). Not the grid 210, the snow
+		/// 100 and 215, the pictures 172 and 175 of the same class.
+		/// </summary>
+		public static readonly int[] IceTexturesUw2 = { 48, 49, 50, 51, 52, 54 };
+
 		/// <summary>From this share of water or lava colours on, a texture stays completely flat:
 		/// its spots are waves or embers, not shape - they turned into bumps and
 		/// holes (preview 2026-09-13). The lava floors with rock are at 28 percent.</summary>
@@ -104,6 +137,19 @@ namespace UWDataImport.UWData
 		/// <param name="pfLuminance">Brightness 0 to 1 per pixel, Size * Size values (0.299 R +
 		/// 0.587 G + 0.114 B).</param>
 		public static Result Build(float[] pfLuminance, byte[] pyIndices)
+		{
+			return Build(pfLuminance, pyIndices, false);
+		}
+
+		/// <param name="pbFaintJoints">Search again for joints too faint for MortarContrast (FaintJointStoneLimit) - the
+		/// second game's textures.</param>
+		public static Result Build(float[] pfLuminance, byte[] pyIndices, bool pbFaintJoints)
+		{
+			return Build(pfLuminance, pyIndices, pbFaintJoints, false);
+		}
+
+		/// <param name="pbLightJoints">The joints are lighter than the stones (LightJointWallsUw2).</param>
+		public static Result Build(float[] pfLuminance, byte[] pyIndices, bool pbFaintJoints, bool pbLightJoints)
 		{
 			int liCount = Size * Size;
 
@@ -124,25 +170,25 @@ namespace UWDataImport.UWData
 
 			float[] lfLocal = fBoxBlur(lfLuminance, NeighbourhoodRadius);
 
-			bool[] lbMortar = lOResult.Mortar;
+			bool[] lbMortar = fDetectMortar(lfLuminance, lfLocal, MortarContrast, pbLightJoints);
 
-			for (int i = 0; i < liCount; i++)
-				lbMortar[i] = lfLuminance[i] < MortarAbsolute
-					|| lfLuminance[i] < lfLocal[i] * (1f - MortarContrast);
+			lOResult.HasMortar = fIsMasonry(lbMortar);
 
-			fRemoveSmallIslands(lbMortar, MinMortarPixels);
-
-			int liMortarCount = 0;
-
-			for (int i = 0; i < liCount; i++)
+			if (pbFaintJoints && lOResult.HasMortar && fLargestStoneShare(lbMortar) > FaintJointStoneLimit)
 			{
-				if (lbMortar[i])
-					liMortarCount++;
+				foreach (float lfContrast in FaintJointContrasts)
+				{
+					bool[] lbAgain = fDetectMortar(lfLuminance, lfLocal, lfContrast, pbLightJoints);
+
+					if (fIsMasonry(lbAgain) && fLargestStoneShare(lbAgain) <= FaintJointStoneLimit)
+					{
+						lbMortar = lbAgain;
+						break;
+					}
+				}
 			}
 
-			float lfShare = liMortarCount / (float)liCount;
-
-			lOResult.HasMortar = lfShare >= MinMortarShare && lfShare <= MaxMortarShare;
+			lOResult.Mortar = lbMortar;
 
 			if (!lOResult.HasMortar)
 			{
@@ -177,6 +223,88 @@ namespace UWDataImport.UWData
 			}
 
 			return lOResult;
+		}
+
+		/// <summary>Joints at this contrast: darker than MortarAbsolute or than the surroundings by the contrast - with
+		/// light joints lighter than the surroundings by it -, small islands removed.</summary>
+		private static bool[] fDetectMortar(float[] pfLuminance, float[] pfLocal, float pfContrast, bool pbLight)
+		{
+			bool[] lbMortar = new bool[Size * Size];
+
+			for (int i = 0; i < lbMortar.Length; i++)
+			{
+				lbMortar[i] = pbLight
+					? pfLuminance[i] > pfLocal[i] * (1f + pfContrast)
+					: pfLuminance[i] < MortarAbsolute || pfLuminance[i] < pfLocal[i] * (1f - pfContrast);
+			}
+
+			fRemoveSmallIslands(lbMortar, MinMortarPixels);
+
+			return lbMortar;
+		}
+
+		/// <summary>Whether the joints' share lies between MinMortarShare and MaxMortarShare.</summary>
+		private static bool fIsMasonry(bool[] pbMortar)
+		{
+			int liMortarCount = 0;
+
+			foreach (bool lbMortar in pbMortar)
+			{
+				if (lbMortar)
+					liMortarCount++;
+			}
+
+			float lfShare = liMortarCount / (float)pbMortar.Length;
+
+			return lfShare >= MinMortarShare && lfShare <= MaxMortarShare;
+		}
+
+		/// <summary>The largest connected area without joints (four neighbours, wrapping around), as a share of the
+		/// texture.</summary>
+		public static float LargestStoneShare(bool[] pbMortar)
+		{
+			return pbMortar == null || pbMortar.Length == 0 ? 0f : fLargestStoneShare(pbMortar);
+		}
+
+		private static float fLargestStoneShare(bool[] pbMortar)
+		{
+			bool[] lbDone = new bool[pbMortar.Length];
+			Stack<int> lOOpen = new Stack<int>();
+			int liLargest = 0;
+
+			for (int i = 0; i < pbMortar.Length; i++)
+			{
+				if (pbMortar[i] || lbDone[i])
+					continue;
+
+				int liPixels = 0;
+
+				lOOpen.Push(i);
+				lbDone[i] = true;
+
+				while (lOOpen.Count > 0)
+				{
+					int liAt = lOOpen.Pop();
+					int liX = liAt % Size;
+					int liY = liAt / Size;
+
+					liPixels++;
+
+					foreach (int liN in new[] { (liY * Size) + fWrap(liX + 1), (liY * Size) + fWrap(liX - 1),
+						(fWrap(liY + 1) * Size) + liX, (fWrap(liY - 1) * Size) + liX })
+					{
+						if (!pbMortar[liN] && !lbDone[liN])
+						{
+							lbDone[liN] = true;
+							lOOpen.Push(liN);
+						}
+					}
+				}
+
+				liLargest = Math.Max(liLargest, liPixels);
+			}
+
+			return liLargest / (float)pbMortar.Length;
 		}
 
 		/// <summary>Water (palette 48 to 63) and lava (16 to 23), the same ranges as

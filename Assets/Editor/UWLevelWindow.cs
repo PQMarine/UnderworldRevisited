@@ -222,6 +222,7 @@ public sealed class UWLevelWindow : EditorWindow
         if (lOMaterial == null)
             return;
 
+        fMarkAsPreview(UWTextureArrayBuilder.AttachSwatches(lOMaterial, lOData));
         lOMaterial.SetFloat(UWShaderIds.AmbientFloor, mOSettings.AmbientFloor);
 
         GameObject lORoot = UWLevelAssembler.CreateLevelRoot(PreviewRootName, lOChunks, lOMaterial, miLevelIndex, mbAddColliders);
@@ -280,6 +281,7 @@ public sealed class UWLevelWindow : EditorWindow
         if (lOMaterial == null)
             return null;
 
+        AssetDatabase.CreateAsset(UWTextureArrayBuilder.AttachSwatches(lOMaterial, pOData), BakeFolder + "/Swatches.asset");
         lOMaterial.SetFloat(UWShaderIds.AmbientFloor, mOSettings.AmbientFloor);
         AssetDatabase.CreateAsset(lOMaterial, lsMaterialPath);
 

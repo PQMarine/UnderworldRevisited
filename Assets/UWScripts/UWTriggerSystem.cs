@@ -179,6 +179,17 @@ public static class UWTriggerSystem
             : new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), UWTrapRules.Setter.Player));
     }
 
+    /// <summary>The second game's player put onto a square (UWTrapRulesUw2.PlayerSetUp): the exit plates of the square he
+    /// left, none of the one he arrives on.</summary>
+    public static void PlayerSetUpUw2(UWTilePos pOFrom, int piFromZ, UWLevelLoader pOLevelLoader)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+        UWTile lOFrom = pOLevelLoader != null && pOLevelLoader.CurrentLevel != null ? pOLevelLoader.CurrentLevel.GetTile(pOFrom.X, pOFrom.Y) : null;
+
+        if (lOWorld != null && lOFrom != null)
+            UWTrapRulesUw2.PlayerSetUp(lOFrom, piFromZ, new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), UWTrapRules.Setter.Player));
+    }
+
     /// <summary>The second game's timer triggers for piFrames animation steps (UWTrapRulesUw2.TickTimers); the counter after.</summary>
     public static int TickTimersUw2(int piTick, int piFrames, UWTilePos pOPlayer, UWTilePos pOEye, UWLevelLoader pOLevelLoader)
     {

@@ -55,6 +55,12 @@ namespace UWDataImport.UWData
 		/// 3) before do_filanium, OBJPHYS.C:556). A thrown one splashes in both (mob_to_static).</summary>
 		bool PutDownSplashes { get; }
 
+		/// <summary>Whether a thing lying on ice stays where it lies (obj_deal; UW1: no ice case, OBJPHYS.C:560-570;
+		/// UW2: "(hits0 &amp; 7) == 7" does nothing, OBJPHYS.C:565). On ice the centre's floor bit is 8 &lt;&lt; 3, not 8, so
+		/// without the case the ground test finds no floor and sets the thing moving again (per user 2026-11-21: a
+		/// note thrown in the ice caves never came to rest and kept making its landing sound).</summary>
+		bool IceHoldsPlacedObjects { get; }
+
 		/// <summary>The sound of a fall into water by the mover's mass (do_zbounce; UW1: 5 at (mass - 600) / 50,
 		/// MOTION.C:509; UW2: 0x18 under 20, 0x19 under 100, else 5, all at 0, MOTION.C:518-526).</summary>
 		int WaterLandingSound(int piMass, out int piVolume);

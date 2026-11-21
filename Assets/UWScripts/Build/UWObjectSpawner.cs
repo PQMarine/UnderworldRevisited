@@ -926,6 +926,26 @@ namespace UnderworldRevisited.Build
         /// fSpawnDecal.</summary>
         private readonly Dictionary<long, int> mOPanelsOnWall = new Dictionary<long, int>();
 
+        /// <summary>How many wall panels (366/367) stand on this wall of this tile - the tile's whole list, those spawned
+        /// later included (see fSpawnDecalAt).</summary>
+        private int fPanelsOnWall(int piTileX, int piTileZ, int piHeading)
+        {
+            UWLevel lOLevel = mOLevelLoader != null ? mOLevelLoader.CurrentLevel : null;
+            UWTile lOTile = lOLevel != null ? lOLevel.GetTile(piTileX, piTileZ) : null;
+            int liCount = 0;
+
+            if (lOTile == null || lOTile.ObjectsInTile == null)
+                return 0;
+
+            foreach (UWObject lOThing in lOTile.ObjectsInTile)
+            {
+                if (lOThing != null && (lOThing.ID == DecalObjectId || lOThing.ID == DecalObjectId + 1) && lOThing.Heading == piHeading)
+                    liCount++;
+            }
+
+            return liCount;
+        }
+
         /// <summary>Whether the tile at these coordinates of the level being built is a diagonal one.</summary>
         private bool fIsDiagonalTile(int piTileX, int piTileZ)
         {
@@ -1544,7 +1564,48 @@ namespace UnderworldRevisited.Build
 
         private const int ForceFieldFallbackHeight = 0x80;
 
+        /// <summary>A wall thing, drawn where it was meant to be when the original's data misplaced it
+        /// (UWPlacementFixes, under "Fix bugs of the original"): its fine position and facing only for the drawing, the
+        /// object keeps the original's values.</summary>
         private void fSpawnDecal(int xPos, int zPos, UWObject pOObject, Transform pOParent)
+        {
+            UWLevel lOLevel = mOLevelLoader != null ? mOLevelLoader.CurrentLevel : null;
+            UWRules lORules = UWRules.Current;
+
+            if (lOLevel == null || mOData == null || mOData.GameData == null || lORules == null || !lORules.Deviations.MisplacedObjectsMoved
+                || !UWPlacementFixes.TryGet(mOData.GameData.Profile.Game, lOLevel.LevelNumber, xPos, zPos, pOObject,
+                    out int liX, out int liY, out int liHeading, out float lfNudge))
+            {
+                fSpawnDecalAt(xPos, zPos, pOObject, pOParent);
+                return;
+            }
+
+            ushort liWasX = pOObject.XPos;
+            ushort liWasY = pOObject.YPos;
+            ushort liWasHeading = pOObject.Heading;
+
+            try
+            {
+                pOObject.XPos = (ushort)liX;
+                pOObject.YPos = (ushort)liY;
+                pOObject.Heading = (ushort)liHeading;
+                mfPlacementNudge = lfNudge * UWWorldScale.SubTileStep;
+                fSpawnDecalAt(xPos, zPos, pOObject, pOParent);
+            }
+            finally
+            {
+                mfPlacementNudge = 0f;
+                pOObject.XPos = liWasX;
+                pOObject.YPos = liWasY;
+                pOObject.Heading = liWasHeading;
+            }
+        }
+
+        /// <summary>How far the wall thing being spawned goes on towards the wall behind it (UWPlacementFixes Nudge), in
+        /// world units; 0 for everything else.</summary>
+        private float mfPlacementNudge;
+
+        private void fSpawnDecalAt(int xPos, int zPos, UWObject pOObject, Transform pOParent)
         {
             UWTextureRef lOResolved;
 
@@ -1653,17 +1714,23 @@ namespace UnderworldRevisited.Build
             // IN FRONT OF A WALL PANEL ON THE SAME WALL (found 2026-11-15, per user on UW2 level 26, 18/45: "You find a
             // hidden button" showed the button 0x17A, and nothing appeared): a panel 0x16E/0x16F stands staggered off
             // the wall (WallPanelStagger), a button, lever or plaque nearer to it, so the panel covered it. The original
-            // draws the button over the marble panel; ours sets such a thing one step in front of the panels already
-            // on that wall of that tile (the panel comes first in the tile's chain where both are).
+            // draws the button over the marble panel; ours sets such a thing one step in front of the panels on that
+            // wall of that tile. ALL OF THEM, WHEREVER THEY STAND IN THE CHAIN (per user 2026-11-22 with pictures of the
+            // original, UW2 level 25, 53/15: the lever 0x161 comes BEFORE its two stone panels in the tile's chain, so
+            // none were counted yet, the panels then stood in front of it and hid it; from the water side, where the
+            // panels show their culled back, it looked turned round). Counted from the tile's own list
+            // (fPanelsOnWall), no longer only those spawned before.
             if (pOObject.ID != DecalObjectId && pOObject.ID != DecalObjectId + 1)
             {
-                long liWallKey = ((long)xPos << 20) | ((long)zPos << 8) | (long)pOObject.Heading;
                 Vector3 lOWallFront = Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOObject.Heading), 0f) * Vector3.back;
+                int liPanels = fPanelsOnWall(xPos, zPos, pOObject.Heading);
 
-                if (mOPanelsOnWall.TryGetValue(liWallKey, out int liPanels) && liPanels > 0
-                    && fGetTileEdgeBehind(lOPosition, xPos, zPos, lOWallFront, out Vector3 lOWallEdge))
+                if (liPanels > 0 && fGetTileEdgeBehind(lOPosition, xPos, zPos, lOWallFront, out Vector3 lOWallEdge))
                     lOPosition = lOWallEdge + (lOWallFront * ((2 + (2 * liPanels)) * WallPanelStagger));
             }
+
+            if (mfPlacementNudge != 0f)
+                lOPosition -= (Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOObject.Heading), 0f) * Vector3.back) * mfPlacementNudge;
 
             lOObject.transform.position = lOPosition;
             lOObject.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));

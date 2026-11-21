@@ -2068,6 +2068,19 @@ namespace UWDataImport.UWData
 				CheckPlates(pOTo, piToZ, PressureMode, pIHost);
 		}
 
+		/// <summary>
+		/// THE PLAYER PUT ONTO A SQUARE (player_setup, uw2 PHYSICS.C:497: change_GrSq(-1, -1), then GrSq set straight): only
+		/// the exit plates of the square he left go off; the square he arrives on is entered without its enter plates
+		/// (new_player_pos, UWEDIT.C:466, after every teleport). Per user 2026-11-22, SAVE3 on level 25: the drain at 28/30
+		/// sends the player to 28/34, whose enter trigger sends whoever steps on it back to 28/29 - ours took the teleport
+		/// for a step and bounced him back at once ("only ever a bit back"); the original leaves him at 28/34.
+		/// </summary>
+		public static void PlayerSetUp(UWTile pOFrom, int piFromZ, IUWTrapHost pIHost)
+		{
+			if (pOFrom != null)
+				CheckPlates(pOFrom, piFromZ, ExitMode, pIHost);
+		}
+
 		// ------------------------------------------------- Timer triggers (part H4)
 
 		/// <summary>The timer clock wraps at 128 steps (timer_tick).</summary>
@@ -3072,7 +3085,9 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Hack 35, recharge_lightbulbs: every light sphere (0x93) on the target square, in what lies there too,
-		/// gets full quality. (The sparkle over each is not drawn.)</summary>
+		/// gets full quality; then each thing of the square's list that is one or holds one gets the lightning 0x1CC at its
+		/// own spot and height for four frames (put_effect(obj, 0xC, 4, 0, 0, tx, ty), WORLDEV.C:1600; per user 2026-11-22,
+		/// SAVE2 before the switch on Talorus: ours had no flash).</summary>
 		private static bool fRechargeLights(int piX, int piY, IUWTrapHost pIHost)
 		{
 			UWTile lOTile = pIHost.World.Level.GetTile(piX, piY);
@@ -3088,6 +3103,13 @@ namespace UWDataImport.UWData
 						liCharged++;
 					}
 				}
+
+				// HasOrIsObj(obj, 0x93) for each of the square's own list, the effect at that thing (z: its own, 0 eighths).
+				foreach (UWObject lOAt in new List<UWObject>(lOTile.ObjectsInTile))
+				{
+					if (lOAt != null && fDeep(new List<UWObject> { lOAt }, pIHost.World.Level.Masterlist).Exists(o => o.ID == LightSphereId))
+						pIHost.World.ShowEffectAtCreature(lOAt, RechargeEffectId, UWAreaSpellRules.EffectSeconds, 0);
+				}
 			}
 
 			UWTrapLog.Detail = string.Format("-> {0} light spheres recharged", liCharged);
@@ -3096,6 +3118,9 @@ namespace UWDataImport.UWData
 		}
 
 		public const int LightSphereId = 0x93;
+
+		/// <summary>The recharge's picture: animation class 0xC, the lightning 0x1CC.</summary>
+		public const int RechargeEffectId = UWObjectClassProperties.AnimationFirstId + 0xC;
 
 		/// <summary>Obj_Check's walk: the things of a list and, depth first, what each holds.</summary>
 		private static List<UWObject> fDeep(List<UWObject> pOList, List<UWObject> pOMaster)

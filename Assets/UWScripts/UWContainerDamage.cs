@@ -78,7 +78,16 @@ public class UWContainerDamage : MonoBehaviour
 
         bool lbUsed = lOEntity.ObjectData != null && UWObjectDamageRules.IsUsedWhenDestroyed(lOEntity.ObjectData.ID);
 
-        if (lOInteraction != null && lOEntity.ObjectData != null)
+        // The second game's walk has its own (UWWalkUw2View.SpillDestroyedContainer; the first game's Interaction is not
+        // there, and until 2026-11-21 a smashed chest's contents went with it).
+        if (UWWalkUw2.IsWalking && UWWalkUw2View.Current != null && lOEntity.ObjectData != null)
+        {
+            if (lbUsed)
+                UWWalkUw2View.Current.SpillDestroyedContainer(lOEntity);
+            else
+                UWWalkUw2View.Current.FireDestroyedUseTriggers(lOEntity);
+        }
+        else if (lOInteraction != null && lOEntity.ObjectData != null)
         {
             if (lbUsed)
                 lOInteraction.SpillWorldContainer(lOEntity, false, false, true);

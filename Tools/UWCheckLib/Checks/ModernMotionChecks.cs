@@ -171,6 +171,57 @@ namespace UnderworldRevisited.Tools
 
             fCheckModernLedges(pOData);
             fCheckModernWallImpact(pOData);
+            fCheckModernFallIntoWater(pOData);
+        }
+
+        /// <summary>
+        /// A FALL INTO WATER STOPS DEAD WITHOUT DAMAGE (per user 2026-11-22, UW2: a teleport's falling arrival over water
+        /// hurt in Modern, not in Classic nor the original; do_zbounce's water case). A run off a ledge twelve levels
+        /// high: onto dry floor it hurts in both, into water in neither.
+        /// </summary>
+        private static void fCheckModernFallIntoWater(DataImport pOData)
+        {
+            UWRandom.Use(new FixedRandomSource(false));
+
+            try
+            {
+                string lsResult = "";
+
+                foreach (bool lbModern in new[] { false, true })
+                {
+                    foreach (int liTerrain in new[] { 0, 1 })
+                    {
+                        FakeMotionWorld lOWorld = new FakeMotionWorld();
+
+                        lOWorld.Paint(1, 1, 11, FakeMotionWorld.Size - 2, 1, 12, 0);
+                        lOWorld.Paint(12, 1, FakeMotionWorld.Size - 2, FakeMotionWorld.Size - 2, 1, 0, liTerrain);
+
+                        UWPlayerMotion lOPlayer = lbModern ? fMakeModernPlayer(lOWorld, pOData, 10, 16) : fMakeFinePlayer(lOWorld, pOData, 10, 16);
+                        int liDamage = 0;
+
+                        lOPlayer.CameraYaw = 0x4000;
+
+                        for (int liAt = 0; liAt < 400; liAt++)
+                        {
+                            lOPlayer.MotionCommand = UWPlayerMotion.Command.Walk;
+                            lOPlayer.Walk = UWPlayerMotion.WalkRun;
+
+                            if (lOPlayer.Frame((liAt & 1) == 0 ? ModernFrameA : ModernFrameB))
+                                liDamage += lOPlayer.Last.FallDamage;
+                        }
+
+                        lsResult += (lsResult.Length > 0 ? ", " : "") + (lbModern ? "Modern " : "core ") + (liTerrain == 1 ? "water " : "floor ")
+                            + (liDamage > 0 ? "hurts" : "none");
+                    }
+                }
+
+                Check.Str("modern: a fall into water does no damage, onto a floor it does - in both", lsResult,
+                    "core floor hurts, core water none, Modern floor hurts, Modern water none");
+            }
+            finally
+            {
+                UWRandom.Use(null);
+            }
         }
 
         /// <summary>
@@ -192,6 +243,22 @@ namespace UnderworldRevisited.Tools
                     string lsModern = fModernWallJump(pOData, liAngle, true);
 
                     Check.Str("modern: a jump into a wall at " + (liAngle * 360 / 0x10000) + " degrees hurts as the core's (" + lsCore + ")", lsModern, lsCore);
+                }
+
+                // THE SHADOW RAMP (per user 2026-11-22): Modern's ramp at once and a jump at the wall after a run of half a tile
+                // down to an eighth - the damage is the one the core takes from the same run with the original's ramp (none),
+                // not the core's at once (4). The original's ramp reaches the run in about half a tile, so a longer run hurts
+                // in all three alike (the checks above).
+                foreach (int liStart in new[] { 0, 32, 64, 96 })
+                {
+                    string lsShortAtOnce = fModernWallJump(pOData, 0, false, 12, 0, liStart);
+                    string lsShortRamped = fModernWallJump(pOData, 0, false, 12, UWPlayerMotion.OriginalFrameTicks, liStart);
+                    string lsShortModern = fModernWallJump(pOData, 0, true, 12, 0, liStart);
+
+                    string lsDamage = fDamageOf(lsShortAtOnce) + " " + fDamageOf(lsShortRamped) + " " + fDamageOf(lsShortModern);
+
+                    Check.Str("modern: at once, a jump at a wall after " + ((128 - liStart) / 256.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+                        + " of a tile hurts as the original's ramp from that run (damage at once, ramped, Modern)", lsDamage, "damage 4 damage 0 damage 0");
                 }
 
                 // GitHub issue 33 (2026-11-10): run against the wall until it holds the body, then jump with the run
@@ -255,7 +322,16 @@ namespace UnderworldRevisited.Tools
         /// <summary>A run east from 11/16, a jump at 12.5 into the face of a ledge four levels up at
         /// x 14, the heading turned by piAngle from straight at it; the highest impact value and damage
         /// and the number of landing sounds until the body is down again.</summary>
-        private static string fModernWallJump(DataImport pOData, int piAngle, bool pbModern)
+        /// <summary>The "damage N" part of fModernWallJump's result.</summary>
+        private static string fDamageOf(string psResult)
+        {
+            int liAt = psResult.IndexOf("damage ", System.StringComparison.Ordinal);
+            int liEnd = liAt >= 0 ? psResult.IndexOf(',', liAt) : -1;
+
+            return liAt < 0 ? psResult : liEnd < 0 ? psResult.Substring(liAt) : psResult.Substring(liAt, liEnd - liAt);
+        }
+
+        private static string fModernWallJump(DataImport pOData, int piAngle, bool pbModern, int piStartTile = 11, int piRampTicks = 0, int piStartFine = 128)
         {
             FakeMotionWorld lOWorld = new FakeMotionWorld();
             lOWorld.Paint(14, 1, 30, 30, 1, 6, 0);
@@ -267,8 +343,8 @@ namespace UnderworldRevisited.Tools
             bool lbJumped = false;
 
             lOPlayer.Modern = pbModern;
-            lOPlayer.RampFrameTicks = 0;
-            lOPlayer.PlaceAt((11 << 8) + 128, (16 << 8) + 128, 0x80, 0x4000 - piAngle);
+            lOPlayer.RampFrameTicks = piRampTicks;
+            lOPlayer.PlaceAt((piStartTile << 8) + piStartFine, (16 << 8) + 128, 0x80, 0x4000 - piAngle);
 
             for (int liAt = 0; liAt < 1200; liAt++)
             {

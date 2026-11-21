@@ -12,7 +12,9 @@ namespace UnderworldRevisited.Build
     {
         /// <param name="pyIndices">The palette indices of the same pixels (see
         /// UWTextureArrayBuilder.GetSliceIndices), for detecting water and lava. May be null.</param>
-        public static UWHeightMap.Result Build(Color32[] pOPixels, byte[] pyIndices)
+        /// <param name="piWall">The wall texture's number (its slice), -1 for a floor: the second game's walls without dark
+        /// joints have them looked for as the lighter (UWHeightMap.LightJointWallsUw2).</param>
+        public static UWHeightMap.Result Build(Color32[] pOPixels, byte[] pyIndices, int piWall = -1)
         {
             int liCount = UWHeightMap.Size * UWHeightMap.Size;
             float[] lfLuminance = new float[liCount];
@@ -20,7 +22,11 @@ namespace UnderworldRevisited.Build
             for (int i = 0; i < liCount && i < pOPixels.Length; i++)
                 lfLuminance[i] = ((pOPixels[i].r * 0.299f) + (pOPixels[i].g * 0.587f) + (pOPixels[i].b * 0.114f)) / 255f;
 
-            return UWHeightMap.Build(lfLuminance, pyIndices);
+            // The second game's joints are fainter (UWHeightMap.FaintJointStoneLimit).
+            bool lbSecondGame = UWGameSession.Current.Game.Game == UWGame.Uw2;
+            bool lbLightJoints = lbSecondGame && piWall >= 0 && System.Array.IndexOf(UWHeightMap.LightJointWallsUw2, piWall) >= 0;
+
+            return UWHeightMap.Build(lfLuminance, pyIndices, lbSecondGame, lbLightJoints);
         }
     }
 }

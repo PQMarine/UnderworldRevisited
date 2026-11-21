@@ -194,7 +194,8 @@ public class UWCritterRemains : MonoBehaviour
         // creature keeps nothing back, not even a lock or trigger in its pack
         // (UWSpillRules, corpse); the scatter is the same call a container's spill uses
         // (UWSpill, cleanup 2.6, 2026-10-12).
-        UWSpill.Apply(mOLevelLoader, lONpc, UWSpillRules.Partition(lONpc.Contents),
+        // The second game frees the locks first (UWSpillRules.LocksFreedOnSpill).
+        UWSpill.Apply(mOLevelLoader, lONpc, UWSpillRules.Partition(lONpc.Contents, UWSpillRules.LocksFreedOnSpill(UWGameSession.Current.Game.Game)),
             fGetBodyPosition(), fGetDeathTile(), false);
     }
 

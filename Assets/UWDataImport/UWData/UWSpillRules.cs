@@ -32,6 +32,19 @@ namespace UWDataImport.UWData
 		/// class comment.</summary>
 		public static List<UWObject> Partition(IEnumerable<UWObject> pOContents)
 		{
+			return Partition(pOContents, false);
+		}
+
+		/// <summary>
+		/// THE SECOND GAME FREES THE LOCKS FIRST (per user 2026-11-20, level 14 near 36/34: a chest emptied onto the floor
+		/// left its lock lying beside the things): uw2 obj/TREASURE.C drop_link_chain begins with remove_lock(cont, 1)
+		/// (combat/DAMAGE.C), which takes EVERY lock object (0x10F) out of the chain and frees it, before the rest goes
+		/// down - for a container used in the world (DumpTheBag), a smashed one and a dead creature's pack alike. The first
+		/// game's drop_link_chain has no such call: there the lock goes down with the rest (decision 25).
+		/// </summary>
+		/// <param name="pbFreeLocks">The locks stay out of what goes down (LocksFreedOnSpill).</param>
+		public static List<UWObject> Partition(IEnumerable<UWObject> pOContents, bool pbFreeLocks)
+		{
 			List<UWObject> lOSpilled = new List<UWObject>();
 
 			if (pOContents == null)
@@ -39,12 +52,15 @@ namespace UWDataImport.UWData
 
 			foreach (UWObject lOItem in pOContents)
 			{
-				if (lOItem != null)
+				if (lOItem != null && !(pbFreeLocks && lOItem.ID == UWObjectMechanics.LockObjectId))
 					lOSpilled.Add(lOItem);
 			}
 
 			return lOSpilled;
 		}
+
+		/// <summary>Whether a spill frees the container's locks first (the second game's drop_link_chain).</summary>
+		public static bool LocksFreedOnSpill(UWGame peGame) => peGame == UWGame.Uw2;
 
 		/// <summary>The use triggers of a container's chain, in order - what damage_object sets
 		/// off (checkTrap kind 4) before a smashed or burnt container spills.</summary>

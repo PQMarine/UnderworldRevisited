@@ -21,6 +21,10 @@ namespace UnderworldRevisited.Build
 
         private const int MaxAtlasSize = 2048;
 
+        /// <summary>With the sprites' xBR (UWSpriteXbr) every piece takes sixteen times the area: the largest first-game
+        /// creature, about 150 000 pixels with its padding, needs about 2.4 million then.</summary>
+        private const int ScaledMaxAtlasSize = 4096;
+
         /// <summary>Main palette index 0 is the transparent colour everywhere in the game. This means
         /// the index AFTER the auxiliary palette, not the image index before it.</summary>
         private const byte TransparentIndex = 0;
@@ -28,7 +32,9 @@ namespace UnderworldRevisited.Build
         /// <summary>No animation has more pages; beyond that the search would only hit nothing.</summary>
         private const int MaxPages = 4;
 
-        public static UWCritterAtlas Build(DataImport pOData, int piAnimation, int piAuxPalette, FilterMode peFilterMode)
+        /// <param name="piSpritePasses">The sprites' xBR (UWSpriteXbr, UWLevelLoader.SpriteScalePasses): 0 the pictures as
+        /// they are.</param>
+        public static UWCritterAtlas Build(DataImport pOData, int piAnimation, int piAuxPalette, FilterMode peFilterMode, int piSpritePasses = 0)
         {
             if (pOData == null || pOData.CritterAnimations == null || !pOData.CritterAnimations.IsLoaded)
                 return null;
@@ -89,7 +95,7 @@ namespace UnderworldRevisited.Build
                 fAddSlots(lOAtlas, lOPage, liFrameOffset);
             }
 
-            return fPack(lOAtlas, lOPieces, lOIndexPieces, lOFrameOfPiece, lOSizes, lOHotspots,
+            return fPack(lOAtlas, lOPieces, lOIndexPieces, lOFrameOfPiece, lOSizes, lOHotspots, piSpritePasses,
                 string.Format("UWCritter {0} Palette {1}", piAnimation, piAuxPalette), peFilterMode);
         }
 
@@ -100,7 +106,7 @@ namespace UnderworldRevisited.Build
         /// the sequence's frames in that view up to its count (byte 7). The pixels go through the page's
         /// palette piPalette, as the first game's through its auxiliary palette.
         /// </summary>
-        public static UWCritterAtlas BuildUw2(DataImport pOData, int piMap, int piPalette, FilterMode peFilterMode)
+        public static UWCritterAtlas BuildUw2(DataImport pOData, int piMap, int piPalette, FilterMode peFilterMode, int piSpritePasses = 0)
         {
             UWCritterArtUw2 lOArt = pOData != null && pOData.GameData != null ? pOData.GameData.CritterArtUw2 : null;
 
@@ -163,7 +169,7 @@ namespace UnderworldRevisited.Build
                 }
             }
 
-            return fPack(lOAtlas, lOPieces, lOIndexPieces, lOFrameOfPiece, new List<Vector2Int>(lOSizes), new List<Vector2Int>(lOHotspots),
+            return fPack(lOAtlas, lOPieces, lOIndexPieces, lOFrameOfPiece, new List<Vector2Int>(lOSizes), new List<Vector2Int>(lOHotspots), piSpritePasses,
                 string.Format("UWCritter UW2 map {0} Palette {1}", piMap, piPalette), peFilterMode);
         }
 
@@ -175,15 +181,19 @@ namespace UnderworldRevisited.Build
 
         /// <summary>Packs the pieces into the atlas's texture and index texture (both games).</summary>
         private static UWCritterAtlas fPack(UWCritterAtlas lOAtlas, List<Texture2D> lOPieces, List<Texture2D> lOIndexPieces,
-            List<int> lOFrameOfPiece, List<Vector2Int> lOSizes, List<Vector2Int> lOHotspots, string psName, FilterMode peFilterMode)
+            List<int> lOFrameOfPiece, List<Vector2Int> lOSizes, List<Vector2Int> lOHotspots, int piSpritePasses, string psName,
+            FilterMode peFilterMode)
         {
             if (lOPieces.Count == 0)
                 return null;
 
+            // The sizes and hotspots stay in the original's pixels, the places are 0..1: a scaled piece changes nothing else.
+            UWSpriteXbr.ScalePieces(lOPieces, lOIndexPieces, piSpritePasses);
+
             Texture2D lOTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             lOTexture.name = psName;
 
-            Rect[] lORects = lOTexture.PackTextures(lOPieces.ToArray(), Padding, MaxAtlasSize, false);
+            Rect[] lORects = lOTexture.PackTextures(lOPieces.ToArray(), Padding, piSpritePasses > 0 ? ScaledMaxAtlasSize : MaxAtlasSize, false);
 
             lOTexture.filterMode = peFilterMode;
             lOTexture.wrapMode = TextureWrapMode.Clamp;

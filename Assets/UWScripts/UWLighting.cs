@@ -82,6 +82,22 @@ public class UWLighting : MonoBehaviour
     [Tooltip("Base brightness of the scene. In the original you see practically nothing without a light source.")]
     private Color mOAmbientColor = new Color(0.05f, 0.05f, 0.07f);
 
+    /// <summary>
+    /// THE SECOND GAME'S MINIMUM LIGHT AS AMBIENT LIGHT IN REMASTERED (per user 2026-11-20: the castle is lit all
+    /// through, and in Remastered its light acted as a lantern carried by the player, falling off with distance and
+    /// casting the player's shadows). The original reckons all light from the eye, so a level's minimum (DL.DAT,
+    /// LevelMinimum) is there a light of that level the player always has; Remastered draws it as even ambient light
+    /// instead - this much per light level, in this colour, scaled by the viewer's ambient light - and the player's point
+    /// light is only what he carries or casts. The palette modes keep the original's way.
+    /// </summary>
+    [SerializeField]
+    [Tooltip("Remastered: ambient light per level of the second game's minimum light (DL.DAT). 0 keeps it as the player's light.")]
+    private float mfMinimumAmbientPerLevel = 0.1f;
+
+    [SerializeField]
+    [Tooltip("Remastered: the colour of the second game's minimum light as ambient light.")]
+    private Color mOMinimumAmbientColor = new Color(1f, 0.95f, 0.85f);
+
     [SerializeField]
     private bool mbFogEnabled = true;
 
@@ -203,6 +219,10 @@ public class UWLighting : MonoBehaviour
     private void fOnRenderModeChanged(UnderworldRevisited.UWSettings.RenderModeEnum peMode)
     {
         fApplyPlayerLight();
+
+        // The level's minimum light is ambient light in Remastered only.
+        if (!mbDebugBrightnessOverride)
+            fApplyEnvironment();
     }
 
     /// <summary>Whether the player carries open fire in Remastered mode - then it flickers and
@@ -322,8 +342,13 @@ public class UWLighting : MonoBehaviour
         if (mbRoamingSightLight || miCrystalBallViews > 0)
             return UWDataImport.UWData.UWMiscSpellRules.RemoteViewLightLevel;
 
-        return Mathf.Max(Mathf.Max(CarriedBrightness, miMagicBrightness), LevelMinimum);
+        return Mathf.Max(Mathf.Max(CarriedBrightness, miMagicBrightness), fMinimumAsAmbient ? 0 : LevelMinimum);
     }
+
+    /// <summary>Whether the level's minimum light is drawn as ambient light (Remastered) rather than as the player's
+    /// light (mfMinimumAmbientPerLevel).</summary>
+    private bool fMinimumAsAmbient => mfMinimumAmbientPerLevel > 0f
+        && UWRenderPathHost.Mode == UnderworldRevisited.UWSettings.RenderModeEnum.Remastered;
 
     /// <summary>The second game's minimum light where the view is (UWDarknessUw2.TileMinimum, DL.DAT;
     /// UW2 plan phase 2 step 3) - set by its walk (UWWalkUw2View); -1, none, in the first game, which
@@ -338,6 +363,9 @@ public class UWLighting : MonoBehaviour
 
             miLevelMinimum = value;
             fApplyPlayerLight();
+
+            if (!mbDebugBrightnessOverride)
+                fApplyEnvironment();
         }
     }
 
@@ -503,6 +531,10 @@ public class UWLighting : MonoBehaviour
         // UWLevelLoader.RefreshAmbientFloor).
         mfAppliedAmbient = UWUserSettings.AmbientLight;
         RenderSettings.ambientLight = mOAmbientColor * mfAppliedAmbient;
+
+        // The second game's minimum light, even all through in Remastered (mfMinimumAmbientPerLevel).
+        if (fMinimumAsAmbient && LevelMinimum > 0)
+            RenderSettings.ambientLight += mOMinimumAmbientColor * (LevelMinimum * mfMinimumAmbientPerLevel * Mathf.Max(0f, mfAppliedAmbient));
 
         RenderSettings.fog = mbFogEnabled;
         RenderSettings.fogMode = FogMode.ExponentialSquared;

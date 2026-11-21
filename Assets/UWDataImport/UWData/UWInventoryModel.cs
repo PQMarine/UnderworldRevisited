@@ -958,7 +958,7 @@ namespace UWDataImport.UWData
 		public void RemoveFromContainer(int piSlot)
 		{
 			List<UWObject> lOContents = OpenContainer?.Contents;
-			int liIndex = ContainerScrollOffset + piSlot;
+			int liIndex = ContentIndexOfShown(lOContents, ContainerScrollOffset + piSlot);
 
 			if (lOContents == null || piSlot < 0 || liIndex < 0 || liIndex >= lOContents.Count)
 				return;
@@ -1918,7 +1918,7 @@ namespace UWDataImport.UWData
 		public UWObject GetContainerItem(int piSlot)
 		{
 			List<UWObject> lOContents = OpenContainer?.Contents;
-			int liIndex = ContainerScrollOffset + piSlot;
+			int liIndex = ContentIndexOfShown(lOContents, ContainerScrollOffset + piSlot);
 
 			if (lOContents == null || piSlot < 0 || liIndex < 0 || liIndex >= lOContents.Count)
 				return null;
@@ -1936,7 +1936,7 @@ namespace UWDataImport.UWData
 		public void BeginDragFromContainer(int piSlot)
 		{
 			List<UWObject> lOContents = OpenContainer?.Contents;
-			int liIndex = ContainerScrollOffset + piSlot;
+			int liIndex = ContentIndexOfShown(lOContents, ContainerScrollOffset + piSlot);
 
 			if (lOContents == null || piSlot < 0 || liIndex < 0 || liIndex >= lOContents.Count)
 				return;
@@ -2008,7 +2008,7 @@ namespace UWDataImport.UWData
 			if (OpenContainer?.Contents == null || piSlot < 0 || piSlot >= ContainerSlotCount)
 				return false;
 
-			return DropCursorItemInContainerAt(OpenContainer, ContainerScrollOffset + piSlot);
+			return DropCursorItemInContainerAt(OpenContainer, ContentIndexOfShown(OpenContainer.Contents, ContainerScrollOffset + piSlot));
 		}
 
 		/// <summary>
@@ -2102,7 +2102,7 @@ namespace UWDataImport.UWData
 			get
 			{
 				List<UWObject> lOContents = OpenContainer?.Contents;
-				return lOContents != null && ContainerScrollOffset + ContainerSlotCount <= lOContents.Count;
+				return lOContents != null && ContainerScrollOffset + ContainerSlotCount <= ShownCount(lOContents);
 			}
 		}
 
@@ -2136,8 +2136,57 @@ namespace UWDataImport.UWData
 		private void fClampContainerScrollOffset()
 		{
 			List<UWObject> lOContents = OpenContainer?.Contents;
-			int liMaxOffset = lOContents == null ? 0 : Math.Max(0, lOContents.Count - 1);
+			int liMaxOffset = lOContents == null ? 0 : Math.Max(0, ShownCount(lOContents) - 1);
 			ContainerScrollOffset = Math.Max(0, Math.Min(liMaxOffset, ContainerScrollOffset));
+		}
+
+		/// <summary>
+		/// AN OPEN CONTAINER SHOWS NO INVISIBLE THING (FixOpenBag and OpenTheBag, inv/BAGS.C of both games, skip
+		/// OBJ_INVIS; per user 2026-11-20 with a picture: the box Felix gives on the second game's level 14, enchanted
+		/// with Create Food, showed its spell object as "SPEL" - an enchanted container keeps its spell in its contents,
+		/// invisible). The places count the shown things only: this is where the piShown-th shown thing lies in the
+		/// contents, or the contents' end when there are fewer (a drop there appends).
+		/// </summary>
+		public static int ContentIndexOfShown(List<UWObject> pOContents, int piShown)
+		{
+			if (piShown < 0)
+				return -1;
+
+			// Contents not loaded yet: the place as it is (DropCursorItemInContainerAt loads them).
+			if (pOContents == null)
+				return piShown;
+
+			int liShown = 0;
+
+			for (int liAt = 0; liAt < pOContents.Count; liAt++)
+			{
+				if (pOContents[liAt] != null && pOContents[liAt].IsHidden)
+					continue;
+
+				if (liShown == piShown)
+					return liAt;
+
+				liShown++;
+			}
+
+			return pOContents.Count;
+		}
+
+		/// <summary>How many things of the contents are shown (ContentIndexOfShown).</summary>
+		public static int ShownCount(List<UWObject> pOContents)
+		{
+			if (pOContents == null)
+				return 0;
+
+			int liShown = 0;
+
+			foreach (UWObject lOItem in pOContents)
+			{
+				if (lOItem == null || !lOItem.IsHidden)
+					liShown++;
+			}
+
+			return liShown;
 		}
 	}
 }

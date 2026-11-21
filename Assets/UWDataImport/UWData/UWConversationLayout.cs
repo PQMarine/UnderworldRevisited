@@ -90,8 +90,18 @@ namespace UWDataImport.UWData
 		{
 			List<string> lOLines = new List<string>();
 
+			if (string.IsNullOrEmpty(psText))
+				return lOLines;
+
+			// AN EMPTY PART IS AN EMPTY LINE (a newline at the end or two in a row; per user 2026-11-22, Miranda's list):
+			// the original's scroll moves on by a line for each.
 			foreach (string lsPart in psText.Split(msLineBreaks, StringSplitOptions.None))
-				lOLines.AddRange(UWTextLayout.WrapText(pOFont, lsPart, piWidth));
+			{
+				if (lsPart.Length == 0)
+					lOLines.Add(string.Empty);
+				else
+					lOLines.AddRange(UWTextLayout.WrapText(pOFont, lsPart, piWidth));
+			}
 
 			return lOLines;
 		}

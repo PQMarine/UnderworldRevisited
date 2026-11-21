@@ -10,6 +10,73 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-22
+
+### Added
+- Remastered effects window: "xBR texture scaling (4x)" scales walls, floors and ceilings to four times their size
+  with the pixel art scaler xBR, which rounds their edges and gives them a painted look. For both games.
+- Remastered effects window: "xBR creatures, things and weapons (4x, next load)" does the same for creatures, things
+  and the weapon in the hand, with rounded outlines and a hard edge, from the next load of a game on. Translucent
+  pictures such as ghosts stay as they are, and the palette modes draw the original's pixels.
+- Ultima Underworld II: the help's Stats tab lists the worn magic among the hidden values, as for the first game:
+  every enchanted thing you wear and what they do together. In both games a wand or another charged thing in a
+  hand is left out of that list, as it casts when used, not when worn.
+- Ultima Underworld II, Remastered and Palette colours: the ice's relief has a depth of its own, the slider "Ice
+  relief" in the effects window - from smooth to as deep as the walls.
+
+### Changed
+- Modern with a quick start (the ramp "at once" or short): a jump into a wall right after starting to run hurts as
+  much as in the original after the same run up, not as after a long run. The original's own speed-up takes about
+  half a tile; longer run ups hurt as before.
+- Ultima Underworld II, Remastered: the relief of brick and stone walls follows their joints. The second game's
+  joints are fainter than the first game's, and only pieces of them were found, so the shadows fell across the
+  bricks. On the red brick wall with light joints and a few black bricks the light joints are the joints now; its
+  black bricks were sunk as hollows.
+- Ultima Underworld II, Remastered: the light some levels always have, the castle above all, is even ambient light
+  now. Until now it acted as a lantern you carry, falling off with distance and casting your shadow. A torch or a
+  lantern you carry still adds its own light.
+
+### Fixed
+- Remastered and Palette colours: things and creatures on a raised floor no longer show through the step up to it.
+- Conversations of both games: a list a character reads out entry by entry names every entry. Miranda named only
+  one of two cut lines of power; the placeholders with an index now read it as the original does.
+- Conversations of both games: a line that ends in a line break leaves an empty line after it, as in the original
+  (Miranda's list of cut lines of power, the Dialogician on Talorus). Answers stay as they were.
+- Ultima Underworld II: recharging the light spheres on Talorus flashes lightning over each sphere, as in the
+  original.
+- Ultima Underworld II: typing in the help's notes during a conversation no longer chooses an answer with a digit,
+  as in the first game. A typed answer waits until the notes let go of the keyboard.
+- Ultima Underworld II: cutting a line of power with Altara's wand sparkles on the spot and shakes the view, as in
+  the original. Until now only the sounds came.
+- Modern: a fall into water does no damage, as in the original and in Classic. You stop with a splash.
+- Ultima Underworld II: a fall onto a teleport does no fall damage, as in the original.
+- Modern: a fall onto a trap on the floor, a teleport above all, sets it off on landing, as in the original and in
+  Classic. You had to take a small step first.
+- A lever, button or plaque on a wall with stone panels stays in front of them. In the second game's ice caves the
+  panels covered a lever.
+- Ultima Underworld II: a teleport puts you onto its square without setting off what lies there for whoever steps
+  on it, as in the original. A drain in the ice caves sent you back at once.
+- Ultima Underworld II: the yeti throws its snowballs and the acid slug and the despoiler spit their acid, as in
+  the original. They went through the motion and nothing came.
+- Ultima Underworld II: a thing thrown or dropped onto ice comes to rest, as in the original. It kept moving, made its
+  landing sound again and again and could get lost.
+- Ultima Underworld II: a smashed chest or barrel spills what it holds, as in the original. Its contents went with it.
+- Conversations: a line put into another line has its own placeholders filled in, as in the original. Nelson in the
+  second game said "Ah, @GS8, ..." instead of your name.
+- Ultima Underworld II: talking reaches as far as you see, with the Talk command and with a right drag, as in the
+  original; it stopped at the reach of using.
+- An open bag or box no longer shows the invisible things inside it, as in the original. In Ultima Underworld II the
+  enchanted box Felix gives showed its spell as "SPEL", and opening it now conjures food, as there.
+- A chest or other container emptied onto the floor no longer shows its lock lying there. The second game removes the
+  locks first; in the first game the lock falls out unseen, as in the original.
+- Ultima Underworld II: a writing the level data put on the wrong side of a door's lintel on level 12 hangs over the
+  door, where it was meant to be (Fix bugs of the original; off, it stays as in the original).
+- Modern movement: a running jump onto a bench or another low object lands on it, as with the classic movement. Meeting
+  the object's side in the air with the feet still below its top stopped the jump there.
+- Modern movement: pressing against a solid object sets off the move triggers ahead of you, as the classic movement
+  does. In Ultima Underworld II the force field the fraznium gauntlets open stayed shut in Modern, because the trigger
+  that lowers it behind you was met last.
+
 ## [0.22.1] - 2026-11-20
 
 ### Changed

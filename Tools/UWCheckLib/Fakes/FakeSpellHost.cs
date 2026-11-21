@@ -7,7 +7,7 @@ namespace UnderworldRevisited.Tools
     {
         /// <summary>One cast without a scene: the caster's numbers are fixed, what he does is a
         /// line of the world's log.</summary>
-        private sealed class FakeSpellHost : IUWSpellHost
+        private class FakeSpellHost : IUWSpellHost
         {
             public readonly FakeWorld Fake;
 
@@ -21,11 +21,11 @@ namespace UnderworldRevisited.Tools
 
             public UWCastContext Cast { get; }
 
-            public DataImport Data => null;
+            public DataImport Data { get; set; }
 
             public bool IsMagicBlocked => false;
 
-            public bool HasPlayer => true;
+            public bool HasPlayer { get; set; } = true;
 
             public int PlayerLevel { get; set; } = 16;
 
@@ -61,7 +61,10 @@ namespace UnderworldRevisited.Tools
 
             public void RefreshSpellIcons() { }
 
-            public void BeginProjectileSpell(int piProjectileId, int piDamage, int piSpeed, int piManaCost) { }
+            public void BeginProjectileSpell(int piProjectileId, int piDamage, int piSpeed, int piManaCost)
+            {
+                Fake.Log.Add("projectile 0x" + piProjectileId.ToString("X"));
+            }
 
             public void BeginTargetSpell(int piMajorClass, int piMinorClass, int piManaCost = 0) { }
 

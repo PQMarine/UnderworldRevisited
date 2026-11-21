@@ -565,12 +565,11 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     /// eighths of its COMOBJ height (UWAreaSpellRules.CreatureEffectZPos), the picture hanging on that point as
     /// every object picture does (UWSpriteScale.AnchorY). Since 2026-11-11 (per user with screenshots of Mass
     /// Confusion beside the original: ours stood above the heads); before, the middle of the creature's collider,
-    /// which stays the answer without the creature's numbers.</summary>
+    /// which stays the answer without the creature's numbers. An object without a body of its own (the second game's
+    /// invisible line-of-power marker, 2026-11-22) takes the record's spot as well, as put_effect does.</summary>
     public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds, int piEighths = UWAreaSpellRules.SpellEffectEighths)
     {
-        UWEntityInfo lOEntity = fEntityOf(pOCreature);
-
-        if (Loader == null || lOEntity == null)
+        if (Loader == null || pOCreature == null)
             return;
 
         UWCommonObjectProperties lOProperties = Loader.UWDataImporter != null ? Loader.UWDataImporter.CommonObjectProperties : null;
@@ -584,6 +583,11 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
 
             return;
         }
+
+        UWEntityInfo lOEntity = fEntityOf(pOCreature);
+
+        if (lOEntity == null)
+            return;
 
         Collider lOCollider = lOEntity.GetComponentInChildren<Collider>();
 

@@ -45,35 +45,46 @@ namespace UnderworldRevisited.Build
         /// (see UWObjectSpawner.fSpawnFrame) and solid-colour faces of real 3D models whose
         /// other faces show a wall texture (see UWObjectSpawner.fSpawn3DModel - a textured
         /// and a solid-colour face in the same model must end up on the same material). Follows directly after the floor textures.
+        /// SINCE 2026-11-22 NOT IN THE COLOUR ARRAY (Build): the dungeon shader takes their colour from the 256x1 table of
+        /// BuildSwatchColours (AttachSwatches); the normal and index arrays still hold them as slices.
         /// </summary>
         public static int GetPaletteSliceOffset(DataImport pOData)
         {
             return GetFloorSliceOffset(pOData) + pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.FLOOR).Count;
         }
 
-        public static Texture2DArray Build(DataImport pOData, FilterMode peFilterMode = FilterMode.Point)
+        /// <param name="piScalePasses">THE xBR TEXTURE SCALING (per user 2026-11-22): 0 the slices as they are, 2 every wall
+        /// and floor scaled by xBR twice to 4x (UWXbrScaler). The shader reads the array by its 0..1 coordinate, so nothing
+        /// else changes. Walls and floors only: the 256 palette colour slices, a third of the array at 4x, come from
+        /// BuildSwatchColours since the same day (per user: "Ja, verkleinern").</param>
+        public static Texture2DArray Build(DataImport pOData, FilterMode peFilterMode = FilterMode.Point, int piScalePasses = 0)
         {
             List<UWTexture> lOWalls = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.WALL);
             List<UWTexture> lOFloors = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.FLOOR);
 
             int liPaletteBase = lOWalls.Count + lOFloors.Count;
-            int liSliceCount = liPaletteBase + PaletteSwatchCount;
+            int liSliceCount = liPaletteBase;
+            int liSize = SliceResolution << piScalePasses;
 
-            Texture2DArray lOArray = new Texture2DArray(SliceResolution, SliceResolution, liSliceCount, TextureFormat.RGBA32, true);
-            lOArray.name = "UWTextures";
+            Texture2DArray lOArray = new Texture2DArray(liSize, liSize, liSliceCount, TextureFormat.RGBA32, true);
+            lOArray.name = piScalePasses > 0 ? "UWTextures (xBR)" : "UWTextures";
             lOArray.filterMode = peFilterMode;
             lOArray.wrapMode = TextureWrapMode.Repeat;
 
+            // The source pixels first (Unity's own calls stay on this thread), then the scaling on every core.
+            Color32[][] lOSlices = new Color32[liPaletteBase][];
+
             for (int i = 0; i < lOWalls.Count; i++)
-                lOArray.SetPixels32(fGetPixels(lOWalls[i]), i);
+                lOSlices[i] = fGetPixels(lOWalls[i]);
 
             for (int i = 0; i < lOFloors.Count; i++)
-                lOArray.SetPixels32(fGetPixels(lOFloors[i]), lOWalls.Count + i);
+                lOSlices[lOWalls.Count + i] = fGetPixels(lOFloors[i]);
 
-            UWPalette lOPalette = pOData.Palettes.GetPalette(0);
+            if (piScalePasses > 0)
+                System.Threading.Tasks.Parallel.For(0, liPaletteBase, i => lOSlices[i] = Scaled(lOSlices[i], piScalePasses));
 
-            for (int i = 0; i < PaletteSwatchCount; i++)
-                lOArray.SetPixels32(fGetSwatchPixels(lOPalette, i), liPaletteBase + i);
+            for (int i = 0; i < liPaletteBase; i++)
+                lOArray.SetPixels32(lOSlices[i], i);
 
             lOArray.Apply(true, false);
 
@@ -122,10 +133,10 @@ namespace UnderworldRevisited.Build
             lOArray.wrapMode = TextureWrapMode.Repeat;
 
             for (int i = 0; i < lOWalls.Count; i++)
-                lOArray.SetPixels32(fGetNormalPixels(lOWalls[i], pfStrength), i);
+                lOArray.SetPixels32(fGetNormalPixels(lOWalls[i], pfStrength, i), i);
 
             for (int i = 0; i < lOFloors.Count; i++)
-                lOArray.SetPixels32(fGetNormalPixels(lOFloors[i], pfStrength), lOWalls.Count + i);
+                lOArray.SetPixels32(fGetNormalPixels(lOFloors[i], pfStrength, -1), lOWalls.Count + i);
 
             // The solid-colour palette slices are flat - a face without a pattern has no
             // relief, and a derived one would be pure noise.
@@ -139,9 +150,46 @@ namespace UnderworldRevisited.Build
             return lOArray;
         }
 
+        /// <summary>
+        /// THE SECOND GAME'S ICE SLICES (UWHeightMap.IceTexturesUw2; per user 2026-11-22), for the shader's own relief depth
+        /// there (_IceRelief): one texel per slice of the colour array (R8), 255 for an ice texture's wall or floor slice,
+        /// 0 for anything else. In the second game a texture's number in either list is its T64.TR number. All 0 in the
+        /// first game.
+        /// </summary>
+        public static Texture2D BuildIceSliceTable(DataImport pOData)
+        {
+            List<UWTexture> lOWalls = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.WALL);
+            List<UWTexture> lOFloors = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.FLOOR);
+            int liSliceCount = lOWalls.Count + lOFloors.Count + PaletteSwatchCount;
+            byte[] lyTable = new byte[liSliceCount];
+
+            if (UWGameSession.Current.Game.Game == UWGame.Uw2)
+            {
+                foreach (int liTexture in UWHeightMap.IceTexturesUw2)
+                {
+                    if (liTexture < lOWalls.Count)
+                        lyTable[liTexture] = 255;
+
+                    if (liTexture < lOFloors.Count)
+                        lyTable[lOWalls.Count + liTexture] = 255;
+                }
+            }
+
+            Texture2D lOTable = new Texture2D(liSliceCount, 1, TextureFormat.R8, false, true);
+
+            lOTable.name = "UWTextures (ice slices)";
+            lOTable.filterMode = FilterMode.Point;
+            lOTable.wrapMode = TextureWrapMode.Clamp;
+            lOTable.SetPixelData(lyTable, 0);
+            lOTable.Apply(false, false);
+
+            return lOTable;
+        }
+
         /// <summary>The normal per pixel from the gradient of the height map
         /// (UWHeightMapBuilder); the blue channel carries the roughness from brightness.</summary>
-        private static Color32[] fGetNormalPixels(UWTexture pOTexture, float pfStrength)
+        /// <param name="piWall">The wall's number (its slice), -1 for a floor (UWHeightMapBuilder).</param>
+        private static Color32[] fGetNormalPixels(UWTexture pOTexture, float pfStrength, int piWall)
         {
             Color32[] lOColours = fGetPixels(pOTexture);
             Color32[] lOTarget = new Color32[lOColours.Length];
@@ -153,7 +201,7 @@ namespace UnderworldRevisited.Build
                 lfBrightness[i] = ((lOColours[i].r * 0.299f) + (lOColours[i].g * 0.587f)
                     + (lOColours[i].b * 0.114f)) / 255f;
 
-            float[] lfHeights = UWHeightMapBuilder.Build(lOColours, fGetIndexPixels(pOTexture)).Heights;
+            float[] lfHeights = UWHeightMapBuilder.Build(lOColours, fGetIndexPixels(pOTexture), piWall).Heights;
 
             for (int y = 0; y < SliceResolution; y++)
             {
@@ -372,23 +420,39 @@ namespace UnderworldRevisited.Build
         /// and lava floors; textures with just a few drops of the colour (the drain, for
         /// example) are included as well, because they rotate along in the original too.
         /// </summary>
-        public static List<AnimatedSlice> BuildAnimatedSlices(DataImport pOData, FilterMode peFilterMode)
+        public static List<AnimatedSlice> BuildAnimatedSlices(DataImport pOData, FilterMode peFilterMode, int piScalePasses = 0)
         {
             List<AnimatedSlice> lOResult = new List<AnimatedSlice>();
 
             List<UWTexture> lOWalls = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.WALL);
             List<UWTexture> lOFloors = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.FLOOR);
 
+            // Each state's pixels are gathered first and scaled on every core afterwards, as in Build: one state after the
+            // other on this thread made the xBR switch stand still for seconds (2026-11-22, per user "ca. 5 Sekunden";
+            // the second game has 62 moving textures with 358 states).
+            List<Texture2D> lOPending = new List<Texture2D>();
+            List<Color32[]> lOPendingPixels = new List<Color32[]>();
+
             for (int i = 0; i < lOWalls.Count; i++)
-                fAddIfAnimated(lOWalls[i], i, peFilterMode, lOResult);
+                fAddIfAnimated(lOWalls[i], i, peFilterMode, piScalePasses, lOResult, lOPending, lOPendingPixels);
 
             for (int i = 0; i < lOFloors.Count; i++)
-                fAddIfAnimated(lOFloors[i], lOWalls.Count + i, peFilterMode, lOResult);
+                fAddIfAnimated(lOFloors[i], lOWalls.Count + i, peFilterMode, piScalePasses, lOResult, lOPending, lOPendingPixels);
+
+            if (piScalePasses > 0)
+                System.Threading.Tasks.Parallel.For(0, lOPendingPixels.Count, i => lOPendingPixels[i] = Scaled(lOPendingPixels[i], piScalePasses));
+
+            for (int i = 0; i < lOPending.Count; i++)
+            {
+                lOPending[i].SetPixels32(lOPendingPixels[i]);
+                lOPending[i].Apply(true, false);
+            }
 
             return lOResult;
         }
 
-        private static void fAddIfAnimated(UWTexture pOTexture, int piSlice, FilterMode peFilterMode, List<AnimatedSlice> pOResult)
+        private static void fAddIfAnimated(UWTexture pOTexture, int piSlice, FilterMode peFilterMode, int piScalePasses,
+            List<AnimatedSlice> pOResult, List<Texture2D> pOPending, List<Color32[]> pOPendingPixels)
         {
             if (pOTexture == null || pOTexture.PaletteIndices == null)
                 return;
@@ -421,12 +485,13 @@ namespace UnderworldRevisited.Build
 
             for (int liStep = 0; liStep < liCycle; liStep++)
             {
-                Texture2D lOState = new Texture2D(SliceResolution, SliceResolution, TextureFormat.RGBA32, true);
+                int liSize = SliceResolution << piScalePasses;
+                Texture2D lOState = new Texture2D(liSize, liSize, TextureFormat.RGBA32, true);
                 lOState.name = string.Format("UWRotation {0}_{1} step {2}", pOTexture.TextureType, pOTexture.Index, liStep);
                 lOState.filterMode = peFilterMode;
                 lOState.wrapMode = TextureWrapMode.Repeat;
-                lOState.SetPixels32(fGetRotatedPixels(pOTexture, lOPalette, liStep));
-                lOState.Apply(true, false);
+                pOPending.Add(lOState);
+                pOPendingPixels.Add(fGetRotatedPixels(pOTexture, lOPalette, liStep));
 
                 lOStates[liStep] = lOState;
             }
@@ -468,17 +533,61 @@ namespace UnderworldRevisited.Build
         }
 
         /// <summary>Solid-colour slice pixels for a palette index.</summary>
-        private static Color32[] fGetSwatchPixels(UWPalette pOPalette, int piPaletteIndex)
+        /// <summary>A slice's pixels (SliceResolution square) scaled by xBR piPasses times (UWXbrScaler); 0 returns
+        /// them as they are. Alpha stays opaque, as every wall and floor slice is.</summary>
+        public static Color32[] Scaled(Color32[] pOPixels, int piPasses)
         {
-            UWColor32 lOColor = pOPalette.GetUWColor(piPaletteIndex);
-            Color32 lOPixel = new Color32(lOColor.R, lOColor.G, lOColor.B, 255);
+            if (piPasses <= 0 || pOPixels == null)
+                return pOPixels;
 
-            Color32[] lOTarget = new Color32[SliceResolution * SliceResolution];
+            uint[] luySource = new uint[pOPixels.Length];
 
-            for (int i = 0; i < lOTarget.Length; i++)
-                lOTarget[i] = lOPixel;
+            for (int i = 0; i < pOPixels.Length; i++)
+                luySource[i] = 0xFF000000u | ((uint)pOPixels[i].b << 16) | ((uint)pOPixels[i].g << 8) | pOPixels[i].r;
 
-            return lOTarget;
+            uint[] luyScaled = UWXbrScaler.Scale(luySource, SliceResolution, SliceResolution, piPasses);
+            Color32[] lOOut = new Color32[luyScaled.Length];
+
+            for (int i = 0; i < luyScaled.Length; i++)
+                lOOut[i] = new Color32((byte)luyScaled[i], (byte)(luyScaled[i] >> 8), (byte)(luyScaled[i] >> 16), 255);
+
+            return lOOut;
+        }
+
+        /// <summary>The 256 palette colours of the main palette (palette 0) in a row, one texel each: the colour of the
+        /// palette colour slices (GetPaletteSliceOffset), which the colour array no longer holds. sRGB like the array,
+        /// point filtered.</summary>
+        public static Texture2D BuildSwatchColours(DataImport pOData)
+        {
+            UWPalette lOPalette = pOData.Palettes.GetPalette(0);
+            Color32[] lOPixels = new Color32[PaletteSwatchCount];
+
+            for (int i = 0; i < PaletteSwatchCount; i++)
+            {
+                UWColor32 lOColor = lOPalette.GetUWColor(i);
+                lOPixels[i] = new Color32(lOColor.R, lOColor.G, lOColor.B, 255);
+            }
+
+            Texture2D lOTable = new Texture2D(PaletteSwatchCount, 1, TextureFormat.RGBA32, false);
+            lOTable.name = "UWSwatchColours";
+            lOTable.filterMode = FilterMode.Point;
+            lOTable.wrapMode = TextureWrapMode.Clamp;
+            lOTable.SetPixels32(lOPixels);
+            lOTable.Apply(false, true);
+
+            return lOTable;
+        }
+
+        /// <summary>Hands the dungeon material (UW/Dungeon) the palette colour table and the slice it starts at
+        /// (_SwatchColours, _SwatchBase); returns the table.</summary>
+        public static Texture2D AttachSwatches(Material pOMaterial, DataImport pOData)
+        {
+            Texture2D lOTable = BuildSwatchColours(pOData);
+
+            pOMaterial.SetTexture(UWShaderIds.SwatchColours, lOTable);
+            pOMaterial.SetFloat(UWShaderIds.SwatchBase, GetPaletteSliceOffset(pOData));
+
+            return lOTable;
         }
 
         /// <summary>The colours of a texture at slice size, as they lie in the array.</summary>

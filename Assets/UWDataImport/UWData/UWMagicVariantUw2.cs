@@ -115,6 +115,29 @@ namespace UWDataImport.UWData
 
 		public IReadOnlyList<UWRunicMagic.Spell> Spells => mOSpells;
 
+		/// <summary>The packed number's bits (cast, uw2 SPELLS.C:59-72).</summary>
+		public const int PackedSpellBits = 0xC0;
+
+		/// <summary>The class a packed number's bits 6-7 count from.</summary>
+		public const int PackedSpellFirstClass = 12;
+
+		/// <summary>
+		/// A PACKED SPELL NUMBER (per user 2026-11-22, SAVE3 on level 26: a yeti went through its throw and no snowball came,
+		/// in the original one does): the yeti casts 73 (0x49), class 13 minor 9 - the snowball; the acid slug and the
+		/// despoiler 72, the acid; the brain creature 66 and 68. Ours read 73 as a place in the 69 spells and did nothing.
+		/// </summary>
+		public bool TryUnpackSpell(int piSpell, out UWRunicMagic.Spell pOSpell)
+		{
+			pOSpell = default;
+
+			if ((piSpell & PackedSpellBits) == 0)
+				return false;
+
+			pOSpell = new UWRunicMagic.Spell(-1, PackedSpellFirstClass + ((piSpell & PackedSpellBits) >> 6), piSpell & 0x3F, 0);
+
+			return true;
+		}
+
 		public int SpellsPerCircle => 8;
 
 		public int FailStringBase => FailStrings;

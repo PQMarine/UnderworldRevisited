@@ -40,6 +40,14 @@ namespace UnderworldRevisited.Tools
 
             fExpectInt("layout: the parchment holds thirteen six-pixel lines", UWConversationLayout.HistoryCapacity(lOFont), 13);
 
+            // A newline at the end or two in a row is an empty line, as the original's scroll moves on (per user
+            // 2026-11-22: Miranda's "@SS1SI10" ends in one, an empty line after each cut line of power); nothing gives none.
+            Check.Str("layout: a newline at the end and two in a row give empty lines",
+                string.Join("|", UWConversationLayout.WrapWithBreaks(lOFont, "Talorus.\n", UWConversationLayout.HistoryWidth)) + " / "
+                + string.Join("|", UWConversationLayout.WrapWithBreaks(lOFont, "A\n\nB", UWConversationLayout.HistoryWidth)) + " / "
+                + UWConversationLayout.WrapWithBreaks(lOFont, string.Empty, UWConversationLayout.HistoryWidth).Count,
+                "Talorus.| / A||B / 0");
+
             fCheckConversationMore(lOFont);
             fCheckVernixArrivesWhole(pOData, lOFont);
             fCheckConversationAnswers(lOFont);

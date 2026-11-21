@@ -809,6 +809,23 @@ namespace UnderworldRevisited.Tools
             Check.Str("uw2 sites: stepping onto level 2's 35/30 sets off its enter trigger (variable 52 from 0 to 2)",
                 liBefore + " " + UWPlayerRecordUw2.GetNumbered(lOFile, 52), "0 2");
 
+            // Level 25 (per user 2026-11-22, SAVE3): the drain at 28/30 sends the player to 28/34, whose enter trigger sends
+            // whoever STEPS onto it back to 28/29. Put there by the teleport (player_setup) only 28/30's exit plates go off.
+            FakeTrapHost lODrainStep = fUw2Host(lOImport, 24);
+            UWLevel lOLevel25 = lOImport.Levels[24];
+
+            lODrainStep.Fake.Body.Feet = new UWSpot(new UWTilePos(28, 34), 3, 3, lOLevel25.GetTile(28, 34).FloorHeight >> 1);
+            UWTrapRulesUw2.MoverMoved(lOLevel25.GetTile(28, 33), 0, lOLevel25.GetTile(28, 34), lOLevel25.GetTile(28, 34).FloorHeight >> 1, lODrainStep);
+
+            FakeTrapHost lODrainArrive = fUw2Host(lOImport, 24);
+
+            lODrainArrive.Fake.Body.Feet = new UWSpot(new UWTilePos(28, 34), 3, 3, lOLevel25.GetTile(28, 34).FloorHeight >> 1);
+            UWTrapRulesUw2.PlayerSetUp(lOLevel25.GetTile(28, 30), lOLevel25.GetTile(28, 30).FloorHeight >> 1, lODrainArrive);
+
+            Check.Str("uw2 sites: level 25's 28/34 sends back who steps onto it, not who is teleported there",
+                string.Join(",", lODrainStep.Fake.Log.FindAll(s => s.StartsWith("teleport2"))) + " | "
+                + string.Join(",", lODrainArrive.Fake.Log.FindAll(s => s.StartsWith("teleport2"))), "teleport2 0 28/29 | ");
+
             // Level 3, 15/53: the enter trigger sits behind a move trigger, so the original never asks it (check_pplate); with
             // the fix (deviations.everyEnterExitTrigger) it sets variable 52 to 1, Miranda's meeting place.
             FakeTrapHost lOThree = fUw2Host(lOImport, 2);

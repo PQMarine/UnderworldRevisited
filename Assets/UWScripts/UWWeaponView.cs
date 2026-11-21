@@ -2,6 +2,7 @@ using UnityEngine;
 using UWDataImport;
 using UWDataImport.Presentation;
 using UWDataImport.UWData;
+using UnderworldRevisited.Build;
 
 /// <summary>
 /// The weapon hand and the power gem as textures (cleanup step 4.6, 2026-10-18; part of
@@ -131,6 +132,10 @@ public sealed class UWWeaponView
 
     public Texture2D CurrentWeaponTexture { get; private set; }
 
+    /// <summary>The weapon picture's size in the original's pixels: what the HUDs lay out with. The texture is larger
+    /// with the sprites' xBR (UWSpriteXbr.WeaponPasses, per user 2026-11-22).</summary>
+    public Vector2 CurrentWeaponSize { get; private set; }
+
     /// <summary>
     /// THE FRAME AS A MOD EXTENDS IT (Docs/WIDESCREEN-WEAPONS-PLAN.md step 3, 2026-11-09), null where no mod
     /// does: the larger picture, with the original's top left at (CurrentWeaponExtendedLeft, ...Top) in it.
@@ -142,6 +147,12 @@ public sealed class UWWeaponView
     public int CurrentWeaponExtendedLeft { get; private set; }
 
     public int CurrentWeaponExtendedTop { get; private set; }
+
+    /// <summary>The mod's larger picture's size in the original's pixels (CurrentWeaponSize's twin).</summary>
+    public Vector2 CurrentWeaponExtendedSize { get; private set; }
+
+    /// <summary>The xBR passes the shown pictures were made with (UWSpriteXbr.WeaponPasses).</summary>
+    private int miShownPasses = -1;
 
     private UWTextures mOTextures;
 
@@ -160,10 +171,12 @@ public sealed class UWWeaponView
     private void fSync()
     {
         bool lbColours = UWColourVision.Version != miShownColours;
+        int liPasses = UWSpriteXbr.WeaponPasses;
 
-        if (mOSwing.FrameVersion != miShownFrameVersion || lbColours)
+        if (mOSwing.FrameVersion != miShownFrameVersion || lbColours || liPasses != miShownPasses)
         {
             miShownFrameVersion = mOSwing.FrameVersion;
+            miShownPasses = liPasses;
             fGetCurrentWeaponTexture();
         }
 
@@ -190,6 +203,7 @@ public sealed class UWWeaponView
         UWTexture lOFrame = mOSwing.Frame;
 
         CurrentWeaponTexture = fGetCachedTexture(lOFrame);
+        CurrentWeaponSize = lOFrame != null ? new Vector2(lOFrame.Width, lOFrame.Height) : Vector2.zero;
 
         UWExtendedPicture lOExtended = lOFrame != null && mOTextures != null
             ? mOTextures.GetExtendedByType(lOFrame.TextureType, lOFrame.Index) : null;
@@ -197,6 +211,7 @@ public sealed class UWWeaponView
         CurrentWeaponExtended = lOExtended != null ? fGetCachedTexture(lOExtended.Picture) : null;
         CurrentWeaponExtendedLeft = lOExtended != null ? lOExtended.Left : 0;
         CurrentWeaponExtendedTop = lOExtended != null ? lOExtended.Top : 0;
+        CurrentWeaponExtendedSize = lOExtended != null ? new Vector2(lOExtended.Picture.Width, lOExtended.Picture.Height) : Vector2.zero;
     }
 
     /// <summary>Convert a UI texture once and keep it, as with the power orb.
@@ -209,13 +224,19 @@ public sealed class UWWeaponView
         // A change of the colour help makes every cached picture stale (the stamp, UWArtCache).
         UWArtStamp lOStamp = UWVersionedTexture.Colours();
 
-        if (!mOUiTextureCache.TryGet(pOTexture, lOStamp, out Texture2D lOCached))
-            lOCached = mOUiTextureCache.Set(pOTexture, lOStamp, UWTextureFactory.FromTexture(pOTexture, meFilterMode, "UWWeaponView weapon"));
+        // The plain and the xBR pictures in caches of their own (UWSpriteXbr.WeaponPasses).
+        int liPasses = System.Math.Max(0, miShownPasses);
+        UWArtCache<UWTexture> lOCache = liPasses > 0 ? mOScaledTextureCache : mOUiTextureCache;
+
+        if (!lOCache.TryGet(pOTexture, lOStamp, out Texture2D lOCached))
+            lOCached = lOCache.Set(pOTexture, lOStamp, UWSpriteXbr.FromTexture(pOTexture, meFilterMode, "UWWeaponView weapon", liPasses));
 
         return lOCached;
     }
 
     private readonly UWArtCache<UWTexture> mOUiTextureCache = new UWArtCache<UWTexture>();
+
+    private readonly UWArtCache<UWTexture> mOScaledTextureCache = new UWArtCache<UWTexture>();
 
     /// <summary>
     /// Sets the image of the power orb.

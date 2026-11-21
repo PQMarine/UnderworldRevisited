@@ -223,8 +223,10 @@ public sealed class UWClassicHud
         {
             WeaponCoordinate lOOffset = lOCharacter.Weapon.GetWeaponOffset();
             fUpdateSprite(mWeaponImage, lOCharacter.Weapon.CurrentWeaponTexture, ref mPrevWeaponTex);
+            // The original's size, not the texture's: larger with the sprites' xBR (UWSpriteXbr.WeaponPasses).
+            ((RectTransform)mWeaponImage.transform).sizeDelta = lOCharacter.Weapon.CurrentWeaponSize;
 
-            float lfY = -wTopOffset + lOOffset.Y - (lOCharacter.Weapon.CurrentWeaponTexture.height * (1f - lOCharacter.Weapon.CurrentReadyWeaponTime));
+            float lfY = -wTopOffset + lOOffset.Y - (lOCharacter.Weapon.CurrentWeaponSize.y * (1f - lOCharacter.Weapon.CurrentReadyWeaponTime));
 
             ((RectTransform)mWeaponImage.transform).anchoredPosition = new Vector2(wLeftOffset + lOOffset.X + mOUi.WeaponSway.Offset(), lfY);
         }

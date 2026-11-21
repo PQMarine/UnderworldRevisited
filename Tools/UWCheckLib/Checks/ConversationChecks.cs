@@ -138,6 +138,60 @@ namespace UnderworldRevisited.Tools
 
         /// <summary>UWConversationTextRules.ContainsWord after Contains_ovr093_ED4: the keyword as a
         /// whole word of the typed text, case aside.</summary>
+        /// <summary>convert_string resolves a string put in for a placeholder in turn (per user 2026-11-20: Nelson's
+        /// "@GS70SI1" chose "Ah, @GS8, ..." and its @GS8 stayed); a string that names itself ends.</summary>
+        private static void fCheckNestedPlaceholders()
+        {
+            Dictionary<int, string> lOStrings = new Dictionary<int, string>
+            {
+                { 10, "@GS70" }, { 11, "Ah, @GS8, I long to know more." }, { 12, "Avatar" }, { 20, "@GS71" },
+            };
+            UWConversationVM lOVm = new UWConversationVM(null, new FakeScriptHost(),
+                piId => lOStrings.TryGetValue(piId, out string lsText) ? lsText : string.Empty);
+
+            lOVm.WriteMemory(70, 11);
+            lOVm.WriteMemory(8, 12);
+            lOVm.WriteMemory(71, 20);
+
+            Check.Str("placeholders: a line put in has its own placeholder resolved", lOVm.SubstitutedString(10), "Ah, Avatar, I long to know more.");
+            Check.Bool("placeholders: a string that names itself ends", lOVm.SubstitutedString(20) != null, true);
+
+            // AN INDEX IS A VARIABLE OF ITS OWN, ITS VALUE MINUS ONE ADDED (convert_string and AtIndex, conv/BABL.C; per
+            // user 2026-11-22: Miranda's "@SS1SI10" named one of two cut lines). The fresh VM's frame starts at 0x1000
+            // (UWConversationVM's StackStartAddress): the local n is memory 0x1000 + n; the globals 1, 2 and 10 hold the same
+            // list and index for the G form, the local 6 the address 1 for the P form.
+            Dictionary<int, string> lOList = new Dictionary<int, string>
+            {
+                { 30, "Talorus." }, { 31, "The Prison Tower." }, { 40, "@SS1SI10" }, { 41, "@SI1SI10" }, { 42, "@GI50C3" },
+                { 43, "@PI6SI10" }, { 44, "@GS1GI10" },
+            };
+            UWConversationVM lOListVm = new UWConversationVM(null, new FakeScriptHost(),
+                piId => lOList.TryGetValue(piId, out string lsText) ? lsText : string.Empty);
+
+            const int Frame = 0x1000;
+
+            lOListVm.WriteMemory(1, 30);
+            lOListVm.WriteMemory(2, 31);
+            lOListVm.WriteMemory(Frame + 1, 30);
+            lOListVm.WriteMemory(Frame + 2, 31);
+            lOListVm.WriteMemory(Frame + 6, 1);
+            lOListVm.WriteMemory(52, 7);
+
+            List<string> lOSaid = new List<string>();
+
+            foreach (int liAt in new[] { 2, 1 })
+            {
+                lOListVm.WriteMemory(10, liAt);
+                lOListVm.WriteMemory(Frame + 10, liAt);
+                lOSaid.Add(lOListVm.SubstitutedString(40) + "|" + lOListVm.SubstitutedString(41) + "|" + lOListVm.SubstitutedString(43)
+                    + "|" + lOListVm.SubstitutedString(44));
+            }
+
+            Check.Str("placeholders: an index variable picks the entry (@SS1SI10, @SI1SI10, @PI6SI10, @GS1GI10 with local 10 at 2, then 1; @GI50C3)",
+                string.Join(" ; ", lOSaid) + " ; " + lOListVm.SubstitutedString(42),
+                "The Prison Tower.|31|31|The Prison Tower. ; Talorus.|30|30|Talorus. ; 7");
+        }
+
         private static void fCheckContainsWord()
         {
             fExpectBool("contains: the word itself", UWConversationTextRules.ContainsWord("rawstag", "rawstag"), true);

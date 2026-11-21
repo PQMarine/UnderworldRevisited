@@ -497,7 +497,14 @@ namespace UWDataImport.UWData
 		{
 			int liCellX = (int)Math.Floor(X * 8.0);
 			int liCellY = (int)Math.Floor(Y * 8.0);
-			bool lbNewCell = liCellX != miCellX || liCellY != miCellY;
+			// A LANDING LOOKS AGAIN AS A NEW CELL DOES (per user 2026-11-22, UW2 level 3: falling from 51/27 into the pit 50/27
+			// onto its teleport trigger, Modern stood on it until a small step; the original lands briefly and teleports).
+			// The original's fall aims at the top of the object below the feet (set_targz, uw2 MOTION.C:187-193) and
+			// do_zbounce hands it to do_objhit on reaching it (MOTION.C:535) - the trigger fires on touching down. Ours
+			// entered the cell still in the air, above the trigger's height, and the landing in the same cell never looked.
+			bool lbNewCell = liCellX != miCellX || liCellY != miCellY || mbLandedTouch;
+
+			mbLandedTouch = false;
 
 			// LEANING ON A SOLID OBJECT looks again without a new cell (per user 2026-11-16, the large blackrock gem's
 			// north facets: the body entered its cell short of them and came to rest against the gem within it, where the
@@ -510,7 +517,9 @@ namespace UWDataImport.UWData
 			if (mOProperties == null || (!lbNewCell && mOPushed.Count == 0 && !lbOnWall))
 				return;
 
-			double lfReach = (lbOnWall ? Math.Max(Radius, ObjectPad) : ObjectPad) + TouchSlack;
+			// Leaning on a solid object looks ahead (below) with the objects' reach; on a wall alone the wall's.
+			bool lbLeaning = !lbNewCell && mOPushed.Count > 0;
+			double lfReach = (lbOnWall && !lbLeaning ? Math.Max(Radius, ObjectPad) : ObjectPad) + TouchSlack;
 
 			if (lbNewCell)
 			{
@@ -521,12 +530,26 @@ namespace UWDataImport.UWData
 
 			fCollect(X - 1.0, Y - 1.0, X + 1.0, Y + 1.0);
 
+			// LEANING ON A SOLID OBJECT LOOKS WHERE THE STEP WANTED TO GO, one eighth ahead, as the core's blocked step
+			// scans at the position it tried (per user 2026-11-20, UW2 SAVE2, the fraznium force field on level 16: the
+			// body rested a little further from the field than the core, touched both the trigger that raises it and the one
+			// at the centre of the square behind that lowers it, every frame, the lowering last, and the field never rose;
+			// Original stutters briefly and passes, as the original does).
+			double lfFromX = lbLeaning ? X + (mfTryX * ObjectPad) : X;
+			double lfFromY = lbLeaning ? Y + (mfTryY * ObjectPad) : Y;
+
 			foreach (Box lOBox in mOBoxes)
 			{
-				if ((!lOBox.Trigger && !lOBox.UsedOnMover) || !fInHeight(lOBox) || fBoxDistance(lOBox) > lfReach)
+				if ((!lOBox.Trigger && !lOBox.UsedOnMover) || !fInHeight(lOBox) || fBoxDistance(lOBox, lfFromX, lfFromY) > lfReach)
 					continue;
 
-				if (!mOLeaning.Add(lOBox.Index) && !lbNewCell)
+				// LEANING ON A SOLID OBJECT REPORTS EVERY FRAME, as the core's blocked step scans on every step and the
+				// host's pacer (UWTriggerPacer) lets each trigger fire once a clock unit (per user 2026-11-20, UW2 SAVE2,
+				// the fraznium force field on level 16: walking in from the east, the cell before it fired both the
+				// trigger that lowers the field and the one that raises it, the next cell's raise came in the same clock
+				// unit and the pacer dropped it - and marked as met in this cell it was never reported again, so the
+				// field stayed down; Original stutters briefly and passes). Leaning on a wall alone still reports once.
+				if (!mOLeaning.Add(lOBox.Index) && !lbNewCell && mOPushed.Count == 0)
 					continue;
 
 				bool lbKnown = false;
@@ -567,6 +590,13 @@ namespace UWDataImport.UWData
 		{
 			double lfX = X;
 			double lfY = Y;
+			double lfLength = Math.Sqrt((pfDx * pfDx) + (pfDy * pfDy));
+
+			if (lfLength > 1.0e-12)
+			{
+				mfTryX = pfDx / lfLength;
+				mfTryY = pfDy / lfLength;
+			}
 
 			fStretch(pfDx, pfDy);
 
@@ -630,6 +660,7 @@ namespace UWDataImport.UWData
 			// when rising under a higher floor); lifting the feet and rising on gained a step a time.
 			Zf = lfGround;
 			LandedVz = Math.Min(0.0, Vz);
+			mbLandedTouch = true;
 			OnObject = mbGroundObject;
 			GroundTerrain = miGroundTerrain;
 			fRest();
@@ -728,7 +759,12 @@ namespace UWDataImport.UWData
 				// that met a ledge's face too low was set onto the ledge as it rose, where the
 				// original bounces off; kept, the motion into the face mantled the body up). The
 				// body slides down along the face instead.
-				if (!Grounded)
+				//
+				// A SOLID OBJECT DOES NOT (per user 2026-11-20, UW2 SAVE2 on level 4: Modern could not jump onto the bench
+				// in front, Original and Smooth could): the core's blocked step keeps the motion and tries again every step,
+				// so a body that meets an object's side below its top goes on onto it once its feet are above. Only the
+				// position stops here; the velocity stays, and no impact is counted (it would add up step by step).
+				if (!Grounded && miContactOwner < 0)
 				{
 					double lfVn = (Vx * lfNx) + (Vy * lfNy);
 
@@ -905,11 +941,15 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
-		/// <summary>The triggers met in the current eighth cell (fTouch): leaning on a solid object fires each once.</summary>
+		/// <summary>The triggers met in the current eighth cell (fTouch): leaning on a wall reports each once (leaning on a
+		/// solid object every frame, paced by the host).</summary>
 		private readonly HashSet<int> mOLeaning = new HashSet<int>();
 
 		/// <summary>The eighth cell the centre was in at the last look for triggers.</summary>
 		private int miCellX = int.MinValue;
+
+		/// <summary>The feet touched down in this sub-step (fSettle): fTouch looks again as on a new cell.</summary>
+		private bool mbLandedTouch;
 
 		private int miCellY = int.MinValue;
 
@@ -1315,11 +1355,23 @@ namespace UWDataImport.UWData
 		/// <summary>The centre's distance to a box (0 inside).</summary>
 		private double fBoxDistance(Box pOBox)
 		{
-			double lfDx = Math.Max(0.0, Math.Max(pOBox.X0 - X, X - pOBox.X1));
-			double lfDy = Math.Max(0.0, Math.Max(pOBox.Y0 - Y, Y - pOBox.Y1));
+			return fBoxDistance(pOBox, X, Y);
+		}
+
+		/// <summary>A point's distance to a box (0 inside).</summary>
+		private static double fBoxDistance(Box pOBox, double pfX, double pfY)
+		{
+			double lfDx = Math.Max(0.0, Math.Max(pOBox.X0 - pfX, pfX - pOBox.X1));
+			double lfDy = Math.Max(0.0, Math.Max(pOBox.Y0 - pfY, pfY - pOBox.Y1));
 
 			return Math.Sqrt((lfDx * lfDx) + (lfDy * lfDy));
 		}
+
+		/// <summary>The direction of the last stretch asked for (a unit vector): where a body leaning on an object wanted
+		/// to go (fTouch).</summary>
+		private double mfTryX;
+
+		private double mfTryY;
 
 		/// <summary>The sides of the boxes that are walls now, facing out, each its own segment.</summary>
 		private void fAddBoxWalls()

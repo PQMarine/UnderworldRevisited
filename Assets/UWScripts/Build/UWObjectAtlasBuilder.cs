@@ -34,7 +34,9 @@ namespace UnderworldRevisited.Build
         /// Gouraud faces.</summary>
         private const byte WhitePaletteIndexInPalette = 11;
 
-        public static UWObjectAtlas Build(DataImport pOData, FilterMode peFilterMode = FilterMode.Point)
+        /// <param name="piSpritePasses">The sprites' xBR (UWSpriteXbr, UWLevelLoader.SpriteScalePasses): 0 the pictures as
+        /// they are. Every piece but the palette swatches; the entries keep their sizes in the original's pixels.</param>
+        public static UWObjectAtlas Build(DataImport pOData, FilterMode peFilterMode = FilterMode.Point, int piSpritePasses = 0)
         {
             // The cache is valid per data set - discard it on rebuild.
             mOBlendCache = null;
@@ -83,6 +85,8 @@ namespace UnderworldRevisited.Build
                     lOEntries.Add(lOEntry);
                 }
             }
+
+            UWSpriteXbr.ScalePieces(lOPieces, lOIndexPieces, piSpritePasses);
 
             fAddPaletteSwatches(pOData, lOPieces, lOIndexPieces, lOEntries);
 

@@ -975,7 +975,13 @@ namespace UWDataImport.UWData
 				if (liIndex < 0 || liIndex >= lOBlock.Strings.Count)
 					return string.Empty;
 
-				return UWTextLayout.CleanText(lOBlock.Strings[liIndex].TrimEnd('\r', '\n'));
+				// A NEWLINE AT THE END STAYS (per user 2026-11-22 with pictures: the original's Miranda leaves an empty line
+				// after each cut line of power, her "@SS1SI10" ends in one; 30 conversation strings of the second game do, 2
+				// of the first). CleanText takes it off, so it is put back; an answer drops it (UWConversationVM's menu).
+				string lsRaw = lOBlock.Strings[liIndex].TrimEnd('\r');
+				string lsClean = UWTextLayout.CleanText(lsRaw);
+
+				return lsRaw.EndsWith("\n") && lsClean.Length > 0 ? lsClean + "\n" : lsClean;
 			}
 			catch
 			{

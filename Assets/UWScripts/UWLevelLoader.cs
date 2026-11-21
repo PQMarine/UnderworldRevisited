@@ -468,6 +468,8 @@ public class UWLevelLoader : MonoBehaviour
     {
         UWSleepUw2 lOBlack = UWSleepUw2.Current;
 
+        WalkTeleportCount++;
+
         if (lOBlack != null && lOBlack.IsBlinking)
             return;
 
@@ -476,6 +478,10 @@ public class UWLevelLoader : MonoBehaviour
 
         fWalkTeleportNow(pOTarget);
     }
+
+    /// <summary>How many teleports the second game's walk was asked for (WalkTeleport, a blink's included) - the
+    /// player's movement asks whether its triggers teleported (UWPlayerMovement, the fall onto a teleport).</summary>
+    public int WalkTeleportCount { get; private set; }
 
     private void fWalkTeleportNow(UWTeleportUw2.Target pOTarget)
     {
@@ -561,6 +567,10 @@ public class UWLevelLoader : MonoBehaviour
             fSetPlayerHeading(UWUnits.AngleToDegrees(pOTarget.Heading));
 
         fPlacePlayerAtTile(liX, liY);
+
+        // player_setup: put onto the square, not moved there - no enter plates at the arrival (UWMotionHost.PlayerSetUp).
+        if (UWMotionHost.Instance != null)
+            UWMotionHost.Instance.PlayerSetUp();
 
         // player_setup with how 0: near the ceiling, 1000 less the player's height in fine z (zpos * 8),
         // when that is above where he stands.
@@ -990,6 +1000,13 @@ public class UWLevelLoader : MonoBehaviour
     /// <summary>Filter mode the cached atlas and texture array were built with.</summary>
     private static FilterMode meSharedFilterMode;
 
+    /// <summary>The xBR passes the shared colour array was built with (fTextureScalePasses).</summary>
+    private static int msiSharedScalePasses;
+
+    /// <summary>The sprites' xBR passes the shared object atlas and the creature atlases are built with (fSpriteScalePasses),
+    /// taken when a game is loaded.</summary>
+    public static int SpriteScalePasses { get; private set; }
+
     /// <summary>
     /// Is a world built? False while the game has just been launched and only the main menu
     /// is shown: there is no save game to continue any more, the world is loaded from the menu
@@ -1327,10 +1344,22 @@ public class UWLevelLoader : MonoBehaviour
             meSharedFilterMode = fGetFilterMode();
         }
 
+        if (msiSharedScalePasses != fTextureScalePasses())
+            msOSharedTextureArray = null;
+
+        // THE SPRITES' xBR (per user 2026-11-22): the object atlas and the creature atlases are made anew when it changed since
+        // they were built; the objects carry their places in the atlas in their meshes, so it takes effect at a load.
+        if (SpriteScalePasses != fSpriteScalePasses())
+        {
+            SpriteScalePasses = fSpriteScalePasses();
+            msOSharedAtlas = null;
+            UWCritterAnimator.ClearCaches();
+        }
+
         if (mOObjectAtlas == null)
         {
             if (msOSharedAtlas == null)
-                msOSharedAtlas = UWObjectAtlasBuilder.Build(UWDataImporter, fGetFilterMode());
+                msOSharedAtlas = UWObjectAtlasBuilder.Build(UWDataImporter, fGetFilterMode(), SpriteScalePasses);
 
             mOObjectAtlas = msOSharedAtlas;
         }
@@ -1338,13 +1367,17 @@ public class UWLevelLoader : MonoBehaviour
         if (mODungeonMaterial == null)
         {
             if (msOSharedTextureArray == null)
-                msOSharedTextureArray = UWTextureArrayBuilder.Build(UWDataImporter, fGetFilterMode());
+            {
+                msiSharedScalePasses = fTextureScalePasses();
+                msOSharedTextureArray = UWTextureArrayBuilder.Build(UWDataImporter, fGetFilterMode(), msiSharedScalePasses);
+            }
 
             mOTextureArray = msOSharedTextureArray;
             mODungeonMaterial = UWLevelAssembler.CreateMaterial(mOTextureArray, "UW Dungeon");
 
             if (mODungeonMaterial != null)
             {
+                UWTextureArrayBuilder.AttachSwatches(mODungeonMaterial, UWDataImporter);
                 mODungeonMaterial.SetFloat(UWShaderIds.AmbientFloor, fGetAmbientFloor());
                 mODungeonMaterial.SetFloat(UWShaderIds.PointLightCap, fGetPointLightCap());
             }
@@ -3284,6 +3317,39 @@ public class UWLevelLoader : MonoBehaviour
         return UWSettings.Instance != null ? UWSettings.Instance.TextureFilterMode : FilterMode.Point;
     }
 
+    /// <summary>The xBR texture scaling (per user 2026-11-22): xBR twice, 4x, on the colour array of walls, floors and
+    /// ceilings; 0 without. The palette path's index array is not touched.</summary>
+    private static int fTextureScalePasses()
+    {
+        return UWUserSettings.XbrTextures ? 2 : 0;
+    }
+
+    /// <summary>The sprites' xBR (per user 2026-11-22): creatures and things scaled 4x when the switch is on and Remastered
+    /// is the mode at the load; the palette path reads the index atlases, which only grow, so it draws as before.</summary>
+    private static int fSpriteScalePasses()
+    {
+        return UWUserSettings.XbrSprites && UWGraphicsDetail.Mode == UWGraphicsDetail.ModeEnum.Remastered ? UWSpriteXbr.Passes : 0;
+    }
+
+    /// <summary>The xBR texture scaling's switch at once: the shared colour array built anew at the chosen size, handed to
+    /// the dungeon material, and water and lava's rotation set up again for it; the old array freed.</summary>
+    public void ApplyXbrTextures()
+    {
+        if (UWDataImporter == null || mODungeonMaterial == null || msiSharedScalePasses == fTextureScalePasses())
+            return;
+
+        Texture2DArray lOOld = msOSharedTextureArray;
+
+        msiSharedScalePasses = fTextureScalePasses();
+        msOSharedTextureArray = UWTextureArrayBuilder.Build(UWDataImporter, fGetFilterMode(), msiSharedScalePasses);
+        mOTextureArray = msOSharedTextureArray;
+        mODungeonMaterial.SetTexture(UWShaderIds.TexArray, mOTextureArray);
+        fStartTextureAnimation();
+
+        if (lOOld != null && lOOld != msOSharedTextureArray)
+            Destroy(lOOld);
+    }
+
     private static float fGetAmbientFloor()
     {
         return (UWSettings.Instance != null ? UWSettings.Instance.AmbientFloor : 0.08f) * Mathf.Max(0f, UWUserSettings.AmbientLight);
@@ -3323,7 +3389,7 @@ public class UWLevelLoader : MonoBehaviour
             return;
 
         List<UWTextureArrayBuilder.AnimatedSlice> lOSlices =
-            UWTextureArrayBuilder.BuildAnimatedSlices(UWDataImporter, fGetFilterMode());
+            UWTextureArrayBuilder.BuildAnimatedSlices(UWDataImporter, fGetFilterMode(), msiSharedScalePasses);
 
         if (lOSlices.Count == 0)
             return;

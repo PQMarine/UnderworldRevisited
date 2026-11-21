@@ -450,13 +450,24 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool CastSpell(int piSpellIndex, IUWSpellHost pIHost)
 		{
-			if (pIHost == null || piSpellIndex < 0 || piSpellIndex >= UWRunicMagic.AllSpells.Count)
+			if (pIHost == null || piSpellIndex < 0)
 				return false;
 
-			if (!UWGameSession.Current.Game.Magic.IsBuilt(UWRunicMagic.AllSpells[piSpellIndex]))
+			IUWMagicVariant lIMagic = UWGameSession.Current.Game.Magic;
+
+			// The second game's packed numbers (IUWMagicVariant.TryUnpackSpell): class and minor from the byte itself.
+			if (!lIMagic.TryUnpackSpell(piSpellIndex, out UWRunicMagic.Spell lOSpell))
+			{
+				if (piSpellIndex >= UWRunicMagic.AllSpells.Count)
+					return false;
+
+				lOSpell = UWRunicMagic.AllSpells[piSpellIndex];
+			}
+
+			if (!lIMagic.IsBuilt(lOSpell))
 				return false;
 
-			return ApplyEffect(UWRunicMagic.AllSpells[piSpellIndex], false, pIHost);
+			return ApplyEffect(lOSpell, false, pIHost);
 		}
 
 		/// <summary>The effect of a successful spell, by major class - see the class comment.

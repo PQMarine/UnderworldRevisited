@@ -18,9 +18,13 @@ Shader "UW/Dungeon"
     Properties
     {
         _TexArray ("Level textures", 2DArray) = "" {}
+        _SwatchColours ("Palette colour swatches", 2D) = "black" {}
+        _SwatchBase ("First palette colour slice", Float) = 100000
         _NormalArray ("Normals (Remastered)", 2DArray) = "" {}
         _IndexArray ("Palette indices (Remastered)", 2DArray) = "" {}
         _MaterialLut ("Surface table (Remastered)", 2D) = "" {}
+        _IceSliceTable ("Ice slices (Remastered, UW2)", 2D) = "black" {}
+        _IceRelief ("Ice relief, a factor (Remastered and Palette colours, UW2)", Range(0, 1)) = 1
         _AmbientFloor ("Base brightness", Range(0, 1)) = 0.08
         _PointLightCap ("Point light cap (close range)", Range(0.3, 5)) = 1.4
         _NormalStrength ("Normal strength", Range(0, 4)) = 1
@@ -97,6 +101,12 @@ Shader "UW/Dungeon"
             TEXTURE2D(_MaterialLut);
             SAMPLER(sampler_MaterialLut);
 
+            TEXTURE2D(_IceSliceTable);
+            SAMPLER(sampler_IceSliceTable);
+
+            TEXTURE2D(_SwatchColours);
+            SAMPLER(sampler_SwatchColours);
+
             CBUFFER_START(UnityPerMaterial)
                 float _AmbientFloor;
                 float _PointLightCap;
@@ -116,6 +126,9 @@ Shader "UW/Dungeon"
                 float _SelfShadowSoftness;
                 float _CavityStrength;
                 float _ParallaxSign;
+                float _IceRelief;
+                float _SwatchBase;
+                float4 _IceSliceTable_TexelSize;
             CBUFFER_END
 
             struct Attributes
@@ -190,13 +203,13 @@ Shader "UW/Dungeon"
             /// until it dips below the height map. The spot hit there is
             /// drawn - so joints and stones shift against each other when you
             /// move, and the wall gains depth without adding a single triangle.
-            float2 UWParallaxUv(float2 pOUv, float pfSlice, float3 pOViewTS)
+            float2 UWParallaxUv(float2 pOUv, float pfSlice, float3 pOViewTS, float pfDepthScale)
             {
                 // At grazing view angles the ray runs far across the surface and picks
                 // pixels far off - the wall smears, and dark spots
                 // turn into black holes. Torch light from the side makes this clearly
                 // visible. So the depth is faded out there.
-                float lfDepth = _ParallaxDepth * smoothstep(0.15, 0.6, abs(pOViewTS.z));
+                float lfDepth = _ParallaxDepth * pfDepthScale * smoothstep(0.15, 0.6, abs(pOViewTS.z));
 
                 if (lfDepth <= 0.0001)
                     return pOUv;
@@ -315,6 +328,7 @@ Shader "UW/Dungeon"
                 half lfRough = 1.0h;
                 float2 lOUv = IN.uv.xy;
                 half lfCavity = 1.0h;
+                half lfReliefScale = 1.0h;
 
                 #if defined(_UW_REMASTER)
                 // The tangent frame is needed twice: for the parallax view ray
@@ -330,8 +344,14 @@ Shader "UW/Dungeon"
                 half lfGlowHere = SAMPLE_TEXTURE2D(_MaterialLut, sampler_MaterialLut,
                     float2(((lfIndexHere * 255.0) + 0.5) / 256.0, 0.5)).g;
 
+                // THE SECOND GAME'S ICE (UWHeightMap.IceTexturesUw2; per user 2026-11-22): its relief has a depth of its own,
+                // a factor on the walls' (_IceRelief, the viewer's setting) - on the parallax, the normal, the self shadow
+                // and the dark joints.
+                lfReliefScale = SAMPLE_TEXTURE2D_LOD(_IceSliceTable, sampler_IceSliceTable,
+                    float2((floor(IN.uv.z + 0.5) + 0.5) * _IceSliceTable_TexelSize.x, 0.5), 0).r > 0.5h ? _IceRelief : 1.0h;
+
                 if (lfGlowHere < 0.5h)
-                    lOUv = UWParallaxUv(IN.uv.xy, IN.uv.z, mul(lOFrame, viewDirWS));
+                    lOUv = UWParallaxUv(IN.uv.xy, IN.uv.z, mul(lOFrame, viewDirWS), lfReliefScale);
 
                 // THE HALLUCINATION'S SCRAMBLED MAPPER (UWHallucination.hlsl), after the parallax
                 // like the palette path's after its plain mapping. Colour, index and normal all read
@@ -349,6 +369,14 @@ Shader "UW/Dungeon"
                 #else
                 half4 albedo = SAMPLE_TEXTURE2D_ARRAY(_TexArray, sampler_TexArray, lOUv, IN.uv.z);
                 #endif
+
+                // THE PALETTE COLOUR SLICES (UWTextureArrayBuilder.GetPaletteSliceOffset; 2026-11-22): no longer in the
+                // colour array, where 256 solid slices at its size were a third of it with the xBR scaling; their colour
+                // comes from the 256x1 table (BuildSwatchColours).
+                float lfSwatch = floor(IN.uv.z + 0.5) - _SwatchBase;
+
+                if (lfSwatch >= 0.0)
+                    albedo = SAMPLE_TEXTURE2D_LOD(_SwatchColours, sampler_SwatchColours, float2((lfSwatch + 0.5) / 256.0, 0.5), 0);
 
                 #if defined(_UW_REMASTER)
                 // WHAT MATERIAL THIS IS, is told by the pixel's palette index: the
@@ -395,7 +423,7 @@ Shader "UW/Dungeon"
 
                 // On lava the brightness is the GLOW, not the shape - a relief from it
                 // would be wrong. So the normal is kept flat there.
-                tangentNormal.xy *= _NormalStrength * (1.0h - lfGlow);
+                tangentNormal.xy *= _NormalStrength * (1.0h - lfGlow) * lfReliefScale;
                 tangentNormal = normalize(tangentNormal);
 
                 normalWS = normalize(mul(tangentNormal, lOFrame));
@@ -410,7 +438,7 @@ Shader "UW/Dungeon"
                 half lfAround = SAMPLE_TEXTURE2D_ARRAY_GRAD(_NormalArray, sampler_NormalArray, lOUv, IN.uv.z,
                     lOUvDdx * 8.0, lOUvDdy * 8.0).a;
                 lfCavity = lerp(1.0h, saturate(1.0h - (max(0.0h, lfAround - packed.a) * 3.0h)),
-                    _CavityStrength * (1.0h - lfGlow));
+                    _CavityStrength * (1.0h - lfGlow) * saturate(lfReliefScale));
                 #endif
 
                 // Occlusion from the SSAO pass. Outside Remastered or with the
@@ -454,8 +482,8 @@ Shader "UW/Dungeon"
                     #if defined(_UW_REMASTER)
                     // Only where the light arrives at all - the ray costs nine samples (start plus eight steps).
                     if (lfFacing > 0.0h && light.distanceAttenuation > 0.0001h)
-                        pointContribution *= lerp(UWSelfShadow(lOUv, IN.uv.z, mul(lOFrame, light.direction),
-                            lOUvDdx, lOUvDdy), 1.0h, lfGlow);
+                        pointContribution *= lerp(lerp(1.0h, UWSelfShadow(lOUv, IN.uv.z, mul(lOFrame, light.direction),
+                            lOUvDdx, lOUvDdy), saturate(lfReliefScale)), 1.0h, lfGlow);
                     #endif
                     // Point lights physically use 1/distance-squared. If the
                     // player stands close to a wall, that goes towards infinity and the surface

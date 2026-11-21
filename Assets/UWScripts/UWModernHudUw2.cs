@@ -436,7 +436,9 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
         UWUiKit.SetRect(mOWeaponView, (Screen.width - lfWidth) * 0.5f, 0f, lfWidth, UWClassicLayoutUw2.Frame.ViewWindowHeight * lfDown);
         mOWeapon.sprite = pOPicture;
-        UWUiKit.SetRect(mOWeapon.rectTransform, piX * lfAcross, piY * lfDown, pOPicture.rect.width * lfAcross, pOPicture.rect.height * lfDown);
+        // The original's size: a scaled picture (the sprites' xBR) has as many pixels per unit as its scale.
+        UWUiKit.SetRect(mOWeapon.rectTransform, piX * lfAcross, piY * lfDown, pOPicture.rect.width / pOPicture.pixelsPerUnit * lfAcross,
+            pOPicture.rect.height / pOPicture.pixelsPerUnit * lfDown);
     }
 
     public void SetShown(bool pbShown)

@@ -56,6 +56,22 @@ namespace UnderworldRevisited.Tools
                 && lOSpilled[3] == lOPickupTrigger, true);
             fExpectInt("spill: an empty chain partitions to nothing", UWSpillRules.Partition(null).Count, 0);
 
+            // The second game frees every lock first (uw2 drop_link_chain's remove_lock(cont, 1); per user 2026-11-20).
+            List<UWObject> lOUw2Spilled = UWSpillRules.Partition(new List<UWObject> { lOThing, lOOpen, lOTrigger, lOLocked },
+                UWSpillRules.LocksFreedOnSpill(UWGame.Uw2));
+
+            fExpectBool("spill: the second game leaves every lock out, the rest in order (thing, use trigger)",
+                lOUw2Spilled.Count == 2 && lOUw2Spilled[0] == lOThing && lOUw2Spilled[1] == lOTrigger, true);
+            fExpectBool("spill: ... the first game does not (locks go down)", UWSpillRules.LocksFreedOnSpill(UWGame.Uw1), false);
+
+            // An open container shows no invisible thing (FixOpenBag; per user 2026-11-20, Felix's enchanted box).
+            UWObject lOSpell = new UWObject(0x120) { IsHidden = true };
+            List<UWObject> lOBox = new List<UWObject> { lOSpell, lOThing, lOTrigger };
+
+            fExpectInt("bag: the shown count leaves the invisible spell out", UWInventoryModel.ShownCount(lOBox), 2);
+            fExpectInt("bag: the first shown place is the second thing of the contents", UWInventoryModel.ContentIndexOfShown(lOBox, 0), 1);
+            fExpectInt("bag: ... a place past the shown ones is the contents' end (a drop appends)", UWInventoryModel.ContentIndexOfShown(lOBox, 5), 3);
+
             List<UWObject> lOUseTriggers = UWSpillRules.UseTriggers(lOChain);
 
             fExpectBool("spill: a smashed container's use trigger is found (damage_object fires it first)",

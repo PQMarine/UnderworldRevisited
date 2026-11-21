@@ -85,6 +85,30 @@ namespace UnderworldRevisited.Tools
             fMotorObjectRun(lOWorld, lOProps, 8.5, 16.1, 0.0125, 0.0, 300);
             Check.Bool("motor objects: ... and passed half a tile beside it does not", lOWorld.Log.Contains("trigger 53"), false);
 
+            // A fall straight down onto a move trigger fires it on touching down, in the same cell (per user 2026-11-22,
+            // UW2 level 3, the pit 50/27: Modern stood on the teleport trigger until a small step; do_zbounce hands the
+            // object landed on to do_objhit). Standing on it fires nothing.
+            lOWorld = new FakeMotionWorld();
+            lOWorld.AddBody(10, 15, new UWMotionBody { Index = 53, ItemId = UWObjectMechanics.MoveTriggerId, XPos = 4, YPos = 4, ZPos = 16 });
+            lOMotor = new UWCharacterMotor(lOWorld, lOProps);
+            lOMotor.PlaceOnFloor(10.5625, 15.5625);
+
+            double lfFloor = lOMotor.Zf;
+
+            for (int liAt = 0; liAt < 60; liAt++)
+                lOMotor.Advance(MotorFrameTicks);
+
+            bool lbStanding = lOWorld.Log.Contains("trigger 53");
+
+            lOMotor.Place(10.5625, 15.5625, lfFloor + 0x100);
+            lOMotor.Jump(0.0, UWCharacterMotor.FallGravity);
+
+            for (int liAt = 0; liAt < 600 && !lOWorld.Log.Contains("trigger 53"); liAt++)
+                lOMotor.Advance(MotorFrameTicks);
+
+            Check.Bool("motor objects: a fall straight onto a move trigger fires it on touching down, standing on it does not",
+                !lbStanding && lOWorld.Log.Contains("trigger 53") && lOMotor.Grounded && lOMotor.Zf == lfFloor, true);
+
             // A step up of one level into tile 11 under a raised gate whose bottom is above the head
             // now but would not be after the step: the step is not taken, the body stays clear of it.
             lOWorld = new FakeMotionWorld();

@@ -173,6 +173,10 @@ public sealed class UWRemasterRenderPath : IUWRenderPath
                 fApply(lOMaterial, lOSettings);
 
             fPushMaterialValues(lOMaterial, lOSettings);
+
+            // The viewer's ice relief (UWUserSettings.IceRelief) is no effect value and moves no settings revision:
+            // pushed every frame, one float.
+            lOMaterial.SetFloat(UWShaderIds.IceRelief, UWUserSettings.IceRelief);
             fUpdatePostProcessing(lOSettings);
         }
 
@@ -218,6 +222,7 @@ public sealed class UWRemasterRenderPath : IUWRenderPath
         pOMaterial.SetTexture(UWShaderIds.NormalArray, mONormalArray);
         pOMaterial.SetTexture(UWShaderIds.IndexArray, mOIndexArray);
         pOMaterial.SetTexture(UWShaderIds.MaterialLut, mOMaterialLut);
+        pOMaterial.SetTexture(UWShaderIds.IceSliceTable, UWTextureCache.GetIceSliceTable(lOLoader.UWDataImporter));
         pOMaterial.EnableKeyword(UWShaderIds.RemasterKeyword);
 
         mOAppliedMaterial = pOMaterial;

@@ -118,6 +118,10 @@ setting.ClassicWidescreen	Klassischer Bildschirm in Breitbild
 setting.ViewAngle	Blickwinkel
 setting.ViewGamma	Gamma
 setting.ViewGamma.hint	Hellt die dunklen Töne der 3D-Ansicht auf, in beiden Modi; die Oberfläche behält ihre Farben. Bei 1.00 bleibt das Bild, wie es gezeichnet wird.
+setting.XbrTextures	xBR-Texturskalierung (4x)
+setting.XbrTextures.hint	Wände, Böden und Decken mit dem Pixel-Art-Skalierer xBR auf die vierfache Größe hochgerechnet (zweimal 2x); in Remastered. Gegenstände und Kreaturen werden nicht skaliert.
+setting.XbrSprites	xBR für Figuren, Gegenstände und Waffen (4x, ab nächstem Laden)
+setting.XbrSprites.hint	Kreaturen, Gegenstände und die Waffe in der Hand mit dem Pixel-Art-Skalierer xBR auf die vierfache Größe hochgerechnet, mit hartem Rand; in Remastered, ab dem nächsten Laden eines Spielstands.
 setting.OriginalWorldResolution	Welt in der Auflösung des Originals
 setting.OriginalWorldResolutionFactor	Auflösungsfaktor
 setting.PaletteAmbientOcclusion	Umgebungsverdeckung
@@ -131,6 +135,8 @@ setting.PaletteGrimeTone.choice.moss	Moos
 setting.PaletteGrimeTone.choice.soot	Ruß
 setting.AmbientLight	Umgebungslicht
 setting.AmbientLight.hint	Wie hell die Welt ohne eigenes Licht ist, in Remastered und Palette colours. 100 % wie ausgeliefert, 0 % dunkel wie im Original.
+setting.IceRelief	Eisrelief (UW2)
+setting.IceRelief.hint	Wie tief das Relief des Eises im zweiten Spiel in Remastered und Palette colours ist, gemessen am Relief der Wände. 100 % wie die Wände, 0 % glatt.
 setting.LightTone	Lichtfarbe
 setting.LightTone.hint	Die Farbe von Fackeln, Laternen, Feuern und Zaubern in Remastered. Palette colours behält die Farben des Originals.
 setting.LightTone.choice.warm	Warm
@@ -1003,6 +1009,9 @@ effects.ground_shadows	Bodenschatten
 effects.grime_along_the_walls	Schmutz an den Wänden
 effects.grime_colour	Schmutzfarbe
 effects.ambient_light	Umgebungslicht
+effects.ice_relief	Eisrelief (UW2)
+effects.xbr_textures	xBR-Texturskalierung (4x)
+effects.xbr_sprites	xBR für Figuren, Gegenstände und Waffen (4x, ab nächstem Laden)
 effects.light_colour	Lichtfarbe
 effects.light.warm	Warm
 effects.light.cool	Kühler

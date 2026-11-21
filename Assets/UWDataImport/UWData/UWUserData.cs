@@ -312,6 +312,14 @@ namespace UWDataImport.UWData
 		/// default: the full screen resolution, as before.</summary>
 		public bool OriginalWorldResolution;
 
+		/// <summary>Walls, floors and ceilings scaled by xBR to 4x in Remastered (per user 2026-11-22: "xBR hat was. Sieht
+		/// aus wie gemalt."; named for what it is, in the effects window). Off: the original's pixels.</summary>
+		public bool XbrTextures;
+
+		/// <summary>Creatures and things scaled by xBR to 4x with a hard edge in Remastered (per user 2026-11-22: "Harter Rand."),
+		/// from the next load on. Off: the original's pixels.</summary>
+		public bool XbrSprites;
+
 		/// <summary>Its multiple of the original's resolution, 1 to 4 (UWWorldResolution.Factor).</summary>
 		public int OriginalWorldResolutionFactor = 1;
 
@@ -334,6 +342,11 @@ namespace UWDataImport.UWData
 		/// <summary>The world's base brightness without a light in Remastered and Palette colours, a factor
 		/// on the shipped one (1 = as shipped, 0 = dark; per user 2026-11-04, a Reddit suggestion).</summary>
 		public float AmbientLight = 1f;
+
+		/// <summary>How deep the second game's ice textures' relief is in Remastered and Palette colours, a factor on the
+		/// walls', 0 to 1 (1 = as the walls, 0 = flat; per user 2026-11-22, after several other ways to make the ice look smooth were reverted: "just
+		/// a slider with which one sets the depth separately"). UWHeightMap.IceTexturesUw2.</summary>
+		public float IceRelief = 1f;
 
 		/// <summary>The lights' colour in Remastered: 0 warm (each light its item's own colour), 1 cooler,
 		/// 2 white (per user 2026-11-04). Palette colours takes its colours from the original's table.</summary>

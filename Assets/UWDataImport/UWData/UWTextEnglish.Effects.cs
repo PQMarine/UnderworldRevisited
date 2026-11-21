@@ -36,6 +36,9 @@ namespace UWDataImport.UWData
 			fAdd("effects.grime_along_the_walls", "Grime along the walls");
 			fAdd("effects.grime_colour", "Grime colour");
 			fAdd("effects.ambient_light", "Ambient light");
+			fAdd("effects.ice_relief", "Ice relief (UW2)");
+			fAdd("effects.xbr_textures", "xBR texture scaling (4x)");
+			fAdd("effects.xbr_sprites", "xBR creatures, things and weapons (4x, next load)");
 			fAdd("effects.light_colour", "Light colour");
 			fAdd("effects.light.warm", "Warm");
 			fAdd("effects.light.cool", "Cooler");

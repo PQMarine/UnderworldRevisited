@@ -140,8 +140,7 @@ public sealed class UWHelpStatsTab : UWHelpTab
         if (liCarried >= 0 && lOPlayer != null)
             fStatRow(UWText.T("help.stats.load"), UWText.F("help.stats.load_value", fTenths(liCarried), fTenths(lOPlayer.MaxWeight)));
 
-        if (!lbSecondGame)
-            fDrawWornMagic(lOData, lOInventory);
+        fDrawWornMagic(lOData, lOInventory, lbSecondGame);
     }
 
     /// <summary>The unspent skill points and where they come from: one every PerSkillPoint of the experience (in
@@ -206,8 +205,12 @@ public sealed class UWHelpStatsTab : UWHelpTab
     /// of its enchantment - whether identified or not -, then the sum of them as the status pass
     /// counts it (UWArmourProtection.Compute without the active spells): only the five armour
     /// pieces, the two rings and a shield cast theirs; a weapon's acts only when it strikes.
+    /// THE SECOND GAME TOO (per user 2026-11-22): its status pass is the same UWArmourProtection.Compute over its
+    /// inventory (UWVitalsUw2.RefreshStatus); only the dragon skin boots stay the first game's (0x2F is the second
+    /// game's swamp boots, which nothing reads). A wand or other charged thing in a hand is cast on use, not worn,
+    /// and stays out of the list (its look names the spell and charges).
     /// </summary>
-    private void fDrawWornMagic(DataImport pOData, UWInventoryModel pOInventory)
+    private void fDrawWornMagic(DataImport pOData, UWInventoryModel pOInventory, bool pbSecondGame)
     {
         mOFlow.Space(10f);
         mOFlow.Line(UWText.T("help.stats.worn_magic"), UWHelpLookEnum.SubHeading);
@@ -232,7 +235,7 @@ public sealed class UWHelpStatsTab : UWHelpTab
 
             UWEnchantment.Result lOEnchantment = UWEnchantment.Get(lOItem, null, pOData.Strings);
 
-            if (!lOEnchantment.HasEnchantment)
+            if (!lOEnchantment.HasEnchantment || lOEnchantment.Charges >= 0)
                 continue;
 
             string lsEffect = lOEnchantment.IsCursed ? UWText.T("help.stats.curse") : lOEnchantment.Name;
@@ -284,7 +287,7 @@ public sealed class UWHelpStatsTab : UWHelpTab
         if (mOWornStatus.HasMazeNavigation)
             fStatRow(UWText.T("help.stats.maze"), UWText.T("help.stats.maze_value"));
 
-        if (mOWornStatus.HasDragonSkinBoots)
+        if (mOWornStatus.HasDragonSkinBoots && !pbSecondGame)
             fStatRow(UWText.T("help.stats.dragon_boots"), UWText.T("help.stats.dragon_boots_value"));
     }
 

@@ -77,7 +77,9 @@ public class UWModernWeaponView : UWModernPart
         WeaponCoordinate lOOffset = mOCharacter.Weapon.GetWeaponOffset();
         float lfLeft = lfCentreX
             + ((ViewportLeft + lOOffset.X + mOUi.WeaponSway.Offset() - (ViewportLeft + (ViewportWidth * 0.5f))) * lfScale * UWModernHudArt.PixelAspectX);
-        float lfTop = lfBottom + ((lOOffset.Y - (lOTexture.height * (1f - mOCharacter.Weapon.CurrentReadyWeaponTime))) * lfScale);
+        // Sizes in the original's pixels, not the texture's (larger with the sprites' xBR, UWSpriteXbr.WeaponPasses).
+        Vector2 lOSize = mOCharacter.Weapon.CurrentWeaponSize;
+        float lfTop = lfBottom + ((lOOffset.Y - (lOSize.y * (1f - mOCharacter.Weapon.CurrentReadyWeaponTime))) * lfScale);
 
         // A mod's larger picture: moved left and up by where the original lies in it; the raise above
         // keeps the original's height, so the original's part moves as the original does.
@@ -88,6 +90,7 @@ public class UWModernWeaponView : UWModernPart
             lfLeft -= mOCharacter.Weapon.CurrentWeaponExtendedLeft * lfScale * UWModernHudArt.PixelAspectX;
             lfTop += mOCharacter.Weapon.CurrentWeaponExtendedTop * lfScale;
             lOTexture = lOExtended;
+            lOSize = mOCharacter.Weapon.CurrentWeaponExtendedSize;
         }
 
         mOWeapon.texture = lOTexture;
@@ -95,6 +98,6 @@ public class UWModernWeaponView : UWModernPart
 
         RectTransform lORect = (RectTransform)mOWeapon.transform;
         lORect.anchoredPosition = new Vector2(lfLeft, lfTop);
-        lORect.sizeDelta = new Vector2(lOTexture.width * lfScale * UWModernHudArt.PixelAspectX, lOTexture.height * lfScale);
+        lORect.sizeDelta = new Vector2(lOSize.x * lfScale * UWModernHudArt.PixelAspectX, lOSize.y * lfScale);
     }
 }

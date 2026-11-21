@@ -88,7 +88,7 @@ namespace UWDataImport.UWData
 		private const int LightningEffectObjectId = AnimationFirstId + 5;
 
 		/// <summary>The sparkle above a confused creature (455, "a spell effect").</summary>
-		private const int SpellEffectObjectId = AnimationFirstId + 7;
+		public const int SpellEffectObjectId = AnimationFirstId + 7;
 
 		/// <summary>put_effect's height on a creature for a spell's picture: seven eighths of its height (SPELLS.C,
 		/// put_effect(target, 7, 4, 0, 7, ...), both games).</summary>
@@ -422,7 +422,7 @@ namespace UWDataImport.UWData
 		/// <summary>This long an effect of an area spell stays in the world when the rule gives no
 		/// time of its own - as with a projectile impact. The spell host's EffectSeconds until
 		/// cleanup step 3.6 (2026-10-17).</summary>
-		private const float EffectSeconds = 0.7f;
+		public const float EffectSeconds = 0.7f;
 
 		/// <summary>An effect picture in a tile for a moment, at a fine spot (eighths, 0 to 7) and a
 		/// height in zpos steps - for pfSeconds when given (EffectSeconds otherwise), its animation

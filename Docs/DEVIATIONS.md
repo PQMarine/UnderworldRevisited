@@ -93,11 +93,17 @@ level a pair that sets the variable the castle's schedule reads to choose where 
 player; one of her places is never chosen so. The other four lose nothing. Ours asks every
 trigger of the square.
 
+**A misplaced writing in the second game is drawn where it was meant to be.** On level 12, over
+a door at 28/33, the level data puts a writing three eighths in front of the lintel, facing it, so
+from the corridor it floats under the ceiling and shows only when looking right up. Ours draws it
+on the lintel's outside, over the door, facing the room to the west. The level data and the save keep the
+original's values.
+
 These, and the other fixes of the original's bugs that can cost the game, follow the option
 "Fix bugs of the original" in the Game window (on by default, settings.json FixOriginalBugs).
 A rules.json key decides a single one against it: deviations.conversationPatches,
 deviations.unpushableNpcs, deviations.tidyLeakedObjects, deviations.groundedFlightBouncesOnIce,
-deviations.everyEnterExitTrigger.
+deviations.everyEnterExitTrigger, deviations.misplacedObjectsMoved.
 
 **The debris of a broken potion or scroll can be made to cast nothing.** A thing destroyed by a
 fireball, a trap or its own impact on a wall becomes a pile of debris that keeps the thing's fields.

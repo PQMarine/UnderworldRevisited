@@ -261,7 +261,8 @@ namespace UWDataImport.UWData
 
 				for (int liSegment = 0; liSegment < lsSegments.Length; liSegment++)
 				{
-					List<string> lOWrapped = UWConversationLayout.WrapWithBreaks(pOFont, lsSegments[liSegment].Trim(), piWidth);
+					// Spaces off, a newline kept: its empty line is the original's (WrapWithBreaks).
+					List<string> lOWrapped = UWConversationLayout.WrapWithBreaks(pOFont, lsSegments[liSegment].Trim(' ', '\t', '\r'), piWidth);
 
 					for (int liAt = 0; liAt < lOWrapped.Count; liAt++)
 					{

@@ -35,6 +35,8 @@ public static class UWTextureCache
 
     private static Texture2D msOMaterialLookup;
 
+    private static Texture2D msOIceSliceTable;
+
     /// <summary>The game msOMaterialLookup was built for.</summary>
     private static UWGame meMaterialLookupGame;
 
@@ -48,6 +50,7 @@ public static class UWTextureCache
         msONormalArray = null;
         msfNormalStrength = 0f;
         msOMaterialLookup = null;
+        msOIceSliceTable = null;
     }
 
     /// <summary>The palette indices of every wall and floor (R8, linear, no mipmaps, Point - see
@@ -99,6 +102,20 @@ public static class UWTextureCache
             && Mathf.Approximately(msfNormalStrength, pfHeightStrength);
     }
 
+    /// <summary>The second game's ice slices (UWTextureArrayBuilder.BuildIceSliceTable), built when first asked for.</summary>
+    public static Texture2D GetIceSliceTable(DataImport pOData)
+    {
+        if (pOData == null)
+            return null;
+
+        fFollowData(pOData);
+
+        if (msOIceSliceTable == null)
+            msOIceSliceTable = UWTextureArrayBuilder.BuildIceSliceTable(pOData);
+
+        return msOIceSliceTable;
+    }
+
     /// <summary>Remastered's gloss and glow per palette index (UWTextureFactory.MaterialLookup);
     /// depends on no data.</summary>
     public static Texture2D GetMaterialLookup()
@@ -127,6 +144,11 @@ public static class UWTextureCache
 
         fDestroy(ref msOIndexArray);
         fDestroy(ref msONormalArray);
+
+        if (msOIceSliceTable != null)
+            Object.Destroy(msOIceSliceTable);
+
+        msOIceSliceTable = null;
         msOData = pOData;
     }
 

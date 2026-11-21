@@ -47,6 +47,10 @@ namespace UWDataImport.UWData
 			"Every enter or exit trigger of a square goes off in the second game, not only the first of its list (false: as the original, the Guardian's speech in Killorn Keep and a meeting place of Miranda's never come). Set by the Game option Fix bugs of the original.")]
 		public bool EveryEnterExitTrigger = UWTrapRulesUw2.EveryEnterExitTriggerApplied;
 
+		[UWRule(typeof(UWPlacementFixes), nameof(UWPlacementFixes.MisplacedObjectsMovedApplied),
+			"Things the level data puts in the wrong place are drawn where they were meant to be, the second game's writing over the door on level 12 (false: as the original). Set by the Game option Fix bugs of the original.")]
+		public bool MisplacedObjectsMoved = UWPlacementFixes.MisplacedObjectsMovedApplied;
+
 		/// <summary>
 		/// THE GAME WINDOW'S "FIX BUGS OF THE ORIGINAL" (bug plan, per user 2026-11-03: one option for all of them, on by
 		/// default): the switches of the original's bugs that can cost the game, set together before a rules.json is
@@ -59,6 +63,7 @@ namespace UWDataImport.UWData
 			TidyLeakedObjects = pbOn;
 			GroundedFlightBouncesOnIce = pbOn;
 			EveryEnterExitTrigger = pbOn;
+			MisplacedObjectsMoved = pbOn;
 		}
 
 		/// <summary>
