@@ -120,6 +120,10 @@ Shader "UW/DungeonPalette"
 
             half4 UWFragment(Varyings IN) : SV_Target
             {
+                // Beyond the vision grid's reach on an unlit level nothing is drawn (UWBeyondSight).
+                if (UWBeyondSight(UWTowardEye(IN.positionWS)))
+                    discard;
+
                 // The face's normal first: the depth effect shifts the coordinate before the index
                 // is read (UWPaletteEffects.hlsl, UWPaletteParallaxUv).
                 float3 lNormal = UWFacingNormal(IN.positionWS);

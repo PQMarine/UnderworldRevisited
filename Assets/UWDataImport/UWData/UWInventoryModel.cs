@@ -49,6 +49,14 @@ namespace UWDataImport.UWData
 		/// <summary>The container of the last rejection, for the message.</summary>
 		public UWObject LastContainerRejectionContainer { get; private set; }
 
+		/// <summary>Clears the last refusal before a put, so a put that fails without a container's refusal says no old
+		/// one (the second game's screen, 2026-11-25: not every drop path resets it).</summary>
+		public void ForgetContainerRejection()
+		{
+			LastContainerRejection = UWContainerCapacity.ResultEnum.Fits;
+			LastContainerRejectionContainer = null;
+		}
+
 		/// <summary>Type and weight test in one place; remembers the reason for the UI.</summary>
 		private bool fContainerAccepts(UWObject pOContainer, UWObject pOItem, UWObject pOReplaced = null)
 		{

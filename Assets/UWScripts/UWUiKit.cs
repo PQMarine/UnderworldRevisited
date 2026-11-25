@@ -340,8 +340,9 @@ public static class UWUiKit
     /// <summary>
     /// A text anchored at pOAnchor and pivoted at pOPivot, made as pOStyle says, never catching
     /// clicks. A text following the font chosen is registered with UWUiFonts right after its font
-    /// is set (UWUiFonts keeps that font as its modern face); pOUi lets UWUiFonts find the game's
-    /// own font files.
+    /// is set (UWUiFonts keeps that font as its modern face). pOUi is NO LONGER READ since 2026-11-25 (UWUiFonts takes
+    /// the running game's font from UWModernUi.Data, both games): left in the 70 calls for now, to go in the cleanup
+    /// branch (Todo).
     /// </summary>
     public static Text CreateText(Transform pOParent, string psName, Vector2 pOAnchor, Vector2 pOPivot, TextAnchor peAlignment,
         Color pOColour, UWGameUI pOUi, TextStyle pOStyle)
@@ -363,7 +364,7 @@ public static class UWUiKit
         lOText.font = pOStyle.Font == TextFontEnum.Interface ? UWInterfaceFont.Font : UWInterfaceFont.ModernOrInterface;
 
         if (!pOStyle.KeepsItsFont)
-            UWUiFonts.Register(lOText, pOUi);
+            UWUiFonts.Register(lOText);
 
         lOText.alignment = peAlignment;
         lOText.color = pOColour;

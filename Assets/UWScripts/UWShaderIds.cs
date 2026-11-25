@@ -82,6 +82,10 @@ public static class UWShaderIds
 
     public static readonly int DitherScale = fGlobal("_UWDitherScale");
     public static readonly int ShadeFormula = fGlobal("_UWShadeFormula");
+
+    /// <summary>The vision grid's reach cuts the palette path's drawing (UWBeyondSight, UWPaletteLookup.hlsl): on an unlit
+    /// level with the palette path on.</summary>
+    public static readonly int SightCut = fGlobal("_UWSightCut");
     public static readonly int ViewScale = fGlobal("_UWViewScale");
     public static readonly int Demaster = fGlobal("_UWDemaster");
 

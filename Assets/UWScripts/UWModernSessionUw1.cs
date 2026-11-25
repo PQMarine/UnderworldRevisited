@@ -374,6 +374,10 @@ public sealed class UWModernSessionUw1 : IUWModernSession, IUWModernCharacter, I
 
     public IReadOnlyList<float> LineTimes => mOInteraction.ActiveStringTimes;
 
+    public long LinesSaid => mOInteraction.ActiveStringsSaid;
+
+    public long LinesCleared => mOInteraction.ActiveStringsCleared;
+
     public bool IsWaitingForPage => mOInteraction.IsWaitingForPage;
 
     public int PromptLine => mOInteraction.PromptLineIndex;

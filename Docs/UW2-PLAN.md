@@ -2555,6 +2555,32 @@ GATE ADDED 2026-11-18 per user: before UW2 is declared an alpha or a beta, the c
 original. One deviation is decided: the original moves things in the inventory only by dragging with the right
 button, the first game with either button; ours keeps either button for the second game too (an entry in
 Docs/DEVIATIONS.md).
+THE GATE STARTED 2026-11-25 per user ("Ja, Beta-Gate starten"), after release 0.24.0, scope the interface and its
+operation (the rules were covered by the play-through against the original, phase 5E; the user also replayed in the
+original every place where a difference or a bug was suspected during it). FOUR STEPS:
+(1) COVERAGE - `Tools/UWOriginalCoverage --uw2` writes `Docs/ORIGINAL-COVERAGE-UW2.md` from Underworld Exhumed's
+`uw2/src` (names and counts only): every function, whether our sources name it; the interface's scope (`ui`, `inv`,
+`game/CHARGEN.C`) listed one by one, the rest counted. FIRST RUN 2026-11-25 (Exhumed 81cc4b5): 1373 functions, 753
+named; in the scope 326, 153 left to judge. Each is judged into `Uw2Coverage.msJudged` with its reason - covered under
+another name, plumbing (memory, drivers, drawing primitives, Exhumed's own `port_` additions), to be checked in the
+original, or a gap - file by file, starting with what decides behaviour (the inventory, the panels, the scroll, the
+creation, the automap); a gap is fixed or written down. THE INVENTORY JUDGED 2026-11-25: all 20 of inv/ covered or
+plumbing, no gap; 133 left. THE PANELS JUDGED the same day (26): one GAP, check_around (a click on a wall or the
+floor takes an object within nine pixels, the second game only; BUILT 2026-11-25, UWWorldViewUw2.fMeasureAtPointer on
+the classic screen, test list 219), and one doubt, adjust_compass (the needle steps,
+test list 218.1); 107 left. THE SCROLL AND THE TEXTS JUDGED 2026-11-25 (25): covered or plumbing,
+no gap; 82 left. THE MOUSE AND THE INPUT JUDGED the same day (45): one GAP in both games, the keyboard pointer
+(keyboard_mouse, warpMouse, mouse_btns: Tab, the keypad, INS and DEL, Alt+H), DECIDED per user a deviation as in the
+first game (Docs/DEVIATIONS.md); 37 left. THE OPTIONS, THE MAIN MENU, THE CREATION AND THE AUTOMAP JUDGED the same day
+(37): covered, plumbing or never called. STEP 1 COMPLETE 2026-11-25: 0 of 326 left; one gap built (check_around), one
+deviation (the keyboard pointer), one doubt (the compass's steps, test list 218.1). STEP 3 PREPARED the same day:
+test list sections 220-228, one per area, with screenshot pairs for a pixel comparison (per user).
+(2) THE DOUBTFUL ONES as a side-by-side list for the user in the original (DOSBox, the UW2 test install), by area.
+(3) THE AREAS the user goes through side by side where the play-through did not lead: the frame and the panel's pages,
+inventory and bags, runes and casting, the command modes, the scroll and its texts, the conversation screen and the
+map, the options with saving and loading, sleep, death and the endings, the character creation.
+(4) EVERY DIFFERENCE fixed, or decided as a deviation in Docs/DEVIATIONS.md (the inventory's either-button drag first). STEPS 2 TO 4 COMPLETE 2026-11-25 (per user, test list sections 218-235 all confirmed): fixed - the Void's draw range (both games), the compass's steps, the eye and the projection centre, the armour's drawing order, the font key and the interface font for both games, the held skill scroll, the gargoyle's and the compass's rate, the power gem's pulse, the flasks' bubbles and level steps on one gauge for both games, the refusal messages of a put, "Move how many?" with 0 (both games), the scroll's edges per line (both games), the map notes' row (both games); decided as deviations - edges up to a row higher, the too-heavy retry, a swap counting the thing that comes out, the scroll's first text colour, the hood's top row after a load. THE GATE IS PASSED.
+Then phase 6's documentation for two games and the beta.
 
 Remastered details (ice, the new texture set), the help window (stats, map, notes, spells) (BUILT but the worn
 magic, stale entry corrected 2026-11-19: `UWHelpMapTab` with `UWHelpMapUw2`, the UW2 branches of `UWHelpStatsTab`

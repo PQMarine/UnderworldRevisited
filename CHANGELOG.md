@@ -10,6 +10,46 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-25
+
+### Added
+- Ultima Underworld II: a click on a wall or the floor right beside a small thing takes the thing, as in the original
+  (it looks up to nine pixels round the pointer).
+- Ultima Underworld II: holding the button on an arrow under the skill list scrolls on, as in the original.
+- Ultima Underworld II: the flasks bubble now and then, as in the original.
+
+### Closer to the original
+- Palette colours: on an unlit level nothing is drawn beyond the reach of the light; a thing goes whole, by the tile
+  it stands on (the Ethereal Void showed far too much).
+- The flasks rise and fall one step each quarter of a second and bubble by the original's rule, about every ten
+  seconds a flask and also while their level moves. Until now they followed a reconstruction (an eighth of a second
+  a step, bubbles more often).
+- "Move how many?" with a typed 0 takes nothing.
+- The scroll's rolled edges turn with every line that comes into the full scroll - also for the same line once more
+  and while a long text is read.
+- Map notes sit on the original's row; they were one row too low (the second game's own notes showed it). Notes you
+  wrote yourself stay where they were.
+- Ultima Underworld II: the view stands at the first game's eye height with its offset, and the picture is centred
+  where the original centres it (it stood several rows too high).
+- Ultima Underworld II: the compass turns to the heading step by step and stands still in the Ethereal Void.
+- Ultima Underworld II: the gargoyle's eyes and the compass take the original's time (they were four times too fast).
+- Ultima Underworld II: the pulse of the full power gem starts with its first picture.
+- Ultima Underworld II: the paperdoll draws the helmet last, so a mail cowl hangs over the vest.
+- Ultima Underworld II: a thing a bag or the pack refuses says why - "The pack is too full.", "That item does not
+  fit.", "There is no place to put that.".
+
+### Fixed
+- Ultima Underworld II: the F key switches the game's texts between the original and the modern font, in both
+  schemes (it only worked in the first game).
+- Ultima Underworld II: the Interface window's "Original" font for the modern interface shows the second game's
+  letters (it kept the modern font).
+
+### Changed
+- [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md) lists what the check of the second game's classic interface against the
+  original decided to keep different: edges of the picture may lie up to a row higher, a thing too heavy to pick up is
+  tried once, a swap in an open bag counts the thing that comes out, the second game's scroll keeps its first text
+  colour, and there is no keyboard pointer.
+
 ## [0.24.0] - 2026-11-25
 
 ### Added

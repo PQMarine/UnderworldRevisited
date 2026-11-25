@@ -383,13 +383,13 @@ namespace UWDataImport.UWData
 		/// pbCursorOn is the input box's state (a running input that shows one, and IsCursorOn).
 		/// </summary>
 		public bool Update(UWFont pOFont, IReadOnlyList<string> pOMessages, int piWidth, int piCapacity, bool pbWaitingForPage,
-			bool pbCursorOn)
+			bool pbCursorOn, long plSaid = -1, long plCleared = -1)
 		{
 			string lsText = pOMessages != null ? string.Join("\n", pOMessages) : string.Empty;
 
 			// The input box is not in the text but only in the key - the finished lines would keep it.
 			string lsKey = lsText + (pbCursorOn ? "\u0001" : string.Empty) + (pbWaitingForPage ? "\u0002" : string.Empty)
-				+ "\u0003" + piWidth + "\u0004" + piCapacity;
+				+ "\u0003" + piWidth + "\u0004" + piCapacity + "\u0005" + plSaid + "\u0006" + plCleared;
 
 			if (lsKey == msKey)
 				return false;
@@ -417,7 +417,11 @@ namespace UWDataImport.UWData
 			// ONE STEP PER SCROLL, as in the original (UWScrollEdgeRules): the frame only moves when
 			// lines have left the box at the top. While the box is still filling up, nothing scrolls
 			// and nothing turns; a blinking cursor redraws the same lines and leaves the strip alone.
-			Scrolled = Math.Max(0, UWScrollEdgeRules.GetScrollAmount(mOShown, lOLines));
+			// BY THE LINES SAID when the caller counts them (plSaid, plCleared; UW2 beta gate 224.3, 2026-11-25, per user: the
+			// edges did not turn while a long text was read, nor when the same line came again): scroll_up turns them once
+			// per new line that comes into a full box, whatever it says. Without the counts by how far the old lines slid up.
+			Scrolled = plSaid >= 0 ? fScrolledBySaid(pOFont, pOMessages, piWidth, liRoom, plSaid, plCleared)
+				: Math.Max(0, UWScrollEdgeRules.GetScrollAmount(mOShown, lOLines));
 
 			if (Scrolled > 0)
 				EdgeFrame = UWScrollEdgeRules.Advance(EdgeFrame, UWScrollEdgeRules.MainFrames, Scrolled);
@@ -430,6 +434,37 @@ namespace UWDataImport.UWData
 			CursorOn = pbCursorOn;
 
 			return true;
+		}
+
+		private long mlSaid = -1;
+
+		private long mlCleared = -1;
+
+		/// <summary>scroll_up's count: each line of the messages said since the last Update that comes into a box already
+		/// full turns the edges once (a wiped box starts empty); the first Update turns nothing. plSaid counts the messages
+		/// the list ever took, plCleared the times it was wiped.</summary>
+		private int fScrolledBySaid(UWFont pOFont, IReadOnlyList<string> pOMessages, int piWidth, int piRoom, long plSaid, long plCleared)
+		{
+			long llNew = mlSaid < 0 ? 0 : plSaid - mlSaid;
+			bool lbWiped = mlCleared >= 0 && plCleared != mlCleared;
+			int liBefore = lbWiped ? 0 : mOShown.Count;
+
+			mlSaid = plSaid;
+			mlCleared = plCleared;
+
+			if (llNew <= 0 || pOMessages == null || pOMessages.Count == 0)
+				return 0;
+
+			int liMessages = (int)Math.Min(llNew, pOMessages.Count);
+			int liLines = 0;
+
+			for (int liAt = pOMessages.Count - liMessages; liAt < pOMessages.Count; liAt++)
+			{
+				foreach (string lsLine in (pOMessages[liAt] ?? string.Empty).Split('\n'))
+					liLines += string.IsNullOrEmpty(lsLine) ? 1 : Math.Max(1, UWTextLayout.WrapText(pOFont, lsLine, piWidth).Count);
+			}
+
+			return Math.Max(0, Math.Min(liLines, liBefore + liLines - piRoom));
 		}
 
 		/// <summary>The scroll was hidden (a conversation, the big map): the next Update draws anew.

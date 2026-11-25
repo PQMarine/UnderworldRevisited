@@ -1,29 +1,26 @@
 namespace UWDataImport.UWData
 {
 	/// <summary>
-	/// The bubbling of a flask (2026-09-17, per user: "when the flask is full it should not
-	/// bubble, only when the liquid has some surface").
+	/// The bubbling of a flask, THE ORIGINAL'S RULE IN BOTH GAMES (2026-11-25, UW2 beta gate 220.7, per user: the second
+	/// game's flasks did not bubble, and one path for both games). Underworld Exhumed uw1 and uw2 ui/PANELS.C have the same
+	/// code: update_screen's slow update (every 64 ticks of the 1/256 s clock, StepSeconds) draws rand() once and, below
+	/// 0x666 of its 0x8000, sets the flask of the number's low bit bubbling (UWFlaskGauge draws it, the one draw for both
+	/// flasks); adjust_flasks then shows that flask's bubble pictures, one a slow update, at LEVELS 1 TO 7 of the twelve
+	/// ("n &lt; 8 &amp;&amp; n &gt; 0") - eleven of them, bub_frame stepping before it draws, so the set's first picture never
+	/// shows - and on the slow update after the last the plain level again. Outside levels 1 to 7 the flask keeps bubbling
+	/// and goes on when its level comes back. The level's own step (UWFlaskGauge) comes first in the same call, so a
+	/// moving flask bubbles too.
 	///
-	/// THE RULE, from the reference (uimanager_flasks.AnimateFlasks) and matching that memory:
+	/// Until then the first game's rule came from the reference (uimanager_flasks.AnimateFlasks, 2026-09-17): an eighth of
+	/// a second a step, a 1 in 32 chance for each flask on its own, and no bubbles while a level moved.
 	///
-	///   - It only bubbles at LEVELS 1 TO 7 of the twelve (UnderworldExhumed PANELS.C
-	///     adjust_flasks, "n < 8 && n > 0"; until 2026-10-12 the reference's 3 to 9 of thirteen),
-	///     and only while the level is not moving - a flask that is filling or emptying shows no
-	///     bubbles.
-	///   - Every step (an eighth of a second, 32 of the original's timer ticks at 0.00391 s) a
-	///     resting flask has a 1 in 32 chance to START bubbling. About once every four seconds.
-	///   - Once it runs it walks through ELEVEN pictures, one per step, and then stops: the
-	///     original's frame counter starts on the first picture of the set (base + 0xD) and steps
-	///     before it draws, so that first picture never shows (adjust_flasks, bub_frame; until
-	///     2026-10-12 ours showed all twelve).
-	///
-	/// The pictures sit in FLASKS.GR right behind the thirteen fill pictures of their colour
-	/// (see UWFlasks): red 13 to 24, mana 38 to 49, poison 63 to 74.
+	/// The pictures sit in FLASKS.GR right behind the thirteen fill pictures of their colour (UWFlasks,
+	/// UWClassicLayoutUw2.Flasks.BubbleFirst): red 13 to 24, mana 38 to 49, poison 63 to 74.
 	/// </summary>
 	public sealed class UWFlaskAnimation
 	{
-		/// <summary>Seconds per step - 32 ticks of the original's timer.</summary>
-		public const float StepSeconds = 32f * 0.00391f;
+		/// <summary>Seconds per step: update_screen's slow update, 64 ticks of the 1/256 s clock.</summary>
+		public const float StepSeconds = 64f / 256f;
 
 		public const int FrameCount = 12;
 
@@ -35,69 +32,53 @@ namespace UWDataImport.UWData
 
 		public const int HighestLevel = 7;
 
-		/// <summary>One in this many steps starts a bubbling.</summary>
-		private const int StartChance = 32;
+		/// <summary>update_screen's draw below this of UWOriginalRandom.Range starts a bubbling, its low bit the flask.</summary>
+		public const int StartChance = 0x666;
 
-		private readonly UWTickClock mOClock = new UWTickClock(StepSeconds);
+		private bool mbBubbling;
 
-		private int miFrame = -1;
+		/// <summary>bub_frame less bub_first: 0 for the plain level, 1 to FrameCount - 1 a bubble picture.</summary>
+		private int miFrame;
 
-		/// <summary>The picture to draw over the liquid, or -1 while it is quiet.</summary>
-		public int Frame => miFrame;
+		/// <summary>bubbling[]: the flask's bubbles run, or wait for a level of 1 to 7.</summary>
+		public bool IsBubbling => mbBubbling;
 
-		/// <summary>
-		/// Advances by the elapsed time. piLevel is the fill level (0 to UWFlasks.FillLevels), pbSettled says the
-		/// flask is not filling or emptying right now. Returns whether the picture changed.
-		/// </summary>
-		public bool Advance(float pfElapsedSeconds, int piLevel, bool pbSettled)
+		/// <summary>The bubble picture shown at piLevel, or -1 for none (not bubbling, between pictures or out of levels 1
+		/// to 7).</summary>
+		public int FrameAt(int piLevel)
 		{
-			bool lbAllowed = pbSettled && piLevel >= LowestLevel && piLevel <= HighestLevel;
+			return mbBubbling && miFrame > 0 && piLevel >= LowestLevel && piLevel <= HighestLevel ? miFrame : -1;
+		}
 
-			if (!lbAllowed)
+		/// <summary>update_screen's bubbling[r &amp; 1] = 1 (no effect while it already bubbles).</summary>
+		public void Start()
+		{
+			mbBubbling = true;
+		}
+
+		/// <summary>adjust_flasks' bubble part at the level after this update's step; true when the picture changed.</summary>
+		public bool Step(int piLevel)
+		{
+			if (!mbBubbling || piLevel < LowestLevel || piLevel > HighestLevel)
+				return false;
+
+			if (miFrame == FrameCount - 1)
 			{
-				mOClock.Advance(pfElapsedSeconds);
-
-				if (miFrame < 0)
-					return false;
-
-				miFrame = -1;
+				miFrame = 0;
+				mbBubbling = false;
 
 				return true;
 			}
 
-			int liSteps = mOClock.Advance(pfElapsedSeconds);
+			miFrame++;
 
-			if (liSteps <= 0)
-				return false;
-
-			bool lbChanged = false;
-
-			for (int liStep = 0; liStep < liSteps; liStep++)
-			{
-				if (miFrame < 0)
-				{
-					if (UWRandom.Next(StartChance) != 0)
-						continue;
-
-					miFrame = FirstShownFrame;
-					lbChanged = true;
-
-					continue;
-				}
-
-				miFrame++;
-				lbChanged = true;
-
-				if (miFrame >= FrameCount)
-					miFrame = -1;
-			}
-
-			return lbChanged;
+			return true;
 		}
 
 		public void Stop()
 		{
-			miFrame = -1;
+			mbBubbling = false;
+			miFrame = 0;
 		}
 	}
 }

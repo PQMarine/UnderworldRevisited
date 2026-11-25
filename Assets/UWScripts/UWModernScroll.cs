@@ -180,7 +180,7 @@ public class UWModernScroll
         // one frame per line that left the top, as in the classic box (UWMessageLogModel).
         bool lbCursor = pOSaid.ShowsPromptCursor && UWMessageLogModel.IsCursorOn(Time.unscaledTime);
 
-        mOModel.Update(lOFont, pOSaid.Lines, TextWidth, Rows, pOSaid.IsWaitingForPage, lbCursor);
+        mOModel.Update(lOFont, pOSaid.Lines, TextWidth, Rows, pOSaid.IsWaitingForPage, lbCursor, pOSaid.LinesSaid, pOSaid.LinesCleared);
 
         int liEdgeFrame = mOModel.EdgeFrame;
         // The game in the key too: the second game's paper is another picture.

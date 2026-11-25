@@ -117,6 +117,16 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
     public const int KeptMessages = UWMessageLog.HistoryCount;
 
+    /// <summary>The lines the scroll ever took and the times it was wiped, only growing: the edges turn by them
+    /// (UWMessageLogModel.Update's plSaid and plCleared; scroll_up turns them per line, whatever it says).</summary>
+    private static long mlScrollSaid;
+
+    private static long mlScrollCleared;
+
+    public static long ScrollSaid => mlScrollSaid;
+
+    public static long ScrollCleared => mlScrollCleared;
+
     /// <summary>A line into the session's message scroll.</summary>
     public static void Say(string psLine)
     {
@@ -130,6 +140,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         msfLastSaid = Time.unscaledTime;
         msMessages.Add(psLine);
+        mlScrollSaid++;
         LastPageLines = 0;
 
         while (msMessages.Count > KeptMessages)
@@ -187,6 +198,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     private Sprite[] mOCompassPictures;
 
     private int miCompassStep = -1;
+
+    /// <summary>The compass's goal, the heading it turns to (set_screen_frame(2)); -1 before the first.</summary>
+    private int miCompassGoal = -1;
+
+    /// <summary>The time towards the compass's next step (adjust_compass on the slow update).</summary>
+    private float mfCompassTime;
 
     // The command bar.
     private Image mOIconLit;
@@ -577,6 +594,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         // A new session starts with an empty scroll and no command (the statics outlive the scene).
         msMessages.Clear();
+        mlScrollCleared++;
         // Directly: the session's start picks its own theme (UWWorldViewUw2), no sheathing's.
         meCommand = CommandEnum.None;
         Current = this;
@@ -806,6 +824,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     public static void ClearScroll()
     {
         msMessages.Clear();
+        mlScrollCleared++;
         msPendingPage.Clear();
         msbPageRelease = false;
     }
@@ -892,6 +911,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         for (int liAt = 0; liAt < liPerPage && msPendingPage.Count > 0; liAt++)
         {
             msMessages.Add(msPendingPage[0]);
+            mlScrollSaid++;
             msPendingPage.RemoveAt(0);
             LastPageLines++;
         }
@@ -900,6 +920,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (msPendingPage.Count == 1 && UWMessageLogModel.LastLineJoinsPage(msPagedText, msPendingPage[0]))
         {
             msMessages.Add(msPendingPage[0]);
+            mlScrollSaid++;
             msPendingPage.RemoveAt(0);
             LastPageLines++;
         }
@@ -1214,12 +1235,25 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>The gem's picture: 0 dark, the charge in steps, the full one pulses (set_screen_frame(3, n)).</summary>
     public void ShowPower(int piStep)
     {
-        miPower = Mathf.Clamp(piStep, 0, UWClassicLayoutUw2.PowerGem.FullStep);
+        int liStep = Mathf.Clamp(piStep, 0, UWClassicLayoutUw2.PowerGem.FullStep);
+
+        if (liStep == UWClassicLayoutUw2.PowerGem.FullStep && miPower != UWClassicLayoutUw2.PowerGem.FullStep)
+            mfPowerFullSince = Time.unscaledTime;
+
+        miPower = liStep;
     }
 
-    /// <summary>The gem's picture now, the full one's pulse in it.</summary>
+    /// <summary>
+    /// The gem's picture now, the full one's pulse in it. THE PULSE STARTS WITH ITS FIRST PICTURE (UW2 beta gate 220.6, per
+    /// user 2026-11-25: not always the first frame when full): adjust_power's frame goes back to 9 whenever the gem leaves
+    /// the full step (last == 9), so each full charge shows 9 first, then 10, 9 ...; ours took the pulse from the running
+    /// clock, so it began with either. Now counted from the moment the charge became full.
+    /// </summary>
     public int PowerFrame => miPower == UWClassicLayoutUw2.PowerGem.FullStep
-        ? miPower + ((int)(Time.unscaledTime / UWClassicLayoutUw2.PowerGem.PulseSeconds) & 1) : miPower;
+        ? miPower + ((int)((Time.unscaledTime - mfPowerFullSince) / UWClassicLayoutUw2.PowerGem.PulseSeconds) & 1) : miPower;
+
+    /// <summary>When the charge last became full (ShowPower), the pulse's start.</summary>
+    private float mfPowerFullSince;
 
     private void fUpdatePower()
     {
@@ -1502,6 +1536,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
                 mOFlaskSlices[liFlask][liSlice] = fImage("Flask" + liFlask + "Slice" + liSlice, liLeft,
                     UWUiFit.FrameHeight - 1 - UWClassicLayoutUw2.Flasks.LiquidY[liSlice + 1], 1f, 1f, null);
             }
+
+            // The bubbles over the liquid's top, the glass over them (adjust_flasks).
+            mOBubbles[liFlask] = fImage("Flask" + liFlask + "Bubbles", liLeft, 0f, 1f, 1f, null);
+            mOBubbles[liFlask].enabled = false;
+            mOBubbleGlass[liFlask] = fImage("Flask" + liFlask + "BubbleGlass", liLeft, 0f, 1f, 1f, null);
+            mOBubbleGlass[liFlask].enabled = false;
         }
 
         // The panel: a window clipping its pages as they slide, the strip they leave in colour 1 under
@@ -1534,7 +1574,15 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         for (int liDisplay = 1; liDisplay < mODisplays.Length; liDisplay++)
             mODisplays[liDisplay] = fImageIn(mOInventoryPage, "Display" + liDisplay, fDisplayLeft(liDisplay), fDisplayTop(liDisplay), 1f, 1f, null);
 
-        mOOpenBag = fImageIn(mOInventoryPage, "OpenBag", fDisplayLeft(UWClassicLayoutUw2.Inventory.OpenBagDisplay),
+        // THE ARMOUR IN DisplayInvSpecial's ORDER (ArmorSlots 1, 3, 5, 4, 2; UW2 beta gate 220.1, 2026-11-25, the user's
+        // throne room pair: the leather vest lay over the mail cowl's hem, in the original the cowl hangs over the vest):
+        // the helmet last. Until then the displays lay in their numbers' order, the helmet under the chest.
+        int liFirstArmour = mODisplays[1].transform.GetSiblingIndex();
+
+        for (int liAt = 0; liAt < UWClassicLayoutUw2.Inventory.ArmourDisplays.Length; liAt++)
+            mODisplays[UWClassicLayoutUw2.Inventory.ArmourDisplays[liAt]].transform.SetSiblingIndex(liFirstArmour + liAt);
+
+        mOOpenBag =fImageIn(mOInventoryPage, "OpenBag", fDisplayLeft(UWClassicLayoutUw2.Inventory.OpenBagDisplay),
             fDisplayTop(UWClassicLayoutUw2.Inventory.OpenBagDisplay), 1f, 1f, null);
         mOUpArrow = fImageIn(mOInventoryPage, "UpArrow", fDisplayLeft(UWClassicLayoutUw2.Inventory.UpArrowDisplay),
             fDisplayTop(UWClassicLayoutUw2.Inventory.UpArrowDisplay), 1f, 1f, null);
@@ -2046,6 +2094,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         mOShownPlayer = lOPlayer;
         mbCharacterShown = lOPlayer != null;
         mOInventory = null;
+        mOFlaskGauge = new UWFlaskGauge();
 
         if (lOPlayer != null)
         {
@@ -3191,17 +3240,23 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// bag there takes it; the open bag's own place gives it to the pack or to the bag around.</summary>
     private void fPutInto(int piHit, UWObject pOThere)
     {
+        // THE REFUSALS SAID AS IN THE FIRST GAME (UW2 beta gate 221.3, per user 2026-11-25 with a picture of the original:
+        // "The pack is too full.", "That item does not fit." - ours said nothing): ItemFitsSlot's sentences through the
+        // shared rules and words (UWInventoryView.PutOneLevelUp, UWItemMessages.ContainerRejection, UWClassicDrop's).
+        mOInventory.ForgetContainerRejection();
+
         if (piHit == UWClassicLayoutUw2.Inventory.OpenBagDisplay)
         {
-            UWObject lOParent = mOInventory.ParentContainer;
-
             if (mOInventory.OpenContainer == null)
                 return;
 
-            if (lOParent == null)
-                mOInventory.DropCursorItemInFirstFreeBackpackSlot();
-            else
-                mOInventory.DropCursorItemInContainerAt(lOParent, lOParent.Contents != null ? lOParent.Contents.Count : 0);
+            // Into the bag around, or the pack's first free place ("There is no place to put that.", ItemFitsSlot 0x112).
+            UWInventoryView.PutOutcomeEnum leUp = UWInventoryView.PutOneLevelUp(mOInventory);
+
+            if (leUp == UWInventoryView.PutOutcomeEnum.Refused)
+                fSayContainerRejection();
+            else if (leUp == UWInventoryView.PutOutcomeEnum.NoPlace)
+                Say(UWText.General(mOData, UWStringIds.InGame(UWGame.Uw2, UWInventoryView.NoPlaceMessage)));
 
             return;
         }
@@ -3216,14 +3271,29 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (liSlot == HeadSlot && fEatFromPointer())
             return;
 
+        bool lbPlaced = true;
+
         if (liSlot < UWInventoryWorkspace.EquipmentSlotCount)
-            mOInventory.DropCursorItemInEquip(UWInventoryModel.FromSavegameSlot(liSlot));
+            lbPlaced = mOInventory.DropCursorItemInEquip(UWInventoryModel.FromSavegameSlot(liSlot));
         else if (lbIntoBag)
-            mOInventory.DropCursorItemIntoContainerItem(pOThere, mOInventory.OpenContainer != null);
+            lbPlaced = mOInventory.DropCursorItemIntoContainerItem(pOThere, mOInventory.OpenContainer != null);
         else if (mOInventory.OpenContainer != null)
-            mOInventory.DropCursorItemInContainer(liPack);
+            lbPlaced = mOInventory.DropCursorItemInContainer(liPack);
         else if (liPack < mOInventory.Backpack.Length)
-            mOInventory.DropCursorItemInBackpack(liPack);
+            lbPlaced = mOInventory.DropCursorItemInBackpack(liPack);
+
+        if (!lbPlaced)
+            fSayContainerRejection();
+    }
+
+    /// <summary>Why a container refused the thing on the pointer, in the game's words (UWItemMessages.ContainerRejection,
+    /// the first game's UWClassicDrop.ReportContainerRejection); nothing when no container refused it.</summary>
+    private void fSayContainerRejection()
+    {
+        string lsMessage = UWItemMessages.ContainerRejection(mOInventory.LastContainerRejection, mOInventory.LastContainerRejectionContainer, mOData);
+
+        if (!string.IsNullOrEmpty(lsMessage))
+            Say(lsMessage);
     }
 
     /// <summary>What the statistics page shows of the numbers that move: experience, vitality, mana.</summary>
@@ -3318,12 +3388,25 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     private long mlFlasksShown = -1;
 
     /// <summary>The flasks follow the record (per user, 2026-11-02: drawn when a character came on screen only, they
-    /// stayed full and red through blows and poison in the classic scheme; the modern HUD reads them every frame).</summary>
+    /// stayed full and red through blows and poison in the classic scheme; the modern HUD reads them every frame). THE
+    /// SHARED GAUGE (UWFlaskGauge, 2026-11-25, UW2 beta gate 220.7, per user: the flasks did not bubble, and one path for
+    /// both games): the shown levels step and the bubbles run on the original's slow update, as in the first game; the
+    /// modern scheme reads the same gauge (FlaskGauge).</summary>
     private void fFollowFlasks()
     {
-        if (fFlaskState() != mlFlasksShown)
+        UWPlayerFile lOPlayer = mOShownPlayer;
+        bool lbMoved = lOPlayer != null && mOFlaskGauge.Advance(Time.deltaTime, UWPlayerRecordUw2.Vitality(lOPlayer),
+            UWPlayerRecordUw2.MaxVitality(lOPlayer), UWPlayerRecordUw2.Mana(lOPlayer), UWPlayerRecordUw2.MaxMana(lOPlayer), false);
+
+        if (lbMoved || fFlaskState() != mlFlasksShown)
             fShowFlasks();
     }
+
+    /// <summary>The flasks' shown levels and bubbles, both schemes (fFollowFlasks); anew for each character, so a loaded
+    /// one starts at its real level.</summary>
+    internal UWFlaskGauge FlaskGauge => mOFlaskGauge;
+
+    private UWFlaskGauge mOFlaskGauge = new UWFlaskGauge();
 
     private long fFlaskState()
     {
@@ -3343,16 +3426,21 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         mlFlasksShown = fFlaskState();
 
-        fShowFlask(0, lOPlayer != null ? UWPlayerRecordUw2.Vitality(lOPlayer) : 0, lOPlayer != null ? UWPlayerRecordUw2.MaxVitality(lOPlayer) : 0,
+        if (lOPlayer != null && mOFlaskGauge.ShownHealthLevel < 0)
+            mOFlaskGauge.Advance(0f, UWPlayerRecordUw2.Vitality(lOPlayer), UWPlayerRecordUw2.MaxVitality(lOPlayer),
+                UWPlayerRecordUw2.Mana(lOPlayer), UWPlayerRecordUw2.MaxMana(lOPlayer), false);
+
+        fShowFlask(0, lOPlayer != null ? mOFlaskGauge.ShownHealthLevel : 0, lOPlayer != null ? mOFlaskGauge.HealthBubbleFrame : -1,
             lOPlayer != null && UWPlayerRecordUw2.IsPoisoned(lOPlayer) ? UWClassicLayoutUw2.Flasks.PoisonFirst : UWClassicLayoutUw2.Flasks.HealthFirst);
-        fShowFlask(1, lOPlayer != null ? UWPlayerRecordUw2.Mana(lOPlayer) : 0, lOPlayer != null ? UWPlayerRecordUw2.MaxMana(lOPlayer) : 0,
+        fShowFlask(1, lOPlayer != null ? mOFlaskGauge.ShownManaLevel : 0, lOPlayer != null ? mOFlaskGauge.ManaBubbleFrame : -1,
             UWClassicLayoutUw2.Flasks.ManaFirst);
     }
 
-    /// <summary>A flask at its twelfths (set_flask): the empty flask, then a slice for each twelfth filled.</summary>
-    private void fShowFlask(int piFlask, int piValue, int piMaximum, int piFirst)
+    /// <summary>A flask at its twelfths (set_flask): the empty flask, then a slice for each twelfth filled; over the
+    /// topmost the bubble picture piBubble (adjust_flasks, -1 none) with the glass's rows over it.</summary>
+    private void fShowFlask(int piFlask, int piLevel, int piBubble, int piFirst)
     {
-        int liLevel = piMaximum > 0 ? Mathf.Min(UWClassicLayoutUw2.Flasks.Levels, piValue * UWClassicLayoutUw2.Flasks.Levels / piMaximum) : 0;
+        int liLevel = Mathf.Clamp(piLevel, 0, UWClassicLayoutUw2.Flasks.Levels);
         int liLeft = piFlask == 0 ? UWClassicLayoutUw2.Flasks.HealthLeft : UWClassicLayoutUw2.Flasks.ManaLeft;
 
         mOFlaskEmpty[piFlask].enabled = mOFlaskEmpty[piFlask].sprite != null && mOShownPlayer != null;
@@ -3368,6 +3456,48 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
             fPlace(mOFlaskSlices[piFlask][liSlice], lOSlice, liLeft, UWUiFit.FrameHeight - 1 - UWClassicLayoutUw2.Flasks.LiquidY[liSlice + 1]);
         }
+
+        if (piBubble <= 0 || liLevel <= 0 || mOBubbles[piFlask] == null)
+        {
+            if (mOBubbles[piFlask] != null)
+            {
+                mOBubbles[piFlask].enabled = false;
+                mOBubbleGlass[piFlask].enabled = false;
+            }
+
+            return;
+        }
+
+        float lfTop = UWUiFit.FrameHeight - 1 - UWClassicLayoutUw2.Flasks.LiquidY[liLevel];
+
+        fPlace(mOBubbles[piFlask], fCachedPicture(UWTexture.TextureTypes.FLASKS, piFirst + UWClassicLayoutUw2.Flasks.BubbleOffset + piBubble), liLeft, lfTop);
+        fPlace(mOBubbleGlass[piFlask], fBubbleGlass(UWFlasksUw2.SliceTop(liLevel - 1)), liLeft, lfTop);
+    }
+
+    // ------------------------------------------------- The flasks' bubbles (adjust_flasks, UW2 beta gate 220.7)
+
+    private readonly Image[] mOBubbles = new Image[2];
+
+    private readonly Image[] mOBubbleGlass = new Image[2];
+
+    /// <summary>The glass over the bubbles at each level: the rows of FLASKS.GR 0x4C at the liquid's top.</summary>
+    private readonly Dictionary<int, Sprite> mOBubbleGlassRows = new Dictionary<int, Sprite>();
+
+    /// <summary>The glass's rows from piRow down (set_yoff), BubbleRows high and BubbleWidth wide, drawn transparent.</summary>
+    private Sprite fBubbleGlass(int piRow)
+    {
+        if (!mOBubbleGlassRows.TryGetValue(piRow, out Sprite lOSprite))
+        {
+            Texture2D lOGlass = fPicture(UWTexture.TextureTypes.FLASKS, UWClassicLayoutUw2.Flasks.BubbleGlass, true);
+
+            lOSprite = lOGlass != null && piRow >= 0 && piRow < lOGlass.height
+                ? fSprite(lOGlass, 0, piRow, Mathf.Min(UWClassicLayoutUw2.Flasks.BubbleWidth, lOGlass.width),
+                    Mathf.Min(UWClassicLayoutUw2.Flasks.BubbleRows, lOGlass.height - piRow))
+                : null;
+            mOBubbleGlassRows[piRow] = lOSprite;
+        }
+
+        return lOSprite;
     }
 
     /// <summary>A picture once per kind and number: the flasks' slices opaque, the rest drawn transparent.</summary>
@@ -3567,8 +3697,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     // ------------------------------------------------- Pictures
 
     /// <summary>The game screen opaque, with the view's window cleared so the camera shows through it.
-    /// The picture paints the window in index 0 and edges it in index 1; the view lies over rows 16 to
-    /// 143, the frame's line under it stays.</summary>
+    /// The picture paints the window in index 0 and edges it in index 1; the view shows in rows 17 to
+    /// 143 (place_3d_view's window from 17, UWClassicLayoutUw2.Frame.RenderTop; the black row 16 above it
+    /// stays, as in the original - UW2 beta gate 2026-11-25), the frame's line under it stays.</summary>
     private Texture2D fScreenWithView(UWTexture pOMain)
     {
         return fFollowColours(fOwn(UWTextureFactory.Upload(fScreenWithViewBytes(pOMain), pOMain.Width, pOMain.Height, FilterMode.Point,
@@ -3584,7 +3715,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         for (int liAt = 3; liAt < lyRgba.Length; liAt += UWUploadPixels.BytesPerPixel)
             lyRgba[liAt] = 255;
 
-        for (int liRow = UWClassicLayoutUw2.Frame.ViewWindowTop;
+        for (int liRow = UWClassicLayoutUw2.Frame.RenderTop;
             liRow < UWClassicLayoutUw2.Frame.ViewWindowTop + UWClassicLayoutUw2.Frame.ViewWindowHeight; liRow++)
         {
             // Rows bottom up in the upload.
@@ -3945,6 +4076,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     {
         UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
 
+        fHoldSkillScroll(lOMouse);
+
         if (lOMouse == null || !(lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame)
             || !TryGetOriginalPoint(UWPointer.Position, out float lfColumn, out float lfRow))
             return;
@@ -4022,19 +4155,71 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        if (miPage == 2 && miSlideFrame == 0 && mOShownPlayer != null && liX >= UWClassicLayoutUw2.Statistics.Left
-            && liX <= UWClassicLayoutUw2.Statistics.AreaRight && liY >= UWClassicLayoutUw2.Statistics.AreaBottomY
-            && liY < UWClassicLayoutUw2.Statistics.AreaBottomY + UWClassicLayoutUw2.Statistics.ScrollStrip)
+        if (fScrollSkills(liX, liY))
         {
-            int liTop = miSkillTop + (liX - UWClassicLayoutUw2.Statistics.Left < UWClassicLayoutUw2.Statistics.ScrollSplit ? -1 : 1);
-
-            if (liTop >= 0 && liTop <= UWClassicLayoutUw2.Statistics.LastSkillTop)
-            {
-                miSkillTop = liTop;
-                fUpdateSkillRows();
-            }
+            mbSkillScrollHeld = true;
+            mfSkillScrollTime = 0f;
         }
     }
+
+    /// <summary>mous_in_stat's scroll strip: a row back left of the split, on right of it, within 0 to LastSkillTop. False
+    /// when the point is not in the strip of the shown statistics page.</summary>
+    private bool fScrollSkills(int piX, int piY)
+    {
+        if (miPage != 2 || miSlideFrame != 0 || mOShownPlayer == null || piX < UWClassicLayoutUw2.Statistics.Left
+            || piX > UWClassicLayoutUw2.Statistics.AreaRight || piY < UWClassicLayoutUw2.Statistics.AreaBottomY
+            || piY >= UWClassicLayoutUw2.Statistics.AreaBottomY + UWClassicLayoutUw2.Statistics.ScrollStrip)
+            return false;
+
+        int liTop = miSkillTop + (piX - UWClassicLayoutUw2.Statistics.Left < UWClassicLayoutUw2.Statistics.ScrollSplit ? -1 : 1);
+
+        if (liTop >= 0 && liTop <= UWClassicLayoutUw2.Statistics.LastSkillTop)
+        {
+            miSkillTop = liTop;
+            fUpdateSkillRows();
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// THE HELD BUTTON SCROLLS ON (UWClassicLayoutUw2.Statistics.HoldStepSeconds; UW2 beta gate 220.2, per user on the
+    /// original 2026-11-25): while either button stays down after a click in the strip, a row every step wherever the
+    /// pointer stands in the strip - out of it nothing, back in it goes on, as the original takes the held button as a new
+    /// click each time.
+    /// </summary>
+    private void fHoldSkillScroll(UnityEngine.InputSystem.Mouse pOMouse)
+    {
+        if (!mbSkillScrollHeld)
+            return;
+
+        if (pOMouse == null || !(pOMouse.leftButton.isPressed || pOMouse.rightButton.isPressed))
+        {
+            mbSkillScrollHeld = false;
+
+            return;
+        }
+
+        // The pages take nothing while the view roams or the player is paralysed or asleep in the Void (fClickPanel).
+        if (UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed || UWVitalsUw2.PlayerAsleepInVoid)
+            return;
+
+        mfSkillScrollTime += Time.deltaTime;
+
+        while (mfSkillScrollTime >= UWClassicLayoutUw2.Statistics.HoldStepSeconds)
+        {
+            mfSkillScrollTime -= UWClassicLayoutUw2.Statistics.HoldStepSeconds;
+
+            if (TryGetOriginalPoint(UWPointer.Position, out float lfColumn, out float lfRow))
+                fScrollSkills(Mathf.FloorToInt(lfColumn), (int)UWUiFit.FrameHeight - 1 - Mathf.FloorToInt(lfRow));
+        }
+    }
+
+    /// <summary>A click in the skill list's scroll strip whose button is still down (fHoldSkillScroll).</summary>
+    private bool mbSkillScrollHeld;
+
+    /// <summary>The time towards the held button's next row.</summary>
+    private float mfSkillScrollTime;
 
     /// <summary>A flask's value into the scroll (flask_info): the game's "Your current vitality is" or
     /// "...mana points are", now and most; the vitality after how poisoned the character is.</summary>
@@ -4397,6 +4582,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         mOCanvasRoot.SetActive(lbShown);
 
+        // The projection follows the field of view again; the classic views shift it to the original's centre below.
+        mOCamera.ResetProjectionMatrix();
+
         // The hidden interface (H) comes back by the HUD's rule since part U4e step 1 (UWModernHud.Update: the classic
         // screen, a window, a conversation, the map, typing, the free pointer), as on the first game.
 
@@ -4420,6 +4608,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
                 mOCamera.rect = new Rect(lOArea.x / Screen.width, lOArea.y / Screen.height, lOArea.width / Screen.width, lOArea.height / Screen.height);
                 mOCamera.ResetAspect();
                 mOCamera.fieldOfView = UWViewAngle.Vertical(mOCamera.aspect, OriginalVerticalAngle);
+                fToProjectionCentre(UWClassicLayoutUw2.Frame.ViewWindowTop, UWClassicLayoutUw2.Frame.ViewWindowHeight);
             }
             else
             {
@@ -4481,6 +4670,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         mOCamera.aspect = lfAspect;
         mOCamera.fieldOfView = UWViewAngle.Vertical(lfAspect, OriginalVerticalAngle);
+        fToProjectionCentre(UWClassicLayoutUw2.Frame.ViewWindowTop, UWClassicLayoutUw2.Frame.ViewWindowHeight);
 
         fUpdateCharacter();
         fFollowExperience();
@@ -4488,6 +4678,22 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         fUpdateScroll();
         fUpdateCompass();
         fUpdateCommandIcon();
+    }
+
+    /// <summary>
+    /// THE ORIGINAL'S PROJECTION CENTRE (UWClassicLayoutUw2.Frame.ProjectionCentreRow, UW2 beta gate 2026-11-25) instead of
+    /// the camera area's middle, as the first game's view (UWViewportCamera.fToProjectionCentre): the content moved down by
+    /// the difference in rows (OpenGL convention: ndc = p * pos / -z - p[i, 2]). Across, the area's middle is the
+    /// original's centre already (biasx = (right + left + 1) / 2 over the 0xD0 columns, the area widened on both sides
+    /// alike).
+    /// </summary>
+    private void fToProjectionCentre(int piTop, int piRows)
+    {
+        float lfDown = UWClassicLayoutUw2.Frame.ProjectionCentreRow - (piTop + (piRows * 0.5f));
+        Matrix4x4 lOProjection = mOCamera.projectionMatrix;
+
+        lOProjection[1, 2] += 2f * lfDown / piRows;
+        mOCamera.projectionMatrix = lOProjection;
     }
 
     /// <summary>The bar beside the frame in canvas units.</summary>
@@ -4562,7 +4768,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         // The description's box blinks after the typed line (wdialog's cursor block).
         bool lbCursor = (miTypingSlot != 0 || mbCountLine) && UWMessageLogModel.IsCursorOn(Time.unscaledTime - mfTypingStart);
 
-        if (!mOLog.Update(lOFont, msMessages, ClassicLogWidth, liCapacity, msPendingPage.Count > 0, lbCursor))
+        if (!mOLog.Update(lOFont, msMessages, ClassicLogWidth, liCapacity, msPendingPage.Count > 0, lbCursor, mlScrollSaid, mlScrollCleared))
             return;
 
         if (mOLog.Scrolled > 0)
@@ -4654,8 +4860,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         return lyColours;
     }
 
-    /// <summary>The face by heading and 3, the needle by heading at nedl_x/nedl_y (set_compass) - the
-    /// heading in sixteen steps as the first game's compass reads the view.</summary>
+    /// <summary>
+    /// The face by heading and 3, the needle by heading at nedl_x/nedl_y (set_compass) - the heading in sixteen steps as the
+    /// first game's compass reads the view. ITS TURN (UW2 beta gate, per user on the original 2026-11-25: after the Void it
+    /// stepped back into place, not at once): the heading is only the compass's goal (display_scr's set_screen_frame(2)),
+    /// which it follows one step the short way on each slow update (adjust_compass), and in the Ethereal Void the goal is
+    /// not set at all - the compass stands still there. The first picture is the heading itself.
+    /// </summary>
     private void fUpdateCompass()
     {
         Camera lOView = UWViewpoint.Current;
@@ -4663,7 +4874,26 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (lOView == null || mOCompassPictures == null)
             return;
 
-        int liStep = UWHeadings.HeadingByteToCompassStep(UWHeadings.DegreesToHeadingByte(lOView.transform.eulerAngles.y));
+        int liLevel = UWScene.LevelLoader != null ? UWScene.LevelLoader.CurrentLevelIndex + 1 : 1;
+
+        if ((liLevel - 1) / UWClassicLayoutUw2.Compass.LevelsPerWorld != UWClassicLayoutUw2.Compass.StillWorld || miCompassGoal < 0)
+            miCompassGoal = UWHeadings.HeadingByteToCompassStep(UWHeadings.DegreesToHeadingByte(lOView.transform.eulerAngles.y));
+
+        int liStep = miCompassStep < 0 ? miCompassGoal : miCompassStep;
+
+        mfCompassTime += Time.deltaTime;
+
+        if (liStep == miCompassGoal)
+            mfCompassTime = 0f;
+
+        while (liStep != miCompassGoal && mfCompassTime >= UWClassicLayoutUw2.Compass.StepSeconds)
+        {
+            mfCompassTime -= UWClassicLayoutUw2.Compass.StepSeconds;
+
+            int liAhead = (miCompassGoal - liStep + 16) & 0xF;
+
+            liStep = (liStep + (liAhead <= 8 ? 1 : -1) + 16) & 0xF;
+        }
 
         if (liStep == miCompassStep)
             return;
@@ -5336,6 +5566,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         ClearScroll();
         Say(UWText.Block(mOData, 1, UWClassicLayoutUw2.Options.DescriptionPromptString + 1, string.Empty));
         msMessages.Add(string.Empty);
+        mlScrollSaid++;
         fShowTyped();
     }
 

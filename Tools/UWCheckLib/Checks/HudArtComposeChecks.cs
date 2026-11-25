@@ -365,7 +365,7 @@ namespace UnderworldRevisited.Tools
             Check.Str("classic wide: dragons, the weapon's row and the projection's centre row, first and second game",
                 UWClassicWideGeometry.Uw1.HasDragons + " " + UWClassicWideGeometry.Uw1.WeaponRow + " " + UWClassicWideGeometry.Uw1.ProjectionCentreRow
                 + " / " + lOGeo.HasDragons + " " + lOGeo.WeaponRow + " " + lOGeo.ProjectionCentreRow,
-                "True 131 " + UWClassicLayout.Frame.ProjectionCentreRow + " / False 144 80");
+                "True 131 " + UWClassicLayout.Frame.ProjectionCentreRow + " / False 144 81.5");
 
             // The second game's command bar and flask area, the rules its classic screen and Classic Wide share (step 2).
             int liBar = UWClassicLayoutUw2.Commands.Left;

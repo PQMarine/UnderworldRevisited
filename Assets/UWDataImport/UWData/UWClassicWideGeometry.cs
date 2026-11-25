@@ -195,7 +195,7 @@ namespace UWDataImport.UWData
 			HoleBlack = UWClassicLayoutUw2.ClassicWide.HoleBlack,
 			CoversBakedNeedle = false,
 			HasDragons = false,
-			ProjectionCentreRow = UWClassicLayoutUw2.Frame.ViewWindowTop + (UWClassicLayoutUw2.Frame.ViewWindowHeight / 2f),
+			ProjectionCentreRow = UWClassicLayoutUw2.Frame.ProjectionCentreRow,
 			WeaponRow = UWClassicLayoutUw2.Frame.ViewWindowTop + UWClassicLayoutUw2.Frame.ViewWindowHeight
 		};
 	}

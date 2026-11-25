@@ -23,8 +23,10 @@ namespace UWDataImport.UWData
 	///     once; the classic prompt shows what was typed and clamps on the commit.
 	///   - StepStartsNewNumber: in the modern box a digit typed after a step replaces the stepped
 	///     number; in the classic prompt it appends to it.
-	///   - ZeroCancels: the modern box's Enter with 0 or nothing typed lets the box go; the classic
-	///     prompt's Enter takes 1 for a typed 0 and cancels only for nothing typed.
+	///   - ZeroCancels: Enter with 0 or nothing typed lets the prompt go and moves nothing - in both since
+	///     2026-11-25 (UW2 beta gate 224.5, per user: a typed 0 took one): both originals' AskHowMany take
+	///     atoi of the answer, and 0 moves nothing (uw1 and uw2 inv/INVPANEL.C); until then the classic
+	///     prompt's Enter took 1 for a typed 0.
 	///   - The classic prompt's preset 1 disappears on the FIRST key press, whichever key (per user,
 	///     2026-09-01) - that is FirstKeyPressed, which the prompt calls on any key; the box clears
 	///     it with the first digit only, so it never calls it.
@@ -65,7 +67,7 @@ namespace UWDataImport.UWData
 			WrapsAtEnds = true,
 			ClampsWhileTyping = false,
 			StepStartsNewNumber = false,
-			ZeroCancels = false,
+			ZeroCancels = true,
 		};
 
 		/// <summary>The modern bags' split box.</summary>
@@ -229,7 +231,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Enter: the typed number is taken (true), or the prompt is cancelled (false) - for
-		/// nothing typed, and in the modern box for a typed 0 as well (ZeroCancels).</summary>
+		/// nothing typed, and for a typed 0 where the policy says so (ZeroCancels: both prompts).</summary>
 		public bool Enter()
 		{
 			if (!HasTypedNumber || (mOPolicy.ZeroCancels && Value <= 0))

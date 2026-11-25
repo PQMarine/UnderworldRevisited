@@ -1,4 +1,4 @@
-00.00 = [0] GameUi / font | Both | mods Any | needs None | not Typing, ScreenMenu, Cutscene, Rebinding | each
+00.00 = [0] Scheme / font | Both | mods Any | needs None | not Typing, ScreenMenu, Cutscene, Rebinding | each
 00.01 = F = Pressed Player|ToggleFont | mods NoCtrl | needs None | not None | silent while typing -> ToggleFont
 01.00 = [1] GameUi / modern, map up | Modern | mods Any | needs ModernHud, Interaction, MapVisible | not Typing, ScreenMenu, Cutscene, Conversation, Roaming, RoamingEndedByEscape, Rebinding | first match | stops
 01.01 = M, View tapped = Performed Player|ToggleMap | mods NoCtrl | needs None | not None | silent while typing -> HideMap

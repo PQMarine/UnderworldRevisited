@@ -206,8 +206,8 @@ namespace UnderworldRevisited.Tools
             Check.Int("enter: 4", lOClassic.TakenCount, 4);
             lOClassic.Begin(13);
             lOClassic.TypeDigit(0);
-            Check.Bool("enter: a typed 0 takes (classic)", lOClassic.Enter(), true);
-            Check.Int("enter: as 1", lOClassic.TakenCount, 1);
+            Check.Bool("enter: a typed 0 moves nothing (both originals' AskHowMany, 2026-11-25)", lOClassic.Enter(), false);
+            Check.Int("enter: taken none", lOClassic.TakenCount, 0);
             lOClassic.Begin(13);
             lOClassic.FirstKeyPressed();
             Check.Bool("enter: nothing typed cancels", lOClassic.Enter(), false);

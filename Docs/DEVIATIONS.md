@@ -173,6 +173,11 @@ the inventory only by dragging with the right button; the first game takes eithe
 either button for the second game too, so both games handle their items the same way (per user,
 2026-11-18).
 
+**There is no keyboard pointer.** In both originals Tab and Shift+Tab jump the pointer between the view, the
+panel and the bottom right, the keypad's 1 to 9 slide it towards that edge or corner, INS and DEL are the left
+and right mouse button, and Alt+H swaps the two buttons. Ours leaves this out on purpose, in both games: Tab
+opens the help, and a gamepad drives the pointer instead (per user, 2026-11-25).
+
 **F9 and F10 are refused during Roaming Sight.** The original still tracks and makes camp there;
 sleeping then leaves the spell gone and the view stuck.
 
@@ -188,6 +193,25 @@ speed the footsteps go by is measured from the distance really travelled, as the
 spell when it loads: the view stays with the body, and the keys and the mouse steer a camera that
 is not shown, so nothing moves until the spell's icon is clicked away (Ultima Underworld II, seen
 by the user on 2026-11-12).
+
+**A thing too heavy to pick up is tried once.** In both originals the button is not let go after "That is too
+heavy for you to pick up.", unlike after "That is too far away to take." or "You cannot reach that.". As long as
+it is held, every new input takes whatever lies under the pointer and tries to pick it up again - in the Get mode
+with the right button held, and in the normal mode by dragging, with a look at it first: the same thing once more,
+or another one the pointer is dragged over, until the pointer comes over floor or wall, where nothing is found and
+the button is let go. So the original often picks up
+a thing the player never meant to take. Ours tries once per press and says it once (per user, 2026-11-25).
+
+**A swap in an open bag counts the thing that comes out.** When a thing is put on an occupied place of an open
+bag, the original tests whether it fits with the bag's weight as it was, the thing that is swapped out still in it
+(Ultima Underworld II's SwapItemsInBag takes it onto the pointer first, but ItemFitsSlot reads the open bags' kept
+weight, which changes only after the swap). So it refuses a swap that would fit once the two have changed places.
+Ours weighs the bag without the thing that comes out and swaps when the result fits (per user, 2026-11-25).
+
+**Ultima Underworld II's scroll keeps its first text colour.** The original writes the scroll's plain text in one
+colour until the first colour code that means "back to plain" comes (after the list of saved games, a game saved,
+or a coloured message), and that code is a shade lighter, so the text stays lighter for the rest of the run. Ours
+keeps the first, darker colour throughout, as the first game does, which is better to read (per user, 2026-11-25).
 
 **A blow does not start dragging an inventory item.** In the original, a blow charged with the
 button held keeps charging while the pointer moves over the inventory, and passing over an item
@@ -233,6 +257,12 @@ clipped along the polygon's edges, so a band can lie elsewhere when a corner com
 off. A four-cornered face is two triangles here. And the checker lies on a grid over the screen,
 where the original starts it anew at the left end of every span, which turns it into stripes on a
 slanted polygon. Sprites, models and doors keep a shade by distance per pixel.
+
+**Edges can lie a row higher than in the original.** The camera follows the original's rules: the
+eye 0xA4 above the feet, the view's own offset from it, the projection centred where the original
+centres it, the same angle. The original's own rounding of a projected point to a whole pixel row is
+not copied, as with the dither pattern, so an edge can lie up to a row higher, near the bottom of the
+view up to two. In screenshots side by side it shows only when measured.
 
 **The fades of a night have a fixed length.** The original dims the view in twelve steps as fast
 as the machine can copy the picture, with no timer and no wait for the screen, so the fade takes

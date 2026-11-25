@@ -103,6 +103,12 @@ Shader "UW/DecalPalette"
                 #endif
                 ) : SV_Target
             {
+                // Beyond the vision grid's reach on an unlit level nothing is drawn (UWBeyondSight) - an object whole or
+                // not at all, by the cell it stands in, as the original sorts it (GAMESORT.C): its pivot, not the pixel
+                // (a bridge reaches a tenth of a tile into the next cell, per user 2026-11-25 one tile too far).
+                if (UWBeyondSight(UWTowardEye(TransformObjectToWorld(float3(0.0, 0.0, 0.0)))))
+                    discard;
+
                 #if defined(_UW_OWN_TILE)
                     // Only the side facing the viewer - see UWOwnTile.hlsl on the back of a model.
                     outDepth = pbFrontFace

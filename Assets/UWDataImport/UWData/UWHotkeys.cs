@@ -318,8 +318,10 @@ namespace UWDataImport.UWData
 		/// <summary>The groups, in routing order.</summary>
 		public static readonly UWHotkeyGroup[] Groups =
 		{
-			// 0 UWGameUI: F (both schemes) - the original's Ctrl+F is its own.
-			fGroup(UWHotkeySite.GameUi, "font", UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.None, Shut, false, false),
+			// 0 UWControlScheme: F (both schemes, both games) - the original's Ctrl+F is its own. On the scheme's site since
+			// 2026-11-25 (per user: the second game did not switch the font, and one path for both games, not a copy in
+			// each): the first game's UWGameUI does not run in the second.
+			fGroup(UWHotkeySite.Scheme, "font",UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.None, Shut, false, false),
 
 			// 1 The modern scheme, the big map up: M, Escape or the pad's B close it; nothing else.
 			fGroup(UWHotkeySite.GameUi, "modern, map up", UWHotkeyScheme.Modern, UWHotkeyModRule.Any,

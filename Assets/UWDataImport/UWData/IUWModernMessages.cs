@@ -17,6 +17,12 @@ namespace UWDataImport.UWData
 		/// than Lines, a line without a time does not fade.</summary>
 		IReadOnlyList<float> LineTimes { get; }
 
+		/// <summary>The lines Lines ever took and the times it was wiped, only growing: the scroll's edges turn by them
+		/// (UWMessageLogModel.Update's plSaid and plCleared).</summary>
+		long LinesSaid { get; }
+
+		long LinesCleared { get; }
+
 		/// <summary>The game waits for a page: [MORE] shows and nothing fades.</summary>
 		bool IsWaitingForPage { get; }
 

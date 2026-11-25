@@ -537,6 +537,10 @@ public sealed class UWModernSessionUw2 : IUWModernSession, IUWModernCharacter, I
 
     /// <summary>[MORE] stands (the scroll's pending lines), not the input held until the buttons are up after the last page
     /// (UWGameScreenUw2.IsMoreShown).</summary>
+    public long LinesSaid => UWGameScreenUw2.ScrollSaid;
+
+    public long LinesCleared => UWGameScreenUw2.ScrollCleared;
+
     public bool IsWaitingForPage => UWGameScreenUw2.IsMoreShown;
 
     /// <summary>The screen types its lines (a count, a save's name) into the last line of its scroll.</summary>
@@ -852,12 +856,24 @@ public sealed class UWModernSessionUw2 : IUWModernSession, IUWModernCharacter, I
         int liFirst = !pbVitality ? UWClassicLayoutUw2.Flasks.ManaFirst
             : lbPoisoned ? UWClassicLayoutUw2.Flasks.PoisonFirst : UWClassicLayoutUw2.Flasks.HealthFirst;
         int liLevel = liMost > 0 ? Mathf.Clamp(liValue * UWClassicLayoutUw2.Flasks.Levels / liMost, 0, UWClassicLayoutUw2.Flasks.Levels) : 0;
-        int liKey = (liFirst << 8) | (lbHatch ? 0x80 : 0) | liLevel;
+        int liBubble = -1;
+
+        // THE SHARED GAUGE (UWFlaskGauge, the classic screen's, 2026-11-25, UW2 beta gate 220.7): the shown level steps and
+        // the bubbles run as on the classic screen and in the first game.
+        UWFlaskGauge lOGauge = mOScreen != null && lOFile != null ? mOScreen.FlaskGauge : null;
+
+        if (lOGauge != null && (pbVitality ? lOGauge.ShownHealthLevel : lOGauge.ShownManaLevel) >= 0)
+        {
+            liLevel = pbVitality ? lOGauge.ShownHealthLevel : lOGauge.ShownManaLevel;
+            liBubble = pbVitality ? lOGauge.HealthBubbleFrame : lOGauge.ManaBubbleFrame;
+        }
+
+        int liKey = (liFirst << 16) | ((liBubble + 1) << 8) | (lbHatch ? 0x80 : 0) | liLevel;
 
         if (mOFlasks.TryGetValue(liKey, out Texture2D lOKept) && lOKept != null)
             return lOKept;
 
-        UWTexture lOComposed = UWFlasksUw2.Compose(lOData.Textures, liFirst, liLevel, lbHatch);
+        UWTexture lOComposed = UWFlasksUw2.Compose(lOData.Textures, liFirst, liLevel, lbHatch, liBubble);
 
         if (lOComposed == null)
             return null;

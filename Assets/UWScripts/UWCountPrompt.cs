@@ -109,9 +109,9 @@ public sealed class UWCountPrompt
     /// on Enter with an empty field, however, nothing at all - the line simply stays
     /// (per user, 2026-09-01). The pointer the prompt hid comes back.
     /// </summary>
-    private Outcome fCancel(bool pbShowDash)
+    private Outcome fCancel(bool pbShowDash, string psTyped = "")
     {
-        mFShow(Question + (pbShowDash ? "-" : string.Empty));
+        mFShow(Question + (pbShowDash ? "-" : psTyped ?? string.Empty));
         mFEnd();
 
         mOInput.Cancel();
@@ -151,8 +151,10 @@ public sealed class UWCountPrompt
             // Enter with an empty field cancels, but leaves no dash - unlike
             // Esc (per user, 2026-09-01). The line shows the number as typed, the count
             // taken is clamped (fEnd).
-            if (!mOInput.HasTypedNumber)
-                return fCancel(false);
+            // A TYPED 0 MOVES NOTHING (both originals' AskHowMany: atoi of the answer, 0 moves nothing; per user
+            // 2026-11-25, UW2 beta gate 224.5: ours took one - fEnd's commit takes at least 1). The line keeps the 0.
+            if (!mOInput.HasTypedNumber || mOInput.Value <= 0)
+                return fCancel(false, mOInput.Text);
 
             return fEnd(mOInput.Value);
         }

@@ -56,6 +56,25 @@ namespace UWDataImport.UWData
 			/// <summary>tan of the half angle at the view's top and bottom edge: the zoom.</summary>
 			[UWClassicLayout.Derived("ViewZoom / 32768")]
 			public const float VerticalViewTangent = ViewZoom / 32768f;
+
+			/// <summary>
+			/// THE 3D PICTURE'S FIRST ROW (UW2 beta gate, 2026-11-25, per user's pair at a plain wall: after the eye's fix every
+			/// joint still stood 2 rows higher than in the original, the same at every height): place_3d_view's window starts
+			/// at 199 - 0xB6 = row 17 and runs 0x80 rows to 144. The screen's black row 16 above it stays black in the original
+			/// (the user's screenshots: row 16 black, the wall from row 17), and row 144 lies under the frame's line.
+			/// </summary>
+			[UWClassicLayout.Exe("uw2 game/UWEDIT.C:333 place_3d_view(0x10, 0xB6, 0xD0, 0x80): the top row 199 - 0xB6")]
+			public const int RenderTop = 199 - 0xB6;
+
+			/// <summary>
+			/// THE PROJECTION'S CENTRE, the first game's rule (UWClassicLayout.Frame.ProjectionCentreRow): render_3d centres
+			/// the projection on the clip window send_db sets, set_the_window(0, height - 1, width - 1, 0) with y counted up,
+			/// biasy = (top + bottom) / 2 = 63 (uw2 3d/INSTANCE.ASM render_3d, the same code as the first game's). Counted
+			/// down from the window's last row 144 that is row 81, 81.5 for the pixel's middle - 1.5 rows below the camera
+			/// area's middle (row 80), where the view was centred until then.
+			/// </summary>
+			[UWClassicLayout.Derived("RenderTop + (ViewWindowHeight - 1) - (ViewWindowHeight - 1) / 2 + 0.5, render_3d's biasy counted up")]
+			public const float ProjectionCentreRow = RenderTop + (ViewWindowHeight - 1) - ((ViewWindowHeight - 1) / 2) + 0.5f;
 		}
 
 		// ------------------------------------------------- The frame widened (Classic Wide)
@@ -233,7 +252,10 @@ namespace UWDataImport.UWData
 			public const int PaperColour = 0x71;
 
 			/// <summary>The text's colour (font_color) and those of the escapes 1 to 6 (spec_col; 0's
-			/// 0x75 is drawn in the text's colour here, as the log's code 0 is the plain text).</summary>
+			/// 0x75 is drawn in the text's colour here, as the log's code 0 is the plain text). THE ORIGINAL'S \0 IS A SHADE
+			/// LIGHTER (UW2 beta gate 224.1, 2026-11-25): main_scroll starts at 0x76, the first \0 (after the save list,
+			/// a game saved) sets spec_col's 0x75, which stays - most likely a slip, as the first game's \0 is its plain
+			/// colour. Kept at 0x76 throughout, as the first game does, per user: better to read (DEVIATIONS.md).</summary>
 			[UWClassicLayout.Exe("uw2 ui/SCROLL.C:59 main_scroll font_color 0x76, :64 spec_col")]
 			public static readonly int[] ColourIndices = { 0x76, 0x68, 0x01, 0x02, 0x21, 0x50, 0x48 };
 
@@ -301,6 +323,22 @@ namespace UWDataImport.UWData
 
 			[UWClassicLayout.Exe("uw2 ui/PANELS.C:136 move_sprite(level[3], ..., nedl_y[dir] + 0x2B)")]
 			public const int NeedleBaseY = 0x2B;
+
+			/// <summary>adjust_compass turns the compass one of its sixteen steps the short way towards the heading on each slow
+			/// update (update_screen's slow_adjust), the eyes' rate (UW2 beta gate, per user 2026-11-25: in the original it
+			/// steps back into place after the Void) - a quarter of a second since 220.5 the same day (it was a sixteenth;
+			/// per user then: ours turned faster).</summary>
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:404 adjust_compass, slow_adjust bit 2 in update_screen")]
+			public const float StepSeconds = Eyes.StepSeconds;
+
+			/// <summary>The world whose levels leave the compass where it stands: display_scr sets no new heading while
+			/// (PlayerLevel - 1) / 8 is 8, the Ethereal Void (per user on the original, 2026-11-25: the compass does not work
+			/// there).</summary>
+			[UWClassicLayout.Exe("uw2 ui/INTERACT.C:103 if ((PlayerLevel - 1) / LEVELS_PER_WORLD != 8) set_screen_frame(2, v)")]
+			public const int StillWorld = 8;
+
+			[UWClassicLayout.Exe("uw2 LEVELS_PER_WORLD")]
+			public const int LevelsPerWorld = 8;
 
 			/// <summary>The needles' offsets by heading, north first, clockwise; y counted up.</summary>
 			[UWClassicLayout.Exe("uw2 ui/PANELS.C:81 nedl_x")]
@@ -566,9 +604,12 @@ namespace UWDataImport.UWData
 			[UWClassicLayout.Exe("uw2 ui/PANELS.C:500 eyes_frame == 3 && wait < 0x10")]
 			public const int HoldSteps = 0x10;
 
-			/// <summary>One call of adjust_eyes: the original's runs per frame, ours at a fixed rate.</summary>
-			[UWClassicLayout.Derived("a sixteenth of a second, 16 frames a second")]
-			public const float StepSeconds = 1f / 16f;
+			/// <summary>One call of adjust_eyes: a slow element of update_screen (set_screen_frame(7) takes the default case,
+			/// slow_adjust), stepped when the 1/256 s clock's now >> 6 changes, every 64 ticks - a quarter of a second, the
+			/// held frame 16 of them (UW2 beta gate 220.5, per user 2026-11-25: ours came and went too fast). Until then a
+			/// sixteenth of a second, taken for a call per frame.</summary>
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:287 update_screen, the slow elements when now >> 6 changes")]
+			public const float StepSeconds = 64f / 256f;
 		}
 
 		// ------------------------------------------------- The command icons
@@ -663,6 +704,25 @@ namespace UWDataImport.UWData
 
 			[UWClassicLayout.Exe("uw2 ui/PANELS.C:120 set_flask, pic_to_screen(0x2057, ...)")]
 			public const int Empty = 0x4B;
+
+			/// <summary>
+			/// THE BUBBLES' PICTURES AND PLACE (UW2 beta gate 220.7, per user 2026-11-25: ours did not bubble; when and which,
+			/// the original's rule in both games, are UWFlaskGauge's and UWFlaskAnimation's). A colour's bubble pictures follow
+			/// its thirteen fill pictures (bub_first 0x2019, 0x2032, poisoned 0x204B: first + 0xD, less the file's 0x200C);
+			/// picture first + 0xD + frame, 0x18 by 4, opaque at the liquid's top (liquid_y[level]), the glass (0x2058) drawn
+			/// transparent over it from its row 0x43 - liquid_y, which is the flask's own row there.
+			/// </summary>
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:347 bub_frame = { 0x2019, 0x2032 }, 362 0x204B: the fill's first + 0xD")]
+			public const int BubbleOffset = 0xD;
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:398 draw_mask(mask_spr, 0x2058)")]
+			public const int BubbleGlass = 0x4C;
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:338 change_sprite(bub_spr, 0, 0, 0x18, 4)")]
+			public const int BubbleWidth = 0x18;
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:338 change_sprite(bub_spr, 0, 0, 0x18, 4)")]
+			public const int BubbleRows = 4;
 		}
 
 		// ------------------------------------------------- The right panel and its inventory page
@@ -1073,6 +1133,15 @@ namespace UWDataImport.UWData
 
 			[UWClassicLayout.Exe("uw2 ui/STATS.C:172 mous_in_stat, inplist->x < 0x26")]
 			public const int ScrollSplit = 0x26;
+
+			/// <summary>
+			/// A HELD BUTTON SCROLLS ON (UW2 beta gate 220.2, per user on the original 2026-11-25; the first game waits for
+			/// the release, mouse_release(1), and has no repeat): after each row mous_in_stat waits at most 8 ticks of the
+			/// 1/256 s clock for the button to come up and returns, and the held button is taken again as the next click.
+			/// The original's frame comes on top of the 8 ticks; here a fixed step of the 8 ticks alone.
+			/// </summary>
+			[UWClassicLayout.Exe("uw2 ui/STATS.C:181 while (GAME_TIME() - start < 8 && ...)")]
+			public const float HoldStepSeconds = 8f / 256f;
 
 			/// <summary>String block 2's first class (0x17) and skill (0x1F), and the skill points' row (0x1F +
 			/// 100), the original's numbers; the port's strings count one higher.</summary>

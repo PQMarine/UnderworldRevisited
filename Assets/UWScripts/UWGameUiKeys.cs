@@ -97,10 +97,6 @@ internal sealed class UWGameUiKeys : UWHotkeyHost
             case UWHotkeyHandler.None:
                 return true;
 
-            case UWHotkeyHandler.ToggleFont:
-                UWTextLabel.UseModernFont = !UWTextLabel.UseModernFont;
-                return true;
-
             // The big map open in the modern scheme: M or Escape close it (writing a note, the keys
             // are the note's); the gamepad's B closes it too (UWGamepad).
             case UWHotkeyHandler.HideMap:

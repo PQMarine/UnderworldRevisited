@@ -30,6 +30,12 @@ public sealed class UWMessageLog : IUWMessageSink
 
     private readonly List<string> mOLines = new List<string>();
 
+    /// <summary>The lines the list ever took (a page's lines one each) and the times it was wiped, only growing: the
+    /// scroll's edges turn by them (UWMessageLogModel.Update's plSaid and plCleared, 2026-11-25).</summary>
+    public long SaidCount { get; private set; }
+
+    public long ClearedCount { get; private set; }
+
     /// <summary>When each line of mOLines was written (Time.unscaledTime), for the modern box's fade
     /// (GitHub issue 18, 2026-11-07). Kept beside the list at every change; a page shown sets all anew,
     /// and LineTimes mends a count that drifted.</summary>
@@ -97,6 +103,7 @@ public sealed class UWMessageLog : IUWMessageSink
         if (!string.IsNullOrWhiteSpace(lsMessage))
         {
             mOLines.Add(lsMessage);
+            SaidCount++;
             fStamp();
         }
     }
@@ -106,6 +113,7 @@ public sealed class UWMessageLog : IUWMessageSink
         if (!string.IsNullOrEmpty(psMessage))
         {
             mOLines.Add(psMessage);
+            SaidCount++;
             fStamp();
         }
     }
@@ -115,6 +123,7 @@ public sealed class UWMessageLog : IUWMessageSink
     public void AddLine(string psLine)
     {
         mOLines.Add(psLine);
+        SaidCount++;
         fStamp();
     }
 
@@ -132,7 +141,9 @@ public sealed class UWMessageLog : IUWMessageSink
     {
         mOLines.Clear();
         mOTimes.Clear();
+        ClearedCount++;
         mOLines.Add(" ");
+        SaidCount++;
         fStamp();
     }
 
@@ -143,6 +154,7 @@ public sealed class UWMessageLog : IUWMessageSink
     {
         mOLines.Clear();
         mOTimes.Clear();
+        ClearedCount++;
         miPromptLine = -1;
     }
 
@@ -203,6 +215,7 @@ public sealed class UWMessageLog : IUWMessageSink
         }
 
         mOLines.Add(psMessage);
+        SaidCount++;
         fStamp();
         miPromptLine = mOLines.Count - 1;
     }
@@ -309,8 +322,15 @@ public sealed class UWMessageLog : IUWMessageSink
         UWGameUI lOUi = fUi();
         int liCapacity = lOUi != null ? lOUi.ShownLogLines : UWMessageLogModel.FallbackCapacity;
 
+        int liPendingBefore = mOPendingPageLines.Count;
+
         // Paging moves the message scroll too (UW.EXE seg043_37F0_8EB).
-        if (UWMessageLogModel.ShowNextPage(mOPrintedPageLines, mOPendingPageLines, liCapacity, mOLines))
+        bool lbScrolled = UWMessageLogModel.ShowNextPage(mOPrintedPageLines, mOPendingPageLines, liCapacity, mOLines);
+
+        // The page's lines count as said, one each (the edges turn by them, UWMessageLogModel.Update).
+        SaidCount += liPendingBefore - mOPendingPageLines.Count;
+
+        if (lbScrolled)
             UWHudDragons.Request(UWHudDragons.ScrollAnimation);
 
         // The page's lines are all new now (the list was written anew).

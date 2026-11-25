@@ -239,6 +239,31 @@ namespace UnderworldRevisited.Tools
             lOEdges.Update(pOFont, lOMessages, liWidth, 5, false, false);
             fExpectInt("edges: the loop of five wraps", lOEdges.EdgeFrame, 0);
 
+            // COUNTED BY THE LINES SAID (scroll_up per new line in a full box, 2026-11-25): the same line again turns them,
+            // a box filling up does not, a wiped box starts empty.
+            UWMessageLogModel lOSaid = new UWMessageLogModel();
+            List<string> lOSame = new List<string>();
+            long llSaid = 0;
+
+            for (int liAt = 0; liAt < 5; liAt++)
+            {
+                lOSame.Add("same");
+                llSaid++;
+            }
+
+            lOSaid.Update(pOFont, lOSame, liWidth, 5, false, false, llSaid, 0);
+            fExpectInt("edges by count: filling the box turns nothing", lOSaid.EdgeFrame, 0);
+            lOSame.RemoveAt(0);
+            lOSame.Add("same");
+            llSaid++;
+            lOSaid.Update(pOFont, lOSame, liWidth, 5, false, false, llSaid, 0);
+            fExpectInt("edges by count: the same line again turns them once", lOSaid.EdgeFrame, 1);
+            lOSame.Clear();
+            lOSame.Add("new");
+            llSaid++;
+            lOSaid.Update(pOFont, lOSame, liWidth, 5, false, false, llSaid, 1);
+            fExpectInt("edges by count: a line into a wiped box turns nothing", lOSaid.EdgeFrame, 1);
+
             lOEdges.Invalidate();
             Check.Bool("edges: hidden and shown again redraws", lOEdges.Update(pOFont, lOMessages, liWidth, 5, false, false), true);
             fExpectInt("edges: ... without turning", lOEdges.EdgeFrame, 0);

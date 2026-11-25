@@ -377,6 +377,10 @@ public sealed class UWRenderPathHost : MonoBehaviour
             mfDitherScale > 0f ? mfDitherScale : UWShadePalette.GetDitherCell(),
             (FullBright || fIsUnlitLevel()) && lbPaletteOn);
 
+        // THE VISION GRID'S REACH on an unlit level (UW2 beta gate, 2026-11-25): the original draws nothing beyond the light
+        // level's radius there either (preset_grid); the debug brightness keeps showing all.
+        UWShaderGlobals.SetFloat(UWShaderIds.SightCut, fIsUnlitLevel() && lbPaletteOn && !FullBright ? 1f : 0f);
+
         // The polygon corners' shade (UWCornerLevel, UWPaletteLookup.hlsl) of this light level.
         if (lOData != null && lOData.Shades != null && lOData.Shades.TryGet(liLightLevel, out UWShades.Entry lOShade))
         {

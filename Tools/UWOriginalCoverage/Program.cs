@@ -348,6 +348,10 @@ namespace UnderworldRevisited.Tools
 
         private static int Main(string[] psArgs)
         {
+            // The second game (UW2 plan, the beta gate): Underworld Exhumed's decompilation, Uw2Coverage.
+            if (psArgs.Length > 0 && psArgs[0] == "--uw2")
+                return Uw2Coverage.Run(psArgs);
+
             if (psArgs.Length == 0 || !File.Exists(psArgs[0]))
             {
                 Console.WriteLine("uworiginalcoverage <UW1_asm.asm> [project root]");

@@ -590,9 +590,20 @@ public class UWPlayerTerrain : MonoBehaviour
             return;
 
         float lfBob = fGetHeadBob() + fGetLevitationBob() + fSwimViewUw2();
+
+        // THE EYE AND THE VIEW'S OFFSET AS THE FIRST GAME'S (UW2 beta gate, 2026-11-25, per user with a pair in front of a
+        // plain wall: every joint of ours 7 rows higher than the original's, the same at every height - the eye too low).
+        // The second game's get_eye is the first's (uw2 motion/PLAYMOVE.C: PN.z + 0xA4) and its camera the same head_view;
+        // the first game's correction of 2026-10-29 (the eye 0xA4 above the feet, the view's record -8 across and 11 up,
+        // turned with the pitch; fUpdateOriginalSwimView) had never reached this path, which only added the bob to the
+        // camera where the scene put it. Now it is set as there, the bob on top.
+        float lfPitch = mOCamera.localEulerAngles.x * Mathf.Deg2Rad;
+        float lfBase = mOMovement != null ? UWWorldScale.EyeHeight - mOMovement.FootOffset : mfBaseCameraLocalY;
         Vector3 lOLocal = mOCamera.localPosition;
 
-        lOLocal.y += lfBob - mfAppliedBobUw2;
+        lOLocal.x = UWWorldScale.ViewOffsetAcross;
+        lOLocal.y = lfBase + lfBob + (UWWorldScale.ViewOffsetUp * Mathf.Cos(lfPitch));
+        lOLocal.z = UWWorldScale.ViewOffsetUp * Mathf.Sin(lfPitch);
         mOCamera.localPosition = lOLocal;
         mfAppliedBobUw2 = lfBob;
     }

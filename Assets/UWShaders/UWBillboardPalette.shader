@@ -171,6 +171,11 @@ Shader "UW/BillboardPalette"
 
                 clip(raw.a - _Cutoff);
 
+                // Beyond the vision grid's reach on an unlit level a thing is not drawn, by the cell it stands in
+                // (UWBeyondSight).
+                if (UWBeyondSight(IN.pivotWS))
+                    discard;
+
                 float2 lTile;
                 float lfPart;
 

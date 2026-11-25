@@ -203,6 +203,12 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
     /// <summary>When each of ActiveStrings was written (Time.unscaledTime), for the modern box's fade.</summary>
     public IReadOnlyList<float> ActiveStringTimes => mOLog.LineTimes;
 
+    /// <summary>The lines ActiveStrings ever took and the times it was wiped (UWMessageLog.SaidCount, ClearedCount):
+    /// the scroll's edges turn by them.</summary>
+    public long ActiveStringsSaid => mOLog.SaidCount;
+
+    public long ActiveStringsCleared => mOLog.ClearedCount;
+
     /// <summary>Messages the list keeps (UWMessageLog.HistoryCount).</summary>
     public const int MessageHistoryCount = UWMessageLog.HistoryCount;
 

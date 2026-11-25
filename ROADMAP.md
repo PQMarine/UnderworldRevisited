@@ -105,8 +105,8 @@ of what is built was also read out of the original's executable.
   creatures and fights, magic and the special weapons, water and lava, traps and triggers, the
   player's death and the jail, the music by the game's rules and the cutscenes. The whole game has been
   played through and compared with the original, and since 0.24.0 the modern interface is the first game's,
-  with its presets and the layout editor. Next: the classic interface checked against the original, the
-  documentation for two games, and a beta. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has
+  with its presets and the layout editor. Since 0.25.0 its classic interface has been checked against the
+  original, area by area. Next: the documentation for two games, and a beta. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has
   the plan.
 - Ultima Underworld II: walking through peaceful people on Britannia's first level, as an aid
   (before the play-through).

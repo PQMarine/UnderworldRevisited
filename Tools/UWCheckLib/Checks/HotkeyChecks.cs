@@ -135,7 +135,7 @@ namespace UnderworldRevisited.Tools
                 fWith(fClassicHost(leNone, UWAct.KeyTalk), UWHotkeyGate.Conversation), "-");
             fHotkeyCase("classic conversation, M: nothing", UWHotkeySite.GameUi,
                 fWith(fClassicHost(leNone, UWAct.ToggleMap), UWHotkeyGate.Conversation), "-");
-            fHotkeyCase("classic conversation, F: the font", UWHotkeySite.GameUi,
+            fHotkeyCase("classic conversation, F: the font", UWHotkeySite.Scheme,
                 fWith(fClassicHost(leNone, UWAct.ToggleFont), UWHotkeyGate.Conversation), "ToggleFont");
             FakeHotkeyHost lONoInteraction = fClassicHost(leNone, UWAct.KeyTalk, UWAct.ToggleMap);
 
@@ -167,14 +167,20 @@ namespace UnderworldRevisited.Tools
                 fWith(fClassicHost(leCtrl, UWAct.OptSave), UWHotkeyGate.Roaming), "-");
             fHotkeyCase("classic Ctrl+S over the map: nothing", UWHotkeySite.GameUi,
                 fWith(fClassicHost(leCtrl, UWAct.OptSave), UWHotkeyGate.MapVisible), "-");
-            fHotkeyCase("F: the font", UWHotkeySite.GameUi, fClassicHost(leNone, UWAct.ToggleFont), "ToggleFont");
-            fHotkeyCase("Shift+F: the font as well", UWHotkeySite.GameUi, fClassicHost(UWHotkeyMods.Shift, UWAct.ToggleFont), "ToggleFont");
-            fHotkeyCase("F and F2: both", UWHotkeySite.GameUi, fClassicHost(leNone, UWAct.ToggleFont, UWAct.KeyTalk), "ToggleFont, ModeTalk");
+            fHotkeyCase("F: the font", UWHotkeySite.Scheme, fClassicHost(leNone, UWAct.ToggleFont), "ToggleFont");
+            fHotkeyCase("Shift+F: the font as well", UWHotkeySite.Scheme, fClassicHost(UWHotkeyMods.Shift, UWAct.ToggleFont), "ToggleFont");
+            fHotkeyCase("F and F2: the talk on the game's site", UWHotkeySite.GameUi, fClassicHost(leNone, UWAct.ToggleFont, UWAct.KeyTalk), "ModeTalk");
+            fHotkeyCase("F and F2: the font on the scheme's site (both games)", UWHotkeySite.Scheme, fClassicHost(leNone, UWAct.ToggleFont, UWAct.KeyTalk), "ToggleFont");
+            fHotkeyCase("Ctrl+F on the scheme's site: not the font", UWHotkeySite.Scheme, fClassicHost(leCtrl, UWAct.ToggleFont), "-");
+            fHotkeyCase("typing, the font: nothing", UWHotkeySite.Scheme,
+                fWith(fClassicHost(leNone, UWAct.ToggleFont), UWHotkeyGate.Typing), "-");
             fHotkeyCase("typing: nothing", UWHotkeySite.GameUi,
                 fWith(fClassicHost(leNone, UWAct.ToggleFont, UWAct.KeyTalk), UWHotkeyGate.Typing), "-");
+            fHotkeyCase("a screen menu, the font: nothing", UWHotkeySite.Scheme,
+                fWith(fClassicHost(leNone, UWAct.ToggleFont), UWHotkeyGate.ScreenMenu), "-");
             fHotkeyCase("a screen menu: nothing", UWHotkeySite.GameUi,
                 fWith(fClassicHost(leNone, UWAct.ToggleFont, UWAct.KeyOptions), UWHotkeyGate.ScreenMenu), "-");
-            fHotkeyCase("a sequence, or the frame it ended: nothing", UWHotkeySite.GameUi,
+            fHotkeyCase("a sequence, or the frame it ended: nothing", UWHotkeySite.Scheme,
                 fWith(fModernHost(leNone, UWAct.ToggleFont), UWHotkeyGate.Cutscene), "-");
 
             // ------------------------------------------------- UWGameUI, the modern scheme
@@ -184,7 +190,7 @@ namespace UnderworldRevisited.Tools
             fHotkeyCase("modern F2: not routed", UWHotkeySite.GameUi, fModernHost(leNone, UWAct.KeyTalk), "-");
             fHotkeyCase("modern F7: not routed", UWHotkeySite.GameUi, fModernHost(leNone, UWAct.KeyPanel), "-");
             fHotkeyCase("modern F1: the menu", UWHotkeySite.GameUi, fModernHost(leNone, UWAct.KeyOptions), "ToggleModernMenu");
-            fHotkeyCase("modern F: the font", UWHotkeySite.GameUi, fModernHost(leNone, UWAct.ToggleFont), "ToggleFont");
+            fHotkeyCase("modern F: the font", UWHotkeySite.Scheme, fModernHost(leNone, UWAct.ToggleFont), "ToggleFont");
             fHotkeyCase("modern M: the map", UWHotkeySite.GameUi, fModernHost(leNone, UWAct.ToggleMap), "ToggleMap");
             fHotkeyCase("modern M taken by the pad's pointer: nothing", UWHotkeySite.GameUi,
                 fWith(fModernHost(leNone, UWAct.ToggleMap), UWHotkeyGate.PadPointerTakes), "-");
@@ -235,9 +241,11 @@ namespace UnderworldRevisited.Tools
                 fBackTo(fWith(fModernHost(leCtrl), UWHotkeyGate.MapVisible), 0, UWBackOwner.ModernMap), "-");
             fHotkeyCase("modern map up, F9: nothing", UWHotkeySite.GameUi,
                 fWith(fModernHost(leNone, UWAct.KeyTrack), UWHotkeyGate.MapVisible), "-");
-            fHotkeyCase("modern map up, F and back: the font, then closed", UWHotkeySite.GameUi,
-                fBackTo(fWith(fModernHost(leNone, UWAct.ToggleFont), UWHotkeyGate.MapVisible), 0, UWBackOwner.ModernMap), "ToggleFont, HideMap");
-            fHotkeyCase("modern conversation, F: the font", UWHotkeySite.GameUi,
+            fHotkeyCase("modern map up, F and back: closed on the game's site", UWHotkeySite.GameUi,
+                fBackTo(fWith(fModernHost(leNone, UWAct.ToggleFont), UWHotkeyGate.MapVisible), 0, UWBackOwner.ModernMap), "HideMap");
+            fHotkeyCase("modern map up, F: the font on the scheme's site", UWHotkeySite.Scheme,
+                fWith(fModernHost(leNone, UWAct.ToggleFont), UWHotkeyGate.MapVisible), "ToggleFont");
+            fHotkeyCase("modern conversation, F: the font", UWHotkeySite.Scheme,
                 fWith(fModernHost(leNone, UWAct.ToggleFont, UWAct.KeyTrack), UWHotkeyGate.Conversation), "ToggleFont");
             fHotkeyCase("modern roaming, F9: nothing", UWHotkeySite.GameUi,
                 fWith(fModernHost(leNone, UWAct.KeyTrack), UWHotkeyGate.Roaming), "-");
@@ -245,7 +253,8 @@ namespace UnderworldRevisited.Tools
             FakeHotkeyHost lONoHud = fModernHost(leNone, UWAct.KeyTrack, UWAct.ToggleFont);
 
             lONoHud.Holding &= ~UWHotkeyGate.ModernHud;
-            fHotkeyCase("modern without its HUD: the font only", UWHotkeySite.GameUi, lONoHud, "ToggleFont");
+            fHotkeyCase("modern without its HUD: nothing on the game's site", UWHotkeySite.GameUi, lONoHud, "-");
+            fHotkeyCase("modern without its HUD: the font on the scheme's site", UWHotkeySite.Scheme, fModernHost(leNone, UWAct.ToggleFont), "ToggleFont");
 
             // ------------------------------------------------- The other sites
 
@@ -332,7 +341,7 @@ namespace UnderworldRevisited.Tools
             fHotkeyCase("the wait, modern back to the menu: nothing", UWHotkeySite.GameUi,
                 fBackTo(fWith(fModernHost(leNone), UWHotkeyGate.MenuOpen | leWait), 0, UWBackOwner.ModernMenu), "-");
             fHotkeyCase("the wait, classic F2: nothing", UWHotkeySite.GameUi, fWith(fClassicHost(leNone, UWAct.KeyTalk), leWait), "-");
-            fHotkeyCase("the wait, F: nothing", UWHotkeySite.GameUi, fWith(fClassicHost(leNone, UWAct.ToggleFont), leWait), "-");
+            fHotkeyCase("the wait, F: nothing", UWHotkeySite.Scheme, fWith(fClassicHost(leNone, UWAct.ToggleFont), leWait), "-");
             fHotkeyCase("the wait, Shift+F2: nothing", UWHotkeySite.Scheme, fWith(fClassicHost(UWHotkeyMods.Shift, UWAct.ToggleScheme), leWait), "-");
             fHotkeyCase("the wait, Tab: nothing", UWHotkeySite.Help, fWith(fClassicHost(leNone, UWAct.ToggleHelp), leWait), "-");
             fHotkeyCase("the wait, N: nothing", UWHotkeySite.DebugKeys,

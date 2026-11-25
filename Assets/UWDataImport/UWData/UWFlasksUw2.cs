@@ -21,8 +21,9 @@ namespace UWDataImport.UWData
 	public static class UWFlasksUw2
 	{
 		/// <summary>The flask at piLevel twelfths of the liquid whose first slice is piFirst (UWClassicLayoutUw2.Flasks:
-		/// HealthFirst, PoisonFirst, ManaFirst), null without the pictures.</summary>
-		public static UWTexture Compose(UWTextures pOTextures, int piFirst, int piLevel, bool pbHatch)
+		/// HealthFirst, PoisonFirst, ManaFirst), null without the pictures; piBubbleFrame a bubble picture over the liquid's
+		/// top (UWFlaskGauge, 1 to 11) or -1.</summary>
+		public static UWTexture Compose(UWTextures pOTextures, int piFirst, int piLevel, bool pbHatch, int piBubbleFrame = -1)
 		{
 			UWTexture lOEmpty = fPicture(pOTextures, UWClassicLayoutUw2.Flasks.Empty);
 
@@ -64,11 +65,52 @@ namespace UWDataImport.UWData
 				}
 			}
 
+			if (piBubbleFrame > 0 && liLevel > 0)
+				fDrawBubbles(pOTextures, lyFlask, lbCleared, liWidth, liHeight, piFirst, liLevel, piBubbleFrame);
+
 			UWTexture lOFlask = new UWTexture(lOEmpty);
 
 			lOFlask.ReplaceIndices(0, lyFlask);
 
 			return lOFlask;
+		}
+
+		/// <summary>adjust_flasks' bubbles at the liquid's top (UWClassicLayoutUw2.Flasks.BubbleOffset): the bubble picture
+		/// opaque over BubbleRows rows, the glass picture's same rows drawn transparent over it; the black round the flask
+		/// stays clear.</summary>
+		private static void fDrawBubbles(UWTextures pOTextures, byte[] pyFlask, bool[] pbCleared, int piWidth, int piHeight, int piFirst,
+			int piLevel, int piFrame)
+		{
+			UWTexture lOBubble = fPicture(pOTextures, piFirst + UWClassicLayoutUw2.Flasks.BubbleOffset + piFrame);
+			UWTexture lOGlass = fPicture(pOTextures, UWClassicLayoutUw2.Flasks.BubbleGlass);
+			int liTop = SliceTop(piLevel - 1);
+
+			for (int liRow = 0; liRow < UWClassicLayoutUw2.Flasks.BubbleRows; liRow++)
+			{
+				int liTo = liTop + liRow;
+
+				if (liTo < 0 || liTo >= piHeight)
+					continue;
+
+				for (int liColumn = 0; liColumn < UWClassicLayoutUw2.Flasks.BubbleWidth && liColumn < piWidth; liColumn++)
+				{
+					int liAt = (liTo * piWidth) + liColumn;
+
+					if (pbCleared[liAt])
+						continue;
+
+					if (lOBubble != null && liRow < lOBubble.Height && liColumn < lOBubble.Width)
+						pyFlask[liAt] = lOBubble.PaletteIndices[(liRow * lOBubble.Width) + liColumn];
+
+					if (lOGlass != null && liTo < lOGlass.Height && liColumn < lOGlass.Width)
+					{
+						byte lyGlass = lOGlass.PaletteIndices[(liTo * lOGlass.Width) + liColumn];
+
+						if (lyGlass != 0)
+							pyFlask[liAt] = lyGlass;
+					}
+				}
+			}
 		}
 
 		/// <summary>A slice's top row under the empty flask's top: liquid_y counts up from the screen's bottom.</summary>

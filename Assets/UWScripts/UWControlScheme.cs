@@ -289,18 +289,34 @@ public class UWControlScheme : MonoBehaviour
 
         protected override UWControls Controls => mOScheme.mControls;
 
+        /// <summary>The font group's gates (UWHotkeys group 0), answered alike for both games: the key lock every
+        /// game's interface sets (UWControls.IsTextEntryActive), the screen menu, a cutscene holding the keys.</summary>
         public override bool Gate(UWHotkeyGate peGate, UWHotkeyRow pORow)
         {
-            return false;
+            switch (peGate)
+            {
+                case UWHotkeyGate.Typing: return UWControls.IsTextEntryActive;
+                case UWHotkeyGate.ScreenMenu: return UWScreenUi.IsScreenMenuOpen;
+                case UWHotkeyGate.Cutscene: return UWScene.IntroPlayer != null && UWScene.IntroPlayer.HoldsKeys;
+                default: return false;
+            }
         }
 
         public override bool Run(UWHotkeyHandler peHandler)
         {
-            if (peHandler != UWHotkeyHandler.SwitchScheme)
-                return false;
+            switch (peHandler)
+            {
+                case UWHotkeyHandler.SwitchScheme:
+                    mOScheme.Choose(mOScheme.Current == SchemeEnum.Original ? SchemeEnum.Modern : SchemeEnum.Original);
+                    return true;
 
-            mOScheme.Choose(mOScheme.Current == SchemeEnum.Original ? SchemeEnum.Modern : SchemeEnum.Original);
-            return true;
+                case UWHotkeyHandler.ToggleFont:
+                    UWTextLabel.UseModernFont = !UWTextLabel.UseModernFont;
+                    return true;
+
+                default:
+                    return false;
+            }
         }
     }
 

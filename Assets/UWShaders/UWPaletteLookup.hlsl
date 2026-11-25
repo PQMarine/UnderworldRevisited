@@ -164,6 +164,39 @@ float4 _UWShadeFormula;
 // x the view's X scale, y the zoom on the depth (UWRenderPathHost, from UWClassicLayout.Frame).
 float4 _UWViewScale;
 
+// THE VISION GRID'S REACH ON A LEVEL WITHOUT LIGHT (UW2 beta gate, 2026-11-25, per user with a pair of screenshots of the
+// Ethereal Void: ours showed the bridge behind the door and far pieces the original leaves black). The original walks its
+// vision grid only over cells within the light level's radius (preset_grid, Underworld Exhumed uw2 3d/VIEW3D.C: a cell
+// whose whole-number distance cSqRt(dx * dx + dy * dy) exceeds curvrad is "not seen"), and draws nothing in the rest -
+// on an unlit level too, where nothing darkens with distance. Elsewhere those cells end at the darkest shade anyway
+// (UWCornerLevel's last tile, the shade table's 15), so the cut is set only there (_UWSightCut, UWRenderPathHost), hard
+// at the cell's edge as the original's. pOCellWS is a point in the cell the thing belongs to: a sprite's or a model's or a
+// door's pivot (an object drawn whole or not at all), a wall's or floor's pixel nudged towards the eye (a wall lies on the
+// edge between two cells and is the open one's).
+float _UWSightCut;
+
+bool UWBeyondSight(float3 pOCellWS)
+{
+    if (_UWSightCut < 0.5)
+        return false;
+
+    float lfSpacing = max(_UWTileSpacing, 0.0001);
+    float2 lOEye = floor((_WorldSpaceCameraPos.xz + (lfSpacing * 0.5)) / lfSpacing);
+    float2 lOCell = floor((pOCellWS.xz + (lfSpacing * 0.5)) / lfSpacing);
+    float2 lOOffset = lOCell - lOEye;
+
+    return floor(sqrt(dot(lOOffset, lOOffset)) + 0.0001) > _UWShadeFormula.w;
+}
+
+// A face's pixel moved a little towards the eye, so a wall on a cell's edge counts as the cell it is seen from.
+float3 UWTowardEye(float3 pOPositionWS)
+{
+    float3 lOTowards = _WorldSpaceCameraPos - pOPositionWS;
+    float lfLength = length(lOTowards);
+
+    return lfLength > 0.0001 ? pOPositionWS + (lOTowards / lfLength) * (_UWTileSpacing * 0.01) : pOPositionWS;
+}
+
 float UWCornerLevel(float pfCornerDistance, float3 pOPositionWS, float3 pOCameraWS)
 {
     // Whole numbers, as the original's: the length from its root, the product shifted down.

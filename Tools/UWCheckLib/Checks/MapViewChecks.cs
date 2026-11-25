@@ -154,8 +154,8 @@ namespace UnderworldRevisited.Tools
             // from the bottom; AUTOMAP.C note->x = mx, note->y = my + 4, since 2026-10-23).
             fExpectBool("map notes model: a click on the parchment starts a note",
                 lOModel.Click(100f, 50f) == UWMapNotesModel.ClickEnum.NoteStarted && lOModel.IsWriting, true);
-            fExpectBool("map notes model: ... at x and (200 - y) + 4",
-                lfNotes(3)[0].X == 100 && lfNotes(3)[0].Y == 154 && lfNotes(3)[0].Text == string.Empty, true);
+            fExpectBool("map notes model: ... at x and (199 - y) + 4 (the original's rows count up from 199, 2026-11-25)",
+                lfNotes(3)[0].X == 100 && lfNotes(3)[0].Y == 153 && lfNotes(3)[0].Text == string.Empty, true);
 
             int liLeft;
             int liTop;
@@ -246,7 +246,7 @@ namespace UnderworldRevisited.Tools
             }, psText => 0, lOShown);
 
             fExpectBool("map notes model: an empty line has no label, a label is at least one pixel wide",
-                lOShown.Count == 1 && lOShown[0].Index == 1 && lOShown[0].Width == 1 && lOShown[0].Top == 80, true);
+                lOShown.Count == 1 && lOShown[0].Index == 1 && lOShown[0].Width == 1 && lOShown[0].Top == 79, true);
             fExpectBool("map notes model: the key follows a note's text",
                 UWMapNotesModel.Key(2, new List<UWLevel.MapNote> { new UWLevel.MapNote { Text = "A", X = 1, Y = 2 } })
                 != UWMapNotesModel.Key(2, new List<UWLevel.MapNote> { new UWLevel.MapNote { Text = "B", X = 1, Y = 2 } }), true);

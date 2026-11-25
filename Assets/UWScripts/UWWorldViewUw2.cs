@@ -498,7 +498,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (lOCamera == null)
             return null;
 
-        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(lOCamera));
+        UWWorldPicker.Measurement lOMeasured = fMeasureAtPointer(lOCamera);
         UWEntityInfo lOFront = lOMeasured.Frontmost != null && lOMeasured.Frontmost.ObjectData != null ? lOMeasured.Frontmost : null;
         UWEntityInfo lOTarget = lOFront ?? lOMeasured.Pickable;
 
@@ -736,7 +736,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (lOCamera == null)
             return null;
 
-        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(lOCamera));
+        UWWorldPicker.Measurement lOMeasured = fMeasureAtPointer(lOCamera);
 
         return lOMeasured.Pickable != null || !pbOrFrontmost ? lOMeasured.Pickable : lOMeasured.Frontmost;
     }
@@ -753,7 +753,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (lOCamera == null)
             return null;
 
-        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(lOCamera));
+        UWWorldPicker.Measurement lOMeasured = fMeasureAtPointer(lOCamera);
         bool lbSeen = lOMeasured.HasFrontmost && Interaction.IsInSightBand(lOCamera.transform,
             lOMeasured.FrontmostHit.point + (lOMeasured.FrontmostHit.normal * 0.5f), fViewingDistance());
 
@@ -785,7 +785,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (lOCamera == null)
             return new List<UWWorldPicker.Hit>();
 
-        return UWWorldPicker.Measure(fPointerRay(lOCamera), pfRange).Hits;
+        return fMeasureAtPointer(lOCamera, pfRange).Hits;
     }
 
     /// <summary>
@@ -989,6 +989,74 @@ public class UWWorldViewUw2 : MonoBehaviour
             ? pOCamera.ScreenPointToRay(UWPointer.Position)
             : pOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
     }
+
+    /// <summary>
+    /// THE POINTER'S MEASUREMENT AS pick_3d MAKES IT (UW2 beta gate, 2026-11-25; uw2 ui/INTERACT.C pick_3d and check_around):
+    /// the thing drawn under the pointer, and on the classic screen, where the pointer lands on a wall or the floor, the
+    /// first thing found on a square spiral round it up to nine of the original's pixels out - the original reads its pick
+    /// buffer so, and a click beside a small thing on the floor takes it. The second game only (Underworld Exhumed: the
+    /// first has no check_around); the modern scheme keeps the first game's crosshair and pointer (the same mechanisms).
+    /// The spiral is check_around's walk: from the pointer one step down, then turning, r steps on the r-th leg, 45 places;
+    /// a step is one of the original's rows or columns of the view on the screen (its window may be widened, UWClassicWide).
+    /// </summary>
+    private static UWWorldPicker.Measurement fMeasureAtPointer(Camera pOCamera, float pfRange = UWWorldPicker.Range)
+    {
+        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(pOCamera), pfRange);
+
+        // Only on a wall or the floor (the pick buffer's texture colours): a thing, a door or nothing at all stays as it is.
+        if (!UWGameScreenUw2.IsClassicActive || !lOMeasured.HasFrontmost || lOMeasured.Frontmost != null)
+            return lOMeasured;
+
+        Rect lOView = pOCamera.pixelRect;
+
+        if (lOView.width <= 0f || lOView.height <= 0f)
+            return lOMeasured;
+
+        float lfColumn = lOView.width / (UWClassicLayoutUw2.Frame.ViewWindowWidth + UWClassicWide.Extra);
+        float lfRow = lOView.height / UWClassicLayoutUw2.Frame.ViewWindowHeight;
+        Vector2 lOAt = UWPointer.Position;
+        int liX = 0;
+        int liY = 0;
+        int liStepX = 0;
+        int liStepY = 1;
+
+        for (int liLeg = 1; liLeg <= AroundReach; liLeg++)
+        {
+            for (int liStep = 0; liStep < liLeg; liStep++)
+            {
+                liX += liStepX;
+                liY += liStepY;
+
+                // The original's rows count down the screen, ours up.
+                Vector2 lOPoint = lOAt + new Vector2(liX * lfColumn, -liY * lfRow);
+
+                if (!lOView.Contains(lOPoint))
+                    continue;
+
+                UWWorldPicker.Measurement lOAround = UWWorldPicker.Measure(pOCamera.ScreenPointToRay(lOPoint), pfRange);
+
+                if (lOAround.Frontmost != null && lOAround.Frontmost.ObjectData != null)
+                    return lOAround;
+            }
+
+            // Turn: a step along x becomes one up the other way, one along y becomes one along x.
+            if (liStepX != 0)
+            {
+                liStepY = -liStepX;
+                liStepX = 0;
+            }
+            else
+            {
+                liStepX = liStepY;
+                liStepY = 0;
+            }
+        }
+
+        return lOMeasured;
+    }
+
+    /// <summary>check_around's reach: legs of 1 to 9 steps.</summary>
+    private const int AroundReach = 9;
 
     /// <summary>What a use aims at: the frontmost door or thing under the pointer within DoorReach (pick_3d).</summary>
     private struct UseTarget
@@ -1345,7 +1413,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (lOCamera == null || UWAttackUw2.Current == null)
             return;
 
-        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(lOCamera));
+        UWWorldPicker.Measurement lOMeasured = fMeasureAtPointer(lOCamera);
         bool lbSeen = lOMeasured.HasFrontmost && Interaction.IsInSightBand(lOCamera.transform,
             lOMeasured.FrontmostHit.point + (lOMeasured.FrontmostHit.normal * 0.5f), fViewingDistance());
         UWEntityInfo lOThing = lbSeen ? lOMeasured.Frontmost : null;

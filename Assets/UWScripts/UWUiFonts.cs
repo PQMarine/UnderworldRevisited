@@ -71,8 +71,6 @@ public static class UWUiFonts
 
     private static readonly HashSet<Font> msOwnFonts = new HashSet<Font>();
 
-    private static UWGameUI msUi;
-
     private static UWFont msGlyphs;
 
     private static Texture2D msAtlas;
@@ -90,13 +88,10 @@ public static class UWUiFonts
     private static bool mbHooked;
 
     /// <summary>A text of the modern interface: it follows the font chosen from now on.</summary>
-    public static void Register(Text pOText, UWGameUI pOUi)
+    public static void Register(Text pOText)
     {
         if (pOText == null)
             return;
-
-        if (pOUi != null)
-            msUi = pOUi;
 
         if (!mbHooked)
         {
@@ -217,19 +212,25 @@ public static class UWUiFonts
         return true;
     }
 
-    /// <summary>The game's FONT5X6P and its glyphs in one texture, once the data is loaded.</summary>
+    /// <summary>
+    /// The running game's FONT5X6P and its glyphs in one texture, once the data is loaded. THE RUNNING GAME'S DATA
+    /// (UWModernUi.Data, both games; per user 2026-11-25, the Interface window's font in the second game): until then the
+    /// font came from the first game's interface (UWGameUI, handed in with every text), which the second game does not
+    /// run - its modern interface kept the modern face with "Original" chosen. Built anew when another game's font comes.
+    /// </summary>
     private static bool fEnsureGlyphs()
     {
-        if (msAtlas != null)
-            return true;
-
-        if (msUi == null || msUi.mOUWData == null || msUi.mOUWData.Fonts == null)
-            return false;
-
-        UWFont lOFont = msUi.mOUWData.Fonts.Get(UWFonts.FontType.Normal);
+        UWDataImport.DataImport lOData = UWModernUi.Data;
+        UWFont lOFont = lOData != null && lOData.Fonts != null ? lOData.Fonts.Get(UWFonts.FontType.Normal) : null;
 
         if (lOFont == null || !lOFont.IsLoaded || lOFont.GlyphCount == 0)
-            return false;
+            return msAtlas != null;
+
+        if (msAtlas != null && lOFont == msGlyphs)
+            return true;
+
+        // Another game's font: the fonts built on the last atlas go with it.
+        msOriginalFonts.Clear();
 
         int liMaxWidth = 1;
 

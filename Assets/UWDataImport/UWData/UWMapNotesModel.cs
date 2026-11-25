@@ -143,7 +143,7 @@ namespace UWDataImport.UWData
 			}
 			else
 			{
-				EraseAt(fRound(pfX), fRound(UWClassicLayout.Screen.Height - pfYTop));
+				EraseAt(fRound(pfX), fRound(UWClassicLayout.Screen.Height - 1 - pfYTop));
 
 				IsErasing = false;
 
@@ -166,7 +166,7 @@ namespace UWDataImport.UWData
 			// per user on the original 2026-09-03 with a pointer the system drew too small). Y counts
 			// from the bottom, so higher means larger.
 			return Begin(fRound(pfX) + UWClassicLayout.Map.NoteColumnOffset,
-				fRound(UWClassicLayout.Screen.Height - pfYTop) + UWClassicLayout.Map.NoteRowsAboveClick)
+				fRound(UWClassicLayout.Screen.Height - 1 - pfYTop) + UWClassicLayout.Map.NoteRowsAboveClick)
 				? ClickEnum.NoteStarted
 				: ClickEnum.None;
 		}
@@ -318,7 +318,7 @@ namespace UWDataImport.UWData
 					Index = liNote,
 					Text = lONote.Text,
 					Left = lONote.X,
-					Top = UWClassicLayout.Screen.Height - lONote.Y,
+					Top = UWClassicLayout.Screen.Height - 1 - lONote.Y,
 					Width = LabelWidth(pFWidth(lONote.Text))
 				});
 			}
@@ -348,7 +348,7 @@ namespace UWDataImport.UWData
 			UWLevel.MapNote lONote = lONotes[WritingNote];
 
 			piLeft = string.IsNullOrEmpty(lONote.Text) || mFWidth == null ? lONote.X : lONote.X + LabelWidth(mFWidth(lONote.Text));
-			piTop = UWClassicLayout.Screen.Height - lONote.Y;
+			piTop = UWClassicLayout.Screen.Height - 1 - lONote.Y;
 
 			return true;
 		}

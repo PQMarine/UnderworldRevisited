@@ -127,7 +127,7 @@ public sealed class UWHudMessageLog
         // not in the stored text but only in the model's comparison key - otherwise
         // the finished lines keep it. Drawn anew only on a real change.
         if (!mOModel.Update(lOFont, mOUi.mOInteraction.ActiveStrings, fLogWidth(), LogLineCount,
-                mOUi.mOInteraction.IsWaitingForPage, lbCursor))
+                mOUi.mOInteraction.IsWaitingForPage, lbCursor, mOUi.mOInteraction.ActiveStringsSaid, mOUi.mOInteraction.ActiveStringsCleared))
             return;
 
         if (mOModel.Scrolled > 0)
