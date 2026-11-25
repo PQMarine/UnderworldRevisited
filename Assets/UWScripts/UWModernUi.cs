@@ -22,6 +22,65 @@ using UnityEngine.InputSystem;
 /// </summary>
 public static class UWModernUi
 {
+    // ------------------------------------------------- The running game
+
+    /// <summary>
+    /// THE RUNNING GAME AS THE MODERN WINDOWS SEE IT (IUWModernSession, Docs/UW2-PLAN.md "The modern interface
+    /// for UW2: one interface, two hosts", stage U1, 2026-11-23): set by the game's host when its scene has its
+    /// parts (the first game: UWModernHud.Start), null without a running game. The windows ask through it
+    /// instead of reaching for the first game's components.
+    /// </summary>
+    public static IUWModernSession Session
+    {
+        get => msSession;
+        set
+        {
+            msSession = value;
+
+            // The running game's own layout and preset (part U4e step 3 of the UW2 plan).
+            if (value != null && UWDataImport.UWData.UWGameSession.Current != null)
+                UWUserSettings.UseLayoutOf(UWDataImport.UWData.UWGameSession.Current.Game.Game);
+        }
+    }
+
+    private static IUWModernSession msSession;
+
+    /// <summary>The running game's inventory model (Session.Inventory.Model, stage U2), null without a game or a
+    /// character - what the windows held as UWInventory until then.</summary>
+    public static UWDataImport.UWData.UWInventoryModel Inventory
+        => Session != null && Session.Inventory != null ? Session.Inventory.Model : null;
+
+    /// <summary>The running game's data (Session.Data, stage U3 part A, 2026-11-23), null without a game or before
+    /// its data is read - what the windows read as UWGameUI.mOUWData until then.</summary>
+    public static UWDataImport.DataImport Data => Session != null ? Session.Data : null;
+
+    /// <summary>How the running game's pictures are filtered (Session.Filter; UWGameUI.TextureFilterMode until
+    /// stage U3 part A), Point without a game as that field's default.</summary>
+    public static FilterMode Filter => Session != null ? Session.Filter : FilterMode.Point;
+
+    /// <summary>What the windows' texts take their font files from (Session.TextUi, UWUiKit.CreateText's argument;
+    /// the windows' own UWGameUI fields until stage U3 part D), null without a game.</summary>
+    public static UWGameUI TextUi => Session != null ? Session.TextUi : null;
+
+    /// <summary>The running game has this part of the modern interface (Session.Has, stage U4 part A): false
+    /// without a game, so a window gated by it needs no other check for one.</summary>
+    public static bool Has(UWModernPartEnum pePart)
+    {
+        return Session != null && Session.Has(pePart);
+    }
+
+    /// <summary>The big map lies open (Session.World.IsMapOpen, stage U3 part C; UWGameUI.Map.IsMapVisible until then).</summary>
+    public static bool IsMapOpen => Session != null && Session.World.IsMapOpen;
+
+    /// <summary>A conversation runs (Session.World.IsConversationOpen; UWConversationController.IsAnyOpen until
+    /// stage U3 part C).</summary>
+    public static bool IsConversationOpen => Session != null && Session.World.IsConversationOpen;
+
+    /// <summary>A spell waits for its target or aim (Session.World.IsSpellAiming; the second game's half asked its
+    /// attack host here until part U4e step 1 of the UW2 plan, its host answers now); UWModernPointer.SpellHolds asked
+    /// both itself until stage U3 part D.</summary>
+    public static bool IsSpellWaiting => Session != null && Session.World.IsSpellAiming;
+
     // ------------------------------------------------- The scale
 
     /// <summary>Screen rows per original pixel step of the HUD images: the integer scale is the
@@ -200,22 +259,11 @@ public static class UWModernUi
         }
     }
 
-    /// <summary>A spell waiting for its target or aim lets go (UWHudRunes.fAfterModernCast); on the second game the
-    /// missile waiting on its attack host (UWAttackUw2.BeginSpellMissile).</summary>
+    /// <summary>A spell waiting for its target or aim lets go (IUWModernWorld.CancelSpellAim: the first game's
+    /// UWHudRunes.fAfterModernCast, the second game's attack host's missile or target spell).</summary>
     private static readonly IUWModernClosable msPendingSpell = new Closable(
-        () => (UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting)
-            || (UWAttackUw2.Current != null && UWAttackUw2.Current.IsAnySpellWaiting),
-        () =>
-        {
-            if (UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting)
-                UWScene.Interaction.CancelPendingSpell();
-
-            if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsSpellWaiting)
-                UWAttackUw2.Current.CancelSpellMissile();
-
-            if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsTargetSpellWaiting)
-                UWAttackUw2.Current.CancelSpellTarget();
-        });
+        () => Session != null && Session.World.IsSpellAiming,
+        () => Session.World.CancelSpellAim());
 
     /// <summary>The bags' use mode ends (UWModernBags.CancelUse).</summary>
     private static readonly IUWModernClosable msBagsUse = new Closable(

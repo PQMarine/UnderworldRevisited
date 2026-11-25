@@ -25,6 +25,18 @@ using UWDataImport.UWData;
 /// band's cuts (UWHudArt.ClassicWideShiftX), so they lie pixel for pixel on the frame. The camera
 /// renders into the classic scheme's area (UWGameUI: x 50 to 226, rows 17 to 138), widened, and
 /// the frame covers all of it but the hole.
+///
+/// THE SECOND GAME'S FRAME (UW2 plan stage U7 step 2, 2026-11-24): BYT.ARK block 4 cut by its own geometry
+/// (UWClassicWideGeometry - the right block moves whole, the ledge's hollows spread a quarter each), the camera in its
+/// view window at the original's angle (UWGameScreenUw2), its pieces at their places (the compass whole with the gem in
+/// it, the rune hollow, the active spells at their slots by the spells' hollow, the flasks on their stone, the scroll
+/// from its knobs, the pages at the panel), the gargoyle's eyes, the command bar drawn plain with the fight icon lit
+/// and working as the first game's column, the flasks' and the chain's clicks by its rule (UWClickRules.FlaskAtUw2);
+/// no dragons. THE PANEL SLIDES as the original's (step 2b, UWPanelTurn.Slides): the pages moved right by the slide's
+/// columns (ApplySquash), the strip they leave in colour 1, the frame right of the panel laid over them so they end at
+/// its edge, the chain's pictures on their frames. THE CONVERSATION as the first game's (step 3c, per user after a try at
+/// 4:3): the frame stays wide, the original look's block over the view (UWConversationLook.Uw2Wide: a lower parchment,
+/// the answers' scroll of its own), the frame's scroll empty under it.
 /// </summary>
 public class UWModernClassicFrame : MonoBehaviour
 {
@@ -61,6 +73,14 @@ public class UWModernClassicFrame : MonoBehaviour
         if (pOContent == null)
             return;
 
+        // THE SECOND GAME'S SLIDE moves the page across instead (UW2 plan stage U7 step 2b).
+        if (IsActive && Instance != null && msOTurn.IsTurning && msOTurn.Slides)
+        {
+            pOContent.localScale = Vector3.one;
+            pOContent.anchoredPosition = new Vector2(Instance.miSlideColumns * ColumnScale, 0f);
+            return;
+        }
+
         float lfScale = IsActive && Instance != null && msOTurn.IsTurning ? Instance.mfSquash : 1f;
         float lfCentre = OffsetX + ((PanelX + Extra + (PanelWidth * 0.5f)) * ColumnScale);
 
@@ -77,8 +97,17 @@ public class UWModernClassicFrame : MonoBehaviour
 
     private float mfSquash = 1f;
 
-    /// <summary>The row the weapon's offsets count from (UWGameUI: wTopOffset).</summary>
-    public const int WeaponRow = UWClassicLayout.Frame.WeaponTop;
+    /// <summary>The columns the page shown lies right of the panel while the second game's panel slides.</summary>
+    private int miSlideColumns;
+
+    /// <summary>The running game's cuts, hole and rows (UWClassicWideGeometry; the first game's without data).</summary>
+    private static UWClassicWideGeometry Geo => UWClassicWideGeometry.Of(UWModernUi.Data != null ? UWModernUi.Data.Textures : null);
+
+    private static bool fIsSecondGame => Geo.IsSecondGame;
+
+    /// <summary>The row the weapon's offsets count from (the first game's wTopOffset row, the second game's view's
+    /// bottom edge).</summary>
+    public static int WeaponRow => Geo.WeaponRow;
 
     /// <summary>Under the frame's picture: the weapon goes here, so the frame covers it below the hole.</summary>
     public Transform WeaponLayer { get; private set; }
@@ -162,18 +191,16 @@ public class UWModernClassicFrame : MonoBehaviour
     public static int Left => Extra / 2;
 
     /// <summary>The camera's area, the classic scheme's widened (UWViewportCamera.Apply).</summary>
-    public static Rect CameraRect => fSpan(UWClassicLayout.Frame.WindowHoleLeft, UWClassicLayout.Frame.WindowHoleTop,
-        UWClassicLayout.Frame.WindowHoleRight, UWClassicLayout.Frame.WindowHoleBottom);
+    public static Rect CameraRect => fSpan(Geo.CameraLeft, Geo.CameraTop, Geo.CameraRight, Geo.CameraBottom);
 
     /// <summary>The view's hole in the frame: what the player sees of the world.</summary>
-    public static Rect Hole => fSpan(UWHudArt.ClassicWideHole.X, UWHudArt.ClassicWideHole.Y,
-        UWHudArt.ClassicWideHole.X + UWHudArt.ClassicWideHole.Width, UWHudArt.ClassicWideHole.Y + UWHudArt.ClassicWideHole.Height);
+    public static Rect Hole => fSpan(Geo.Hole.X, Geo.Hole.Y, Geo.Hole.X + Geo.Hole.Width, Geo.Hole.Y + Geo.Hole.Height);
 
     /// <summary>Where the locked pointer aims: the view's straight ahead - the screen's middle without
     /// the frame. With it the original's projection centre (UWViewportCamera.fToProjectionCentre;
     /// since 2026-11-05), two rows above the camera area's middle, in its middle across.</summary>
     public static Vector2 ViewCentre => IsActive
-        ? new Vector2(CameraRect.center.x, TopY - (UWClassicLayout.Frame.ProjectionCentreRow * RowScale))
+        ? new Vector2(CameraRect.center.x, TopY - (Geo.ProjectionCentreRow * RowScale))
         : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
 
     /// <summary>The panel (PANELS.GR 0 to 2, 83 x 114) and its edge picture (3), the chain's
@@ -210,8 +237,6 @@ public class UWModernClassicFrame : MonoBehaviour
     private const int FlaskTop = UWClassicLayout.Flasks.Top;
 
     private const int FlaskRows = UWClassicLayout.Flasks.Rows;
-
-    private UWGameUI mOUi;
 
     private Canvas mOCanvas;
 
@@ -267,9 +292,8 @@ public class UWModernClassicFrame : MonoBehaviour
     /// <summary>The widened frame's picture (the scroll builds its paper from its bottom rows).</summary>
     public UWPicture Picture => mOFrame != null ? mOFrame.Picture : null;
 
-    public void Init(UWGameUI pOUi)
+    public void Init()
     {
-        mOUi = pOUi;
     }
 
     private void Awake()
@@ -289,7 +313,7 @@ public class UWModernClassicFrame : MonoBehaviour
     /// <summary>An original column's left edge on the screen, shifted by its band's cuts.</summary>
     private static float fX(int piX, int piY)
     {
-        return OffsetX + ((piX + UWHudArt.ClassicWideShiftX(piX, piY, Extra)) * ColumnScale);
+        return OffsetX + ((piX + Geo.ShiftX(piX, piY, Extra)) * ColumnScale);
     }
 
     /// <summary>The screen y (from the bottom) of an original row's top edge.</summary>
@@ -299,11 +323,14 @@ public class UWModernClassicFrame : MonoBehaviour
     }
 
     /// <summary>From the original's column piX0 to the column before piX1, rows piY0 to the row
-    /// before piY1, both ends shifted by their band.</summary>
+    /// before piY1, both ends shifted by their band - the columns put in at a cut on its left edge inside it (the
+    /// second game's view cuts at its window's edge, x 16: the left edge moved with the window and the camera left the
+    /// columns put in black; per user's screenshot, UW2 plan stage U7 step 2a). The first game's spans start left of
+    /// their cuts: the same there.</summary>
     private static Rect fSpan(int piX0, int piY0, int piX1, int piY1)
     {
-        float lfLeft = fX(piX0, piY0);
-        float lfRight = OffsetX + ((piX1 + UWHudArt.ClassicWideShiftX(piX1, piY0, Extra)) * ColumnScale);
+        float lfLeft = OffsetX + ((piX0 + Geo.ShiftX(piX0 - 1, piY0, Extra)) * ColumnScale);
+        float lfRight = OffsetX + ((piX1 + Geo.ShiftX(piX1, piY0, Extra)) * ColumnScale);
 
         return new Rect(lfLeft, fTop(piY1), lfRight - lfLeft, (piY1 - piY0) * RowScale);
     }
@@ -327,6 +354,9 @@ public class UWModernClassicFrame : MonoBehaviour
 
         if (!IsActive)
             return false;
+
+        if (fIsSecondGame)
+            return fTryGetPlaceUw2(peElement, pODefault, out pOPlace);
 
         switch (peElement)
         {
@@ -396,6 +426,101 @@ public class UWModernClassicFrame : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// THE SECOND GAME'S PLACES on its frame (UW2 plan stage U7 step 2): the compass whole over its faces' and needles'
+    /// box in the recess (the gem in it, UWModernCompass); the flasks standing on their stone at FL_X, the picture's top
+    /// at the empty flask's row; the rune hollow at its own place; the active spells' row ending at the first slot's
+    /// right edge (TryGetSpellIcon); the scroll from its left knobs along the bottom; the pages at the panel; the
+    /// conversation over the view's middle (the original's look comes with step 3). The gem has no place of its own:
+    /// it lies in the compass.
+    /// </summary>
+    private static bool fTryGetPlaceUw2(UWModernLayout.ElementEnum peElement, Rect pODefault, out Rect pOPlace)
+    {
+        pOPlace = pODefault;
+
+        switch (peElement)
+        {
+            case UWModernLayout.ElementEnum.Compass:
+            {
+                UWRectInt lOBox = fCompassBoxUw2();
+
+                pOPlace = fAt(lOBox.X, lOBox.Y, pODefault);
+                return true;
+            }
+
+            case UWModernLayout.ElementEnum.HealthFlask:
+            case UWModernLayout.ElementEnum.ManaFlask:
+            {
+                // The part's rect stands on the picture's bottom (the stone strip under the stand is its foot).
+                int liX = peElement == UWModernLayout.ElementEnum.HealthFlask ? UWClassicLayoutUw2.Flasks.HealthLeft : UWClassicLayoutUw2.Flasks.ManaLeft;
+                Texture2D lOFlask = UWModernUi.Session != null ? UWModernUi.Session.Art.HealthFlask : null;
+                int liRows = lOFlask != null ? lOFlask.height : 0;
+
+                pOPlace = new Rect(fX(liX, UWClassicLayoutUw2.Flasks.Top), fTop(UWClassicLayoutUw2.Flasks.Top + liRows), pODefault.width, pODefault.height);
+                return true;
+            }
+
+            case UWModernLayout.ElementEnum.RuneHollow:
+                pOPlace = fAt(UWClassicLayoutUw2.RuneHollow.Left, UWClassicLayoutUw2.RuneHollow.Top, pODefault);
+                return true;
+
+            case UWModernLayout.ElementEnum.Spells:
+            {
+                float lfRight = OffsetX + ((UWClassicLayoutUw2.Runes.SpellX[0] + SpellIconWidth + fSpellShiftUw2) * ColumnScale);
+
+                pOPlace = new Rect(lfRight - pODefault.width, fTop(fSpellTopUw2) - pODefault.height, pODefault.width, pODefault.height);
+                return true;
+            }
+
+            case UWModernLayout.ElementEnum.Messages:
+                pOPlace = new Rect(fX(UWClassicLayoutUw2.ScrollPicture.Left, UWClassicLayoutUw2.ScrollPicture.Top), fTop(FrameHeight),
+                    pODefault.width, pODefault.height);
+                return true;
+
+            case UWModernLayout.ElementEnum.StatsPanel:
+            case UWModernLayout.ElementEnum.RuneTablet:
+            case UWModernLayout.ElementEnum.CharacterPage:
+                pOPlace = fAt(UWClassicLayoutUw2.Panel.Left, UWClassicLayoutUw2.Panel.Top, pODefault);
+                return true;
+
+            case UWModernLayout.ElementEnum.Conversation:
+            {
+                // AS THE FIRST GAME'S BLOCK (per user 2026-11-24, after a try at 4:3): from screen 2's own top-left corner moved
+                // with the view's middle (half the columns put in), at the frame's top - over the view, the frame's scroll empty.
+                pOPlace = new Rect(OffsetX + (Left * ColumnScale), TopY - pODefault.height, pODefault.width, pODefault.height);
+                return true;
+            }
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>The second game's compass box (UWCompassDiscBuilder.Uw2CompassBox), kept for the textures it was
+    /// measured on.</summary>
+    private static UWRectInt fCompassBoxUw2()
+    {
+        UWTextures lOTextures = UWModernUi.Data != null ? UWModernUi.Data.Textures : null;
+
+        if (lOTextures != msOCompassBoxTextures)
+        {
+            msOCompassBox = UWCompassDiscBuilder.Uw2CompassBox(lOTextures);
+            msOCompassBoxTextures = lOTextures;
+        }
+
+        return msOCompassBox;
+    }
+
+    private static UWTextures msOCompassBoxTextures;
+
+    private static UWRectInt msOCompassBox;
+
+    /// <summary>The second game's active spells move with its spells' hollow (the ledge's first quarter), and their
+    /// top row is spell_y's (199 - 0x37; the icons reach above the hollow, as on the frame).</summary>
+    private static int fSpellShiftUw2 => Geo.ShiftX(UWClassicLayoutUw2.SpellHollow.Left, UWClassicLayoutUw2.SpellHollow.Top, Extra);
+
+    private static int fSpellTopUw2 => FrameHeight - 1 - UWClassicLayoutUw2.Runes.SpellY;
+
     /// <summary>The original's spell sprite's width (PANELS.C active_spells, 16 x 18).</summary>
     private const int SpellIconWidth = 16;
 
@@ -411,6 +536,17 @@ public class UWModernClassicFrame : MonoBehaviour
 
         if (!IsActive || piSlot < 0)
             return false;
+
+        // The second game's slots (spell_x, the first at the right), moved with its spells' hollow.
+        if (fIsSecondGame)
+        {
+            if (piSlot >= UWClassicLayoutUw2.Runes.SpellX.Length)
+                return false;
+
+            pORect = new Rect(OffsetX + ((UWClassicLayoutUw2.Runes.SpellX[piSlot] + fSpellShiftUw2) * ColumnScale),
+                fTop(fSpellTopUw2) - (piHeight * RowScale), piWidth * ColumnScale, piHeight * RowScale);
+            return true;
+        }
 
         int liX = UWClassicLayout.ActiveSpells.Right - (piSlot * UWClassicLayout.ActiveSpells.Pitch) + Mathf.Min(Left, SpellsRight);
 
@@ -440,13 +576,17 @@ public class UWModernClassicFrame : MonoBehaviour
 
         if (mODragonCanvas != null && mODragonCanvas.enabled != pbShown)
             mODragonCanvas.enabled = pbShown;
+
+        // The slide's cover is a canvas of its own as well: off with the frame (it shows only while sliding).
+        if (!pbShown && mOSlideCoverCanvas != null)
+            mOSlideCoverCanvas.enabled = false;
     }
 
     /// <summary>Once a frame from UWModernHud: shown with the HUD and in a conversation (the
     /// original keeps its frame there).</summary>
     public void Tick(bool pbShown)
     {
-        if (!pbShown || !IsActive || mOUi == null || mOUi.mOUWData == null)
+        if (!pbShown || !IsActive || UWModernUi.Session == null || UWModernUi.Data == null)
         {
             fSetShown(false);
             return;
@@ -501,11 +641,11 @@ public class UWModernClassicFrame : MonoBehaviour
         mODragonSpace.localScale = new Vector3(ColumnScale, RowScale, 1f);
         mODragonSpace.anchoredPosition = new Vector2(lfOffset, -lfOffsetY);
 
-        if (mODragons != null && !mOUi.Map.IsMapVisible && !UWConversationController.IsAnyOpen)
+        if (mODragons != null && !UWModernUi.IsMapOpen && !UWModernUi.IsConversationOpen)
             mODragons.Tick();
 
         // In a conversation the dragons go under it (GitHub issue 15: at 4:3 their heads covered the answers).
-        int liDragonOrder = UWConversationController.IsAnyOpen ? UWUiSorting.ClassicWideDragonsTalking : UWUiSorting.ClassicWideDragons;
+        int liDragonOrder = UWModernUi.IsConversationOpen ? UWUiSorting.ClassicWideDragonsTalking : UWUiSorting.ClassicWideDragons;
 
         if (mODragonCanvas != null && mODragonCanvas.sortingOrder != liDragonOrder)
             mODragonCanvas.sortingOrder = liDragonOrder;
@@ -520,7 +660,13 @@ public class UWModernClassicFrame : MonoBehaviour
     /// however it was drawn; the idle one is the frame's own.</summary>
     private void fUpdateFightIcon()
     {
-        bool lbLit = mOUi.mOInteraction != null && mOUi.mOInteraction.IsCombatModeActive;
+        if (fIsSecondGame)
+        {
+            fUpdateCommandBarUw2();
+            return;
+        }
+
+        bool lbLit = UWModernUi.Session != null && UWModernUi.Session.World.IsFightMode;
 
         if (lbLit && mOFightLit == null)
             mOFightLit = fPicture(UWTexture.TextureTypes.LFTI, FightLitArt);
@@ -543,6 +689,69 @@ public class UWModernClassicFrame : MonoBehaviour
     private RawImage mOFightIcon;
 
     private Texture2D mOFightLit;
+
+    /// <summary>
+    /// THE SECOND GAME'S COMMAND BAR (UW2 plan stage U7 step 2; per user the same day, decoration as the first game's
+    /// column): the frame leaves its place black, so the bar is drawn plain (OPTB.GR 0 at 0xF3, row 171) with the right
+    /// block, and while the weapon is drawn the fight icon lit over it (OPTB.GR 1's first icon, 26 x 15, as
+    /// new_IconSelect copies it).
+    /// </summary>
+    private void fUpdateCommandBarUw2()
+    {
+        if (mOCommandBarPlain == null)
+            mOCommandBarPlain = fOpaquePicture(UWTexture.TextureTypes.OPTB, 0, null);
+
+        int liX = UWClassicLayoutUw2.Commands.Left + Geo.ShiftX(UWClassicLayoutUw2.Commands.Left, UWClassicLayoutUw2.Commands.Top, Extra);
+
+        if (mOCommandBarPlain != null)
+            fPlace(mOCommandBar, mOCommandBarPlain, liX, UWClassicLayoutUw2.Commands.Top, mOCommandBarPlain.width, mOCommandBarPlain.height);
+        else
+            mOCommandBar.enabled = false;
+
+        bool lbLit = UWModernUi.Session != null && UWModernUi.Session.World.IsFightMode;
+
+        if (lbLit && mOFightLit == null)
+            mOFightLit = fOpaquePicture(UWTexture.TextureTypes.OPTB, 1,
+                new UWRectInt(0, 0, UWClassicLayoutUw2.Commands.IconWidth, UWClassicLayoutUw2.Commands.IconHeight));
+
+        if (!lbLit || mOFightLit == null)
+        {
+            mOFightIcon.enabled = false;
+            return;
+        }
+
+        fPlace(mOFightIcon, mOFightLit, liX, UWClassicLayoutUw2.Commands.Top, mOFightLit.width, mOFightLit.height);
+    }
+
+    private RawImage mOCommandBar;
+
+    private Texture2D mOCommandBarPlain;
+
+    /// <summary>A picture of the game's files whole and opaque (the second game's (0, 0, 4) black stays), cut to a
+    /// rect when given, or null.</summary>
+    private Texture2D fOpaquePicture(UWTexture.TextureTypes peType, int piIndex, UWRectInt? pOCut)
+    {
+        UWTexture lOSource;
+
+        try
+        {
+            lOSource = UWModernUi.Data.Textures.GetTextureByType(peType, piIndex);
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (lOSource == null || lOSource.Width <= 0 || lOSource.Height <= 0)
+            return null;
+
+        UWPicture lOPicture = UWPicture.FromOpaque(lOSource);
+
+        if (pOCut.HasValue)
+            lOPicture = lOPicture.Crop(pOCut.Value);
+
+        return UWTextureFactory.FromPicture(lOPicture, UWModernUi.Filter, "UWModernClassicFrame " + peType + " " + piIndex);
+    }
 
     private void fBuild()
     {
@@ -588,6 +797,18 @@ public class UWModernClassicFrame : MonoBehaviour
         mOChain = fTurnImage("Chain", new Vector2(0f, 1f), Color.white);
         mOShortChainBlack = fTurnImage("Short chain black", new Vector2(0f, 1f), Color.black);
         mOShortChain = fTurnImage("Short chain", new Vector2(0f, 1f), Color.white);
+        mOCommandBar = fTurnImage("Command bar", new Vector2(0f, 1f), Color.white);
+        mOCommandBar.enabled = false;
+
+        // Over the pages while the second game's panel slides (fUpdateSlideUw2): the frame right of the panel.
+        mOSlideCoverCanvas = UWUiKit.CreateLayerCanvas(mOCanvas.transform, "Slide cover", UWUiSorting.ClassicWideSlideCover);
+        UWUiKit.Stretch((RectTransform)mOSlideCoverCanvas.transform);
+        mOSlideCover = UWUiKit.CreateRawImage(mOSlideCoverCanvas.transform, "Frame right of the panel", true);
+        UWPixelArtUI.Apply(mOSlideCover);
+        mOSlideCover.raycastTarget = false;
+        mOSlideCoverGap = UWUiKit.CreateImage(mOSlideCoverCanvas.transform, "Black right of the frame", Color.black);
+        mOSlideCoverGap.raycastTarget = false;
+        mOSlideCoverCanvas.enabled = false;
         mOFightIcon = fTurnImage("Fight icon", new Vector2(0f, 1f), Color.white);
     }
 
@@ -609,7 +830,7 @@ public class UWModernClassicFrame : MonoBehaviour
 
         try
         {
-            lOSource = mOUi.mOUWData.Textures.GetTextureByType(peType, piIndex);
+            lOSource = UWModernUi.Data.Textures.GetTextureByType(peType, piIndex);
         }
         catch
         {
@@ -619,7 +840,7 @@ public class UWModernClassicFrame : MonoBehaviour
         if (lOSource == null || lOSource.Width <= 0 || lOSource.Height <= 0)
             return null;
 
-        return UWTextureFactory.FromTexture(lOSource, mOUi.TextureFilterMode, "UWModernClassicFrame " + peType + " " + piIndex,
+        return UWTextureFactory.FromTexture(lOSource, UWModernUi.Filter, "UWModernClassicFrame " + peType + " " + piIndex,
             TextureWrapMode.Clamp);
     }
 
@@ -650,10 +871,13 @@ public class UWModernClassicFrame : MonoBehaviour
     /// </summary>
     private void fHoldForConversation()
     {
-        if (UWConversationController.IsAnyOpen)
+        if (UWModernUi.IsConversationOpen)
         {
             if (msOTurn.HoldForConversation().TurnCut)
+            {
                 mfSquash = 1f;
+                miSlideColumns = 0;
+            }
 
             return;
         }
@@ -664,6 +888,10 @@ public class UWModernClassicFrame : MonoBehaviour
     /// <summary>Starts the panel's turn to a page, as the original's chain does (UWHudPanel).</summary>
     private void fTurnTo(PageEnum pePage)
     {
+        // The second game's panel slides (UWPanelTurn.Slides), the first game's turns.
+        if (!msOTurn.IsTurning)
+            msOTurn.Slides = fIsSecondGame;
+
         if (!msOTurn.Begin((UWPanelTurn.SideEnum)pePage))
             return;
 
@@ -682,6 +910,13 @@ public class UWModernClassicFrame : MonoBehaviour
     {
         mOTurnSpace.localScale = new Vector3(ColumnScale, RowScale, 1f);
         mOTurnSpace.anchoredPosition = new Vector2(OffsetX, -OffsetY);
+
+        // THE SECOND GAME'S PANEL SLIDES (UW2 plan stage U7 step 2b).
+        if (fIsSecondGame)
+        {
+            fUpdateSlideUw2();
+            return;
+        }
 
         if (!msOTurn.IsTurning)
         {
@@ -729,6 +964,125 @@ public class UWModernClassicFrame : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// THE SECOND GAME'S PANEL SLIDE (do_panel_frame, UWPanelTurn.Slides; UW2 plan stage U7 step 2b): a frame each
+    /// PanelSlide.FrameSeconds on the unscaled clock, the first at once; the page shown moved by the frame's columns
+    /// (ApplySquash), under it the panel's place in colour 1 (the strip the page leaves), over it the frame right of the
+    /// panel and black to the screen's edge (the original's page ends at the panel's edge); the chain's picture of the
+    /// last frame that drew one, kept after the slide as the classic screen keeps it.
+    /// </summary>
+    private void fUpdateSlideUw2()
+    {
+        mOPanelEdge.enabled = false;
+        mOChainBlack.enabled = false;
+        mOShortChainBlack.enabled = false;
+        mOShortChain.enabled = false;
+
+        if (msOTurn.IsTurning && Time.unscaledTime >= mfStepAt)
+        {
+            fEnsureSlideArtUw2();
+
+            UWPanelTurn.Frame lOFrame = msOTurn.Advance();
+
+            if (lOFrame.Finished)
+                miSlideColumns = 0;
+            else
+            {
+                mfStepAt = Time.unscaledTime + UWClassicLayoutUw2.PanelSlide.FrameSeconds;
+                miSlideColumns = lOFrame.Offset;
+
+                if (lOFrame.ChainFrame >= 0 && lOFrame.ChainFrame < mOSlideChains.Length)
+                    mOSlideChain = mOSlideChains[lOFrame.ChainFrame];
+            }
+        }
+
+        mfSquash = 1f;
+
+        int liShift = Geo.ShiftX(UWClassicLayoutUw2.Panel.Left, UWClassicLayoutUw2.Panel.Top, Extra);
+        bool lbSliding = msOTurn.IsTurning;
+
+        if (mOSlideChain != null)
+            fPlace(mOChain, mOSlideChain, UWClassicLayoutUw2.PanelSlide.ChainLeft + liShift, UWClassicLayoutUw2.PanelSlide.ChainTop,
+                mOSlideChain.width, mOSlideChain.height);
+        else
+            mOChain.enabled = false;
+
+        if (!lbSliding)
+        {
+            mOPanelBlack.enabled = false;
+            mOPanelPage.enabled = false;
+            mOSlideCoverCanvas.enabled = false;
+            return;
+        }
+
+        // The panel's place in colour 1 under the page.
+        mOPanelBlack.color = fPaletteColour(UWClassicLayoutUw2.PanelSlide.StripColour);
+        fPlace(mOPanelBlack, null, UWClassicLayoutUw2.Panel.Left + liShift, UWClassicLayoutUw2.Panel.Top, miSlidePageWidth, miSlidePageHeight);
+        mOPanelPage.enabled = false;
+
+        // The frame right of the panel over the page, and black on to the screen's edge.
+        int liRight = UWClassicLayoutUw2.Panel.Left + miSlidePageWidth;
+        int liTop = UWClassicLayoutUw2.Panel.Top;
+        int liWidth = FrameWidth + Extra;
+        float lfLeft = fX(liRight, liTop);
+        float lfBottom = fTop(liTop + miSlidePageHeight);
+
+        mOSlideCoverCanvas.enabled = true;
+        mOSlideCover.texture = mOImage.texture;
+        mOSlideCover.uvRect = new Rect((liRight + liShift) / (float)liWidth, (FrameHeight - liTop - miSlidePageHeight) / (float)FrameHeight,
+            (liWidth - liRight - liShift) / (float)liWidth, miSlidePageHeight / (float)FrameHeight);
+        UWUiKit.SetRect(mOSlideCover.rectTransform, lfLeft, lfBottom, RightEdge - lfLeft, miSlidePageHeight * RowScale);
+        UWUiKit.SetRect(mOSlideCoverGap.rectTransform, RightEdge, lfBottom, Mathf.Max(0f, Screen.width - RightEdge), miSlidePageHeight * RowScale);
+    }
+
+    /// <summary>The slide's pictures: CHAINS.GR 0 to 3 opaque, the page's size (PANELS.GR 0).</summary>
+    private void fEnsureSlideArtUw2()
+    {
+        if (mOSlideChains != null)
+            return;
+
+        mOSlideChains = new Texture2D[UWClassicLayoutUw2.PanelSlide.ChainFrames.Length];
+
+        for (int liAt = 0; liAt < mOSlideChains.Length; liAt++)
+            mOSlideChains[liAt] = fOpaquePicture(UWTexture.TextureTypes.CHAINS, liAt, null);
+
+        UWTexture lOPage = null;
+
+        try
+        {
+            lOPage = UWModernUi.Data.Textures.GetTextureByType(UWTexture.TextureTypes.PANELS, 0);
+        }
+        catch
+        {
+        }
+
+        miSlidePageWidth = lOPage != null ? lOPage.Width : UWStatsPageGeometry.Of(UWModernUi.Data.Textures).PageWidth;
+        miSlidePageHeight = lOPage != null ? lOPage.Height : UWTextures.Uw2PanelEdgeHeight;
+    }
+
+    /// <summary>A colour of the game's first palette.</summary>
+    private static Color fPaletteColour(int piIndex)
+    {
+        UWPalette lOPalette = UWModernUi.Data != null && UWModernUi.Data.Palettes != null ? UWModernUi.Data.Palettes.GetPalette(0) : null;
+        UWColor32 lOColour = lOPalette != null ? lOPalette.GetUWColor(piIndex) : new UWColor32(0, 0, 0, 255);
+
+        return new Color32(lOColour.R, lOColour.G, lOColour.B, 255);
+    }
+
+    private Texture2D[] mOSlideChains;
+
+    private Texture2D mOSlideChain;
+
+    private int miSlidePageWidth;
+
+    private int miSlidePageHeight;
+
+    private Canvas mOSlideCoverCanvas;
+
+    private RawImage mOSlideCover;
+
+    private Image mOSlideCoverGap;
+
     private static void fPlace(RawImage pOImage, Texture2D pOTexture, float pfX, float pfY, float pfWidth, float pfHeight)
     {
         if (pOTexture != null)
@@ -766,15 +1120,15 @@ public class UWModernClassicFrame : MonoBehaviour
         if (mOTexture.IsCurrent(lOStamp))
             return;
 
-        mOImage.texture = mOTexture.Set(lOStamp, UWModernHudArt.BuildClassicWideFrame(mOUi.mOUWData.Textures, liExtra, mOUi.TextureFilterMode, out mOFrame));
+        mOImage.texture = mOTexture.Set(lOStamp, UWModernHudArt.BuildClassicWideFrame(UWModernUi.Data.Textures, liExtra, UWModernUi.Filter, out mOFrame));
 
-        if (miExtra != liExtra || mODragons == null)
+        if (Geo.HasDragons && (miExtra != liExtra || mODragons == null))
         {
             for (int liAt = mODragonSpace.childCount - 1; liAt >= 0; liAt--)
                 Destroy(mODragonSpace.GetChild(liAt).gameObject);
 
             mODragons?.Release();
-            mODragons = new UWHudDragons(mODragonSpace, mOUi.Classic.GetDragonSprite, liExtra);
+            mODragons = new UWHudDragons(mODragonSpace, UWModernUi.Session.Art.DragonSprite, liExtra);
         }
 
         miExtra = liExtra;
@@ -790,7 +1144,7 @@ public class UWModernClassicFrame : MonoBehaviour
         UWModernHud lOHud = UWModernHud.Instance;
 
         if (lOScheme == null || lOScheme.IsUIModalOpen || UWControls.IsTextEntryActive || lOHud == null || lOHud.IsOpen
-            || UWConversationController.IsAnyOpen)
+            || UWModernUi.IsConversationOpen)
             return;
 
         UWControls lOControls = lOScheme.Controls;
@@ -808,6 +1162,12 @@ public class UWModernClassicFrame : MonoBehaviour
         int liX = Mathf.FloorToInt(lOPointer.x / ColumnScale) - Extra;
         int liY = Mathf.FloorToInt(lOPointer.y / RowScale);
 
+        if (fIsSecondGame)
+        {
+            fClickUw2(liX, liY);
+            return;
+        }
+
         // THE LEFT COMMAND COLUMN (per user, 2026-10-10: decoration, only the fight works): its
         // area as the original's (UWClickRules.CommandIcons, CommandIconAt), left of every cut;
         // the fight icon draws or sheathes the weapon as the combat key does, with the left button.
@@ -817,8 +1177,8 @@ public class UWModernClassicFrame : MonoBehaviour
         if (lOIcons.Contains(liLeftX, liY))
         {
             if (UWMouseButtons.LeftPressed && UWClickRules.CommandIconAt(liY - lOIcons.Y0) == UWCommandMode.Fight
-                && mOUi.mOInteraction != null && !UWRoamingSight.IsAnyRunning)
-                mOUi.mOInteraction.ToggleCombatMode();
+                && UWModernUi.Session != null && !UWRoamingSight.IsAnyRunning)
+                UWModernUi.Session.World.ToggleFightMode();
 
             return;
         }
@@ -832,13 +1192,48 @@ public class UWModernClassicFrame : MonoBehaviour
 
         if (lePart == UWClickRules.FlaskPart.Chain)
             fTurnTo((PageEnum)msOTurn.ChainTarget);
-        else if (mOUi.Runes != null)
-            mOUi.Runes.DescribeFlask(lePart);
+        else if (UWModernUi.Session != null)
+            UWModernUi.Session.Character.DescribeFlask(lePart);
     }
 
-    /// <summary>The gargoyle's eyes' place on the screen (UWModernHeadingStrip draws them there).</summary>
+    /// <summary>
+    /// THE SECOND GAME'S CLICKS on the right block (its columns piExtra off, rows from the bottom; UW2 plan stage U7 step
+    /// 2): the command bar as decoration but for the fight icon, which draws or sheathes the weapon with the left button
+    /// as the first game's column does (per user the same day); the flasks' area by the classic screen's rule
+    /// (UWClickRules.FlaskAtUw2) - the vitality's or the mana's words, the chain's pull the turn to the stats and back.
+    /// </summary>
+    private static void fClickUw2(int piX, int piY)
+    {
+        int liIcon = UWClickRules.CommandIconAtUw2(piX, FrameHeight - 1 - piY);
+
+        if (liIcon >= 0)
+        {
+            if (UWMouseButtons.LeftPressed && liIcon == UWClickRules.FightIconUw2 && UWModernUi.Session != null && !UWRoamingSight.IsAnyRunning)
+                UWModernUi.Session.World.ToggleFightMode();
+
+            return;
+        }
+
+        if (!UWClickRules.IsInFlasksUw2(piX, piY))
+            return;
+
+        UWClickRules.FlaskPart lePart = UWClickRules.FlaskAtUw2(piX - UWClassicLayoutUw2.FlaskClicks.Left, piY - UWClassicLayoutUw2.FlaskClicks.BottomY);
+
+        if (lePart == UWClickRules.FlaskPart.Chain)
+        {
+            if (Instance != null)
+                Instance.fTurnTo((PageEnum)msOTurn.ChainTarget);
+        }
+        else if (lePart != UWClickRules.FlaskPart.None && UWModernUi.Session != null)
+            UWModernUi.Session.Character.DescribeFlask(lePart);
+    }
+
+    /// <summary>The gargoyle's eyes' place on the screen (UWModernHeadingStrip draws them there): the game's head.</summary>
     public static Rect EyesRect(int piWidth, int piHeight)
     {
-        return new Rect(fX(EyesX, EyesY), fTop(EyesY + piHeight), piWidth * ColumnScale, piHeight * RowScale);
+        int liX = fIsSecondGame ? UWClassicLayoutUw2.Eyes.Left : EyesX;
+        int liY = fIsSecondGame ? UWClassicLayoutUw2.Eyes.Top : EyesY;
+
+        return new Rect(fX(liX, liY), fTop(liY + piHeight), piWidth * ColumnScale, piHeight * RowScale);
     }
 }

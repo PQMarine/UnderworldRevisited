@@ -12,7 +12,7 @@ namespace UWDataImport.UWData
 	///
 	/// THE WORLDS: (level - 1) / 8, nine of them, each with three walking themes (walking_music); a new world always
 	/// starts with its first. A request (SetNewMusic) is dropped while the victory theme plays. ChangeMusicMaybe runs
-	/// in the walk, LoopMusicMaybe in the screens that loop on their own (the menu, the creation, a conversation, the
+	/// in the session, LoopMusicMaybe in the screens that loop on their own (the menu, the creation, a conversation, the
 	/// map). The time is the host's, in seconds (GAME_TIME counts 1/256 s: 0xA00 and 0x800 are ten and eight).
 	/// </summary>
 	public sealed class UWMusicSelectorUw2
@@ -201,7 +201,7 @@ namespace UWDataImport.UWData
 		/// intro repeats.
 		/// </summary>
 		/// <param name="pbDrawn">player->drawn.</param>
-		/// <param name="pbGameScreen">scrmode 1, the walk's own screen.</param>
+		/// <param name="pbGameScreen">scrmode 1, the session's own screen.</param>
 		public void ChangeMusicMaybe(bool pbDrawn, bool pbGameScreen, int piLevel, float pfNow)
 		{
 			if (!mIOutput.IsReady)

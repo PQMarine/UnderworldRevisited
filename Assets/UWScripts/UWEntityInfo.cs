@@ -42,6 +42,10 @@ public class UWEntityInfo : MonoBehaviour
     [System.NonSerialized]
     private System.Func<string> mFDescription;
 
+    /// <summary>Description is a wall or floor name of block 10 standing for the thing (a bridge named after its floor,
+    /// UWItemDescriptions.BridgeTextureDescription): the crosshair's label takes the same name (IUWGrammar.ChunkLabel).</summary>
+    public bool NamedByTexture { get; set; }
+
     public bool IsDoor { get; set; }
 
     /// <summary>A 3D model (UWObjectSpawner.fSpawn3DModel): aimed at by its triangles, not its

@@ -55,8 +55,6 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
     /// (exponentially).</summary>
     protected const float SlideRate = 14f;
 
-    protected UWGameUI mOUi;
-
     protected UWControlScheme mOScheme;
 
     protected Canvas mOCanvas;
@@ -292,8 +290,8 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
 
         if (!mOBackArt.IsCurrent(lOBackStamp))
         {
-            mOBack.texture = mOBackArt.Set(lOBackStamp, UWModernHudArt.BuildPartLeather(Element, mOUi.mOUWData.Textures,
-                piWidth, piHeight, mOUi.TextureFilterMode));
+            mOBack.texture = mOBackArt.Set(lOBackStamp, UWModernHudArt.BuildPartLeather(Element, UWModernUi.Data.Textures,
+                piWidth, piHeight, UWModernUi.Filter));
         }
 
         mOBack.enabled = mfShown > 0.5f;
@@ -383,7 +381,7 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
         {
             mOTabBacks[liTab] = UWUiKit.CreateRawImage(pORoot, "Tab " + psTabIds[liTab]);
             UWPixelArtUI.Apply(mOTabBacks[liTab]);
-            mOTabTexts[liTab] = UWUiKit.CreateText(pORoot, psTabIds[liTab], TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
+            mOTabTexts[liTab] = UWUiKit.CreateText(pORoot, psTabIds[liTab], TextAnchor.MiddleCenter, UWModernPalette.Text, UWModernUi.TextUi);
         }
 
         mOPin = UWUiKit.CreateRawImage(pORoot, "Pin");
@@ -400,7 +398,7 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
         if (DockedLeft)
             mOHandle.uvRect = new Rect(1f, 0f, -1f, 1f);
 
-        mOHandleText = UWUiKit.CreateText(pORoot, "Handle label", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
+        mOHandleText = UWUiKit.CreateText(pORoot, "Handle label", TextAnchor.MiddleCenter, UWModernPalette.Text, UWModernUi.TextUi);
         miChromeLanguage = -1;
         fRelabelChrome();
     }

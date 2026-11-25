@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -50,25 +51,17 @@ public class UWModernHud : MonoBehaviour
     /// HUD's own parts; the bags ask UWModernUi since cleanup 5.17 (2026-10-23).</summary>
     public bool IsOpen => Menu != null && Menu.IsOpen;
 
-    /// <summary>The scene's UI, character, interaction and control scheme, found in Start - for the
-    /// game menu and the HUD's parts.</summary>
-    internal UWGameUI Ui => mOUi;
-
-    internal UWCharacter Character => mOCharacter;
-
-    internal Interaction Interaction => mOInteraction;
-
+    /// <summary>The scene's control scheme, found in Start - for the game menu and the HUD's parts. The game is
+    /// asked through UWModernUi.Session (the character since stage U1, the rest since U3, 2026-11-23).</summary>
     internal UWControlScheme Scheme => mOScheme;
 
     /// <summary>Whether the HUD is on screen: the modern scheme, no conversation, no screen menu
     /// or cutscene over it. The bags (UWModernBags) show with it.</summary>
-    public bool IsShowing => UWModernUi.IsActive && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
-        && mOInteraction != null && !fIsCovered() && !UWConversationController.IsAnyOpen;
+    public bool IsShowing => UWModernUi.IsActive && UWModernUi.Session != null && UWModernUi.Data != null && !fIsCovered() && !UWModernUi.IsConversationOpen;
 
     /// <summary>A conversation in the modern scheme (UWModernConversation): the HUD hides, the bags
     /// and the character panel stay for the trade.</summary>
-    public bool IsTalking => UWModernUi.IsActive && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
-        && mOInteraction != null && !fIsCovered() && UWConversationController.IsAnyOpen;
+    public bool IsTalking => UWModernUi.IsActive && UWModernUi.Session != null && UWModernUi.Data != null && !fIsCovered() && UWModernUi.IsConversationOpen;
 
     /// <summary>How large the weapon is drawn against the screen: 1 maps the original's viewport
     /// height (112 rows) onto the screen height.</summary>
@@ -78,12 +71,6 @@ public class UWModernHud : MonoBehaviour
     /// <summary>Where the message box starts above the flasks (screen pixels from the bottom) -
     /// the rune panel (UWModernRunePanel) reaches down to here at most (UWModernMessageBox).</summary>
     public float LeftColumnBottom => mOMessages != null ? mOMessages.LeftColumnBottom : 0f;
-
-    private UWGameUI mOUi;
-
-    private UWCharacter mOCharacter;
-
-    private Interaction mOInteraction;
 
     private UWControlScheme mOScheme;
 
@@ -129,6 +116,28 @@ public class UWModernHud : MonoBehaviour
     /// <summary>What a click on the parts does (UWModernHudInput).</summary>
     private UWModernHudInput mOInput;
 
+    /// <summary>
+    /// EACH PART'S IMAGES IN A GROUP OF ITS OWN (stage U4 part A of the modern interface on interfaces,
+    /// 2026-11-23): a stretched, empty group under the canvas, in the order the images lay in before, so a
+    /// part the running game does not have (IUWModernSession.Has) is switched off whole. Stretched over the
+    /// canvas, so every image keeps its anchors and its place.
+    /// </summary>
+    private readonly List<KeyValuePair<UWModernPartEnum, GameObject>> mOGroups = new List<KeyValuePair<UWModernPartEnum, GameObject>>();
+
+    private Transform fGroup(Transform pORoot, string psName, UWModernPartEnum pePart)
+    {
+        RectTransform lOGroup = UWUiKit.CreateStretchedGroup(pORoot, psName);
+
+        mOGroups.Add(new KeyValuePair<UWModernPartEnum, GameObject>(pePart, lOGroup.gameObject));
+
+        return lOGroup;
+    }
+
+    private static bool fHas(UWModernPartEnum pePart)
+    {
+        return UWModernUi.Has(pePart);
+    }
+
     private void Awake()
     {
         Instance = this;
@@ -151,9 +160,6 @@ public class UWModernHud : MonoBehaviour
 
     private void Start()
     {
-        mOUi = GetComponent<UWGameUI>();
-        mOCharacter = GetComponent<UWCharacter>();
-        mOInteraction = GetComponent<Interaction>();
         mOScheme = GetComponentInParent<UWControlScheme>();
     }
 
@@ -164,7 +170,7 @@ public class UWModernHud : MonoBehaviour
         UWIntroPlayer lOIntro = UWScene.IntroPlayer;
 
         // The big map covers the screen as in the original (UWGameUI shows it on the classic frame).
-        return UWScreenUi.IsScreenMenuOpen || (lOIntro != null && lOIntro.IsPlaying) || (mOUi != null && mOUi.Map.IsMapVisible);
+        return UWScreenUi.IsScreenMenuOpen || (lOIntro != null && lOIntro.IsPlaying) || UWModernUi.IsMapOpen;
     }
 
     /// <summary>The menu's pad stepping, the right button's pointer switch, then the parts' clicks
@@ -174,27 +180,27 @@ public class UWModernHud : MonoBehaviour
         Menu.StepByPad();
 
         // H HIDES THE INTERFACE (UWInterfaceHide, per user 2026-11-07) where the world fills the screen - not
-        // in Classic Wide, whose view is the frame's hole; whatever wants the interface brings it back. The
-        // second game's walk has its own (UWGameScreenUw2), which this one must not answer as well.
-        if (!UWWalkUw2.IsWalking)
-        {
-            bool lbCanHide = UWModernUi.IsActive && !UWModernClassicFrame.IsActive;
-            bool lbWanted = !lbCanHide || IsOpen || fIsCovered() || UWConversationController.IsAnyOpen || UWModernPointer.IsFree
-                || UWModernLayout.IsEditing || UWControls.IsTextEntryActive || (UWInput.Contexts & UWInterfaceHide.WantingContexts) != 0
-                || (mOInteraction != null && mOInteraction.IsPromptActive);
+        // in Classic Wide, whose view is the frame's hole; whatever wants the interface brings it back. For both games
+        // since part U4e step 1 of the UW2 plan (the second game's screen had its own toggle and release until then).
+        bool lbCanHide = UWModernUi.IsActive && !UWModernClassicFrame.IsActive;
+        bool lbWanted = !lbCanHide || IsOpen || fIsCovered() || UWModernUi.IsConversationOpen || UWModernPointer.IsFree
+            || UWModernLayout.IsEditing || UWControls.IsTextEntryActive || (UWInput.Contexts & UWInterfaceHide.WantingContexts) != 0
+            || (UWModernUi.Session != null && UWModernUi.Session.Messages.IsPromptActive);
 
-            UWInterfaceHide.Release(lbWanted);
+        UWInterfaceHide.Release(lbWanted);
 
-            // Performed: the pad's menu button held (H performs on its press).
-            if (!lbWanted && UWInput.Performed(UWDataImport.UWData.UWAct.ModernHideUi))
-                UWInterfaceHide.Toggle();
-        }
+        // Performed: the pad's menu button held (H performs on its press).
+        if (!lbWanted && UWInput.Performed(UWDataImport.UWData.UWAct.ModernHideUi))
+            UWInterfaceHide.Toggle();
 
-        // The right button switches the pointer (UWModernPointer) - not under the menu.
-        UWModernPointer.Tick(IsShowing && !IsOpen && !UWControls.IsTextEntryActive);
+        // The right button switches the pointer (UWModernPointer) - not under the menu, and only where the game
+        // leaves the switch to the HUD (IUWModernSession.Has; both games since part U4e step 1 of the UW2 plan, the
+        // second game's screen switched it itself until then).
+        if (fHas(UWModernPartEnum.HudPointer))
+            UWModernPointer.Tick(IsShowing && !IsOpen && !UWControls.IsTextEntryActive);
 
         // Made with the parts (fBuild); until then no part takes a click.
-        if (mOInput != null)
+        if (mOInput != null && fHas(UWModernPartEnum.HudInput))
             mOInput.Update();
     }
 
@@ -211,8 +217,7 @@ public class UWModernHud : MonoBehaviour
     /// </summary>
     private void LateUpdate()
     {
-        bool lbModern = UWModernUi.IsActive && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
-            && mOInteraction != null;
+        bool lbModern = UWModernUi.IsActive && UWModernUi.Session != null && UWModernUi.Data != null;
 
         // Leaving the modern scheme (Shift+F2) or a screen menu taking over closes the menu.
         if (IsOpen && (!lbModern || fIsCovered()))
@@ -221,7 +226,7 @@ public class UWModernHud : MonoBehaviour
         // The menu's pages on the kit (cleanup 8b.4), whenever a page is open, as OnGUI drew them.
         Menu.LateUpdate();
 
-        bool lbShow = lbModern && !fIsCovered() && !UWConversationController.IsAnyOpen && !UWInterfaceHide.IsHidden;
+        bool lbShow = lbModern && !fIsCovered() && !UWModernUi.IsConversationOpen && !UWInterfaceHide.IsHidden;
 
         if (!lbShow)
         {
@@ -234,7 +239,7 @@ public class UWModernHud : MonoBehaviour
             {
                 // The scale of now, not the one before the conversation (per user, 2026-11-06: a window made
                 // narrower in a conversation left the page at its old size; miPixelScale follows only outside).
-                if (IsTalking)
+                if (IsTalking && fHas(UWModernPartEnum.CharacterPage))
                     mOInventoryPage.Update(UWModernUi.PixelScale);
                 else
                     mOInventoryPage.Hide();
@@ -242,7 +247,7 @@ public class UWModernHud : MonoBehaviour
 
             // The classic frame stays in a conversation, as the original's does.
             if (mOClassicFrame != null)
-                mOClassicFrame.Tick(IsTalking);
+                mOClassicFrame.Tick(IsTalking && fHas(UWModernPartEnum.ClassicFrame));
 
             return;
         }
@@ -254,28 +259,67 @@ public class UWModernHud : MonoBehaviour
 
         fApplyPixelScale();
 
+        // The parts the running game has (IUWModernSession.Has): the others' groups are off and they are not laid out.
+        foreach (KeyValuePair<UWModernPartEnum, GameObject> lOGroup in mOGroups)
+        {
+            bool lbHas = fHas(lOGroup.Key);
+
+            if (lOGroup.Value.activeSelf != lbHas)
+                lOGroup.Value.SetActive(lbHas);
+        }
+
         if (mOClassicFrame != null)
-            mOClassicFrame.Tick(true);
+            mOClassicFrame.Tick(fHas(UWModernPartEnum.ClassicFrame));
 
         mOWeapon.WeaponScale = mfWeaponScale;
-        mOWeapon.Update(miPixelScale);
-        mOVitals.Update(miPixelScale);
-        mOSpells.Update(miPixelScale);
-        mOHeading.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.Weapon))
+            mOWeapon.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.Vitals))
+            mOVitals.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.ActiveSpells))
+            mOSpells.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.Heading))
+            mOHeading.Update(miPixelScale);
+
         fUpdateCompass();
-        mORuneHollow.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.RuneHollow))
+            mORuneHollow.Update(miPixelScale);
 
         if (mOStats != null)
-            mOStats.Update(miPixelScale);
+        {
+            if (fHas(UWModernPartEnum.StatsPage))
+                mOStats.Update(miPixelScale);
+            else
+                mOStats.Hide();
+        }
 
         if (mOInventoryPage != null)
-            mOInventoryPage.Update(miPixelScale);
+        {
+            if (fHas(UWModernPartEnum.CharacterPage))
+                mOInventoryPage.Update(miPixelScale);
+            else
+                mOInventoryPage.Hide();
+        }
 
-        mOMessages.Update(miPixelScale);
-        mOStoneShelf.Update(miPixelScale);
-        mOBacks.Update(miPixelScale);
-        mOPicture.Update(miPixelScale);
-        mOCrosshair.Update(miPixelScale);
+        if (fHas(UWModernPartEnum.Messages))
+            mOMessages.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.StoneShelf))
+            mOStoneShelf.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.Backs))
+            mOBacks.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.ViewPicture))
+            mOPicture.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.Crosshair))
+            mOCrosshair.Update(miPixelScale);
     }
 
     /// <summary>
@@ -294,8 +338,8 @@ public class UWModernHud : MonoBehaviour
 
         // The original's compass as an element of its own (UWModernCompass), and its message
         // scroll in the messages' place (UWModernScroll).
-        mOCompass = new UWModernCompass(mOUi);
-        mOScroll = new UWModernScroll(mOUi);
+        mOCompass = new UWModernCompass();
+        mOScroll = new UWModernScroll();
         mOWeapon = new UWModernWeaponView(this);
         mOStoneShelf = new UWModernStoneShelf(this);
         mOMessages = new UWModernMessageBox(this, mOScroll);
@@ -307,32 +351,32 @@ public class UWModernHud : MonoBehaviour
         mOCrosshair = new UWModernCrosshair(this);
         mOPicture = new UWModernViewPicture(this);
 
-        mOWeapon.Build(lORoot);
-        mOStoneShelf.Build(lORoot);
-        mOBacks.Build(lORoot);
-        mOMessages.Build(lORoot);
-        mOVitals.Build(lORoot);
-        mORuneHollow.Build(lORoot);
-        mOVitals.BuildFlasks(lORoot);
-        mOHeading.Build(lORoot);
+        mOWeapon.Build(fGroup(lORoot, "Weapon part", UWModernPartEnum.Weapon));
+        mOStoneShelf.Build(fGroup(lORoot, "Stone shelf part", UWModernPartEnum.StoneShelf));
+        mOBacks.Build(fGroup(lORoot, "Backs part", UWModernPartEnum.Backs));
+        mOMessages.Build(fGroup(lORoot, "Messages part", UWModernPartEnum.Messages));
+        mOVitals.Build(fGroup(lORoot, "Vitals shelf part", UWModernPartEnum.Vitals));
+        mORuneHollow.Build(fGroup(lORoot, "Rune hollow part", UWModernPartEnum.RuneHollow));
+        mOVitals.BuildFlasks(fGroup(lORoot, "Vitals flasks part", UWModernPartEnum.Vitals));
+        mOHeading.Build(fGroup(lORoot, "Heading part", UWModernPartEnum.Heading));
 
-        mOCompass.Build(lORoot);
+        mOCompass.Build(fGroup(lORoot, "Compass part", UWModernPartEnum.Compass));
         // The active spells over the heading strip and the compass (per user, 2026-11-09: moved left
         // of the minimap and the character panel they went under the gargoyle, which stays where it is).
-        mOSpells.Build(lORoot);
-        mOStats = new UWModernStatsPage(mOUi);
-        mOStats.Build(lORoot);
-        mOInventoryPage = new UWModernInventoryPage(mOUi);
+        mOSpells.Build(fGroup(lORoot, "Active spells part", UWModernPartEnum.ActiveSpells));
+        mOStats = new UWModernStatsPage();
+        mOStats.Build(fGroup(lORoot, "Stats page part", UWModernPartEnum.StatsPage));
+        mOInventoryPage = new UWModernInventoryPage();
         mOInventoryPage.Build(transform);
-        mOScroll.Build(lORoot);
+        mOScroll.Build(fGroup(lORoot, "Scroll part", UWModernPartEnum.Messages));
 
         GameObject lOFrame = new GameObject("Classic wide");
         lOFrame.transform.SetParent(transform, false);
         mOClassicFrame = lOFrame.AddComponent<UWModernClassicFrame>();
-        mOClassicFrame.Init(mOUi);
+        mOClassicFrame.Init();
 
-        mOCrosshair.Build(lORoot);
-        mOPicture.Build(lORoot);
+        mOCrosshair.Build(fGroup(lORoot, "Crosshair part", UWModernPartEnum.Crosshair));
+        mOPicture.Build(fGroup(lORoot, "View picture part", UWModernPartEnum.ViewPicture));
 
         mOInput = new UWModernHudInput(this, mOSpells, mOHeading, mOCompass, mORuneHollow, mOStats);
     }
@@ -361,8 +405,11 @@ public class UWModernHud : MonoBehaviour
         if (mOCompass == null)
             return;
 
-        mOCompass.Update(miPixelScale);
-        mOHeading.AfterCompass();
+        if (fHas(UWModernPartEnum.Compass))
+            mOCompass.Update(miPixelScale);
+
+        if (fHas(UWModernPartEnum.Heading))
+            mOHeading.AfterCompass();
     }
 
     /// <summary>Whether a screen point lies on an active spell (UWModernPointer: the right button

@@ -101,7 +101,9 @@ namespace UWDataImport.UWData
 		/// An original column from a column of the widened frame at a row from the top: -1 in the
 		/// columns put in (they belong to no area of the original's click table). The cuts are
 		/// Classic Wide's (UWHudArt.ClassicWideCut), the left half of the extra columns at the
-		/// left cut, the right half at the right one.
+		/// left cut, the right half at the right one. Since UW2 plan stage U8 step 2 (2026-11-24)
+		/// the rule is the geometry's (UWClassicWideGeometry.OriginalColumn, any number of cuts),
+		/// the same columns for the first game's two.
 		/// </summary>
 		public int OriginalColumn(int piX, int piRow)
 		{
@@ -111,26 +113,7 @@ namespace UWDataImport.UWData
 		/// <summary>The same for a frame widened by the given columns (UWClassicWide.OriginalX).</summary>
 		public static int OriginalColumn(int piX, int piRow, int piExtra)
 		{
-			if (piExtra <= 0)
-				return piX;
-
-			int liLeft = piExtra / 2;
-			int liCutLeft = UWHudArt.ClassicWideCut(piRow, 0);
-			int liCutRight = UWHudArt.ClassicWideCut(piRow, 1);
-
-			if (piX < liCutLeft)
-				return piX;
-
-			if (piX < liCutLeft + liLeft)
-				return -1;
-
-			if (piX < liCutRight + liLeft)
-				return piX - liLeft;
-
-			if (piX < liCutRight + piExtra)
-				return -1;
-
-			return piX - piExtra;
+			return UWClassicWideGeometry.Uw1.OriginalColumn(piX, piRow, piExtra);
 		}
 
 		// ------------------------------------------------- Pictures on the screen

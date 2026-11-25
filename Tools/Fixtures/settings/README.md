@@ -42,6 +42,9 @@ format stay tied to what Unity writes.
   property at its default. Every older fixture reads it 1 (the picture as drawn).
 - `dither-cell-2026-10-30.json`: a dither grain of its own (the Dither grain row), the one number added
   since; every other property at its default. Every older fixture reads 0, the original's pixel.
+- `layout-per-game-2026-11-23.json`: the layout per game (UW2 plan part U4e step 3): the second game's layout in
+  force and the first game's waiting as JSON (a text with quotes inside quotes), the number and the text added since;
+  every other property at its default. Every older fixture reads 0 (the first game's) and no other layout.
 
 Record the expected and written files once with `UW_RECORD=1` in the environment after a
 deliberate change to how a value is read or written (a new field changes every `.written`

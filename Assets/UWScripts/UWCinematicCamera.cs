@@ -687,7 +687,7 @@ public sealed class UWCinematicCamera : MonoBehaviour
 
     private static string fGame()
     {
-        return UWWalkUw2.IsWalking ? "UW2" : "UW1";
+        return UWGameStartUw2.IsRunning ? "UW2" : "UW1";
     }
 
     private void fLoad()
@@ -756,7 +756,7 @@ public sealed class UWCinematicCamera : MonoBehaviour
         Debug.Log("[Cinematic] " + psLine);
 
         // The second game's lines go to its own scroll (as the trap firings' do, UWTriggerSystem.fScrollUw2).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             UWGameScreenUw2.Say(psLine);
 

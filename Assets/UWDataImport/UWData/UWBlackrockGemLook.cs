@@ -54,9 +54,8 @@ namespace UWDataImport.UWData
 				if (lbAllUsed)
 					return AllUsedBody;
 
-				int liStep = (int)((plGameTime >> 6) & 7);
-
-				return FirstBodyColour + (liStep > 3 ? 7 - liStep : liStep);
+				// The clock step of every colour animated by the clock (do_rect's flag 0x80, UWMoongateLook).
+				return FirstBodyColour + UWMoongateLook.ClockStep(plGameTime);
 			}
 
 			int liFacet = FacetOf(piRegister);

@@ -48,6 +48,23 @@ public sealed class UWModernConversationHostUw1 : IUWModernConversationHost
 
     public int PortraitVersion => 0;
 
+    public string PreviewPlayerName
+    {
+        get
+        {
+            UWPlayerData lOPlayer = Data != null ? Data.InitialPlayer : null;
+
+            return lOPlayer != null && !string.IsNullOrEmpty(lOPlayer.Name) ? lOPlayer.Name : "Avatar";
+        }
+    }
+
+    public int PreviewPlayerPortrait => UWConversationLayout.PlayerPortrait(Data != null ? Data.InitialPlayer : null);
+
+    /// <summary>Shak at his forge (CHARHEAD 1), as the preview had him from the start.</summary>
+    public string PreviewPartnerName => "Shak";
+
+    public int PreviewPartnerPortrait => 1;
+
     public float RightEdge
     {
         get

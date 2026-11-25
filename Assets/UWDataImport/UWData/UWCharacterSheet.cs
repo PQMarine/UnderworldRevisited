@@ -16,6 +16,12 @@ namespace UWDataImport.UWData
 	///
 	/// One sheet per page: it keeps that page's spelling and list offset; Bind hands in the
 	/// sources before reading (the values are read live, nothing is cached).
+	///
+	/// THE SECOND GAME'S ORIGINAL PAGE (UW2 plan, stage U5 step 1, 2026-11-23): its list has 21
+	/// entries, the skill points first (uw2 STATS.C sp_skill: row + skill_top - 1, the row at -1 the
+	/// points with the word 0x1F + 100), the skill words upper-cased (seg039_3452 get_string), the
+	/// offset 0 to 15 for six rows (mous_in_stat's mvcheck to 0xF). Bind's game says whose page it
+	/// is; the readable spelling keeps the first game's list on both.
 	/// </summary>
 	public sealed class UWCharacterSheet
 	{
@@ -34,6 +40,13 @@ namespace UWDataImport.UWData
 
 		/// <summary>The entries of the skill list: Attack and Defense, then the eighteen skills.</summary>
 		public const int SkillEntries = UWCharacterText.SkillEntryCount;
+
+		/// <summary>The entry of the second game's original page for the skill points (EntryAtRow's -1).</summary>
+		public const int PointsEntry = -1;
+
+		/// <summary>The skill points' word on the second game's page: the skill words' base plus 100 (uw2
+		/// STATS.C:119 sk = 100, get_string((sk + 0x1F) | STR_CHARGEN)).</summary>
+		public const int SecondGamePointsWord = 100;
 
 		/// <summary>The six values, in the order of the original's page (its labels STR to EXP are
 		/// in the picture).</summary>
@@ -75,6 +88,9 @@ namespace UWDataImport.UWData
 
 		private UWPlayerVitals mOVitals;
 
+		/// <summary>The second game's original page: the points first, the words upper case.</summary>
+		private bool mbSecondGamePage;
+
 		public UWCharacterSheet(SpellingEnum peSpelling, int piSkillRows = 0)
 		{
 			Spelling = peSpelling;
@@ -82,12 +98,18 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The sources the sheet reads: the game's strings (the words), the player data
-		/// (the name and the class) and the live vitals (every number). Any may be null.</summary>
-		public UWCharacterSheet Bind(UWStrings pOStrings, UWPlayerData pOPlayer, UWPlayerVitals pOVitals)
+		/// (the name and the class) and the live vitals (every number). Any may be null. peGame is
+		/// whose page the original spelling follows (the second game's list, see above).</summary>
+		public UWCharacterSheet Bind(UWStrings pOStrings, UWPlayerData pOPlayer, UWPlayerVitals pOVitals, UWGame peGame = UWGame.Uw1)
 		{
 			mOStrings = pOStrings;
 			mOPlayer = pOPlayer;
 			mOVitals = pOVitals;
+			mbSecondGamePage = peGame == UWGame.Uw2 && fIsOriginal;
+
+			// Another game's list may be shorter: the offset stays on it.
+			if (SkillOffset > MaxSkillOffset)
+				SkillOffset = MaxSkillOffset;
 
 			return this;
 		}
@@ -210,6 +232,19 @@ namespace UWDataImport.UWData
 			psName = string.Empty;
 			psValue = string.Empty;
 
+			if (piEntry == PointsEntry && mbSecondGamePage)
+			{
+				string lsPoints = UWCharacterText.SkillName(mOStrings, SecondGamePointsWord, null);
+
+				if (lsPoints == null)
+					return true;
+
+				psName = lsPoints.ToUpper();
+				psValue = mOVitals != null ? SkillPoints.ToString() : string.Empty;
+
+				return true;
+			}
+
 			if (piEntry < 0 || piEntry >= SkillEntries)
 				return false;
 
@@ -220,7 +255,7 @@ namespace UWDataImport.UWData
 				if (lsWord == null)
 					return true;
 
-				psName = lsWord;
+				psName = mbSecondGamePage ? lsWord.ToUpper() : lsWord;
 			}
 			else
 				psName = SkillName(piEntry);
@@ -252,21 +287,28 @@ namespace UWDataImport.UWData
 			return mOVitals.GetSkillByNumber(piEntry).ToString();
 		}
 
-		/// <summary>The entry a row of the shown list stands for (SkillOffset on).</summary>
+		/// <summary>The entry a row of the shown list stands for (SkillOffset on); on the second game's
+		/// page the list's first row is the points (PointsEntry).</summary>
 		public int EntryAtRow(int piRow)
 		{
-			return SkillOffset + piRow;
+			return SkillOffset + piRow - (mbSecondGamePage ? 1 : 0);
+		}
+
+		/// <summary>The list's length: the twenty entries, on the second game's page the points before them.</summary>
+		public int ListLength
+		{
+			get { return SkillEntries + (mbSecondGamePage ? 1 : 0); }
 		}
 
 		/// <summary>The highest offset: the list's last page ends with its last entry.</summary>
 		public int MaxSkillOffset
 		{
-			get { return SkillEntries - SkillRows; }
+			get { return ListLength - SkillRows; }
 		}
 
 		/// <summary>Pages the list by entries: -1 back, 1 forward, clamped to the list (the
-		/// original's click pages one entry, ovr145_445, the offset clamped to 0..14). True when the
-		/// offset moved.</summary>
+		/// original's click pages one entry, ovr145_445, the offset clamped to 0..14; the second
+		/// game's to 0..15). True when the offset moved.</summary>
 		public bool PageSkills(int piStep)
 		{
 			int liOffset = SkillOffset + piStep;

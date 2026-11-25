@@ -39,8 +39,8 @@ public sealed class UWWorldUse
     /// <summary>
     /// THE AUTOMATIC KEY: the scheme's (UWUiSchemePolicy.KeyUsedAutomatically, the modern one) and the player's switch
     /// (UWUserSettings.AutoKey, Gameplay, Aids; 2026-11-19, a wish from a forum post). Off, the key is used by hand as in
-    /// the original, and the crosshair shows no key (UWModernWorldInput.GetCrosshairLock). The second game has no
-    /// automatic key: its key waits on the use key (UWAttackUw2.ApplyWaitingUseOn).
+    /// the original, and the crosshair shows no key (UWModernWorldInput.GetCrosshairLock). The second game's since part
+    /// U4e step 2 of the UW2 plan (UWLockUseUw2.KeyAtHand, UWWorldViewUw2.CrosshairLock), through its own lock rule.
     /// </summary>
     public static bool KeyUsedAutomatically => UWControlScheme.Ui.Policy.KeyUsedAutomatically && UWUserSettings.AutoKey;
 

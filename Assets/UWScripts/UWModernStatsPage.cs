@@ -19,35 +19,20 @@ using UWDataImport.UWData;
 /// THE LIST PAGES as in the original (ovr145_445): a left click in the page's bottom eight rows,
 /// left of x 37 back, from 37 on forward, one entry per click; the wheel over the page does the
 /// same. With the pointer free; the page counts as interface (UWModernHud.IsOverParts).
+///
+/// PER GAME (UW2 plan, stage U5 step 1, 2026-11-23): the places, the colours, the paging strip and
+/// whether the page is opaque are the running game's (UWStatsPageGeometry), the list is the
+/// host's sheet (the second game's begins with the skill points). The first game's numbers are the
+/// ones this page had as constants.
 /// </summary>
 public class UWModernStatsPage : IUWModernPart
 {
-    private const int NameY = 7;
+    private const int SkillRows = UWStatsPageGeometry.SkillRows;
 
-    private const int ClassY = 14;
+    private const int RowHeight = UWStatsPageGeometry.RowHeight;
 
-    private const int FirstRowY = 21;
-
-    private const int RowHeight = 7;
-
-    private const int LabelLeft = 6;
-
-    private const int ValueRight = 76;
-
-    private const int SkillFirstRowY = 64;
-
-    private const int SkillRows = 6;
-
-    /// <summary>The paging: the bottom eight rows, split at x 37.</summary>
-    private const int PagingTop = 106;
-
-    private const int PagingSplit = 37;
-
-    private static readonly Color msValue = Color.black;
-
-    private static readonly Color msSkill = new Color(0x62 / 255f, 0x64 / 255f, 0x7F / 255f, 1f);
-
-    private readonly UWGameUI mOUi;
+    /// <summary>The running game's measures, as of the last drawing.</summary>
+    private UWStatsPageGeometry mOGeometry = UWStatsPageGeometry.Uw1;
 
     private RawImage mOPage;
 
@@ -64,9 +49,8 @@ public class UWModernStatsPage : IUWModernPart
     /// <summary>Where it was drawn (bottom-left origin); empty while hidden.</summary>
     public Rect ScreenRect { get; private set; }
 
-    public UWModernStatsPage(UWGameUI pOUi)
+    public UWModernStatsPage()
     {
-        mOUi = pOUi;
     }
 
     /// <summary>The page's parts in one group, which the classic frame's panel turn squeezes
@@ -86,7 +70,7 @@ public class UWModernStatsPage : IUWModernPart
 
         // Unity's own alignment and colour: each line gets its own when it is placed (fLine).
         for (int liAt = 0; liAt < mOLines.Length; liAt++)
-            mOLines[liAt] = UWUiKit.CreateText(pORoot, "Stats line " + liAt, TextAnchor.UpperLeft, Color.white, mOUi, UWUiKit.StatsText);
+            mOLines[liAt] = UWUiKit.CreateText(pORoot, "Stats line " + liAt, TextAnchor.UpperLeft, Color.white, UWModernUi.TextUi, UWUiKit.StatsText);
     }
 
     /// <summary>Once a frame while the modern HUD shows; pfPixelScale is UWModernUi.PixelScale.</summary>
@@ -99,15 +83,17 @@ public class UWModernStatsPage : IUWModernPart
 
         UWModernClassicFrame.ApplySquash(mOContent);
 
-        if (!UWModernLayout.IsStatsPanelShown || mOUi == null || mOUi.mOUWData == null || mOUi.mCharacter == null)
+        if (!UWModernLayout.IsStatsPanelShown || UWModernUi.Session == null || UWModernUi.Data == null)
         {
             Hide();
             return;
         }
 
-        // The original's stats page, shared and following the colour help in place (UWGrTextures).
-        mOPageTexture = UWGrTextures.Get(mOUi.mOUWData.Textures, UWTexture.TextureTypes.PANELS, 2, mOUi.TextureFilterMode,
-            UWGrTextures.ModeEnum.Picture);
+        // The original's stats page, shared and following the colour help in place (UWGrTextures); the second game's
+        // opaque everywhere (its near black is no clear colour).
+        mOGeometry = UWStatsPageGeometry.Of(UWModernUi.Data.Textures);
+        mOPageTexture = UWGrTextures.Get(UWModernUi.Data.Textures, UWTexture.TextureTypes.PANELS, 2, UWModernUi.Filter,
+            mOGeometry.IsPageOpaque ? UWGrTextures.ModeEnum.Opaque : UWGrTextures.ModeEnum.Picture);
 
         if (mOPageTexture == null)
         {
@@ -129,24 +115,27 @@ public class UWModernStatsPage : IUWModernPart
         mOPage.enabled = true;
         UWUiKit.SetRect(mOPage.rectTransform, lOPlaced.x, lOPlaced.y, lOPlaced.width, lOPlaced.height);
 
-        UWCharacterSheet lOSheet = mOSheet.Bind(mOUi.mOUWData.Strings, mOUi.mOUWData.InitialPlayer, mOUi.mCharacter.Vitals);
+        UWCharacterSheet lOSheet = UWModernUi.Session.Character.BindSheet(mOSheet);
         int liFont = Mathf.Max(8, Mathf.RoundToInt(6.8f * miScale));
+        UWStatsPageGeometry lOAt = mOGeometry;
+        Color lOValue = UWUiKit.Colour(lOAt.ValueColour(UWModernUi.Data.Palettes));
+        Color lOSkill = UWUiKit.Colour(lOAt.SkillColour(UWModernUi.Data.Palettes));
 
-        fLine(0, lOSheet.Name, NameY, TextAnchor.MiddleCenter, 0, msValue, liFont, lOPlaced);
-        fLine(1, lOSheet.ClassName, ClassY, TextAnchor.MiddleLeft, LabelLeft, msValue, liFont, lOPlaced);
-        fLine(2, lOSheet.LevelText, ClassY, TextAnchor.MiddleRight, ValueRight, msValue, liFont, lOPlaced);
+        fLine(0, lOSheet.Name, lOAt.NameTop, TextAnchor.MiddleCenter, lOAt.NameCentreX, lOValue, liFont, lOPlaced);
+        fLine(1, lOSheet.ClassName, lOAt.ClassTop, TextAnchor.MiddleLeft, lOAt.LabelLeft, lOValue, liFont, lOPlaced);
+        fLine(2, lOSheet.LevelText, lOAt.ClassTop, TextAnchor.MiddleRight, lOAt.ValueRight, lOValue, liFont, lOPlaced);
 
         for (int liRow = 0; liRow < UWCharacterSheet.ValueCount; liRow++)
-            fLine(3 + liRow, lOSheet.Value(liRow), FirstRowY + (liRow * RowHeight), TextAnchor.MiddleRight, ValueRight, msValue, liFont, lOPlaced);
+            fLine(3 + liRow, lOSheet.Value(liRow), lOAt.ValueTop(liRow), TextAnchor.MiddleRight, lOAt.ValueRight, lOValue, liFont, lOPlaced);
 
         for (int liRow = 0; liRow < SkillRows; liRow++)
         {
             lOSheet.TryGetSkill(lOSheet.EntryAtRow(liRow), out string lsName, out string lsValue);
 
-            int liY = SkillFirstRowY + (liRow * RowHeight);
+            int liY = lOAt.SkillTop(liRow);
 
-            fLine(9 + liRow, lsName, liY, TextAnchor.MiddleLeft, LabelLeft, msSkill, liFont, lOPlaced);
-            fLine(9 + SkillRows + liRow, lsValue, liY, TextAnchor.MiddleRight, ValueRight, msSkill, liFont, lOPlaced);
+            fLine(9 + liRow, lsName, liY, TextAnchor.MiddleLeft, lOAt.LabelLeft, lOSkill, liFont, lOPlaced);
+            fLine(9 + SkillRows + liRow, lsValue, liY, TextAnchor.MiddleRight, lOAt.ValueRight, lOSkill, liFont, lOPlaced);
         }
     }
 
@@ -173,8 +162,9 @@ public class UWModernStatsPage : IUWModernPart
             float lfX = (lOPointer.x - ScreenRect.x) / (miScale * UWModernHudArt.PixelAspectX);
             float lfY = (ScreenRect.yMax - lOPointer.y) / miScale;
 
-            if (lfY >= PagingTop)
-                liStep = lfX < PagingSplit ? -1 : 1;
+            // The running game's strip: the first game's bottom eight rows split at 37, the second game's
+            // bottom ten of the panel's mouse region split at 43 (UWStatsPageGeometry).
+            liStep = mOGeometry.PagingStepAt(lfX, lfY);
         }
 
         if (liStep != 0)
@@ -195,8 +185,8 @@ public class UWModernStatsPage : IUWModernPart
             lOLine.enabled = false;
     }
 
-    /// <summary>A line at a page row: left from x, right-aligned to x, or centred on the page.</summary>
-    private void fLine(int piAt, string psText, int piY, TextAnchor peAlign, int piX, Color pOColour, int piFont, Rect pOPage)
+    /// <summary>A line at a page row: left from x, right-aligned to x, or centred on x.</summary>
+    private void fLine(int piAt, string psText, int piY, TextAnchor peAlign, float pfX, Color pOColour, int piFont, Rect pOPage)
     {
         Text lOText = mOLines[piAt];
 
@@ -213,9 +203,9 @@ public class UWModernStatsPage : IUWModernPart
         float lfAspect = miScale * UWModernHudArt.PixelAspectX;
         float lfTop = pOPage.yMax - (piY * miScale);
         float lfHeight = RowHeight * miScale;
-        float lfX = peAlign == TextAnchor.MiddleCenter ? pOPage.x
-            : peAlign == TextAnchor.MiddleRight ? pOPage.x + (piX * lfAspect) - pOPage.width
-            : pOPage.x + (piX * lfAspect);
+        float lfX = peAlign == TextAnchor.MiddleCenter ? pOPage.x + (pfX * lfAspect) - (pOPage.width * 0.5f)
+            : peAlign == TextAnchor.MiddleRight ? pOPage.x + (pfX * lfAspect) - pOPage.width
+            : pOPage.x + (pfX * lfAspect);
 
         UWUiKit.SetRect(lOText.rectTransform, lfX, lfTop - lfHeight, pOPage.width, lfHeight);
     }

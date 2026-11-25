@@ -294,9 +294,23 @@ namespace UWDataImport.UWData
 		/// <summary>The log's colours by code from palette 0, or - while no palette is loaded - the
 		/// fallback colour for every code (pbFromPalette false: such a table is not to be kept).
 		/// </summary>
+		/// <summary>The palette indices of the colour codes for a game: the second game's log has its own (font_color and
+		/// spec_col, UWClassicLayoutUw2.MessageLog.ColourIndices; UW2 plan stage U6 step 2b, the modern scroll and message
+		/// box read the first game's until then).</summary>
+		public static int[] ColourIndicesOf(UWGame peGame)
+		{
+			return peGame == UWGame.Uw2 ? UWClassicLayoutUw2.MessageLog.ColourIndices : ColourIndices;
+		}
+
 		public static UWColor32[] ColourTable(UWPalettes pOPalettes, out bool pbFromPalette)
 		{
-			UWColor32[] lyTable = new UWColor32[ColourIndices.Length];
+			return ColourTable(pOPalettes, UWGame.Uw1, out pbFromPalette);
+		}
+
+		public static UWColor32[] ColourTable(UWPalettes pOPalettes, UWGame peGame, out bool pbFromPalette)
+		{
+			int[] liIndices = ColourIndicesOf(peGame);
+			UWColor32[] lyTable = new UWColor32[liIndices.Length];
 			UWPalette lOPalette = pOPalettes != null ? pOPalettes.GetPalette(0) : null;
 
 			pbFromPalette = pOPalettes != null;
@@ -315,7 +329,7 @@ namespace UWDataImport.UWData
 					continue;
 				}
 
-				UWColor32 lOColour = lOPalette.GetUWColor(ColourIndices[liAt]);
+				UWColor32 lOColour = lOPalette.GetUWColor(liIndices[liAt]);
 
 				lyTable[liAt] = new UWColor32(lOColour.R, lOColour.G, lOColour.B, 255);
 			}

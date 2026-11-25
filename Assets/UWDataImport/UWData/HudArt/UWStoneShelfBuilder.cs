@@ -43,7 +43,90 @@ namespace UWDataImport.Presentation
 		/// </summary>
 		public static UWPicture Build(UWTextures pOTextures, int piWidth)
 		{
+			if (pOTextures != null && pOTextures.Game == UWGame.Uw2)
+				return ComposeUw2(UWMainFrame.Picture(pOTextures), piWidth);
+
 			return Compose(UWMainFrame.Picture(pOTextures), piWidth);
+		}
+
+		// ------------------------------------------------- The second game's ledge (UW2 plan stage U6 step 2)
+
+		/// <summary>The second game's narrowest shelf: its two ends and a few columns between.</summary>
+		public const int Uw2MinWidth = UWClassicLayoutUw2.Ledge.LeftCap + UWClassicLayoutUw2.Ledge.RightCap + 4;
+
+		private const uint Uw2LedgeSeed = 0x7F4A7C15u;
+
+		/// <summary>
+		/// THE SECOND GAME'S STONE SHELF, from its marble ledge (UWClassicLayoutUw2.Ledge): its two bevelled ends as they
+		/// are, the marble between grown anew pixel by pixel, column by column from the left (UWTextureSynth.GrowFrom, as
+		/// the first game's band), each pixel taking the ledge's pixel of the same row whose surroundings match best -
+		/// drawn only from its plain marble, never from the three hollows (spells, compass, runes) nor the ends. The
+		/// ledge between its hollows is only a few columns wide each time, too little for the first game's pieces; grown
+		/// row by row it keeps the top's light rim and the marble's veins. The same shelf every time; a wider one grows on
+		/// the right.
+		/// </summary>
+		public static UWPicture ComposeUw2(UWPicture pOMain, int piWidth)
+		{
+			UWPicture lOLedge = pOMain.Crop(UWClassicLayoutUw2.Ledge.Place);
+			int liSourceWidth = lOLedge.Width;
+			int liRows = lOLedge.Height;
+			int liLeftCap = UWClassicLayoutUw2.Ledge.LeftCap;
+			int liRightCap = UWClassicLayoutUw2.Ledge.RightCap;
+			UWMask lOUsable = new UWMask(liSourceWidth, liRows);
+			List<int> lOColumns = new List<int>();
+
+			UWPixelOps.MakeOpaque(lOLedge);
+
+			// The plain marble: not the ends, not a hollow (the compass's by its mask, raised rim and all).
+			for (int x = liLeftCap; x < liSourceWidth - liRightCap; x++)
+			{
+				bool lbAny = false;
+
+				for (int y = 0; y < liRows; y++)
+				{
+					int liX = UWClassicLayoutUw2.Ledge.Left + x;
+					int liY = UWClassicLayoutUw2.Ledge.Top + y;
+					bool lbHollow = fIn(UWClassicLayoutUw2.SpellHollow.Place, liX, liY) || fIn(UWClassicLayoutUw2.RuneHollow.Place, liX, liY)
+						|| (fIn(UWClassicLayoutUw2.CompassRecess.Place, liX, liY)
+							&& UWHudMasks.CompassRecessUw2.Is(liX - UWClassicLayoutUw2.CompassRecess.Left, liY - UWClassicLayoutUw2.CompassRecess.Top, 'X'));
+
+					lOUsable[x, y] = !lbHollow;
+					lbAny |= !lbHollow;
+				}
+
+				// Two columns off each side of the picture's edge, so the surroundings stay in it.
+				if (lbAny && x >= 2 && x < liSourceWidth - 2)
+					lOColumns.Add(x);
+			}
+
+			int liWidth = Math.Max(Uw2MinWidth, piWidth);
+			UWPicture lOShelf = new UWPicture(liWidth, liRows);
+			UWMask lOKnown = new UWMask(liWidth, liRows);
+
+			for (int y = 0; y < liRows; y++)
+			{
+				for (int x = 0; x < liLeftCap; x++)
+				{
+					lOShelf.Set(x, y, lOLedge.Get(x, y));
+					lOKnown[x, y] = true;
+				}
+
+				for (int x = 0; x < liRightCap; x++)
+				{
+					lOShelf.Set(liWidth - liRightCap + x, y, lOLedge.Get(liSourceWidth - liRightCap + x, y));
+					lOKnown[liWidth - liRightCap + x, y] = true;
+				}
+			}
+
+			UWTextureSynth.GrowFrom(lOShelf, lOKnown, liLeftCap, liWidth - liRightCap, 0, liRows, 0, liRows, lOLedge, lOUsable, 0,
+				lOColumns.ToArray(), 4, new UWSeededRandom(Uw2LedgeSeed));
+
+			return lOShelf;
+		}
+
+		private static bool fIn(UWRectInt pORect, int piX, int piY)
+		{
+			return piX >= pORect.X && piY >= pORect.Y && piX < pORect.X + pORect.Width && piY < pORect.Y + pORect.Height;
 		}
 
 		public static UWPicture Compose(UWPicture pOMain, int piWidth)

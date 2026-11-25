@@ -23,7 +23,7 @@ using UWDataImport.UWData;
 /// question, or leaves for the main menu from there. The name takes printable characters up to 29 while
 /// they fit the box, no leading space, Backspace, Enter with a name - no Escape, no cursor (pickopt
 /// draws none). "Yes" to keeping the character shows its name and "awakens . . ." on the book and starts
-/// the walk with that character (part B: UWSaveCodec.StartNewCharacterUw2 builds its PLAYER.DAT).
+/// the session with that character (part B: UWSaveCodec.StartNewCharacterUw2 builds its PLAYER.DAT).
 /// </summary>
 public class UWCharacterCreationScreenUw2 : MonoBehaviour
 {
@@ -32,10 +32,10 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
     /// <summary>The name is typed: Escape and the letter keys are the name's (UWBack, UWLetterGrid).</summary>
     public static bool IsTypingName { get; private set; }
 
-    /// <summary>"Yes" started the walk: the main menu stays away while the scene starts again.</summary>
-    public static bool IsStartingWalk { get; private set; }
+    /// <summary>"Yes" started the session: the main menu stays away while the scene starts again.</summary>
+    public static bool IsStartingGame { get; private set; }
 
-    /// <summary>The character "Yes" kept, across the scene's start (part B): the walk takes it once
+    /// <summary>The character "Yes" kept, across the scene's start (part B): the session takes it once
     /// (UWLevelLoader, UWSaveCodec.StartNewCharacterUw2).</summary>
     private static UWPlayerData.NewCharacter msPendingCharacter;
 
@@ -50,7 +50,7 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
 
     public bool IsOpen { get; private set; }
 
-    /// <summary>How long the book shows the name and "awakens . . ." before the walk loads - the original
+    /// <summary>How long the book shows the name and "awakens . . ." before the session loads - the original
     /// shows it while it loads the level.</summary>
     public const float AwakensSeconds = 1.5f;
 
@@ -149,7 +149,7 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
 
         fEnsureCanvas();
 
-        IsStartingWalk = false;
+        IsStartingGame = false;
         mfAwakensTime = -1f;
 
         // The first game's deviation (per user, 2026-10-01): the bonus points dealt by hand when chosen.
@@ -187,7 +187,7 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
         if (mfAwakensTime >= 0f)
         {
             if (Time.unscaledTime - mfAwakensTime >= AwakensSeconds)
-                fStartWalk();
+                fStartGame();
 
             return;
         }
@@ -386,18 +386,18 @@ public class UWCharacterCreationScreenUw2 : MonoBehaviour
         mfAwakensTime = Time.unscaledTime;
     }
 
-    private void fStartWalk()
+    private void fStartGame()
     {
-        Debug.Log(string.Format("[Creation] {0}, {1} {2}, Str {3} Dex {4} Int {5}, vitality {6}, mana {7} - starting the walk.",
+        Debug.Log(string.Format("[Creation] {0}, {1} {2}, Str {3} Dex {4} Int {5}, vitality {6}, mana {7} - starting the game.",
             mOGeneration.Name, mOGeneration.SexName, mOGeneration.ClassName,
             mOGeneration.Strength, mOGeneration.Dexterity, mOGeneration.Intelligence, mOGeneration.MaxVitality, mOGeneration.MaxMana));
 
-        IsStartingWalk = true;
+        IsStartingGame = true;
         msPendingCharacter = mOGeneration.Result();
         mfAwakensTime = -1f;
 
         Hide();
-        UWWalkUw2.Request();
+        UWGameStartUw2.Request();
     }
 
     // ------------------------------------------------- The name

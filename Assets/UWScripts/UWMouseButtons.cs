@@ -65,10 +65,10 @@ public static class UWMouseButtons
         return msbLeftIgnored;
     }
 
-    /// <summary>The second game's walk has it in its own command, its Interaction stands idle.</summary>
+    /// <summary>The second game's session has it in its own command, its Interaction stands idle.</summary>
     private static bool fInCombatMode()
     {
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             return UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight;
 
         return UWScene.Interaction != null && UWScene.Interaction.IsCombatModeActive;

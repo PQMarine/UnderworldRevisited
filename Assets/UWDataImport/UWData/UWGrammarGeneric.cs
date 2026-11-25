@@ -717,5 +717,12 @@ namespace UWDataImport.UWData
 
 			return lOName == null ? base.LiteralLabel(psText) : UWText.Capitalised(fPhrase(lOName, 1, fWords(), SubjectCase, true));
 		}
+
+		public override string ChunkLabel(string psText)
+		{
+			UWNameFormat lOName = fParse(psText);
+
+			return lOName == null ? base.ChunkLabel(psText) : fPhrase(lOName, 1, fWords(), SubjectCase, false);
+		}
 	}
 }

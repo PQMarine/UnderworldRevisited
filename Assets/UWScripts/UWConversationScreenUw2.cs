@@ -660,7 +660,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     }
 
     /// <summary>A long look waits with [MORE] in the answer scroll, or for the buttons to come up after its last page:
-    /// the walk's panels take no click meanwhile (UWGameScreenUw2.fUpdatePaging).</summary>
+    /// the session's panels take no click meanwhile (UWGameScreenUw2.fUpdatePaging).</summary>
     public static bool IsLookPaging => msOCurrent != null && IsOpen && msOCurrent.mOView != null && msOCurrent.mOView.IsLookTextShown
         && (msOCurrent.mOLookPending.Count > 0 || msOCurrent.mbLookPageRelease);
 
@@ -724,8 +724,8 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
 
     /// <summary>
     /// A TEXT LONGER THAN THE ANSWER SCROLL WAITS WITH [MORE] (per user 2026-11-20 on the original, Devrow's letter in a
-    /// conversation: four lines and [MORE], then the rest filling the scroll; outside a conversation the smaller walk
-    /// scroll asks twice). The walk scroll's paging (UWGameScreenUw2.fShowNextPage, scroll_more): four lines a page - the
+    /// conversation: four lines and [MORE], then the rest filling the scroll; outside a conversation the smaller session
+    /// scroll asks twice). The session scroll's paging (UWGameScreenUw2.fShowNextPage, scroll_more): four lines a page - the
     /// scroll's five less the [MORE] row -, the older lines scroll away, so "You see a book." and "You read the book..."
     /// have left the scroll before the first [MORE]. While [MORE] waits no time runs; the look's two seconds start with
     /// the last page.
@@ -831,10 +831,8 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         if (Time.frameCount == miLookPageFrame)
             return true;
 
-        UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
-
-        if (UWMouseButtons.AnyPressed || (lOKeyboard != null && !IsKeyboardTaken && lOKeyboard.anyKey.wasPressedThisFrame)
-            || UWGamepad.AnyPressed(false))
+        // The routine of both games (UWPageInput): one page a frame, a click's release no second one.
+        if (UWPageInput.TryConfirm(!IsKeyboardTaken))
             fNextLookPage();
 
         return true;
@@ -873,6 +871,8 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     /// release, or takes when the pointer is dragged off: the player's own at any time, the partner's once a
     /// deal has left them to take.
     /// </summary>
+    private bool mbTradePressHeld;
+
     private void fUpdateTrade()
     {
         UWConversationTrade lOTrade = mOSession.Trade;
@@ -881,6 +881,14 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         if (lOTrade == null || lOInventory == null)
             return;
 
+        Mouse lOMouse = UWMouseButtons.GameMouse;
+
+        // Whether the left button's hold began on a trade slot (below): its release is that press's own.
+        bool lbOwnPress = mbTradePressHeld;
+
+        if (lOMouse == null || !lOMouse.leftButton.isPressed)
+            mbTradePressHeld = false;
+
         if (miPressedSlot >= 0)
         {
             fFollowSlotPress(lOTrade, lOInventory);
@@ -888,7 +896,20 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             return;
         }
 
-        Mouse lOMouse = UWMouseButtons.GameMouse;
+        // A THING DRAGGED FROM A BAG WINDOW AND LET GO OVER THE PLAYER'S SLOT goes there (UW2 plan, the modern
+        // interface's part U4b step 3, 2026-11-23: the first game's bag windows drag with the button held, and their
+        // own trade slots are the first game's conversation's). The same drop as the press with a thing on the pointer.
+        if (IsModern && !lbOwnPress && lOMouse != null && lOMouse.leftButton.wasReleasedThisFrame && lOInventory.CursorItem != null
+            && UWModernConversation.Instance != null
+            && UWModernConversation.Instance.TryGetTradeSlotAt(UWPointer.Position, out bool lbDropNpc, out int liDropAt) && !lbDropNpc)
+        {
+            UWObject lODropBack = lOTrade.DropOnPlayerSlot(liDropAt, lOInventory.TakeCursorItem());
+
+            if (lODropBack != null)
+                lOInventory.PickUpToCursor(lODropBack);
+
+            return;
+        }
 
         if (lOMouse == null || miOpenedFrame == Time.frameCount || !(lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame))
             return;
@@ -915,6 +936,9 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
 
         if (liSlot < 0)
             return;
+
+        if (lOMouse.leftButton.wasPressedThisFrame)
+            mbTradePressHeld = true;
 
         if (lOInventory.CursorItem != null)
         {
@@ -1173,10 +1197,10 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             lOPiece.gameObject.SetActive(false);
 
         foreach (string lsCall in lOSession.RulesToCome)
-            Debug.Log("[Walk] The conversation called " + lsCall + " (its rules come in phase 4).");
+            Debug.Log("[Session] The conversation called " + lsCall + " (its rules come in phase 4).");
 
         foreach (string lsCall in lOSession.MissingFunctions)
-            Debug.Log("[Walk] The conversation called " + lsCall + ", which is not built.");
+            Debug.Log("[Session] The conversation called " + lsCall + ", which is not built.");
 
         // free_converse: Sched_SetAllClocks(1) while the partner is still talking_to (a kill row spares it), then
         // do_babl_teleport (G6 part 1).
@@ -1184,11 +1208,11 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
 
         // do_babl_teleport: the talker first in ours, the player's move below changes the level (G5 part 2).
         if (lOSession.HasTalkerTeleport && !lOSession.DoTalkerTeleport())
-            Debug.Log("[Walk] The talker's teleport to " + lOSession.TalkerTeleportX + "/" + lOSession.TalkerTeleportY + " found no room.");
+            Debug.Log("[Session] The talker's teleport to " + lOSession.TalkerTeleportX + "/" + lOSession.TalkerTeleportY + " found no room.");
 
         if (lOSession.HasPlayerTeleport && UWScene.LevelLoader != null)
         {
-            UWScene.LevelLoader.WalkTeleport(new UWTeleportUw2.Target
+            UWScene.LevelLoader.Uw2Teleport(new UWTeleportUw2.Target
             {
                 Level = lOSession.TeleportLevel,
                 TileX = lOSession.TeleportX,
@@ -1205,7 +1229,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             UWEndingUw2.Play();
         else if (liCutscene >= 0 && UWScene.IntroPlayer != null)
         {
-            Debug.Log("[Walk] The conversation's cutscene " + liCutscene + ".");
+            Debug.Log("[Session] The conversation's cutscene " + liCutscene + ".");
             UWScene.IntroPlayer.PlayCutscene(liCutscene);
         }
     }

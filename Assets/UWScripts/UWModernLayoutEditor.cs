@@ -53,8 +53,6 @@ public partial class UWModernLayoutEditor : MonoBehaviour
     /// <summary>Screen pixels within which an edge snaps.</summary>
     private const float SnapDistance = 10f;
 
-    private UWGameUI mOUi;
-
     private Canvas mOCanvas;
 
     private readonly Image[][] mOLines = new Image[UWModernLayout.ElementCount][];
@@ -183,7 +181,6 @@ public partial class UWModernLayoutEditor : MonoBehaviour
 
     private void Start()
     {
-        mOUi = GetComponent<UWGameUI>();
     }
 
     private void OnDestroy()
@@ -354,23 +351,23 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         }
     }
 
-    /// <summary>The modern message box one line taller or shorter (Interaction.ModernMessageCount).</summary>
+    /// <summary>The modern message box one line taller or shorter (UWMessageLog.ModernShownCount).</summary>
     private static void fStepModernMessageLines(int piStep)
     {
-        UWUserSettings.ModernMessageLines = Mathf.Clamp(Interaction.ModernMessageCount + piStep,
-            UWModernScroll.MinLines, Interaction.MessageHistoryCount);
+        UWUserSettings.ModernMessageLines = Mathf.Clamp(UWMessageLog.ModernShownCount + piStep,
+            UWModernScroll.MinLines, UWMessageLog.HistoryCount);
     }
 
     /// <summary>The messages' line setting of the style shown: the scroll's or the dark box's.</summary>
     private static int fMessageLines()
     {
-        return UWModernLayout.IsScrollShown ? UWModernScroll.Lines : Interaction.ModernMessageCount;
+        return UWModernLayout.IsScrollShown ? UWModernScroll.Lines : UWMessageLog.ModernShownCount;
     }
 
     /// <summary>The rows the style shows for it - the scroll's paper has one more (UWModernScroll.Rows).</summary>
     private static int fMessageRows()
     {
-        return UWModernLayout.IsScrollShown ? UWModernScroll.Rows : Interaction.ModernMessageCount;
+        return UWModernLayout.IsScrollShown ? UWModernScroll.Rows : UWMessageLog.ModernShownCount;
     }
 
     private static void fSetMessageLines(int piLines)
@@ -378,7 +375,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         if (UWModernLayout.IsScrollShown)
             UWUserSettings.ModernScrollLines = Mathf.Clamp(piLines, UWModernScroll.MinLines, UWModernScroll.MaxLines);
         else
-            UWUserSettings.ModernMessageLines = Mathf.Clamp(piLines, UWModernScroll.MinLines, Interaction.MessageHistoryCount);
+            UWUserSettings.ModernMessageLines = Mathf.Clamp(piLines, UWModernScroll.MinLines, UWMessageLog.HistoryCount);
     }
 
     /// <summary>The pointer on the message box's top edge, a little beyond it either way.</summary>
@@ -769,7 +766,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (!UWModernLayout.IsEditing || mOUi == null || mOUi.mOUWData == null)
+        if (!UWModernLayout.IsEditing || !UWModernUi.Has(UWModernPartEnum.LayoutEditor) || UWModernUi.Data == null)
         {
             if (mOCanvas != null)
                 mOCanvas.enabled = false;
@@ -1136,7 +1133,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         if (mOPreviews.TryGet(liKey, lOStamp, out Texture2D lOTexture))
             return lOTexture;
 
-        if (mOUi == null || mOUi.mOUWData == null)
+        if (!UWModernUi.Has(UWModernPartEnum.LayoutEditor) || UWModernUi.Data == null)
             return null;
 
         UWModernBacks.Back lOBack = new UWModernBacks.Back
@@ -1148,7 +1145,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         };
 
         return mOPreviews.Set(liKey, lOStamp,
-            UWModernHudArt.BuildBackdrop(mOUi.mOUWData.Textures, PreviewWidth, PreviewHeight, lOBack, FilterMode.Point, piColour + 1));
+            UWModernHudArt.BuildBackdrop(UWModernUi.Data.Textures, PreviewWidth, PreviewHeight, lOBack, FilterMode.Point, piColour + 1));
     }
 
     /// <summary>The height a row of the inspector takes: an Info line half a row more - on the kit as
@@ -1486,7 +1483,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         if (peStart == UWDataImport.UWData.UWLayoutStart.Custom)
             return;
 
-        UWDataImport.UWData.UWLayoutPresets.Apply(peStart, UWUserSettings.Data);
+        UWDataImport.UWData.UWLayoutPresets.Apply(peStart, UWUserSettings.Data, UWModernClassicPlus.Game);
 
         UWModernLayout.Reload();
         UWModernBacks.Reloaded();
@@ -1500,7 +1497,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         // layout just set).
         if (peStart == UWDataImport.UWData.UWLayoutStart.ClassicModular)
             UWUserSettings.ModernStoneShelfWidth = Mathf.Max(UWDataImport.Presentation.UWHudArt.StoneShelfMinWidth,
-                UWModernStoneShelf.StoneShelfMaxWidth - UWDataImport.UWData.UWTextures.PanelWidth);
+                UWModernStoneShelf.StoneShelfMaxWidth - UWModernClassicPlus.PageWidth);
 
         miSelected = -1;
     }
@@ -1696,9 +1693,9 @@ public partial class UWModernLayoutEditor : MonoBehaviour
                 mOLines[liAt][liLine] = UWUiKit.CreateImage(lORootRect, "Frame", msGoldDim);
 
             mOTags[liAt] = UWUiKit.CreateImage(lORootRect, "Tag", Color.black);
-            mOTagTexts[liAt] = UWUiKit.CreateText(lORootRect, "Name", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi, UWUiKit.EditorText);
+            mOTagTexts[liAt] = UWUiKit.CreateText(lORootRect, "Name", TextAnchor.MiddleCenter, UWModernPalette.Text, UWModernUi.TextUi, UWUiKit.EditorText);
             mOHandles[liAt] = UWUiKit.CreateImage(lORootRect, "Handle", UWModernPalette.Gold);
-            mOPercents[liAt] = UWUiKit.CreateText(lORootRect, "Size", TextAnchor.LowerRight, UWModernPalette.Text, mOUi, UWUiKit.EditorText);
+            mOPercents[liAt] = UWUiKit.CreateText(lORootRect, "Size", TextAnchor.LowerRight, UWModernPalette.Text, UWModernUi.TextUi, UWUiKit.EditorText);
         }
 
         mOGrips[0] = UWUiKit.CreateImage(lORootRect, "Grip left", UWModernPalette.Gold);

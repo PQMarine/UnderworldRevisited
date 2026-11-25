@@ -404,18 +404,18 @@ public static class UWAudioService
         {
             UWLevelLoader lOLoader = UWScene.LevelLoader;
 
-            return lOLoader != null && UWWalkUw2.IsWalking ? lOLoader.CurrentLevelIndex + 1 : 1;
+            return lOLoader != null && UWGameStartUw2.IsRunning ? lOLoader.CurrentLevelIndex + 1 : 1;
         }
     }
 
     /// <summary>player->drawn: the fight command chosen.</summary>
-    private static bool fUw2Drawn => UWWalkUw2View.Current != null && UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight;
+    private static bool fUw2Drawn => UWWorldViewUw2.Current != null && UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight;
 
     /// <summary>
     /// EVERY FRAME, THE SECOND GAME (UW2 plan phase 5 part A): with the music off nothing changes (music_on), switched
     /// on it starts again (turn_music). The screens that loop on their own - the menu and the creation (MAINMENU.C:297,
     /// CHARGEN.C:467), a conversation (CONVERSE.C:335), the map (AUTOMAP.C:818) - let a piece over start again,
-    /// loop_music_maybe; the walk keeps the right theme, change_music_maybe (INTERACT.C:115, from the main loop).
+    /// loop_music_maybe; the session keeps the right theme, change_music_maybe (INTERACT.C:115, from the main loop).
     /// </summary>
     private static void fRefreshUw2()
     {
@@ -429,7 +429,7 @@ public static class UWAudioService
         {
             mbUw2MusicOff = false;
 
-            if (msOSelectorUw2.CurrentTheme != 0 || UWWalkUw2View.Current != null)
+            if (msOSelectorUw2.CurrentTheme != 0 || UWWorldViewUw2.Current != null)
             {
                 msOSelectorUw2.TurnOn(fUw2Level);
                 return;
@@ -444,7 +444,7 @@ public static class UWAudioService
             return;
         }
 
-        bool lbLooping = UWMainMenu.IsOpen || UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen || UWWalkUw2View.Current == null;
+        bool lbLooping = UWMainMenu.IsOpen || UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen || UWWorldViewUw2.Current == null;
 
         if (lbLooping)
             msOSelectorUw2.LoopMusicMaybe();

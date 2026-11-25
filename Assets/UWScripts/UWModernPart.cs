@@ -5,9 +5,10 @@ using UnityEngine.UI;
 /// THE BASE OF THE PIECES SPLIT OUT OF UWModernHud (cleanup 5.16, 2026-10-22): what they shared in
 /// copies while they were one class of 2,440 lines.
 ///
-///   - The scene's UI, character, interaction and control scheme, through the HUD that owns the
-///     part (UWModernHud finds them in its Start) - under the names the HUD's fields had, so the
-///     moved code reads as it did.
+///   - The scene's control scheme, through the HUD that owns the part (UWModernHud finds it in
+///     its Start). THE RUNNING GAME through mOSession (IUWModernSession, the modern interface on
+///     interfaces, stages U1 to U3, 2026-11-23): the parts name no game and none of its
+///     components; the fields mOUi, mOCharacter and mOInteraction went with stage U3 part D.
 ///   - The UI's scale as the HUD applied it this frame (miPixelScale), and an element's own size
 ///     on top of it (fScaleOf; fFontOf for its text) - UWModernLayout's size per element.
 ///   - THE SCALE'S CHANGE (OnPixelScale): sizes that follow only from the scale, set again only
@@ -51,11 +52,9 @@ public abstract class UWModernPart : IUWModernPart
     /// <summary>The part's frame, at miPixelScale.</summary>
     protected abstract void fUpdate();
 
-    protected UWGameUI mOUi => mOHud.Ui;
-
-    protected UWCharacter mOCharacter => mOHud.Character;
-
-    protected Interaction mOInteraction => mOHud.Interaction;
+    /// <summary>The running game as the windows see it (UWModernUi.Session): the character, the active spells,
+    /// the messages and the state's pictures since stage U1 (2026-11-23; mOCharacter until then).</summary>
+    protected static IUWModernSession mOSession => UWModernUi.Session;
 
     protected UWControlScheme mOScheme => mOHud.Scheme;
 

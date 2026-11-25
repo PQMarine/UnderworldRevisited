@@ -63,7 +63,7 @@ public class UWModernRunePanel : UWModernDockedPanel
     private const int TitleTop = 4;
 
     /// <summary>The rune shelf picture, centred in the frame; its grid, the compartments' hit test
-    /// and the clear strip are UWRuneShelfModel's (the classic shelf's).</summary>
+    /// and the clear strip are the game's page's (UWRuneTabletGeometry, the classic shelf's).</summary>
     private const int TabletLeft = 7;
 
     private const int TabletTop = 15;
@@ -210,7 +210,6 @@ public class UWModernRunePanel : UWModernDockedPanel
 
     private void Start()
     {
-        mOUi = GetComponent<UWGameUI>();
         mOScheme = GetComponentInParent<UWControlScheme>();
     }
 
@@ -232,30 +231,37 @@ public class UWModernRunePanel : UWModernDockedPanel
     {
         // In Classic Wide only as the frame's tablet page (UWModernClassicFrame), never as a panel.
         return UWModernUi.IsActive && UWModernUi.IsShowing
-            && mOUi != null && mOUi.mOUWData != null && mOUi.mCharacter != null
+            && UWModernUi.Has(UWModernPartEnum.RunePanel) && UWModernUi.Data != null
             && !(UWModernLayout.IsClassic && !UWModernLayout.IsRuneTabletShown);
     }
 
     private DataImport fData()
     {
-        return mOUi != null ? mOUi.mOUWData : null;
+        return UWModernUi.Data;
+    }
+
+    /// <summary>The running game's rune page (PANELS.GR 1): its size, the runes' places and the cells (U4c step 1).</summary>
+    private static UWRuneTabletGeometry fTablet()
+    {
+        return UWRuneTabletGeometry.Of(UWModernUi.Data != null ? UWModernUi.Data.Textures : null);
     }
 
 
     // ------------------------------------------------- The spells, for the panel and the bar
 
-    /// <summary>The bag of the game's character, null without the game's data.</summary>
-    private static UWPlayerData fBag()
+    /// <summary>The running game's magic (IUWModernMagic, stage U3 part B of the modern interface on interfaces,
+    /// 2026-11-23; the first game's player data, UWHudRunes and UWGameActions until then), null without a game.</summary>
+    private static IUWModernMagic fMagic()
     {
-        UWGameUI lOUi = UWScene.GameUi;
-
-        return lOUi != null && lOUi.mOUWData != null ? lOUi.mOUWData.InitialPlayer : null;
+        return UWModernUi.Session != null ? UWModernUi.Session.Magic : null;
     }
 
     /// <summary>Whether every rune of the sequence is in the bag (UWRuneShelfModel.HasRunes).</summary>
     public static bool HasRunes(int piSequence)
     {
-        return UWRuneShelfModel.HasRunes(piSequence, fBag());
+        IUWModernMagic lOMagic = fMagic();
+
+        return lOMagic != null && lOMagic.HasRunes(piSequence);
     }
 
     /// <summary>The highest circle the character can cast: its level halved, rounded up
@@ -264,9 +270,9 @@ public class UWModernRunePanel : UWModernDockedPanel
     {
         get
         {
-            UWGameUI lOUi = UWScene.GameUi;
+            IUWModernMagic lOMagic = fMagic();
 
-            return lOUi != null && lOUi.mCharacter != null ? UWSpellCasting.CircleOf(lOUi.mCharacter.Vitals.Level) : 0;
+            return lOMagic != null ? lOMagic.Circle : 0;
         }
     }
 
@@ -279,16 +285,9 @@ public class UWModernRunePanel : UWModernDockedPanel
     /// </summary>
     public static UWSpellCasting.CastCheckEnum CastCheck(int piSequence)
     {
-        UWGameUI lOUi = UWScene.GameUi;
-        UWPlayerData lOBag = fBag();
+        IUWModernMagic lOMagic = fMagic();
 
-        if (lOBag == null)
-            return UWSpellCasting.CastCheckEnum.RuneMissing;
-
-        UWCharacter lOCharacter = lOUi.mCharacter;
-
-        return UWSpellCasting.CanCast(piSequence, lOCharacter != null ? lOCharacter.Vitals.Level : 0,
-            lOCharacter != null ? lOCharacter.Vitals.CurrentMana : 0, lOBag);
+        return lOMagic != null ? lOMagic.CastCheck(piSequence) : UWSpellCasting.CastCheckEnum.RuneMissing;
     }
 
     /// <summary>The panel's grey: a spell whose runes are in the bag and whose circle the
@@ -302,62 +301,20 @@ public class UWModernRunePanel : UWModernDockedPanel
 
     public static string SpellName(int piSequence)
     {
-        UWGameUI lOUi = UWScene.GameUi;
-
-        if (lOUi == null || lOUi.mOUWData == null || !UWRunicMagic.TryGetSpell(piSequence, out UWRunicMagic.Spell lOSpell))
+        if (UWModernUi.Data == null || !UWRunicMagic.TryGetSpell(piSequence, out UWRunicMagic.Spell lOSpell))
             return string.Empty;
 
-        return UWRunicMagic.GetName(lOSpell, lOUi.mOUWData.Strings);
+        return UWRunicMagic.GetName(lOSpell, UWModernUi.Data.Strings);
     }
 
-    /// <summary>The spell's own picture in SPELLS.GR (only the lasting effects have one), a
-    /// projectile's missile, else null.</summary>
+    /// <summary>The spell's picture for the list and the action bar - a lasting spell's in SPELLS.GR, a
+    /// projectile's missile, else null - as the running game keeps them (IUWModernMagic.SpellPicture; the
+    /// first game's rule was here until part U4c step 2 of the UW2 plan).</summary>
     public static UWTexture SpellIcon(int piSequence)
     {
-        UWGameUI lOUi = UWScene.GameUi;
+        IUWModernMagic lOMagic = fMagic();
 
-        if (lOUi == null || lOUi.mOUWData == null || !UWRunicMagic.TryGetSpell(piSequence, out UWRunicMagic.Spell lOSpell))
-            return null;
-
-        // The table's minor class carries the duration in its upper bits; the picture goes by the
-        // effect alone (Light: 0x0E + 3 = 17, the torch). SPELLS.GR has only 21 pictures.
-        // A projectile shows its missile (per user, 2026-10-04): the fireball, the lightning bolt,
-        // the magic missile from OBJECTS.GR.
-        if (lOSpell.MajorClass == UWSpellCasting.ProjectileMajorClass)
-        {
-            int liMissile = UWRunicMagic.GetProjectileId(UWRunicMagic.GetEffectMinor(lOSpell.MinorClass));
-
-            return liMissile >= 0 ? lOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, liMissile) : null;
-        }
-
-        int liIcon = UWRunicMagic.GetIconIndex(lOSpell.MajorClass, fEffectMinor(lOSpell));
-        List<UWTexture> lOIcons = lOUi.mOUWData.Textures.GetTexturesByType(UWTexture.TextureTypes.SPELLS);
-
-        return liIcon < UWRunicMagic.NoIcon && lOIcons != null && liIcon >= 0 && liIcon < lOIcons.Count ? lOIcons[liIcon] : null;
-    }
-
-    /// <summary>
-    /// The minor class the spell's lasting effect shows its picture by. Class 11's minor class in
-    /// the table is the spell's own number (UWMiscSpellRules), not an effect: only four of them
-    /// last and have a picture (Speed, Roaming Sight, Telekinesis, Freeze Time, by the effect
-    /// they add); the rest have none (per user, 2026-10-04: Remove Trap, Open, Cure Poison ...
-    /// showed wrong ones).
-    /// </summary>
-    private static int fEffectMinor(UWRunicMagic.Spell pOSpell)
-    {
-        int liMinor = UWRunicMagic.GetEffectMinor(pOSpell.MinorClass);
-
-        if (pOSpell.MajorClass != UWMiscSpellRules.MajorClass)
-            return liMinor;
-
-        switch (liMinor)
-        {
-            case UWMiscSpellRules.SpeedSpell: return UWMiscSpellRules.SpeedEffectMinor;
-            case UWMiscSpellRules.RoamingSightSpell: return UWMiscSpellRules.RoamingSightEffectMinor;
-            case UWMiscSpellRules.TelekinesisSpell: return UWMiscSpellRules.TelekinesisEffectMinor;
-            case UWMiscSpellRules.FreezeTimeSpell: return UWMiscSpellRules.FreezeTimeEffectMinor;
-            default: return UWRunicMagic.NoIcon;
-        }
+        return lOMagic != null && UWModernUi.Data != null ? lOMagic.SpellPicture(piSequence) : null;
     }
 
     /// <summary>The runes as a short label, one per line ("In|Lor" as "In\nLor").</summary>
@@ -448,8 +405,8 @@ public class UWModernRunePanel : UWModernDockedPanel
 
                 break;
             case UWHoldTap.ResultEnum.Tap:
-                if (mOUi.Runes != null)
-                    mOUi.Actions.CastShelf();
+                if (fMagic() != null && fMagic().IsReady)
+                    fMagic().CastShelf();
 
                 break;
         }
@@ -477,7 +434,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         if (lbTablet)
             meTab = TabEnum.Runes;
 
-        if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive || UWHelpWindow.BlocksGameKeys || mOUi.Map.IsMapVisible)
+        if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive || UWHelpWindow.BlocksGameKeys || UWModernUi.IsMapOpen)
         {
             mbDragging = false;
             miPressSequence = -1;
@@ -535,7 +492,7 @@ public class UWModernRunePanel : UWModernDockedPanel
             return;
 
         // A thing on the pointer is not put down through the panel (UWModernBags asks Contains).
-        if (mOUi.mOInventory != null && mOUi.mOInventory.CursorItem != null)
+        if (UWModernUi.Inventory != null && UWModernUi.Inventory.CursorItem != null)
             return;
 
         // The pin, the handle, the closed panel's edge (UWModernDockedPanel).
@@ -561,18 +518,18 @@ public class UWModernRunePanel : UWModernDockedPanel
 
     private void fClickRunes(Vector2 pOPointer, bool pbLeft)
     {
-        UWHudRunes lORunes = mOUi.Runes;
+        IUWModernMagic lORunes = fMagic();
 
         // Another input mode holds the runes (mous_in_rune, UWHudRunes.InAnotherInputMode): no
         // clearing, no rune, no look, no cast (per user, 2026-10-13: the strip still cleared).
-        if (lORunes == null || lORunes.InAnotherInputMode)
+        if (lORunes == null || !lORunes.IsReady || lORunes.IsHeldByAnotherInput)
             return;
 
-        // The clear strip at the bottom of the shelf (UWRuneShelfModel.IsClearStrip).
+        // The clear strip at the bottom of the shelf (UWRuneTabletGeometry.IsClearStrip).
         if (pbLeft && mOTabletRect.Contains(pOPointer)
-            && UWRuneShelfModel.IsClearStrip((mOTabletRect.yMax - pOPointer.y) / miScale))
+            && fTablet().IsClearStrip((mOTabletRect.yMax - pOPointer.y) / miScale))
         {
-            lORunes.ClearRuneShelf();
+            lORunes.ClearShelf();
             return;
         }
 
@@ -590,7 +547,7 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         if (pbLeft && mOHollowRect.Contains(pOPointer))
         {
-            miPressSequence = lORunes.Shelf.Sequence;
+            miPressSequence = UWRuneShelfModel.SequenceOf(lORunes.Shelf);
             mbPressHollow = true;
             mOPressStart = pOPointer;
         }
@@ -640,15 +597,15 @@ public class UWModernRunePanel : UWModernDockedPanel
             return;
         }
 
-        UWHudRunes lORunes = mOUi.Runes;
+        IUWModernMagic lORunes = fMagic();
 
-        if (lORunes == null)
+        if (lORunes == null || !lORunes.IsReady)
             return;
 
         if (lbHollow)
         {
             if (mOHollowRect.Contains(pOPointer))
-                mOUi.Actions.CastShelf();
+                lORunes.CastShelf();
         }
         else if (HasRunes(liSequence))
         {
@@ -658,19 +615,19 @@ public class UWModernRunePanel : UWModernDockedPanel
 
     /// <summary>The rune of the bag under the pointer on the tablet, at the original's pixel
     /// proportion: the tablet is the page, so the original's gapless cells lie around its
-    /// compartments as on the classic shelf (UWRuneShelfModel.RuneCellAt, decision 27,
+    /// compartments as on the classic shelf (UWRuneTabletGeometry.RuneCellAt, decision 27,
     /// 2026-10-20; until then the 14 x 14 compartments alone, with gaps between).</summary>
     private int fRuneAt(Vector2 pOPointer)
     {
-        UWPlayerData lOPlayer = fData().InitialPlayer;
+        IUWModernMagic lOMagic = fMagic();
 
-        if (lOPlayer == null || !mOTabletRect.Contains(pOPointer))
+        if (lOMagic == null || !mOTabletRect.Contains(pOPointer))
             return -1;
 
         float lfX = (pOPointer.x - mOTabletRect.xMin) / (miScale * UWModernHudArt.PixelAspectX);
         float lfY = (mOTabletRect.yMax - pOPointer.y) / miScale;
 
-        return UWRuneShelfModel.RuneCellAt(lfX, lfY,liRune => lOPlayer.HasRune((UWPlayerData.Rune)liRune));
+        return fTablet().RuneCellAt(lfX, lfY, liRune => lOMagic.HasRune(liRune));
     }
 
     private ListEntry fEntryAt(Vector2 pOPointer)
@@ -850,7 +807,7 @@ public class UWModernRunePanel : UWModernDockedPanel
 
     private static int fRunesRows()
     {
-        return TabletTop + UWTextures.PanelHeight + HollowGap + HollowHeight + InfoRows + BottomPad;
+        return TabletTop + fTablet().PageHeight + HollowGap + HollowHeight + InfoRows + BottomPad;
     }
 
     /// <summary>
@@ -866,8 +823,9 @@ public class UWModernRunePanel : UWModernDockedPanel
         miScale = UWModernUi.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.RuneTablet);
 
         float liScale = miScale;
-        float lfWidth = UWTextures.PanelWidth * liScale * UWModernHudArt.PixelAspectX;
-        float lfHeight = UWTextures.PanelHeight * liScale;
+        UWRuneTabletGeometry lOTablet = fTablet();
+        float lfWidth = lOTablet.PageWidth * liScale * UWModernHudArt.PixelAspectX;
+        float lfHeight = lOTablet.PageHeight * liScale;
         Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.RuneTablet,
             new Rect(Screen.width - lfWidth - (4f * liScale), (Screen.height - lfHeight) * 0.5f, lfWidth, lfHeight));
 
@@ -925,7 +883,8 @@ public class UWModernRunePanel : UWModernDockedPanel
     private int fPlaceTablet(Rect pORect)
     {
         float liScale = miScale;
-        UWPlayerData lOPlayer = fData().InitialPlayer;
+        IUWModernMagic lOMagic = fMagic();
+        UWRuneTabletGeometry lOTablet = fTablet();
         int liOwned = 0;
 
         mOTabletRect = pORect;
@@ -933,7 +892,7 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         for (int liRune = 0; liRune < mORunes.Length; liRune++)
         {
-            bool lbOwned = lOPlayer != null && lOPlayer.HasRune((UWPlayerData.Rune)liRune);
+            bool lbOwned = lOMagic != null && lOMagic.HasRune(liRune);
             Texture2D lOTexture = mORuneTextures[liRune];
 
             if (lbOwned)
@@ -944,8 +903,8 @@ public class UWModernRunePanel : UWModernDockedPanel
             if (!mORunes[liRune].enabled)
                 continue;
 
-            float lfX = mOTabletRect.xMin + (UWRuneShelfModel.SlotLeft(liRune) * liScale * UWModernHudArt.PixelAspectX);
-            float lfRowTop = mOTabletRect.yMax - (UWRuneShelfModel.SlotTop(liRune) * liScale);
+            float lfX = mOTabletRect.xMin + (lOTablet.SlotLeft(liRune) * liScale * UWModernHudArt.PixelAspectX);
+            float lfRowTop = mOTabletRect.yMax - (lOTablet.SlotTop(liRune) * liScale);
 
             UWUiKit.SetRect(mORunes[liRune].rectTransform, lfX, lfRowTop - (lOTexture.height * liScale),
                 lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
@@ -957,26 +916,31 @@ public class UWModernRunePanel : UWModernDockedPanel
     private void fLayoutRunes(float pfLeft, float pfTop, int piFont, int piSmall)
     {
         float liScale = miScale;
-        UWHudRunes lORunes = mOUi.Runes;
+        IUWModernMagic lORunes = fMagic();
 
         mOTitle.text = UWText.T("hud.runes.title");
         fShowHollow(true);
 
         // The shelf with the runes of the bag.
-        // At the original's pixel proportion (UWModernHudArt.PixelAspectX), in the middle of its place.
-        int liOwned = fPlaceTablet(new Rect(pfLeft + ((TabletLeft + (UWTextures.PanelWidth * (1f - UWModernHudArt.PixelAspectX) * 0.5f)) * liScale),
-            pfTop - ((TabletTop + UWTextures.PanelHeight) * liScale), UWTextures.PanelWidth * liScale * UWModernHudArt.PixelAspectX, UWTextures.PanelHeight * liScale));
+        // At the original's pixel proportion (UWModernHudArt.PixelAspectX), in the middle of its place; the second
+        // game's page is narrower than the first game's the panel was laid out for, and stands in the middle too.
+        UWRuneTabletGeometry lOTablet = fTablet();
+        float lfTabletLeft = TabletLeft + ((UWTextures.PanelWidth - lOTablet.PageWidth) * 0.5f)
+            + (lOTablet.PageWidth * (1f - UWModernHudArt.PixelAspectX) * 0.5f);
+        int liOwned = fPlaceTablet(new Rect(pfLeft + (lfTabletLeft * liScale),
+            pfTop - ((TabletTop + lOTablet.PageHeight) * liScale), lOTablet.PageWidth * liScale * UWModernHudArt.PixelAspectX,
+            lOTablet.PageHeight * liScale));
 
-        mOTitleRight.text = UWText.F("hud.runes.owned", liOwned, UWPlayerData.RuneCount);
+        mOTitleRight.text = UWText.F("hud.runes.owned", liOwned, mORunes.Length);
 
         // The hollow with the chosen runes.
-        float lfHollowTop = pfTop - ((TabletTop + UWTextures.PanelHeight + HollowGap) * liScale);
+        float lfHollowTop = pfTop - ((TabletTop + lOTablet.PageHeight + HollowGap) * liScale);
 
         mOHollowRect = new Rect(pfLeft + (((PanelWidth - HollowWidth) / 2) * liScale), lfHollowTop - (HollowHeight * liScale),
             HollowWidth * liScale, HollowHeight * liScale);
         UWUiKit.SetRect(mOHollow.rectTransform, mOHollowRect.x, mOHollowRect.y, mOHollowRect.width, mOHollowRect.height);
 
-        IReadOnlyList<int> lOShelf = lORunes != null ? lORunes.Shelf.Selected : null;
+        IReadOnlyList<int> lOShelf = lORunes != null && lORunes.IsReady ? lORunes.Shelf : null;
         int liSequence = UWRuneShelfModel.SequenceOf(lOShelf);
         bool lbSpell = UWRunicMagic.TryGetSpell(liSequence, out UWRunicMagic.Spell lOSpell);
         bool lbHover = UWPointer.HasMouse && UWModernPointer.IsFree && mOHollowRect.Contains(UWPointer.Position);
@@ -1079,7 +1043,6 @@ public class UWModernRunePanel : UWModernDockedPanel
         float lfInner = mOListRect.width;
         Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
         ListEntry lOHovered = UWModernPointer.IsFree ? fEntryAt(lOPointer) : null;
-        UWPlayerData lOPlayer = fData().InitialPlayer;
 
         mORowHighlight.enabled = false;
 
@@ -1115,7 +1078,7 @@ public class UWModernRunePanel : UWModernDockedPanel
                 continue;
             }
 
-            bool lbCastable = lOPlayer != null && fIsCastableOnPanel(lOEntry.Sequence);
+            bool lbCastable = fIsCastableOnPanel(lOEntry.Sequence);
             float lfTextX = 13 * liScale;
 
             lOEntry.Name.fontSize = piSmall + 1;
@@ -1175,23 +1138,9 @@ public class UWModernRunePanel : UWModernDockedPanel
     /// knows (UWKnowledge, GitHub issue 19, 2026-11-08 - per user, the list showed them all).</summary>
     private int fShownHiddenSpells()
     {
-        int[] laHidden = UWKnowledgeSources.HiddenSpells;
-        int liAll = (1 << laHidden.Length) - 1;
+        IUWModernMagic lOMagic = fMagic();
 
-        if (UWUserSettings.KnowledgeShowAll || UWGameSession.Current == null || UWGameSession.Current.Game.Game != UWGame.Uw1)
-            return liAll;
-
-        DataImport lOData = fData();
-        UWPlayerData lOBag = lOData != null ? lOData.InitialPlayer : null;
-        int liShown = 0;
-
-        for (int liAt = 0; liAt < laHidden.Length; liAt++)
-        {
-            if (UWKnowledge.Current.SpellState(laHidden[liAt], lOBag, out UWKnowledge.Entry _) == UWKnowledge.SpellStateEnum.Known)
-                liShown |= 1 << liAt;
-        }
-
-        return liShown;
+        return lOMagic != null ? lOMagic.ShownHiddenSpells : (1 << UWKnowledgeSources.HiddenSpells.Length) - 1;
     }
 
     /// <summary>Whether the character knows this spell now (fShownHiddenSpells asked afresh, not the list's
@@ -1243,7 +1192,7 @@ public class UWModernRunePanel : UWModernDockedPanel
 
                 ListEntry lOHeader = new ListEntry { Circle = liCircle, ManaCost = lOSpell.ManaCost, Top = liTop, Rows = HeaderRows };
 
-                lOHeader.Name = UWUiKit.CreateText(mOListContent, "Circle", TextAnchor.LowerLeft, UWModernPalette.Dim, mOUi);
+                lOHeader.Name = UWUiKit.CreateText(mOListContent, "Circle", TextAnchor.LowerLeft, UWModernPalette.Dim, UWModernUi.TextUi);
                 lOHeader.Rule = UWUiKit.CreateImage(mOListContent, "Rule", UWModernPalette.Rule);
                 mOEntries.Add(lOHeader);
                 liTop += HeaderRows;
@@ -1258,8 +1207,8 @@ public class UWModernRunePanel : UWModernDockedPanel
                 Rows = RowRows
             };
 
-            lOEntry.Name = UWUiKit.CreateText(mOListContent, "Spell", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
-            lOEntry.Runes = UWUiKit.CreateText(mOListContent, "Runes", TextAnchor.MiddleLeft, UWModernPalette.RunesText, mOUi);
+            lOEntry.Name = UWUiKit.CreateText(mOListContent, "Spell", TextAnchor.MiddleLeft, UWModernPalette.Text, UWModernUi.TextUi);
+            lOEntry.Runes = UWUiKit.CreateText(mOListContent, "Runes", TextAnchor.MiddleLeft, UWModernPalette.RunesText, UWModernUi.TextUi);
             lOEntry.Runes.text = UWRunicMagic.DescribeRunes(lOSpell.RuneSequence);
 
             UWTexture lOIcon = SpellIcon(lOSpell.RuneSequence);
@@ -1330,7 +1279,7 @@ public class UWModernRunePanel : UWModernDockedPanel
 
     private Texture2D fGetIcon(UWTexture pOSource)
     {
-        return UWIconCache.Texture(pOSource, mOUi.TextureFilterMode);
+        return UWIconCache.Texture(pOSource, UWModernUi.Filter);
     }
 
     private void fEnsureArt()
@@ -1351,7 +1300,7 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         DataImport lOData = fData();
         UWTextures lOTextures = lOData.Textures;
-        FilterMode leFilter = mOUi.TextureFilterMode;
+        FilterMode leFilter = UWModernUi.Filter;
 
         mOHandleArt.Set(lOStamp, UWModernHudArt.BuildPartLeatherTab(UWModernLayout.ElementEnum.RunePanel, lOTextures,
             HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter));
@@ -1361,14 +1310,16 @@ public class UWModernRunePanel : UWModernDockedPanel
         mOGhostTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.RunePanel, lOTextures, leFilter);
 
         // The original's rune tablet (PANELS.GR 1), its transparent pixels keeping their colours;
-        // it follows the colour help in place (UWGrTextures).
-        mOTabletTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.PANELS, 1, leFilter, UWGrTextures.ModeEnum.Colours);
+        // it follows the colour help in place (UWGrTextures). The second game's every pixel opaque, as its classic
+        // page draws it (per user at the test of 197, 2026-11-23: the clear button's dark frame showed through).
+        mOTabletTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.PANELS, 1, leFilter,
+            fTablet().IsSecondGame ? UWGrTextures.ModeEnum.Opaque : UWGrTextures.ModeEnum.Colours);
 
-        mORuneTextures = new Texture2D[UWPlayerData.RuneCount];
+        mORuneTextures = new Texture2D[mORunes.Length];
 
         for (int liRune = 0; liRune < mORuneTextures.Length; liRune++)
         {
-            UWTexture lOSource = lOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, UWPlayerData.FirstRuneObjectId + liRune);
+            UWTexture lOSource = lOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, fMagic().RuneObject(liRune));
 
             mORuneTextures[liRune] = UWIconCache.Texture(lOSource, leFilter);
             mORunes[liRune].texture = mORuneTextures[liRune];
@@ -1394,15 +1345,15 @@ public class UWModernRunePanel : UWModernDockedPanel
         // The tab headers, the pin, the leather and the handle, mirrored (UWModernDockedPanel).
         fBuildChrome(mORoot, new[] { "hud.runes.tab.runes", "hud.runes.tab.spells" }, "hud.runes.handle");
 
-        mOTitle = UWUiKit.CreateText(mORoot, "Title", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
-        mOTitleRight = UWUiKit.CreateText(mORoot, "Title right", TextAnchor.MiddleRight, UWModernPalette.Dim, mOUi);
+        mOTitle = UWUiKit.CreateText(mORoot, "Title", TextAnchor.MiddleLeft, UWModernPalette.Text, UWModernUi.TextUi);
+        mOTitleRight = UWUiKit.CreateText(mORoot, "Title right", TextAnchor.MiddleRight, UWModernPalette.Dim, UWModernUi.TextUi);
 
         // The Runes tab.
         mORunesContent = UWUiKit.CreateGroup(mORoot, "Runes");
         mOTablet = UWUiKit.CreateRawImage(mORunesContent, "Rune shelf");
         UWPixelArtUI.Apply(mOTablet);
 
-        mORunes = new RawImage[UWPlayerData.RuneCount];
+        mORunes = new RawImage[fMagic().RuneCount];
 
         for (int liRune = 0; liRune < mORunes.Length; liRune++)
         {
@@ -1424,9 +1375,9 @@ public class UWModernRunePanel : UWModernDockedPanel
             UWIconPalette.ApplySmooth(mOHollowRunes[liAt]);
         }
 
-        mOSpellName = UWUiKit.CreateText(mORunesContent, "Spell", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
-        mOSpellCircle = UWUiKit.CreateText(mORunesContent, "Circle", TextAnchor.MiddleCenter, UWModernPalette.Dim, mOUi);
-        mOHint = UWUiKit.CreateText(mORunesContent, "Hint", TextAnchor.MiddleCenter, UWModernPalette.Dim, mOUi);
+        mOSpellName = UWUiKit.CreateText(mORunesContent, "Spell", TextAnchor.MiddleCenter, UWModernPalette.Text, UWModernUi.TextUi);
+        mOSpellCircle = UWUiKit.CreateText(mORunesContent, "Circle", TextAnchor.MiddleCenter, UWModernPalette.Dim, UWModernUi.TextUi);
+        mOHint = UWUiKit.CreateText(mORunesContent, "Hint", TextAnchor.MiddleCenter, UWModernPalette.Dim, UWModernUi.TextUi);
 
         // The Spells tab: a clipped viewport with the rows inside.
         mOListViewport = UWUiKit.CreateClipArea(mORoot, "Spell list");
@@ -1447,7 +1398,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         UWPixelArtUI.Apply(mOGhostBack);
         mOGhostIcon = UWUiKit.CreateRawImage(lOGhostRect, "Icon");
         UWIconPalette.ApplySmooth(mOGhostIcon);
-        mOGhostText = UWUiKit.CreateText(lOGhostRect, "Runes", TextAnchor.MiddleCenter, UWModernPalette.RunesText, mOUi);
+        mOGhostText = UWUiKit.CreateText(lOGhostRect, "Runes", TextAnchor.MiddleCenter, UWModernPalette.RunesText, UWModernUi.TextUi);
         mOGhostCanvas.enabled = false;
     }
 }

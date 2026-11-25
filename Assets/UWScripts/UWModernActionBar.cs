@@ -53,11 +53,7 @@ public class UWModernActionBar : MonoBehaviour
 
     private static readonly Color msKey = new Color(1f, 0.94f, 0.78f);
 
-    private UWGameUI mOUi;
-
     private UWControlScheme mOScheme;
-
-    private Interaction mOInteraction;
 
     private Canvas mOCanvas;
 
@@ -173,8 +169,6 @@ public class UWModernActionBar : MonoBehaviour
 
     private void Start()
     {
-        mOUi = GetComponent<UWGameUI>();
-        mOInteraction = GetComponent<Interaction>();
         mOScheme = GetComponentInParent<UWControlScheme>();
     }
 
@@ -182,7 +176,7 @@ public class UWModernActionBar : MonoBehaviour
     {
         return UWModernUi.IsActive && !UWModernLayout.IsActionBarHidden
             && UWModernUi.IsShowing
-            && mOUi != null && mOUi.mOUWData != null && mOUi.mOInventory != null;
+            && UWModernUi.Has(UWModernPartEnum.ActionBar) && UWModernUi.Data != null && UWModernUi.Inventory != null;
     }
 
     // ------------------------------------------------- Binding
@@ -259,8 +253,8 @@ public class UWModernActionBar : MonoBehaviour
 
         if (!CanBind(pOItem))
         {
-            if (mOInteraction != null)
-                mOInteraction.AddMessage(UWText.T("prompt.not_on_action_bar"));
+            if (UWModernUi.Session != null)
+                UWModernUi.Session.Messages.Say(UWText.T("prompt.not_on_action_bar"));
 
             return false;
         }
@@ -310,10 +304,10 @@ public class UWModernActionBar : MonoBehaviour
 
     private bool fIsCarried(UWObject pOItem)
     {
-        if (pOItem == null || mOUi.mOInventory == null)
+        if (pOItem == null || UWModernUi.Inventory == null)
             return false;
 
-        foreach (UWObject lOItem in mOUi.mOInventory.Model.EnumerateAll())
+        foreach (UWObject lOItem in UWModernUi.Inventory.EnumerateAll())
         {
             if (lOItem == pOItem)
                 return true;
@@ -336,13 +330,13 @@ public class UWModernActionBar : MonoBehaviour
     {
         UWModernActionBar lOBar = Instance;
 
-        if (lOBar == null || lOBar.mOUi == null || lOBar.mOUi.mOInventory == null
+        if (lOBar == null || UWModernUi.Inventory == null
             || lOBar.miLoadCount != UWHelpNotes.LoadCount)
             return;
 
         string[] lsPaths = new string[SlotCount];
         int[] liIds = new int[SlotCount];
-        UWInventoryModel lOModel = lOBar.mOUi.mOInventory.Model;
+        UWInventoryModel lOModel = UWModernUi.Inventory;
 
         for (int liSlot = 0; liSlot < SlotCount; liSlot++)
         {
@@ -374,7 +368,7 @@ public class UWModernActionBar : MonoBehaviour
         if (miLoadCount == UWHelpNotes.LoadCount)
             return;
 
-        UWInventoryModel lOModel = mOUi.mOInventory.Model;
+        UWInventoryModel lOModel = UWModernUi.Inventory;
         UWLevelLoader lOLoader = UWScene.LevelLoader;
         string[] lsPaths = UWHelpNotes.ActionBarPaths ?? new string[0];
         bool lbAnyPath = System.Array.Exists(lsPaths, lsPath => !string.IsNullOrEmpty(lsPath));
@@ -429,38 +423,41 @@ public class UWModernActionBar : MonoBehaviour
         }
 
         UWObject lOItem = mOSlots[piSlot];
-        UWInventory lOInventory = mOUi.mOInventory;
+        UWInventoryModel lOInventory = UWModernUi.Inventory;
 
-        if (lOItem == null || lOInventory.CursorItem != null || !fIsCarried(lOItem) || mOInteraction == null)
+        // Not while the game holds the windows (the second game: paralysed, asleep in the Void).
+        if (lOItem == null || lOInventory.CursorItem != null || !fIsCarried(lOItem) || UWModernUi.Session == null
+            || UWModernUi.Session.World.HoldsPanels)
             return;
 
         if (fIsWeapon(lOItem))
         {
             if (lOInventory.GetEquipped(lOInventory.MainHandSlot) == lOItem)
-                mOInteraction.ToggleCombatMode();
+                UWModernUi.Session.World.ToggleFightMode();
             else if (UWModernBags.Instance != null)
                 UWModernBags.Instance.EquipCarried(lOItem, lOInventory.MainHandSlot);
 
             return;
         }
 
-        UWCarriedItemUse.Use(UWScene.ItemDrag, lOItem, UWCarriedItemUse.Context.ActionBar);
+        if (UWModernUi.Session != null)
+            UWModernUi.Session.Inventory.Use(lOItem, UWCarriedItemUse.Context.ActionBar);
     }
 
     /// <summary>A spell slot: cast by the original's rules - unless a rune is missing from the bag,
     /// which the original's hollow cannot even hold (UWSpellCasting.CanCast's first reason).</summary>
     private void fCast(int piSequence)
     {
-        if (mOInteraction == null || mOUi.Runes == null)
+        if (UWModernUi.Session == null || !UWModernUi.Session.Magic.IsReady)
             return;
 
         if (UWModernRunePanel.CastCheck(piSequence) == UWSpellCasting.CastCheckEnum.RuneMissing)
         {
-            mOInteraction.AddMessage(UWSpellCasting.RuneMissingText);
+            UWModernUi.Session.Messages.Say(UWSpellCasting.RuneMissingText);
             return;
         }
 
-        mOUi.Actions.CastSequence(piSequence);
+        UWModernUi.Session.Magic.CastSequence(piSequence);
     }
 
     // ------------------------------------------------- Input
@@ -478,7 +475,7 @@ public class UWModernActionBar : MonoBehaviour
         fResolveIfLoaded();
 
         if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive || UWHelpWindow.BlocksGameKeys
-            || mOUi.Map.IsMapVisible)
+            || UWModernUi.IsMapOpen)
             return;
 
         UWControls lOControls = mOScheme.Controls;
@@ -495,7 +492,7 @@ public class UWModernActionBar : MonoBehaviour
         // Not where the gamepad's pointer takes the button (the PadPointer context,
         // UWInput.PadPointerTakes), nor in a conversation, where the d-pad steps the answers
         // (UWConversationController).
-        bool lbPadFree = !UWConversationController.IsAnyOpen;
+        bool lbPadFree = !UWModernUi.IsConversationOpen;
 
         if (lbPadFree && lOControls.Player.PadSlotPrevious.WasPressedThisFrame() && !UWInput.PadPointerTakes(lOControls.Player.PadSlotPrevious))
             fStepPadSlot(-1);
@@ -509,7 +506,7 @@ public class UWModernActionBar : MonoBehaviour
             return;
 
         Vector2 lOPointer = UWPointer.Position;
-        bool lbEmptyPointer = mOUi.mOInventory.CursorItem == null;
+        bool lbEmptyPointer = UWModernUi.Inventory.CursorItem == null;
 
         if (lOControls.Player.CursorDrag.WasPressedThisFrame() && !UWModernUi.IsHelpUnderPointer && lbEmptyPointer && mOLink == null && miLinkSpell < 0
             && miDropFrame != Time.frameCount && TryGetSlotAt(lOPointer, out int liPressed))
@@ -607,7 +604,7 @@ public class UWModernActionBar : MonoBehaviour
     /// <summary>Follows merges in the inventory model (a new character or load brings a new one).</summary>
     private void fWatchModel()
     {
-        UWInventoryModel lOModel = mOUi.mOInventory.Model;
+        UWInventoryModel lOModel = UWModernUi.Inventory;
 
         if (lOModel == mOWatched)
             return;
@@ -661,8 +658,8 @@ public class UWModernActionBar : MonoBehaviour
         UWUiKit.SetRect(mOBack.rectTransform, lfLeft, lfBottom, liWidth * liScale, liHeight * liScale);
         ScreenRect = new Rect(lfLeft, lfBottom, liWidth * liScale, liHeight * liScale);
 
-        UWInventory lOInventory = mOUi.mOInventory;
-        UWObject lODrawn = mOInteraction != null && mOInteraction.IsCombatModeActive
+        UWInventoryModel lOInventory = UWModernUi.Inventory;
+        UWObject lODrawn = UWModernUi.Session != null && UWModernUi.Session.World.IsFightMode
             ? lOInventory.GetEquipped(lOInventory.MainHandSlot) : null;
         float lfSlot = UWModernHudArt.SlotSize * liScale;
 
@@ -799,7 +796,7 @@ public class UWModernActionBar : MonoBehaviour
 
     private Texture2D fGetIcon(UWTexture pOSource)
     {
-        return UWIconCache.Texture(pOSource, mOUi.TextureFilterMode);
+        return UWIconCache.Texture(pOSource, UWModernUi.Filter);
     }
 
     private void fEnsureArt()
@@ -809,12 +806,12 @@ public class UWModernActionBar : MonoBehaviour
         if (mOBackArt.IsCurrent(lOStamp))
             return;
 
-        UWTextures lOTextures = mOUi.mOUWData.Textures;
+        UWTextures lOTextures = UWModernUi.Data.Textures;
         int liWidth = (Pad * 2) + (SlotCount * UWModernHudArt.SlotSize) + ((SlotCount - 1) * SlotGap);
         int liHeight = (Pad * 2) + UWModernHudArt.SlotSize;
 
-        mOBackArt.Set(lOStamp, UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.ActionBar, lOTextures, liWidth, liHeight, mOUi.TextureFilterMode));
-        mOSlotArt.Set(lOStamp, UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.ActionBar, lOTextures, mOUi.TextureFilterMode));
+        mOBackArt.Set(lOStamp, UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.ActionBar, lOTextures, liWidth, liHeight, UWModernUi.Filter));
+        mOSlotArt.Set(lOStamp, UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.ActionBar, lOTextures, UWModernUi.Filter));
 
         if (mORingTexture == null)
             mORingTexture = BuildRing(128, 60f, 6f);
@@ -888,14 +885,14 @@ public class UWModernActionBar : MonoBehaviour
             mOIcons[liSlot] = UWUiKit.CreateRawImage(lORootRect, "Icon");
             UWIconPalette.ApplySmooth(mOIcons[liSlot]);
 
-            mOSpellTexts[liSlot] = UWUiKit.CreateText(lORootRect, "Spell runes", TextAnchor.MiddleCenter, Color.white, mOUi);
+            mOSpellTexts[liSlot] = UWUiKit.CreateText(lORootRect, "Spell runes", TextAnchor.MiddleCenter, Color.white, UWModernUi.TextUi);
 
             mORings[liSlot] = UWUiKit.CreateRawImage(lORootRect, "Drawn");
 
-            mOKeys[liSlot] = UWUiKit.CreateText(lORootRect, "Key", TextAnchor.UpperLeft, msKey, mOUi);
+            mOKeys[liSlot] = UWUiKit.CreateText(lORootRect, "Key", TextAnchor.UpperLeft, msKey, UWModernUi.TextUi);
             mOKeys[liSlot].text = ((liSlot + 1) % 10).ToString();
 
-            mOCounts[liSlot] = UWUiKit.CreateText(lORootRect, "Count", TextAnchor.LowerRight, Color.white, mOUi);
+            mOCounts[liSlot] = UWUiKit.CreateText(lORootRect, "Count", TextAnchor.LowerRight, Color.white, UWModernUi.TextUi);
         }
 
         mOPadRing = UWUiKit.CreateRawImage(lORootRect, "Gamepad slot");
@@ -905,6 +902,6 @@ public class UWModernActionBar : MonoBehaviour
 
         mOLinkIcon = UWUiKit.CreateRawImage(lORootRect, "Dragged link");
         UWIconPalette.ApplySmooth(mOLinkIcon);
-        mOLinkText = UWUiKit.CreateText(lORootRect, "Dragged spell", TextAnchor.MiddleCenter, Color.white, mOUi);
+        mOLinkText = UWUiKit.CreateText(lORootRect, "Dragged spell", TextAnchor.MiddleCenter, Color.white, UWModernUi.TextUi);
     }
 }

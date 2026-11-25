@@ -39,12 +39,12 @@ public static class UWModernPointer
     /// the wheel and the aim into the world go on. The rune panel keeps the runes' own wider rule
     /// (UWHudRunes.InAnotherInputMode). THEY ALSO HOLD UNDER THE HELP (UWModernUi.IsHelpUnderPointer).
     /// </summary>
-    public static bool PanelsHeld => SpellHolds || UWModernUi.IsHelpUnderPointer;
+    public static bool PanelsHeld => SpellHolds || UWModernUi.IsHelpUnderPointer
+        || (UWModernUi.Session != null && UWModernUi.Session.World.HoldsPanels);
 
     /// <summary>The spell's half alone: the panel that holds the help keeps its own tabs, and a link on
     /// the action bar's pointer still has to come down.</summary>
-    public static bool SpellHolds => (UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting)
-        || (UWAttackUw2.Current != null && UWAttackUw2.Current.IsAnySpellWaiting);
+    public static bool SpellHolds => UWModernUi.IsSpellWaiting;
 
     // The frame the right button switched the pointer (SwitchedFrame, until cleanup step 7.8): the
     // switch holds its press for the frame now (UWInput.HoldPress), its readers ask
@@ -253,7 +253,7 @@ public static class UWModernPointer
             || (UWModernBags.Instance != null && UWModernBags.Instance.IsUsing))
             return false;
 
-        UWInventory lOInventory = UWScene.GameUi != null ? UWScene.GameUi.mOInventory : null;
+        UWInventoryModel lOInventory = UWModernUi.Inventory;
 
         if (lOInventory != null && lOInventory.CursorItem != null)
             return false;

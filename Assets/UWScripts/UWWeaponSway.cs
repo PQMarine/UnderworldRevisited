@@ -5,16 +5,25 @@ using UWDataImport.UWData;
 /// THE WEAPON PICTURE'S SWAY WITH THE MOVEMENT (cleanup 5.18, 2026-10-23: out of UWGameUI, the
 /// code as it was): the original's jitter of the weapon while walking (UWHeadBobRules), rolled
 /// and drawn here for the classic frame (UWGameUI.Update) and the modern weapon view
-/// (UWModernWeaponView) alike - one state, asked once a frame by whichever view shows the weapon.
+/// (UWModernWeaponView) alike - one state, asked once a frame by whichever view shows the weapon. The second game's
+/// screens have one of their own (per user 2026-11-22: their weapon stood still; jiggle_weapon is the same in both
+/// games, uw2 ui/PANELS.C:587, called from do_fbuf_bms).
 /// </summary>
 public sealed class UWWeaponSway
 {
     public UWWeaponSway(UWGameUI pOUi)
+        : this(() => pOUi.mCharacter != null && pOUi.mCharacter.Weapon.CanAttack)
     {
-        mOUi = pOUi;
     }
 
-    private readonly UWGameUI mOUi;
+    /// <summary>pFSwaying: whether the weapon stands ready (the original's get_wfr sets the offset to 0 in every
+    /// other step - drawing, sheathing, swinging).</summary>
+    public UWWeaponSway(System.Func<bool> pFSwaying)
+    {
+        mFSwaying = pFSwaying;
+    }
+
+    private readonly System.Func<bool> mFSwaying;
 
     /// <summary>The weapon's jitter: the rolled offset and the drawn one - the same under
     /// Original, the drawn one gliding after the rolled one under Smooth.</summary>
@@ -38,7 +47,7 @@ public sealed class UWWeaponSway
         UWPlayerMovement lOMovement = UWScene.PlayerMovement;
         UWHeadBobRules.ModeEnum leMode = UWUserSettings.WeaponJitterMode;
 
-        if (leMode == UWHeadBobRules.ModeEnum.Off || lOMovement == null || mOUi.mCharacter == null || !mOUi.mCharacter.Weapon.CanAttack)
+        if (leMode == UWHeadBobRules.ModeEnum.Off || lOMovement == null || mFSwaying == null || !mFSwaying())
         {
             mfWeaponJitterTarget = 0f;
             mfWeaponJitter = 0f;

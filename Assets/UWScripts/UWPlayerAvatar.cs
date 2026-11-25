@@ -188,7 +188,7 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
         get
         {
             // The second game's lives on its game screen (UWGameScreenUw2).
-            if (UWWalkUw2.IsWalking && UWGameScreenUw2.Current != null)
+            if (UWGameStartUw2.IsRunning && UWGameScreenUw2.Current != null)
                 return UWGameScreenUw2.Current.Inventory;
 
             UWInventory lOInventory = UWScene.Inventory;
@@ -202,7 +202,7 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
         get
         {
             // The first game's component stands in the second game's scene too, with vitals nothing runs.
-            if (UWWalkUw2.IsWalking)
+            if (UWGameStartUw2.IsRunning)
                 return UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null;
 
             UWCharacter lOCharacter = UWScene.Character;
@@ -217,7 +217,7 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
     {
         get
         {
-            if (UWWalkUw2.IsWalking)
+            if (UWGameStartUw2.IsRunning)
                 return UWVitalsUw2.Current != null ? UWVitalsUw2.Current.DamageTypeProof : 0;
 
             UWCharacter lOCharacter = UWScene.Character;
@@ -257,7 +257,7 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
     public void LeaveCombatMode()
     {
         // The second game's fight command (G0 of the 2026-11-06 sweep).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             UWGameScreenUw2.LeaveFight();
 

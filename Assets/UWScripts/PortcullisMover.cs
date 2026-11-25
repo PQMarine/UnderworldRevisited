@@ -243,7 +243,7 @@ public class PortcullisMover : MonoBehaviour, IUsableDoor
     /// sound (UWSoundEffectId.DoorShut).</summary>
     private void fPlayShut()
     {
-        UWDoorShutSounds.Request(UWWalkUw2.IsWalking ? UWDataImport.UWData.UWSoundEffectId.PortcullisShutUw2
+        UWDoorShutSounds.Request(UWGameStartUw2.IsRunning ? UWDataImport.UWData.UWSoundEffectId.PortcullisShutUw2
             : UWDataImport.UWData.UWSoundEffectId.DoorShut, fSoundAt, miStartOrder);
     }
 

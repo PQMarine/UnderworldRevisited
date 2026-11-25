@@ -109,9 +109,9 @@ public sealed class UWPresentation : IUWPresentation
 
     public void FlashWindow(int piPaletteColour, float pfSeconds)
     {
-        // THE SECOND GAME'S VIEW (per user, 2026-11-17: no red flash when hit): its walk has no UWGameUI, so every flash
+        // THE SECOND GAME'S VIEW (per user, 2026-11-17: no red flash when hit): its session has no UWGameUI, so every flash
         // was lost; it is drawn over the second game's view as the night's flashes are (UWSleepUw2.ShowFlash).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             UWLevelLoader lOLoader = UWScene.LevelLoader;
 

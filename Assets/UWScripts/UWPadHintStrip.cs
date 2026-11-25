@@ -64,11 +64,12 @@ public class UWPadHintStrip : MonoBehaviour
         mOItemTexts.Clear();
 
         UWControlScheme lOScheme = UWScene.ControlScheme;
-        UWGameUI lOUi = UWScene.GameUi;
 
+        // The conversation and the map through the running game's session (part U4e step 1 of the UW2 plan; the first
+        // game's UWConversationController and UWGameUI's map until then).
         if (!UWUserSettings.ShowsPadHints || lOScheme == null || !UWModernUi.IsActive
-            || !UWModernUi.IsShowing || UWModernUi.IsMenuOpen || UWConversationController.IsAnyOpen || UWLetterGrid.IsShown
-            || (lOUi != null && lOUi.Map.IsMapVisible) || UWHelpWindow.BlocksGameKeys)
+            || !UWModernUi.IsShowing || !UWModernUi.Has(UWModernPartEnum.PadHints) || UWModernUi.IsMenuOpen || UWModernUi.IsConversationOpen
+            || UWLetterGrid.IsShown || UWModernUi.IsMapOpen || UWHelpWindow.BlocksGameKeys)
             return;
 
         if (UWModernBags.IsSplitting)

@@ -141,10 +141,11 @@ namespace UWDataImport.UWData
 			fAdd("setting.ViewAngle", "View");
 			fAdd("setting.ViewGamma", "Gamma");
 			fAdd("setting.ViewGamma.hint", "Lifts the dark tones of the 3D view, in both modes; the interface keeps its colours. 1.00 is the picture as drawn.");
-			fAdd("setting.XbrTextures", "xBR texture scaling (4x)");
-			fAdd("setting.XbrTextures.hint", "Walls, floors and ceilings scaled to four times their size with the pixel art scaler xBR (twice 2x); in Remastered. Things and creatures are not scaled.");
-			fAdd("setting.XbrSprites", "xBR creatures, things and weapons (4x, next load)");
-			fAdd("setting.XbrSprites.hint", "Creatures, things and the weapon in the hand scaled to four times their size with the pixel art scaler xBR, with a hard edge; in Remastered, from the next load of a game on.");
+			fAdd("setting.TextureLook", "Textures");
+			fAdd("setting.TextureLook.hint", "How the world's pictures are drawn in Remastered - walls, floors, ceilings, things, creatures and the weapon alike: the original's pixels, smooth (filtered bilinear, as the project's 2012 version) or xBR (scaled to four times their size by the pixel art scaler). Outlines stay hard. xBR on things and creatures from the next load of a game on.");
+			fAdd("setting.TextureLook.choice.pixels", "Pixels");
+			fAdd("setting.TextureLook.choice.smooth", "Smooth");
+			fAdd("setting.TextureLook.choice.xbr", "xBR");
 			fAdd("setting.OriginalWorldResolution", "World at the original's resolution");
 			fAdd("setting.OriginalWorldResolutionFactor", "Resolution factor");
 
@@ -251,6 +252,7 @@ namespace UWDataImport.UWData
 			fAdd("setting.ModernGemApart", "Power gem");
 			fAdd("setting.ModernGemApart.choice.shelf", "Shelf");
 			fAdd("setting.ModernGemApart.choice.apart", "Apart");
+			fAdd("setting.ModernGemApart.choice.compass", "In compass");
 			fAdd("setting.ModernFlasksApart", "Flasks");
 			fAdd("setting.ModernFlasksApart.choice.shelf", "Shelf");
 			fAdd("setting.ModernFlasksApart.choice.apart", "Apart");
@@ -276,6 +278,9 @@ namespace UWDataImport.UWData
 			fAdd("setting.ModernRuneHollowOutline", "Outline");
 			fAdd("setting.ModernRuneHollowOutline.choice.off", "Off");
 			fAdd("setting.ModernRuneHollowOutline.choice.on", "On");
+			fAdd("setting.ModernSpellHollow", "Look");
+			fAdd("setting.ModernSpellHollow.choice.row", "Row");
+			fAdd("setting.ModernSpellHollow.choice.hollow", "Hollow");
 			fAdd("setting.ModernStoneShelf", "Shown");
 			fAdd("setting.ModernStoneShelf.choice.on", "On");
 			fAdd("setting.ModernStoneShelf.choice.off", "Off");

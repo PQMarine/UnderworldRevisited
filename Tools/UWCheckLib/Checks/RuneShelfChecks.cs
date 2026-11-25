@@ -90,9 +90,10 @@ namespace UnderworldRevisited.Tools
             System.Func<int, bool> lfAll = liRune => true;
             System.Func<int, bool> lfNone = liRune => false;
             System.Func<int, bool> lfNotFirst = liRune => liRune != 0;
+            UWRuneTabletGeometry lOUw1 = UWRuneTabletGeometry.Uw1;
 
-            fExpectInt("grid: rune 5's left", UWRuneShelfModel.SlotLeft(5), 26);
-            fExpectInt("grid: rune 5's top", UWRuneShelfModel.SlotTop(5), 20);
+            fExpectInt("grid: rune 5's left", lOUw1.SlotLeft(5), 26);
+            fExpectInt("grid: rune 5's top", lOUw1.SlotTop(5), 20);
 
             // The click area: the panel's mouse region (BeginInventory, INVPANEL.C:161) on the page.
             fExpectBool("area: the panel's mouse region, x 0xF0 to 0x13B, y 0x52 to 0xBD from the bottom",
@@ -105,26 +106,26 @@ namespace UnderworldRevisited.Tools
                 && UWClassicLayout.RuneShelf.ClearTop == UWClassicLayout.RuneShelf.HitBottom - 0x12 + 1, true);
 
             // Both schemes, decision 27 (2026-10-20): the original's gapless 18 x 15 cells.
-            fExpectInt("cell: the first compartment's corner", UWRuneShelfModel.RuneCellAt(8f, 5f, lfAll), 0);
-            fExpectInt("cell: the region's top-left pixel", UWRuneShelfModel.RuneCellAt(4f, 3f, lfAll), 0);
-            fExpectInt("cell: above the region nothing", UWRuneShelfModel.RuneCellAt(10f, 2.9f, lfAll), -1);
-            fExpectInt("cell: left of the region nothing", UWRuneShelfModel.RuneCellAt(3.9f, 10f, lfAll), -1);
-            fExpectInt("cell: the first column ends on x 24", UWRuneShelfModel.RuneCellAt(24.9f, 10f, lfAll), 0);
-            fExpectInt("cell: the second begins on 25", UWRuneShelfModel.RuneCellAt(25f, 10f, lfAll), 1);
-            fExpectInt("cell: the third begins on 43", UWRuneShelfModel.RuneCellAt(43f, 10f, lfAll), 2);
-            fExpectInt("cell: the fourth begins on 61", UWRuneShelfModel.RuneCellAt(61f, 10f, lfAll), 3);
-            fExpectInt("cell: ... and ends on 78", UWRuneShelfModel.RuneCellAt(78.9f, 10f, lfAll), 3);
-            fExpectInt("cell: x 79 is column 4, the next row's first rune", UWRuneShelfModel.RuneCellAt(79f, 10f, lfAll), 4);
-            fExpectInt("cell: ... below the last row nothing", UWRuneShelfModel.RuneCellAt(79f, 85f, lfAll), -1);
-            fExpectInt("cell: right of the region nothing", UWRuneShelfModel.RuneCellAt(80f, 10f, lfAll), -1);
-            fExpectInt("cell: the first row ends on row 17", UWRuneShelfModel.RuneCellAt(10f, 17.9f, lfAll), 0);
-            fExpectInt("cell: the second begins on 18, the compartment's bottom row", UWRuneShelfModel.RuneCellAt(10f, 18f, lfAll), 4);
-            fExpectInt("cell: the gap between two compartments", UWRuneShelfModel.RuneCellAt(23f, 19f, lfAll), 4);
-            fExpectInt("cell: the last row begins on 78", UWRuneShelfModel.RuneCellAt(70f, 78f, lfAll), 23);
-            fExpectInt("cell: ... and ends on 92", UWRuneShelfModel.RuneCellAt(70f, 92.9f, lfAll), 23);
-            fExpectInt("cell: the clear strip is no cell", UWRuneShelfModel.RuneCellAt(70f, 93f, lfAll), -1);
-            fExpectInt("cell: a rune not in the bag", UWRuneShelfModel.RuneCellAt(8f, 5f, lfNone), -1);
-            fExpectInt("cell: ... leaves its cell to nobody", UWRuneShelfModel.RuneCellAt(10f, 17f, lfNotFirst), -1);
+            fExpectInt("cell: the first compartment's corner", lOUw1.RuneCellAt(8f, 5f, lfAll), 0);
+            fExpectInt("cell: the region's top-left pixel", lOUw1.RuneCellAt(4f, 3f, lfAll), 0);
+            fExpectInt("cell: above the region nothing", lOUw1.RuneCellAt(10f, 2.9f, lfAll), -1);
+            fExpectInt("cell: left of the region nothing", lOUw1.RuneCellAt(3.9f, 10f, lfAll), -1);
+            fExpectInt("cell: the first column ends on x 24", lOUw1.RuneCellAt(24.9f, 10f, lfAll), 0);
+            fExpectInt("cell: the second begins on 25", lOUw1.RuneCellAt(25f, 10f, lfAll), 1);
+            fExpectInt("cell: the third begins on 43", lOUw1.RuneCellAt(43f, 10f, lfAll), 2);
+            fExpectInt("cell: the fourth begins on 61", lOUw1.RuneCellAt(61f, 10f, lfAll), 3);
+            fExpectInt("cell: ... and ends on 78", lOUw1.RuneCellAt(78.9f, 10f, lfAll), 3);
+            fExpectInt("cell: x 79 is column 4, the next row's first rune", lOUw1.RuneCellAt(79f, 10f, lfAll), 4);
+            fExpectInt("cell: ... below the last row nothing", lOUw1.RuneCellAt(79f, 85f, lfAll), -1);
+            fExpectInt("cell: right of the region nothing", lOUw1.RuneCellAt(80f, 10f, lfAll), -1);
+            fExpectInt("cell: the first row ends on row 17", lOUw1.RuneCellAt(10f, 17.9f, lfAll), 0);
+            fExpectInt("cell: the second begins on 18, the compartment's bottom row", lOUw1.RuneCellAt(10f, 18f, lfAll), 4);
+            fExpectInt("cell: the gap between two compartments", lOUw1.RuneCellAt(23f, 19f, lfAll), 4);
+            fExpectInt("cell: the last row begins on 78", lOUw1.RuneCellAt(70f, 78f, lfAll), 23);
+            fExpectInt("cell: ... and ends on 92", lOUw1.RuneCellAt(70f, 92.9f, lfAll), 23);
+            fExpectInt("cell: the clear strip is no cell", lOUw1.RuneCellAt(70f, 93f, lfAll), -1);
+            fExpectInt("cell: a rune not in the bag", lOUw1.RuneCellAt(8f, 5f, lfNone), -1);
+            fExpectInt("cell: ... leaves its cell to nobody", lOUw1.RuneCellAt(10f, 17f, lfNotFirst), -1);
 
             // Every pixel of the region: one rune or the clear strip, each rune's cell 18 x 15
             // (the first column 21 wide), all within one rectangle; only x 79 is the original's odd
@@ -137,8 +138,8 @@ namespace UnderworldRevisited.Tools
             {
                 for (int liX = UWClassicLayout.RuneShelf.HitLeft; liX < UWClassicLayout.RuneShelf.HitRight; liX++)
                 {
-                    int liRune = UWRuneShelfModel.RuneCellAt(liX + 0.5f, liRow + 0.5f, lfAll);
-                    bool lbClear = UWRuneShelfModel.IsClearStrip(liRow);
+                    int liRune = lOUw1.RuneCellAt(liX + 0.5f, liRow + 0.5f, lfAll);
+                    bool lbClear = lOUw1.IsClearStrip(liRow);
 
                     if (liRune < 0 && !lbClear)
                         liMissed++;
@@ -160,10 +161,78 @@ namespace UnderworldRevisited.Tools
             fExpectBool("cells: 18 x 15 each, the first column 21 x 15", lbSizes, true);
 
             // The clear strip, both edge rows in.
-            fExpectBool("clear strip: row 93", UWRuneShelfModel.IsClearStrip(93f), true);
-            fExpectBool("clear strip: row 110", UWRuneShelfModel.IsClearStrip(110f), true);
-            fExpectBool("clear strip: above it", UWRuneShelfModel.IsClearStrip(92.9f), false);
-            fExpectBool("clear strip: below it", UWRuneShelfModel.IsClearStrip(110.1f), false);
+            fExpectBool("clear strip: row 93", lOUw1.IsClearStrip(93f), true);
+            fExpectBool("clear strip: row 110", lOUw1.IsClearStrip(110f), true);
+            fExpectBool("clear strip: above it", lOUw1.IsClearStrip(92.9f), false);
+            fExpectBool("clear strip: below it", lOUw1.IsClearStrip(110.1f), false);
+
+            fCheckRuneTabletUw2();
+        }
+
+        /// <summary>
+        /// The second game's page (UW2 plan part U4c step 1, 2026-11-23): ShowRune's places, the panel's mouse
+        /// region of BeginInventory, and for every pixel of it the same answer as mous_in_rune (uw2 RUNES.C:99-104),
+        /// written out here as the classic page of UWGameScreenUw2 computes it on the screen.
+        /// </summary>
+        private static void fCheckRuneTabletUw2()
+        {
+            UWRuneTabletGeometry lOUw2 = UWRuneTabletGeometry.Uw2;
+            System.Func<int, bool> lfAll = liRune => true;
+
+            fExpectInt("uw2 page: 79 wide", lOUw2.PageWidth, 79);
+            fExpectInt("uw2 page: 112 high", lOUw2.PageHeight, 112);
+            fExpectInt("uw2 grid: rune 0's left, x 0xF1 on the screen", lOUw2.SlotLeft(0), 6);
+            fExpectInt("uw2 grid: rune 0's top, y 0xBC from the bottom", lOUw2.SlotTop(0), 4);
+            fExpectInt("uw2 grid: rune 5's left", lOUw2.SlotLeft(5), 24);
+            fExpectInt("uw2 grid: rune 5's top", lOUw2.SlotTop(5), 19);
+            fExpectInt("uw2 grid: rune 23's top, the last row", lOUw2.SlotTop(23), 79);
+            fExpectBool("uw2 area: x 0xF0 to 0x13B, y 0x51 to 0xBE from the bottom",
+                lOUw2.HitLeft == 5 && lOUw2.HitRight == 80 && lOUw2.HitTop == 2 && lOUw2.HitBottom == 111, true);
+            fExpectBool("uw2 area: the clear strip its rows y < 0x12", lOUw2.ClearTop == 94 && lOUw2.ClearBottom == 111, true);
+            fExpectBool("uw2 area: the page's game", lOUw2.IsSecondGame && !UWRuneTabletGeometry.Uw1.IsSecondGame, true);
+
+            int liDiffer = 0;
+            int liRunes = 0;
+            int liClear = 0;
+
+            for (int liRow = lOUw2.HitTop; liRow <= lOUw2.HitBottom; liRow++)
+            {
+                for (int liX = lOUw2.HitLeft; liX <= lOUw2.HitRight; liX++)
+                {
+                    // mous_in_rune on the screen: x and y from the bottom, relative to 0xF0 and 0x51.
+                    int liScreenX = liX + UWClassicLayoutUw2.Panel.Left;
+                    int liScreenY = UWClassicLayout.Screen.Height - 1 - (liRow + UWClassicLayoutUw2.Panel.Top);
+                    int liRelX = liScreenX - UWClassicLayoutUw2.Statistics.Left;
+                    int liRelY = liScreenY - UWClassicLayoutUw2.Statistics.AreaBottomY;
+                    bool lbOriginalClear = liRelY < UWClassicLayoutUw2.Runes.ClearStrip;
+                    int liOriginal = -1;
+
+                    if (!lbOriginalClear)
+                    {
+                        liOriginal = UWClassicLayoutUw2.Runes.TopRowFirst
+                            - (((liRelY - UWClassicLayoutUw2.Runes.ClearStrip) / UWClassicLayoutUw2.Runes.StepY) << 2)
+                            + (liRelX / UWClassicLayoutUw2.Runes.StepX);
+
+                        if (liOriginal < 0 || liOriginal >= UWPlayerData.RuneCount)
+                            liOriginal = -1;
+                    }
+
+                    int liOurs = lOUw2.RuneCellAt(liX + 0.5f, liRow + 0.5f, lfAll);
+                    bool lbOursClear = lOUw2.IsClearStrip(liRow);
+
+                    if (liOurs != liOriginal || lbOursClear != lbOriginalClear)
+                        liDiffer++;
+                    else if (lbOursClear)
+                        liClear++;
+                    else if (liOurs >= 0)
+                        liRunes++;
+                }
+            }
+
+            fExpectInt("uw2 cells: every pixel of the region as mous_in_rune", liDiffer, 0);
+            fExpectInt("uw2 cells: the clear strip's pixels (76 x 18)", liClear, 76 * 18);
+            fExpectBool("uw2 cells: every row above it a rune or the region's odd last columns", liRunes > 0, true);
+            fExpectInt("uw2 cell: off the region nothing", lOUw2.RuneCellAt(4.9f, 10f, lfAll), -1);
         }
 
         /// <summary>CanCast: the bag first, then lookup, circle and mana as player_cast.</summary>

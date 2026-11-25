@@ -128,6 +128,11 @@ namespace UWDataImport.UWData
 		/// <summary>A name used as it stands (a talisman's, block 1) on a label, first letter a capital.</summary>
 		string LiteralLabel(string psText);
 
+		/// <summary>A wall or floor (block 10) as a bare name, as UWText.ObjectName names a thing: without its article, in the
+		/// nominative ("trapdoor" for a bridge named after its floor; UWModernWorldInput.CrosshairName, whose callers
+		/// capitalise where their label does).</summary>
+		string ChunkLabel(string psText);
+
 		// ------------------------------------------------- What a frame's select chooses by (wave 4)
 
 		/// <summary>The gender letter of a name in the language's name format (UWNameFormat: m f n c p),

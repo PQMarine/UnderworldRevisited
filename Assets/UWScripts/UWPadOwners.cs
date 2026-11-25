@@ -74,7 +74,8 @@ public static class UWPadOwners
         // the paging and the window picture as the back chain asks them (Interaction gets to them).
         fSet(ref leStates, UWPadPressState.YesNo, lOInteraction != null && lOInteraction.IsAskingYesNo
             && UWControlScheme.Ui.Policy.PadButtonsAnswerYesNo);
-        fSet(ref leStates, UWPadPressState.Paging, lOInteraction != null && lOInteraction.PagingTakesKeys);
+        fSet(ref leStates, UWPadPressState.Paging, (lOInteraction != null && lOInteraction.PagingTakesKeys)
+            || UWGameScreenUw2.IsWaitingForPage || UWPageInput.ConsumedThisFrame);
         fSet(ref leStates, UWPadPressState.WindowPicture, lOInteraction != null && lOInteraction.PictureTakesKeys);
         fSet(ref leStates, UWPadPressState.ConversationMore, lOConversation != null && lOConversation.MoreTakesPad);
         fSet(ref leStates, UWPadPressState.ConversationEnd, lOConversation != null && lOConversation.EndTakesPad);

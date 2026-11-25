@@ -15,6 +15,11 @@ using UWDataImport.UWData;
 ///             pages (UWModernHudArt.BuildPicture and BuildPanelPage until 2026-10-19).
 ///   Colours - colours with the colour help, transparent pixels keeping theirs, clamped: the
 ///             original's panel pages as the modern rune tablet showed them.
+///   ZeroClear - colours with the colour help, clear in the picture's own colour 0 alone: the
+///             second game's buttons, body and armour as its classic page draws them (UW2 plan
+///             stage U5 step 2).
+///   Opaque  - colours with the colour help, every pixel opaque: the second game's panel pages
+///             and the open bag's back (stage U5 step 3).
 ///
 /// THE COLOUR HELP is followed IN PLACE: when UWColourVision.Version has changed since a
 /// colour picture was made, the next Get uploads its pixels anew into the same texture, so
@@ -31,7 +36,9 @@ public static class UWGrTextures
     {
         Icon = 0,
         Picture = 1,
-        Colours = 2
+        Colours = 2,
+        ZeroClear = 3,
+        Opaque = 4
     }
 
     private sealed class Entry
@@ -112,6 +119,12 @@ public static class UWGrTextures
 
     private static byte[] fPixels(UWTexture pOSource, ModeEnum peMode)
     {
+        if (peMode == ModeEnum.ZeroClear)
+            return UWUploadPixels.FromPicture(UWPicture.FromZeroClear(pOSource), UWColourVision.Filter);
+
+        if (peMode == ModeEnum.Opaque)
+            return UWUploadPixels.FromPicture(UWPicture.FromOpaque(pOSource), UWColourVision.Filter);
+
         return peMode == ModeEnum.Picture
             ? UWUploadPixels.FromPicture(UWPicture.From(pOSource), UWColourVision.Filter)
             : UWUploadPixels.FromTexture(pOSource, UWColourVision.Filter);

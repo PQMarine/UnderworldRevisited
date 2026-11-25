@@ -82,7 +82,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>Up to here spells act lastingly on the character: light, movement,
 		/// resistance, bonuses.</summary>
-		private const int LastLastingMajorClass = 3;
+		public const int LastLastingMajorClass = 3;
 
 		private const int HealMajorClass = 4;
 
@@ -303,13 +303,11 @@ namespace UWDataImport.UWData
 
 			UWRunicMagic.TryGetSpell(liSequence, out UWRunicMagic.Spell lOSpell);
 
-			// What the game does not run yet costs nothing (UW2 plan phase 4, list item 3).
+			// What the game does not run costs nothing (UW2 plan phase 4, list item 3). Every spell of both games is built
+			// since phase 4 (the self-check's lists), so this only guards a sequence outside the tables - silently, the walk's
+			// placeholder line is gone (per user 2026-11-22).
 			if (!lIMagic.IsBuilt(lOSpell))
-			{
-				pIHost.World.Presentation.AddMessage(UWText.T("hud.walk.not_yet"));
-
 				return OutcomeEnum.Blocked;
-			}
 
 			// THE CHECK: Casting + 5 against twice the circle (player_cast; until 2026-10-11 ours had
 			// Casting against three times the circle, the reference's - 6 to 13 points harder, the
@@ -405,14 +403,10 @@ namespace UWDataImport.UWData
 			if (pIHost == null || piSpellIndex < 0 || piSpellIndex >= UWRunicMagic.AllSpells.Count)
 				return false;
 
-			// What the game does not run yet says so, as a rune cast does (G0 of the 2026-11-06 sweep: the debug
-			// panel's list cast such spells into the second game's empty host stubs without a word).
+			// What the game does not run is refused, as a rune cast is (G0 of the 2026-11-06 sweep: the debug panel's list
+			// cast such spells into the second game's empty host stubs) - silently since every spell is built.
 			if (pIHost.World != null && !pIHost.World.Session.Game.Magic.IsBuilt(UWRunicMagic.AllSpells[piSpellIndex]))
-			{
-				pIHost.World.Presentation.AddMessage(UWText.T("hud.walk.not_yet"));
-
 				return false;
-			}
 
 			ApplyEffect(UWRunicMagic.AllSpells[piSpellIndex], true, pIHost);
 

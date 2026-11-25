@@ -57,6 +57,10 @@ internal sealed class UWModernBagTrade
     /// <summary>A conversation is open: nothing is used, nothing goes into the world.</summary>
     internal static bool IsTalking => fConversation() != null;
 
+    /// <summary>A conversation of either game runs (the second game's trade slots are its own conversation screen's,
+    /// so IsTalking is false there): nothing is used, nothing goes into the world.</summary>
+    internal static bool IsConversing => IsTalking || UWModernUi.IsConversationOpen;
+
     /// <summary>The trade slot under the pointer, if a modern conversation shows one there.</summary>
     private static bool fTradeSlotAt(Vector2 pOPointer, out bool pbNpc, out int piSlot)
     {
@@ -83,7 +87,7 @@ internal sealed class UWModernBagTrade
 
     /// <summary>The pressed trade slot, every frame: released in place it marks, moved away it
     /// takes the thing onto the pointer (the release then puts it down, as any drag).</summary>
-    internal void UpdatePress(UWControls pOControls, Vector2 pOPointer, UWInventory pOInventory)
+    internal void UpdatePress(UWControls pOControls, Vector2 pOPointer, UWInventoryModel pOInventory)
     {
         if (!mbTradePress)
             return;
@@ -120,7 +124,7 @@ internal sealed class UWModernBagTrade
 
     /// <summary>Takes the pressed slot's thing onto the pointer: one's own offer, or a bought good
     /// (too heavy, it stays there).</summary>
-    private void fTakeFromTrade(UWConversationTrade pOTrade, UWInventory pOInventory, bool pbDragged)
+    private void fTakeFromTrade(UWConversationTrade pOTrade, UWInventoryModel pOInventory, bool pbDragged)
     {
         UWObject lOItem = mbTradePressNpc ? pOTrade.NpcItems[miTradePressSlot] : pOTrade.PlayerItems[miTradePressSlot];
 
@@ -129,12 +133,12 @@ internal sealed class UWModernBagTrade
 
         // The whole stack is taken here, so the whole stack is weighed (UWPickupRules) - on both
         // sides, as UseTradeSlot_ovr097_6E8 weighs (until 2026-10-15 only the partner's).
-        UWPickupRules.Result lOCheck = UWPickupRules.CheckFromTrade(lOItem, UWWorldPickup.WholeStack, pOInventory.Model);
+        UWPickupRules.Result lOCheck = UWPickupRules.CheckFromTrade(lOItem, UWWorldPickup.WholeStack, pOInventory);
 
         if (!lOCheck.CanTake)
         {
-            if (mOBags.Interaction != null && lOCheck.MessageIndex >= 0)
-                ShowTalkText(mOBags.Interaction.GetGeneralMessage(lOCheck.MessageIndex));
+            if (UWModernUi.Session != null && lOCheck.MessageIndex >= 0)
+                ShowTalkText(UWModernUi.Session.Messages.General(lOCheck.MessageIndex));
 
             return;
         }
@@ -152,7 +156,7 @@ internal sealed class UWModernBagTrade
 
     /// <summary>The thing on the pointer put down on a trade slot - true if the pointer was on
     /// one (pbPlaced: whether it went there).</summary>
-    internal bool TryPlace(Vector2 pOPointer, UWInventory pOInventory, out bool pbPlaced)
+    internal bool TryPlace(Vector2 pOPointer, UWInventoryModel pOInventory, out bool pbPlaced)
     {
         pbPlaced = false;
 
@@ -168,8 +172,8 @@ internal sealed class UWModernBagTrade
 
         if (lOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers && lOItem.ID != UWObjectMechanics.RuneBagId)
         {
-            if (mOBags.Interaction != null)
-                ShowTalkText(mOBags.Interaction.GetGeneralMessage(UWStringIds.CannotBarterContainerMessage));
+            if (UWModernUi.Session != null)
+                ShowTalkText(UWModernUi.Session.Messages.General(UWStringIds.CannotBarterContainerMessage));
 
             return true;
         }

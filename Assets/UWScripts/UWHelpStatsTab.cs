@@ -35,7 +35,7 @@ public sealed class UWHelpStatsTab : UWHelpTab
     {
         mOFlow = pOFlow;
 
-        bool lbSecondGame = UWWalkUw2.IsWalking;
+        bool lbSecondGame = UWGameStartUw2.IsRunning;
         UWPlayerVitals lOVitals = fVitals();
         DataImport lOData = fData();
 
@@ -149,14 +149,14 @@ public sealed class UWHelpStatsTab : UWHelpTab
     private void fSkillPointRows(UWPlayerVitals pOVitals)
     {
         fStatRow(UWText.T("help.stats.skill_points"), pOVitals.SkillPoints.ToString());
-        mOFlow.Line(UWText.F(UWWalkUw2.IsWalking ? "help.stats.skill_points_note_uw2" : "help.stats.skill_points_note",
+        mOFlow.Line(UWText.F(UWGameStartUw2.IsRunning ? "help.stats.skill_points_note_uw2" : "help.stats.skill_points_note",
             UWRules.Current.Experience.PerSkillPoint / 10), UWHelpLookEnum.Dim);
     }
 
     /// <summary>The live numbers of the game in force, null before they run.</summary>
     private static UWPlayerVitals fVitals()
     {
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             return UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null;
 
         UWCharacter lOCharacter = UWScene.Character;
@@ -166,7 +166,7 @@ public sealed class UWHelpStatsTab : UWHelpTab
 
     private static UWInventoryModel fInventory()
     {
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             return UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
 
         UWGameUI lOUi = UWScene.GameUi;
@@ -182,7 +182,7 @@ public sealed class UWHelpStatsTab : UWHelpTab
     /// <summary>The name, the class and the load's limit; the second game's come from its record, once for a save.</summary>
     private UWPlayerData fPlayer(DataImport pOData)
     {
-        if (!UWWalkUw2.IsWalking)
+        if (!UWGameStartUw2.IsRunning)
             return pOData.InitialPlayer;
 
         UWPlayerFile lOFile = UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;

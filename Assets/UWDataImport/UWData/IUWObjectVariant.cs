@@ -25,6 +25,15 @@ namespace UWDataImport.UWData
 		/// <summary>"You see nothing." in our block 1.</summary>
 		int NothingToSeeString { get; }
 
+		/// <summary>Whether the game has the eight talismans of the virtues with their own names (UWTalismans; UW1 only,
+		/// LookAtTalisman_ovr122_CC3 - the second game's LookAt has no such call, and its ids are other things there).</summary>
+		bool HasTalismans { get; }
+
+		/// <summary>The kind CritterLook names for a creature whose own name (block 4) is empty, in our block 1, -1 for none
+		/// (UW1: none, LOOK.C; UW2: with goal 11 the string 0x115 plus its animation sequence, LOOK.C CritterLook - the
+		/// Void's creatures: "an eyeball", "a bolt of lightning", ...).</summary>
+		int NamelessCreatureKindString(UWNpc pONpc);
+
 		/// <summary>The line after a spiked door's look in our block 1 (UW2's is empty, LOOK.C:451).</summary>
 		int DoorSpikedString { get; }
 

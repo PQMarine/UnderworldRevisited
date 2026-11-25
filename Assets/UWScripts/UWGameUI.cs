@@ -218,6 +218,18 @@ public class UWGameUI : MonoBehaviour
         // fInitialiseUi) - the camera is UWViewportCamera's from here on.
         Viewport.Attach(GetComponent<Camera>());
 
+        // THE FIRST GAME BEHIND THE MODERN WINDOWS' ENTRY (IUWModernSession, Docs/UW2-PLAN.md "The modern interface
+        // for UW2: one interface, two hosts"): made here, before the windows that ask through it, from this
+        // object's character and interaction as the modern HUD found them until stage U3 part D (2026-11-23).
+        UWCharacter lOSessionCharacter = GetComponent<UWCharacter>();
+        Interaction lOSessionInteraction = GetComponent<Interaction>();
+
+        if (lOSessionCharacter != null && lOSessionInteraction != null)
+        {
+            mOModernSession = new UWModernSessionUw1(this, lOSessionCharacter, lOSessionInteraction);
+            UWModernUi.Session = mOModernSession;
+        }
+
         // The modern scheme's HUD and game menu - idle in the original scheme.
         if (GetComponent<UWModernHud>() == null)
             gameObject.AddComponent<UWModernHud>();
@@ -487,8 +499,15 @@ public class UWGameUI : MonoBehaviour
         return lORect;
     }
 
+    /// <summary>The first game's host of the modern windows this UI made (Start), the one UWModernUi.Session holds
+    /// while this scene runs.</summary>
+    private UWModernSessionUw1 mOModernSession;
+
     private void OnDestroy()
     {
+        if (mOModernSession != null && UWModernUi.Session == mOModernSession)
+            UWModernUi.Session = null;
+
         if (mOClassic != null)
             mOClassic.Release();
 

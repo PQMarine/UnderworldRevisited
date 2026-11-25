@@ -103,7 +103,7 @@ namespace UWDataImport.UWData
 		{
 		}
 
-		/// <summary>The tables of either game (UW2 plan phase 2 step 3, the walk's third test: the
+		/// <summary>The tables of either game (UW2 plan phase 2 step 3, the session's third test: the
 		/// second game's creatures had pink shadows - its file of five tables was refused for not
 		/// holding six, and its shadow colour 0xFD was drawn as itself).</summary>
 		public UWTransparencyTables(string psDataPath, UWGame peGame)

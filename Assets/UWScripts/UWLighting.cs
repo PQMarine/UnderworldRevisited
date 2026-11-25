@@ -351,7 +351,7 @@ public class UWLighting : MonoBehaviour
         && UWRenderPathHost.Mode == UnderworldRevisited.UWSettings.RenderModeEnum.Remastered;
 
     /// <summary>The second game's minimum light where the view is (UWDarknessUw2.TileMinimum, DL.DAT;
-    /// UW2 plan phase 2 step 3) - set by its walk (UWWalkUw2View); -1, none, in the first game, which
+    /// UW2 plan phase 2 step 3) - set by its session (UWWorldViewUw2); -1, none, in the first game, which
     /// has no such light. A change sets the light up anew.</summary>
     public int LevelMinimum
     {
@@ -372,7 +372,7 @@ public class UWLighting : MonoBehaviour
     private int miLevelMinimum = UWDataImport.UWData.UWDarknessUw2.NoMinimum;
 
     /// <summary>
-    /// Hangs the player's light on another object - the second game's walk, whose view is the noclip
+    /// Hangs the player's light on another object - the second game's session, whose view is the noclip
     /// camera while the player is off (UW2 plan phase 2 step 3, the second test: Remastered stayed
     /// dark, its light hung on the switched-off player).
     /// </summary>

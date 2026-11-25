@@ -63,7 +63,7 @@ public class UWModernRuneHollow : UWModernPart
         UWArtStamp lOHollowStamp = UWVersionedTexture.Colours(lbOutline ? 1 : 0);
 
         if (!mORuneHollowArt.IsCurrent(lOHollowStamp))
-            mORuneHollowArt.Set(lOHollowStamp, UWModernHudArt.BuildRuneHollow(mOUi.mOUWData.Textures, lbOutline, mOUi.TextureFilterMode));
+            mORuneHollowArt.Set(lOHollowStamp, UWModernHudArt.BuildRuneHollow(UWModernUi.Data.Textures, lbOutline, UWModernUi.Filter));
 
         Texture2D lOHollow = mORuneHollowArt.Texture;
 
@@ -87,7 +87,10 @@ public class UWModernRuneHollow : UWModernPart
         ((RectTransform)mORuneHollow.transform).sizeDelta = lOPlaced.size;
         ScreenRect = lOPlaced;
 
-        System.Collections.Generic.IReadOnlyList<int> lOShelf = mOUi.Runes != null ? mOUi.Runes.Shelf.Selected : null;
+        System.Collections.Generic.IReadOnlyList<int> lOShelf = mOSession.Magic.IsReady ? mOSession.Magic.Shelf : null;
+
+        // The runes at the game's places in its hollow (the second game's right recess since UW2 plan stage U6 step 1).
+        UWDataImport.Presentation.UWFrameCutBuilder.RuneHollowRunes(UWModernUi.Data.Textures, out int liRuneX, out int liRuneY, out int liPitch);
 
         for (int liAt = 0; liAt < mORuneHollowRunes.Length; liAt++)
         {
@@ -104,19 +107,19 @@ public class UWModernRuneHollow : UWModernPart
 
             lOImage.texture = lOIcon;
             ((RectTransform)lOImage.transform).anchoredPosition = new Vector2(
-                lOPlaced.x + ((liPad + UWHudArt.RuneHollowRuneX + (liAt * UWHudArt.RuneHollowPitch)) * lfAspect),
-                lOPlaced.yMax - ((liPad + UWHudArt.RuneHollowRuneY) * lfScale) - lfIconHeight);
+                lOPlaced.x + ((liPad + liRuneX + (liAt * liPitch)) * lfAspect),
+                lOPlaced.yMax - ((liPad + liRuneY) * lfScale) - lfIconHeight);
             ((RectTransform)lOImage.transform).sizeDelta = new Vector2(lOIcon.width * lfAspect, lfIconHeight);
         }
     }
 
-    /// <summary>A rune's icon (OBJECTS.GR from the first rune on), shared (UWIconCache).</summary>
+    /// <summary>A rune's icon (the object the game's magic names for it, IUWModernMagic.RuneObject), shared (UWIconCache).</summary>
     private Texture2D fRuneIcon(int piRune)
     {
-        if (piRune < 0 || piRune >= UWPlayerData.RuneCount)
+        if (piRune < 0 || piRune >= mOSession.Magic.RuneCount)
             return null;
 
-        return UWIconCache.Texture(mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, UWPlayerData.FirstRuneObjectId + piRune),
-            mOUi.TextureFilterMode);
+        return UWIconCache.Texture(UWModernUi.Data.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, mOSession.Magic.RuneObject(piRune)),
+            UWModernUi.Filter);
     }
 }

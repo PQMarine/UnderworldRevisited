@@ -401,7 +401,7 @@ public sealed class UWMissiles
     }
 
     /// <summary>Who the player is here: his flights report to it (Interaction stands idle in the second game).</summary>
-    private static IUWMissileHost fPlayersHost => UWWalkUw2.IsWalking ? UWAttackUw2.Current : (IUWMissileHost)UWScene.Interaction;
+    private static IUWMissileHost fPlayersHost => UWGameStartUw2.IsRunning ? UWAttackUw2.Current : (IUWMissileHost)UWScene.Interaction;
 
     private UWProjectileFlight fSpawnFlight(UWMobileRecord pORecord, int piBaseDamage, int piDamageType, int piImpactId,
         IUWMissileHost pIShooter, UWCritter pOCritter, bool pbLaunchSound = true, bool pbFromLevelData = false,
@@ -740,7 +740,7 @@ public sealed class UWMissiles
     private void fDamagePlayer(UWProjectileFlight pOFlight)
     {
         // The second game's player is UWVitalsUw2: UWCharacter stands idle there, without armour.
-        UWVitalsUw2 lOSecond = UWWalkUw2.IsWalking ? UWVitalsUw2.Current : null;
+        UWVitalsUw2 lOSecond = UWGameStartUw2.IsRunning ? UWVitalsUw2.Current : null;
         UWCharacter lOPlayer = lOSecond == null ? UWScene.Character : null;
 
         if ((lOSecond == null || lOSecond.Vitals == null) && lOPlayer == null)

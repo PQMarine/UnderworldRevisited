@@ -233,7 +233,7 @@ public sealed class UWHudRunes
     }
 
     /// <summary>Which rune lies under the pointer? The original's gapless cells
-    /// (UWRuneShelfModel.RuneCellAt, decision 27, 2026-10-20), only for a rune whose picture is
+    /// (UWRuneTabletGeometry.RuneCellAt, decision 27, 2026-10-20), only for a rune whose picture is
     /// shown. Until cleanup 5.10 RectangleContainsScreenPoint on each 16 x 16 picture, then the
     /// same pictures in the model, with gaps between them.</summary>
     private int fGetRuneUnderMouse(Vector2 pOScreenPos)
@@ -243,7 +243,7 @@ public sealed class UWHudRunes
         if (lOImages == null || !fToShelf(pOScreenPos, out Vector2 lOLocal))
             return -1;
 
-        return UWRuneShelfModel.RuneCellAt(lOLocal.x, -lOLocal.y,
+        return UWRuneTabletGeometry.Uw1.RuneCellAt(lOLocal.x, -lOLocal.y,
             liRune => liRune < lOImages.Length && lOImages[liRune] != null && lOImages[liRune].enabled);
     }
 
@@ -256,7 +256,7 @@ public sealed class UWHudRunes
 
         // mRuneRoot has its pivot at top left, Y runs negative downwards.
         return lOLocal.x >= 0f && lOLocal.x <= UWHudPanel.PanelWidth
-            && UWRuneShelfModel.IsClearStrip(-lOLocal.y);
+            && UWRuneTabletGeometry.Uw1.IsClearStrip(-lOLocal.y);
     }
 
     /// <summary>A screen point in the rune page's own coordinates (mRuneRoot, pivot at the top

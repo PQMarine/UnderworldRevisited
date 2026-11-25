@@ -46,6 +46,12 @@ namespace UWDataImport.Presentation
 
 			public const float RingLightLuma = 76f;
 
+			/// <summary>The second game's ring in its marble (luma 33 to 80): the engraving's shadow is near
+			/// black, its light edge from luma 96 up.</summary>
+			public const float RingDarkLumaUw2 = 20f;
+
+			public const float RingLightLumaUw2 = 90f;
+
 			/// <summary>The shadow inside a freed slot (and the page's large circles): black, a fifth
 			/// opaque.</summary>
 			public static readonly UWColor32 Hollow = new UWColor32(0, 0, 0, 52);
@@ -54,6 +60,10 @@ namespace UWDataImport.Presentation
 		/// <summary>The paperdoll page's freed circles (per user, 2026-10-09).</summary>
 		public static class PaperdollMarks
 		{
+			/// <summary>The second game's rings on its page: their shadow is the near black, darker than the
+			/// page's own dark edge shade (luma 17).</summary>
+			public const float RingDarkLumaUw2 = 12f;
+
 			/// <summary>A circle's pixel stands out from the median of its neighbourhood (this far each
 			/// way) by more than this luma.</summary>
 			public const float StandOut = 9f;

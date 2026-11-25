@@ -261,7 +261,7 @@ public class UWDebugOverlay : MonoBehaviour
 
         // The second game's pack is its screen's model (per user, 2026-11-07: the overlay showed the idle first
         // game's parts).
-        UWObject[] lOBackpack = UWWalkUw2.IsWalking
+        UWObject[] lOBackpack = UWGameStartUw2.IsRunning
             ? (UWGameScreenUw2.Current != null && UWGameScreenUw2.Current.Inventory != null ? UWGameScreenUw2.Current.Inventory.Backpack : null)
             : mOInventory != null ? mOInventory.Backpack : null;
 
@@ -434,7 +434,7 @@ public class UWDebugOverlay : MonoBehaviour
     /// Without this you see the flask twitch while testing, but no number.</summary>
     private void fFillCharacter(UWDebugSnapshot pOSnapshot)
     {
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             fFillCharacterUw2(pOSnapshot);
 
@@ -732,6 +732,7 @@ public class UWDebugOverlay : MonoBehaviour
             pOLook.TileY = lOObject.TileY;
             pOLook.Height = lOObject.ZPos;
             pOLook.Heading = lOObject.Heading;
+            pOLook.Flags = lOObject.Flags;
             pOLook.Description = string.IsNullOrEmpty(lOEntity.Description) ? "-" : lOEntity.Description;
 
             return;

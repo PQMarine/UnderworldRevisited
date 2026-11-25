@@ -26,6 +26,9 @@ public sealed class UWClassicUiScheme : IUWUiScheme
 
     /// <summary>The classic box's lines (UWHudMessageLog.LogLineCount); the model's fallback
     /// without a UI.</summary>
+    /// <summary>The classic box's own width.</summary>
+    public int ShownLogWidth(int piClassicWidth) => piClassicWidth;
+
     public int ShownLogLines
     {
         get

@@ -24,7 +24,233 @@ namespace UWDataImport.Presentation
 		/// </summary>
 		public static UWPicture BuildPage(UWTextures pOTextures)
 		{
-			return ComposePage(UWMainFrame.Picture(pOTextures));
+			return fIsUw2(pOTextures) ? ComposePageUw2(fUw2Page(pOTextures)) : ComposePage(UWMainFrame.Picture(pOTextures));
+		}
+
+		// ------------------------------------------------- The second game (UW2 plan, the modern interface's part U4b step 2, 2026-11-23)
+
+		private static bool fIsUw2(UWTextures pOTextures)
+		{
+			return pOTextures != null && pOTextures.Game == UWGame.Uw2;
+		}
+
+		/// <summary>The second game's inventory page (PANELS.GR 0) as a picture.</summary>
+		private static UWPicture fUw2Page(UWTextures pOTextures)
+		{
+			return UWPicture.From(pOTextures.GetTextureByType(UWTexture.TextureTypes.PANELS, 0));
+		}
+
+		/// <summary>
+		/// THE SECOND GAME'S PAGE: the marble above the backpack with the rings of the shoulders, the hands and the
+		/// fingers, as PANELS.GR 0 has it - its rows down to the light line over the pack's circles
+		/// (UWPaperdollGeometry.Uw2PageRows). Nothing is widened and nothing removed: the page is the panel's width
+		/// near enough, and the weight is written on the bare marble.
+		/// </summary>
+		public static UWPicture ComposePageUw2(UWPicture pOPage)
+		{
+			return pOPage.Crop(new UWRectInt(0, 0, Math.Min(pOPage.Width, UWPaperdollGeometry.Uw2PageWidth),
+				Math.Min(pOPage.Height, UWPaperdollGeometry.Uw2PageRows)));
+		}
+
+		/// <summary>
+		/// THE SECOND GAME'S PAGE WITHOUT ITS MARBLE, for a back of the panel's own: only the rings, which are the
+		/// page's pixels darker or lighter than any of the marble (UWHudTuning.Slot's bounds for the second game) -
+		/// inside the page's black border. With pOCarve they are carved into the back as the first game's.
+		/// </summary>
+		public static UWPicture ComposeMarksUw2(UWPicture pOPage, List<UWColor32> pOCarve = null)
+		{
+			UWPicture lOCrop = ComposePageUw2(pOPage);
+			UWPicture lOOut = new UWPicture(lOCrop.Width, lOCrop.Height);
+
+			for (int y = 1; y < lOCrop.Height - 1; y++)
+			{
+				// Not the page's shaded left edge, whose darkest pixels are the rings' black.
+				for (int x = Uw2MarksLeft; x < lOCrop.Width - 1; x++)
+				{
+					UWColor32 lOPixel = lOCrop.Get(x, y);
+					float lfLuma = UWPixelRules.Luma(lOPixel);
+					bool lbDark = lfLuma <= UWHudTuning.PaperdollMarks.RingDarkLumaUw2;
+
+					if (!lbDark && lfLuma < UWHudTuning.Slot.RingLightLumaUw2)
+						continue;
+
+					lOOut.Set(x, y, pOCarve != null && pOCarve.Count > 0 ? (lbDark ? pOCarve[0] : pOCarve[pOCarve.Count - 1]) : lOPixel);
+				}
+			}
+
+			return lOOut;
+		}
+
+		/// <summary>The first column of the second game's page that can carry a ring's mark.</summary>
+		private const int Uw2MarksLeft = 5;
+
+		/// <summary>
+		/// A piece of the second game's armour (ARMOR_F, ARMOR_M) as a picture, as the classic screen draws it: the
+		/// picture's own colour 0 is clear and EVERY OTHER PIXEL IS DRAWN - also the black outline. That outline is
+		/// the second game's near black (0, 0, 4), and a colour with no red, no green and some blue is what the
+		/// FIRST game uses as its transparency marker (UWPalette's rule, found on the first game), so the resolved
+		/// colour came out clear (per user 2026-11-23 with the original beside ours: what was transparent with us is
+		/// black there; and: the first game's finding is not the second game's).
+		/// </summary>
+		public static UWPicture PieceUw2(UWTexture pOPiece)
+		{
+			UWPicture lOPicture = UWPicture.From(pOPiece);
+			byte[] lyIndices = pOPiece.PaletteIndices;
+
+			for (int liAt = 0; lyIndices != null && liAt < lOPicture.Pixels.Length && liAt < lyIndices.Length; liAt++)
+			{
+				lOPicture.Pixels[liAt] = lyIndices[liAt] == 0 ? UWPixelOps.Transparent : UWPixelOps.Opaque(lOPicture.Pixels[liAt]);
+			}
+
+			return lOPicture;
+		}
+
+		/// <summary>
+		/// THE SECOND GAME'S FIGURE without the page: the body picture (BODIES.GR) is a rectangle of the page with
+		/// the figure painted on it, as the first game's - but the marble is grey and the figure is not, so the
+		/// body is simply every pixel that differs from the page's pixel under it - opaque, for the pictures paint
+		/// hair and outline in the near black (0, 0, 4) that the first game's palette rule takes for its
+		/// transparency marker (PieceUw2). The armour is drawn over it in the game's order
+		/// (UWPaperdollGeometry.Uw2.ArmourOrder), transparent round each piece; A HELMET that paints the page over
+		/// the long hair it hides (the women's, as in the first game) is freed the same way and takes the figure
+		/// out where its page was. What is left apart from the figure - a few pixels where the body's marble is
+		/// not quite the page's, beside the shoulder's ring - goes: only the largest connected piece stays.
+		/// pOArmour and pOAt go by UWPaperdollGeometry's Helmet to Boots; the places are the screen's.
+		/// </summary>
+		public static UWPicture ComposeFigureUw2(UWPicture pOPage, UWPicture pOBody, IList<UWPicture> pOArmour, IList<(int X, int Y)> pOAt,
+			out int piOriginX, out int piOriginY)
+		{
+			UWPaperdollGeometry lOGeometry = UWPaperdollGeometry.Uw2;
+			int liLeft = lOGeometry.BodyX;
+			int liTop = lOGeometry.BodyY;
+			int liRight = liLeft + pOBody.Width;
+			int liBottom = liTop + pOBody.Height;
+
+			for (int liAt = 0; liAt < pOArmour.Count; liAt++)
+			{
+				if (pOArmour[liAt] == null)
+					continue;
+
+				liLeft = Math.Min(liLeft, pOAt[liAt].X);
+				liTop = Math.Min(liTop, pOAt[liAt].Y);
+				liRight = Math.Max(liRight, pOAt[liAt].X + pOArmour[liAt].Width);
+				liBottom = Math.Max(liBottom, pOAt[liAt].Y + pOArmour[liAt].Height);
+			}
+
+			UWPicture lOFigure = new UWPicture(liRight - liLeft, liBottom - liTop);
+
+			for (int y = 0; y < pOBody.Height; y++)
+			{
+				for (int x = 0; x < pOBody.Width; x++)
+				{
+					int liPageX = lOGeometry.BodyX - lOGeometry.Page.X + x;
+					int liPageY = lOGeometry.BodyY - lOGeometry.Page.Y + y;
+					UWColor32 lOColour = pOBody.Get(x, y);
+					bool lbPage = liPageX >= 0 && liPageY >= 0 && liPageX < pOPage.Width && liPageY < pOPage.Height
+						&& UWPixelRules.SameRgb(lOColour, pOPage.Get(liPageX, liPageY));
+
+					if (!lbPage)
+						lOFigure.Set(lOGeometry.BodyX - liLeft + x, lOGeometry.BodyY - liTop + y, UWPixelOps.Opaque(lOColour));
+				}
+			}
+
+			foreach (int liPiece in lOGeometry.ArmourOrder)
+			{
+				UWPicture lOPiece = liPiece < pOArmour.Count ? pOArmour[liPiece] : null;
+
+				if (lOPiece == null)
+					continue;
+
+				int liX0 = pOAt[liPiece].X;
+				int liY0 = pOAt[liPiece].Y;
+
+				if (liPiece != UWPaperdollGeometry.Helmet)
+				{
+					lOFigure.Overlay(lOPiece, liX0 - liLeft, liY0 - liTop);
+
+					continue;
+				}
+
+				for (int y = 0; y < lOPiece.Height; y++)
+				{
+					for (int x = 0; x < lOPiece.Width; x++)
+					{
+						UWColor32 lOColour = lOPiece.Get(x, y);
+
+						if (lOColour.A == 0)
+							continue;
+
+						int liPageX = liX0 - lOGeometry.Page.X + x;
+						int liPageY = liY0 - lOGeometry.Page.Y + y;
+						bool lbPage = liPageX >= 0 && liPageY >= 0 && liPageX < pOPage.Width && liPageY < pOPage.Height
+							&& UWPixelRules.SameRgb(lOColour, pOPage.Get(liPageX, liPageY));
+
+						lOFigure.Set(liX0 - liLeft + x, liY0 - liTop + y, lbPage ? UWPixelOps.Transparent : lOColour);
+					}
+				}
+			}
+
+			fKeepLargestPiece(lOFigure);
+
+			piOriginX = liLeft;
+			piOriginY = liTop;
+
+			return lOFigure;
+		}
+
+		/// <summary>Clears every visible pixel that is not part of the picture's largest piece (pixels joined side
+		/// to side).</summary>
+		private static void fKeepLargestPiece(UWPicture pOPicture)
+		{
+			int liWidth = pOPicture.Width;
+			int[] liPiece = new int[pOPicture.Pixels.Length];
+			List<int> lOSizes = new List<int> { 0 };
+			Stack<int> lOOpen = new Stack<int>();
+
+			for (int liStart = 0; liStart < liPiece.Length; liStart++)
+			{
+				if (liPiece[liStart] != 0 || pOPicture.Pixels[liStart].A == 0)
+					continue;
+
+				int liNumber = lOSizes.Count;
+				int liSize = 0;
+
+				liPiece[liStart] = liNumber;
+				lOOpen.Push(liStart);
+
+				while (lOOpen.Count > 0)
+				{
+					int liAt = lOOpen.Pop();
+					int liX = liAt % liWidth;
+
+					liSize++;
+
+					foreach (int liNext in new[] { liX > 0 ? liAt - 1 : -1, liX < liWidth - 1 ? liAt + 1 : -1, liAt - liWidth, liAt + liWidth })
+					{
+						if (liNext < 0 || liNext >= liPiece.Length || liPiece[liNext] != 0 || pOPicture.Pixels[liNext].A == 0)
+							continue;
+
+						liPiece[liNext] = liNumber;
+						lOOpen.Push(liNext);
+					}
+				}
+
+				lOSizes.Add(liSize);
+			}
+
+			int liLargest = 0;
+
+			for (int liNumber = 1; liNumber < lOSizes.Count; liNumber++)
+			{
+				if (lOSizes[liNumber] > lOSizes[liLargest])
+					liLargest = liNumber;
+			}
+
+			for (int liAt = 0; liAt < liPiece.Length; liAt++)
+			{
+				if (liPiece[liAt] != liLargest)
+					pOPicture.Pixels[liAt] = UWPixelOps.Transparent;
+			}
 		}
 
 		public static UWPicture ComposePage(UWPicture pOMain)
@@ -193,7 +419,7 @@ namespace UWDataImport.Presentation
 		/// </summary>
 		public static UWPicture BuildMarks(UWTextures pOTextures, List<UWColor32> pOCarve = null)
 		{
-			return ComposeMarks(UWMainFrame.Picture(pOTextures), pOCarve);
+			return fIsUw2(pOTextures) ? ComposeMarksUw2(fUw2Page(pOTextures), pOCarve) : ComposeMarks(UWMainFrame.Picture(pOTextures), pOCarve);
 		}
 
 		public static UWPicture ComposeMarks(UWPicture pOMain, List<UWColor32> pOCarve = null)
@@ -301,6 +527,10 @@ namespace UWDataImport.Presentation
 		{
 			UWTexture lOBodySource = pOTextures.GetTextureByType(UWTexture.TextureTypes.BODIES, piBody);
 			UWPicture lOBody = UWPicture.From(lOBodySource);
+
+			if (fIsUw2(pOTextures))
+				return ComposeFigureUw2(fUw2Page(pOTextures), lOBody, pOArmour, pOAt, out piOriginX, out piOriginY);
+
 			UWTexture lOCreation = null;
 
 			try

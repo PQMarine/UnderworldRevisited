@@ -28,6 +28,22 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWDoorRules
 	{
+		/// <summary>This much higher stands an open door than a closed one (OpenDoor adds 0x18 to the zpos, CloseDoor
+		/// takes it off; UWWorldCapture.CaptureDoor does the same).</summary>
+		public const int OpenRaise = 24;
+
+		/// <summary>THE HEIGHT A DOOR IS DRAWN AT (per user 2026-11-22 with pictures: the door on the bridge in the second
+		/// game's Ethereal Void, level 67 13/15, was drawn under the bridge): its own zpos, less OpenRaise while its state
+		/// bits (UWObject.Flags bits 0-2, ID_FLAGS 0x1E00 bits 9-11) are set - RenderDoor_seg032_2DCA_C56 takes the
+		/// object's zpos (dseg 34FC, set by the object loop from word 1) and subtracts 0xC0 (24 in eighths) then. Until
+		/// then ours stood every door on its tile's floor, which is the same for all doors of both games but the Void's two
+		/// (zpos 96 over the floor 64) and the first game's secret door on level 4 12/51 (zpos 96 at the step up to
+		/// 12/50, floor 88).</summary>
+		public static int DrawnZPos(UWObject pODoor)
+		{
+			return System.Math.Max(0, pODoor.ZPos - ((pODoor.Flags & 7) != 0 ? OpenRaise : 0));
+		}
+
 		/// <summary>What the door's own "use" decides (UseRect in USEITEMS.C, the door case).</summary>
 		public enum UseOutcome
 		{

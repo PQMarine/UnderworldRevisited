@@ -42,6 +42,75 @@ namespace UWDataImport.Presentation
 		public static readonly UWMaskText GargoyleHead = new UWMaskText(msGargoyleHead, ".X", UWClassicLayout.Frame.GargoyleHead);
 
 		/// <summary>
+		/// The second game's head (UWClassicLayoutUw2.GargoyleHead; UW2 plan part U4d step 1, 2026-11-23): set by hand from
+		/// a luma map of the crop, as the frame's near-black outline (palette index 1) has gaps a flood leaks through. The
+		/// head's sides step in below the brow (rows 9 to 17) where the frame's stone bar and its moss lie beside the jaw;
+		/// the top row keeps the horns and leaves the black between them out. The frame's moss over the head's left brow (rows 3
+		/// to 8) comes along: cut out, the brow showed a notch (per user 2026-11-23). Checked on a render.
+		/// </summary>
+		private static readonly string[] msGargoyleHeadUw2 =
+		{
+			"XXX....XXXXXXXXXX....XXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXX",
+			".XXXXXXXXXXXXXXXXXXXXXX.",
+			".XXXXXXXXXXXXXXXXXXXXXX.",
+			".XXXXXXXXXXXXXXXXXXXXXX.",
+			"..XXXXXXXXXXXXXXXXXXXX..",
+			"..XXXXXXXXXXXXXXXXXXXX..",
+			"..XXXXXXXXXXXXXXXXXXXX..",
+			".XXXXXXXXXXXXXXXXXXXXXX.",
+			"..XXXXXXXXXXXXXXXXXXXX..",
+			"...XXXXXXXXXXXXXXXXXX..."
+		};
+
+		public static readonly UWMaskText GargoyleHeadUw2 = new UWMaskText(msGargoyleHeadUw2, ".X", UWClassicLayoutUw2.GargoyleHead.Place);
+
+		/// <summary>
+		/// The second game's compass recess (UWClassicLayoutUw2.CompassRecess; UW2 plan stage U6 step 1, 2026-11-23): each
+		/// row from its dark outline's left pixel to its right, read from a luma map of the frame - the raised rim's top
+		/// corners bevelled (rows 145 to 149), straight below. The outline comes along.
+		/// </summary>
+		private static readonly string[] msCompassRecessUw2 =
+		{
+			"......XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX......",
+			".....XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.....",
+			"....XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX...",
+			"...XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX..",
+			".XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+			"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+		};
+
+		public static readonly UWMaskText CompassRecessUw2 = new UWMaskText(msCompassRecessUw2, ".X", UWClassicLayoutUw2.CompassRecess.Place);
+
+		/// <summary>The head's mask for the data's game.</summary>
+		public static UWMaskText GargoyleHeadOf(UWTextures pOTextures)
+		{
+			return pOTextures != null && pOTextures.Game == UWGame.Uw2 ? GargoyleHeadUw2 : GargoyleHead;
+		}
+
+		/// <summary>
 		/// The power gem's and its collar's own pixels in MAIN.BYT (X; from the dome's top, row 139,
 		/// down to the collar's lower edge, row 157), painted by the user in Paint.NET on 2026-10-10
 		/// (the collar is hexagonal, per user; its grey is the ledge's around it, so no rule told them

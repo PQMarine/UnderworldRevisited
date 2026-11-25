@@ -38,6 +38,19 @@ public interface IUWModernConversationHost
     /// <summary>Changes when a portrait changed during the conversation.</summary>
     int PortraitVersion { get; }
 
+    /// <summary>The player's name for the layout editor's preview ("Avatar" without one), and the portrait that
+    /// goes with the character (the modern interface on interfaces, stage U3 part D: read from the first game's
+    /// player data by the window itself until then).</summary>
+    string PreviewPlayerName { get; }
+
+    /// <summary>The preview's partner: its name and its head in CHARHEAD.GR (the first game's Shak at his forge, the
+    /// second game's Lord British; UW2 plan stage U7 step 3b).</summary>
+    string PreviewPartnerName { get; }
+
+    int PreviewPartnerPortrait { get; }
+
+    int PreviewPlayerPortrait { get; }
+
     /// <summary>How many of the view's Lines the history shows.</summary>
     int HistoryLines(UWConversationView pOView);
 

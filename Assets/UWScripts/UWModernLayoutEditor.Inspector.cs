@@ -41,6 +41,9 @@ public partial class UWModernLayoutEditor
     /// <summary>The language the inspector's rows were built in (UWText.LanguageVersion).</summary>
     private int miInspectorLanguage = -1;
 
+    /// <summary>The game the rows were built for (UWTextures.Game boxed, null without data).</summary>
+    private object mOInspectorGame;
+
     /// <summary>Each part's own rows, between its Size and its back.</summary>
     private Dictionary<Element, InspectorRow[]> mOPartRows;
 
@@ -54,12 +57,15 @@ public partial class UWModernLayoutEditor
             // The font left the editor on 2026-11-19 (per user): the Interface window sets it for every preset.
             fShow(UWText.T("editor.part.minimap"), Defs.MinimapHidden, true),
             fShow(UWText.T("editor.part.action_bar"), Defs.ActionBarHidden, true),
-            fShow(UWText.T("editor.part.compass"), Defs.ModernCompass, false),
-            fShow(UWText.T("editor.part.stone_shelf"), Defs.ModernStoneShelf, false),
-            fShow(UWText.T("editor.part.rune_hollow"), Defs.ModernRuneHollow, false),
-            fShow(UWText.T("editor.part.rune_tablet"), Defs.ModernRuneTablet, false),
-            fShow(UWText.T("editor.part.stats_panel"), Defs.ModernStatsPanel, false),
-            fShow(UWText.T("editor.part.character_page"), Defs.ModernCharacterPage, false)
+            // THE PARTS THE RUNNING GAME HAS (part U4e step 3 of the UW2 plan): the classic kinds' pieces the game does
+            // not have are not offered. The pages and the tablet alone are the second game's too since stage U5 (the
+            // tablet is the rune panel's own mode, its page per game since part U4c); the rest comes with U6 and U7.
+            fOnly(fShow(UWText.T("editor.part.compass"), Defs.ModernCompass, false), () => fHas(UWModernPartEnum.Compass)),
+            fOnly(fShow(UWText.T("editor.part.stone_shelf"), Defs.ModernStoneShelf, false), () => fHas(UWModernPartEnum.StoneShelf)),
+            fOnly(fShow(UWText.T("editor.part.rune_hollow"), Defs.ModernRuneHollow, false), () => fHas(UWModernPartEnum.RuneHollow)),
+            fOnly(fShow(UWText.T("editor.part.rune_tablet"), Defs.ModernRuneTablet, false), () => fHas(UWModernPartEnum.RunePanel)),
+            fOnly(fShow(UWText.T("editor.part.stats_panel"), Defs.ModernStatsPanel, false), () => fHas(UWModernPartEnum.StatsPage)),
+            fOnly(fShow(UWText.T("editor.part.character_page"), Defs.ModernCharacterPage, false), () => fHas(UWModernPartEnum.CharacterPage))
         };
 
         InspectorRow[] lOFlaskStands =
@@ -74,25 +80,31 @@ public partial class UWModernLayoutEditor
             { Element.ActionBar, new[] { fSwitch(Defs.ActionBarHidden) } },
             { Element.Minimap, new[] { fSwitch(Defs.MinimapHidden), fSwitch(Defs.MinimapTurns) } },
             { Element.Heading, new[] { fSwitch(Defs.ModernCompass, UWText.T("editor.direction"),
-                new[] { UWText.T("editor.direction.text"), UWText.T("editor.direction.compass") }, false) } },
+                new[] { UWText.T("editor.direction.text"), UWText.T("editor.direction.compass") }, false,
+                pOVisibleWhen: () => fHas(UWModernPartEnum.Compass)) } },
             {
                 Element.Compass, new[]
                 {
                     fSwitch(Defs.ModernCompass),
-                    // The free cross or the original's stone disc with the movement arrows (per user, 2026-10-10).
-                    fSwitch(Defs.ModernCompassDisc),
+                    // The free cross or the original's stone disc with the movement arrows (per user, 2026-10-10); the
+                    // second game's compass lies in a hollow of its frame, so there the choice says so (per user, 2026-11-23).
+                    fSwitch(Defs.ModernCompassDisc, psNames: fCompassLooks()),
                     // The disc's black outline, as the original's in the frame (per user, 2026-10-10).
-                    fSwitch(Defs.ModernCompassOutline, pOVisibleWhen: () => UWModernLayout.IsCompassDisc)
+                    fSwitch(Defs.ModernCompassOutline, pOVisibleWhen: () => UWModernLayout.IsCompassDisc),
+                    // The second game's gem in the compass or apart, alone (per user, 2026-11-24).
+                    fSwitch(Defs.ModernGemApart, psNames: new[] { UWText.T("setting.ModernGemApart.choice.compass"), UWText.T("setting.ModernGemApart.choice.apart") },
+                        pOVisibleWhen: () => UWModernLayout.IsGemOfTheCompass && UWModernLayout.IsCompassShown)
                 }
             },
             {
                 Element.Vitals, new[]
                 {
                     // The power gem between the flasks (Modern) or on a stand of its own (the
-                    // original's; per user, 2026-10-09).
-                    fSwitch(Defs.ModernGemApart),
+                    // original's; per user, 2026-10-09). The stand and the shelf are the first game's art.
+                    // Where the gem lies in the compass (the second game's while it shows) the compass offers it.
+                    fSwitch(Defs.ModernGemApart, pOVisibleWhen: () => fHasClassicPieces() && !fIsGemBackInCompass()),
                     // The flasks freed one by one (per user, 2026-10-10) - the shelf goes, the gem stands apart.
-                    fSwitch(Defs.ModernFlasksApart)
+                    fSwitch(Defs.ModernFlasksApart, pOVisibleWhen: fHasClassicPieces)
                 }
             },
             {
@@ -120,17 +132,22 @@ public partial class UWModernLayoutEditor
                     fSwitch(Defs.ModernRuneHollowOutline)
                 }
             },
+            // The active spells as a row or in the frame's hollow, where the game has one (UW2 plan stage U6 step 2c).
+            { Element.Spells, new[] { fSwitch(Defs.ModernSpellHollow, pOVisibleWhen: () => fHas(UWModernPartEnum.SpellHollow)) } },
             { Element.HealthFlask, lOFlaskStands },
             { Element.ManaFlask, lOFlaskStands },
             {
-                // Back on the shelf takes the flasks back as well: without them there is none.
+                // Back on the shelf takes the flasks back as well: without them there is none. Back into the second
+                // game's compass, while it shows, leaves the flasks as they are.
                 Element.PowerGem, new[]
                 {
-                    fSwitch(Defs.ModernGemApart, UWText.T("editor.stands"), fStands(), true, 0, piAt =>
+                    fOnly(fSwitch(Defs.ModernGemApart, UWText.T("editor.stands"), fStands(), true, 0, piAt =>
                     {
                         if (piAt == 1)
                             UWUserSettings.ModernFlasksApart = false;
-                    })
+                    }), () => !fIsGemBackInCompass()),
+                    fOnly(fSwitch(Defs.ModernGemApart, UWText.T("editor.stands"),
+                        new[] { UWText.T("editor.stands.apart"), UWText.T("editor.stands.in_compass") }, true, 0), fIsGemBackInCompass)
                 }
             },
             {
@@ -145,6 +162,7 @@ public partial class UWModernLayoutEditor
             {
                 Element.Messages, new[]
                 {
+                    // The original's scroll, from each game's own frame (the second game's since UW2 plan stage U6 step 2b).
                     fSwitch(Defs.ModernScroll),
                     // The lines the scroll shows are its paper's rows, one more than the setting counts
                     // (UWModernScroll.Rows, 2026-10-20).
@@ -163,6 +181,49 @@ public partial class UWModernLayoutEditor
         };
 
         mOBackRows = fBackRows();
+    }
+
+    /// <summary>The compass's two looks: the cross, and the disc (the first game) or the hollow (the second, which has no
+    /// disc - UWCompassGeometry.HasArrows tells the games apart, the disc carrying the arrows).</summary>
+    private static string[] fCompassLooks()
+    {
+        string[] lsNames = (string[])Defs.ModernCompassDisc.ChoiceLabels.Clone();
+        UWDataImport.DataImport lOData = UWModernUi.Data;
+
+        if (lsNames.Length > 1 && lOData != null && !UWCompassGeometry.Of(lOData.Textures).HasArrows)
+            lsNames[1] = UWText.T("editor.compass.hollow");
+
+        return lsNames;
+    }
+
+    /// <summary>Whether the running game has the part (IUWModernSession.Has).</summary>
+    private static bool fHas(UWModernPartEnum pePart)
+    {
+        return UWModernUi.Has(pePart);
+    }
+
+    /// <summary>The classic kinds' pieces without a part of their own (the stands): the game that builds Classic+ has
+    /// them. The tablet alone left them in stage U5 step 3 (it is the rune panel's), the scroll in stage U6 step 2b.</summary>
+    private static bool fHasClassicPieces()
+    {
+        return UWModernUi.Session == null || UWModernUi.Session.Supports(UWModernLayout.PresetEnum.ClassicPlus);
+    }
+
+    /// <summary>A row shown only while the game has its part.</summary>
+    private static InspectorRow fOnly(InspectorRow pORow, Func<bool> pOHas)
+    {
+        Func<bool> lOBefore = pORow.VisibleWhen;
+
+        pORow.VisibleWhen = lOBefore == null ? pOHas : () => pOHas() && lOBefore();
+
+        return pORow;
+    }
+
+    /// <summary>Whether the gem goes back into the compass, not onto the shelf: the second game's, while its compass
+    /// shows (UWModernLayout.IsGemOfTheCompass).</summary>
+    private static bool fIsGemBackInCompass()
+    {
+        return UWModernLayout.IsGemOfTheCompass && UWModernLayout.IsCompassShown;
     }
 
     /// <summary>The flasks' and the gem's Stands row: apart, or back on the shelf.</summary>
@@ -278,9 +339,9 @@ public partial class UWModernLayoutEditor
 
     private static InspectorItem fBoxLinesRow(Element peElement)
     {
-        int liLines = Interaction.ModernMessageCount;
+        int liLines = UWMessageLog.ModernShownCount;
 
-        return fStepper(Defs.ModernMessageLines, liLines, liLines > UWModernScroll.MinLines, liLines < Interaction.MessageHistoryCount, liAt =>
+        return fStepper(Defs.ModernMessageLines, liLines, liLines > UWModernScroll.MinLines, liLines < UWMessageLog.HistoryCount, liAt =>
         {
             fStepModernMessageLines(liAt == 0 ? -1 : 1);
             fSaveSettings();
@@ -421,9 +482,14 @@ public partial class UWModernLayoutEditor
     {
         // Built anew when the language changed: some rows take their texts when they are built
         // (translation step 3R, a language switched while the game runs).
-        if (mOOverviewRows == null || miInspectorLanguage != UWText.LanguageVersion)
+        // And when another game runs: rows take the game's words too (the compass's recess, UW2 plan stage U6 step 1).
+        UWDataImport.DataImport lOData = UWModernUi.Data;
+        object lOGame = lOData != null && lOData.Textures != null ? (object)lOData.Textures.Game : null;
+
+        if (mOOverviewRows == null || miInspectorLanguage != UWText.LanguageVersion || !Equals(mOInspectorGame, lOGame))
         {
             miInspectorLanguage = UWText.LanguageVersion;
+            mOInspectorGame = lOGame;
             fBuildInspectorRows();
         }
 

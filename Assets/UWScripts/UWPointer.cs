@@ -493,10 +493,10 @@ public static class UWPointer
     }
 
     /// <summary>
-    /// PROVISIONAL (per user, 2026-10-29, testing the second game's walk: "show the system mouse pointer
+    /// PROVISIONAL (per user, 2026-10-29, testing the second game's session: "show the system mouse pointer
     /// for now so I see where I click"): while the second game runs without its own pointer - its main
     /// menu so far (UW2 plan phase 3 step 5) - the plain system arrow shows, free and always visible.
-    /// The walk's classic screen has the game's pointers since phase 3 step 1 (UWGameScreenUw2).
+    /// The session's classic screen has the game's pointers since phase 3 step 1 (UWGameScreenUw2).
     /// </summary>
     private static bool fSystemArrow => UnderworldRevisited.UWSettings.Game != null && UnderworldRevisited.UWSettings.Game.Game == UWGame.Uw2
         && !UWGameScreenUw2.IsClassicActive && !UWMenuPointerUw2.IsActive && !fCutscenePlaying;
@@ -548,10 +548,10 @@ public static class UWPointer
         UWLevelLoader lOLoader = UWScene.LevelLoader;
         UWGameUI lOUi = UWScene.GameUi;
 
-        // The second game's walk (UW2 plan phase 2 step 4): the modern scheme's mouse look captures as
+        // The second game's session (UW2 plan phase 2 step 4): the modern scheme's mouse look captures as
         // in the game; the classic scheme captures for the game's own pointer once its screen is up
         // (phase 3 step 1, UWGameScreenUw2), the system arrow before.
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             return (UWControlScheme.Shared.Current == UWControlScheme.SchemeEnum.Modern || UWGameScreenUw2.IsClassicActive)
                 && !UWSetupMenu.HasOpenPanel && !UWSetupMenu.IsEffectsScreenOpen;
 
@@ -639,7 +639,7 @@ public static class UWPointer
         }
         else if (!fSystemArrow)
         {
-            // Written again when the arrow comes back (the walk's screen gone, the main menu up).
+            // Written again when the arrow comes back (the session's screen gone, the main menu up).
             msbArrowWritten = false;
         }
 

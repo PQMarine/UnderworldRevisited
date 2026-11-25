@@ -20,6 +20,11 @@ namespace UWDataImport.UWData
 	/// the side and thus only a line (per user, 2026-09-02). Drawn as squashing the page's width by
 	/// the cosine; on the edge step the panel's own edge picture (PANELS.GR 3) stands instead, and
 	/// there the page flips over. The chain turns along in its own eight pictures, one per step.
+	///
+	/// THE SECOND GAME'S PANEL SLIDES (Slides; do_panel_frame, uw2 ui/PANELS.C:816-843, UWClassicLayoutUw2.PanelSlide;
+	/// UW2 plan stage U7 step 2b, 2026-11-24): twenty frames, the old page moving right eight columns a frame for ten
+	/// frames, then the new one coming in from the right (Offset) - the page flips on the eleventh; CHAINS.GR 0 to 3 on
+	/// frames 1, 4, 13 and 16 (ChainFrame, -1 between). The same sides, chain and rune bag targets and conversation hold.
 	/// </summary>
 	public sealed class UWPanelTurn
 	{
@@ -61,7 +66,16 @@ namespace UWDataImport.UWData
 
 			/// <summary>The page flipped on this step: the new Side shows from now on.</summary>
 			public bool Flipped;
+
+			/// <summary>A slide's step (Slides): the columns the page shown lies right of its place.</summary>
+			public int Offset;
 		}
+
+		/// <summary>The panel slides instead of turning (the second game's); set before Begin.</summary>
+		public bool Slides { get; set; }
+
+		/// <summary>Steps of the turn or the slide.</summary>
+		public int StepCount => Slides ? UWClassicLayoutUw2.PanelSlide.Frames : Steps;
 
 		/// <summary>The page shown (during a turn: until the edge step the old one).</summary>
 		public SideEnum Side { get; private set; } = SideEnum.Inventory;
@@ -128,12 +142,15 @@ namespace UWDataImport.UWData
 			if (!IsTurning)
 				return new Frame { Finished = true };
 
-			if (Step >= Steps)
+			if (Step >= StepCount)
 			{
 				Step = -1;
 
 				return new Frame { Finished = true, Scale = 1f };
 			}
+
+			if (Slides)
+				return fAdvanceSlide();
 
 			// Eight steps, as many as the chain has pictures (per user, 2026-09-02). The angle runs
 			// in eighths over 180 degrees, the edge-on position thus falls on step four - exactly
@@ -154,6 +171,31 @@ namespace UWDataImport.UWData
 			// Halfway the content flips over.
 			if (lbOnEdge)
 				Side = Target;
+
+			Step++;
+
+			return lOFrame;
+		}
+
+		/// <summary>A slide's frame (Step + 1 of twenty): the old page out to the right for ten frames, the new one in from
+		/// the right after it, the page flipping on the first frame in; the chain's pictures on their frames.</summary>
+		private Frame fAdvanceSlide()
+		{
+			int liFrame = Step + 1;
+			bool lbOut = liFrame <= UWClassicLayoutUw2.PanelSlide.OutFrames;
+			bool lbFlip = !lbOut && Side != Target;
+
+			if (lbFlip)
+				Side = Target;
+
+			Frame lOFrame = new Frame
+			{
+				Step = Step,
+				Scale = 1f,
+				Offset = (lbOut ? liFrame : UWClassicLayoutUw2.PanelSlide.Frames - liFrame) * UWClassicLayoutUw2.PanelSlide.StepColumns,
+				ChainFrame = Array.IndexOf(UWClassicLayoutUw2.PanelSlide.ChainFrames, liFrame),
+				Flipped = lbFlip
+			};
 
 			Step++;
 

@@ -20,6 +20,21 @@ namespace UnderworldRevisited.Tools
             fCheckLookOwner(pOData);
             fCheckLookBooks(pOData);
             fCheckLookStack(pOData);
+            fCheckLookSaysNothing(pOData);
+        }
+
+        /// <summary>RectLook prints nothing for a decal without the lookable bit outside its classes 4, 5, 6, 14 and 15: the
+        /// force field 0x16D (per user 2026-11-22, UW2 level 69: ours said "You see ."). The decals 0x160-0x16F that say
+        /// nothing, by this game's COMOBJ.</summary>
+        private static void fCheckLookSaysNothing(DataImport pOData)
+        {
+            List<string> lsSilent = new List<string>();
+
+            for (int liId = 0x160; liId < 0x170; liId++)
+                if (UWItemDescriptions.LookSaysNothing(new UWObject((ushort)liId), pOData))
+                    lsSilent.Add(liId.ToString("X"));
+
+            Check.Str("look: the decals whose look says nothing (RectLook, the force field)", string.Join(" ", lsSilent), "16D");
         }
 
         /// <summary>A stack keeps its quality word between the count and the plural (LookAt; per

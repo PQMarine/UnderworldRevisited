@@ -263,7 +263,8 @@ namespace UnderworldRevisited.Tools
             List<string> lOProblems = new List<string>();
 
             foreach ((string lsName, UWMaskText lOMask) in new[] { ("gargoyle", UWHudMasks.GargoyleHead), ("gem stand", UWHudMasks.GemStand),
-                ("compass disc", UWHudMasks.CompassDisc) })
+                ("compass disc", UWHudMasks.CompassDisc), ("uw2 gargoyle", UWHudMasks.GargoyleHeadUw2),
+                ("uw2 compass recess", UWHudMasks.CompassRecessUw2) })
             {
                 UWRectInt lOPlace = lOMask.Place;
 
@@ -273,6 +274,504 @@ namespace UnderworldRevisited.Tools
             }
 
             Check.Str("masks: each the size of its place, inside MAIN.BYT", string.Join(", ", lOProblems), string.Empty);
+
+            // The second game's head (UW2 plan part U4d step 1): the first game's size, so the strip's brand, its margins
+            // and the eyes' place on it hold for both; its eyes (EYES at 0x6E, top 4) two columns in, as the first game's.
+            Check.Bool("masks: the second game's head the first game's size",
+                UWHudMasks.GargoyleHeadUw2.Width == UWHudMasks.GargoyleHead.Width && UWHudMasks.GargoyleHeadUw2.Height == UWHudMasks.GargoyleHead.Height
+                && UWHudMasks.GargoyleHeadUw2.Width == UWLeatherBuilder.BrandWidth, true);
+            Check.Bool("masks: the second game's eyes two columns into its head, at its row 4",
+                UWClassicLayoutUw2.Eyes.Left - UWClassicLayoutUw2.GargoyleHead.Left == UWLeatherBuilder.EyesLeftInBrand
+                && UWClassicLayoutUw2.Eyes.Top - UWClassicLayoutUw2.GargoyleHead.Top == 4, true);
+
+            // THE SECOND GAME'S RECESSES (UW2 plan stage U6 step 1): the compass's recess bevelled at its top corners and
+            // straight below, the face (0x5E/0x33, 0x34 x 0x10) and the gem (0x71/0x30) inside it; the hollow's three
+            // runes (rune_x at 0x32, 16 x 16) inside the right recess.
+            UWMaskText lORecess = UWHudMasks.CompassRecessUw2;
+            int liFirstRow = 0;
+            int liLastRow = 0;
+
+            for (int liX = 0; liX < lORecess.Width; liX++)
+            {
+                liFirstRow += lORecess.Is(liX, 0, 'X') ? 1 : 0;
+                liLastRow += lORecess.Is(liX, lORecess.Height - 1, 'X') ? 1 : 0;
+            }
+
+            Check.Str("masks: the second game's compass recess, its rim's top row and its straight bottom", liFirstRow + " " + liLastRow, "60 72");
+
+            UWRectInt lOFace = new UWRectInt(UWClassicLayoutUw2.Compass.Left, UWClassicLayoutUw2.Compass.Top, 0x34, 0x10);
+            UWRectInt lOGem = new UWRectInt(UWClassicLayoutUw2.PowerGem.Left, UWClassicLayoutUw2.PowerGem.Top, 1, 1);
+            UWRectInt lOHollow = UWClassicLayoutUw2.RuneHollow.Place;
+
+            Check.Bool("uw2 recesses: the face and the gem inside the compass's recess",
+                fInside(lOFace, lORecess.Place) && fInside(lOGem, lORecess.Place), true);
+            Check.Bool("uw2 recesses: the three runes inside the hollow, as the frame's rune_x",
+                fInside(new UWRectInt(UWClassicLayoutUw2.Runes.ShelfX[0], 199 - UWClassicLayoutUw2.Runes.ShelfY, 16, 16), lOHollow)
+                && fInside(new UWRectInt(UWClassicLayoutUw2.Runes.ShelfX[2], 199 - UWClassicLayoutUw2.Runes.ShelfY, 16, 16), lOHollow)
+                && UWClassicLayoutUw2.RuneHollow.RuneLeft == UWClassicLayoutUw2.Runes.ShelfX[0]
+                && UWClassicLayoutUw2.RuneHollow.RuneLeft + (2 * UWClassicLayoutUw2.RuneHollow.RunePitch) == UWClassicLayoutUw2.Runes.ShelfX[2], true);
+            Check.Bool("uw2 recesses: the compass's geometry without arrows, with the gem, whole on the disc; the first game's as before",
+                !UWCompassGeometry.Uw2.HasArrows && UWCompassGeometry.Uw2.HasGem && !UWCompassGeometry.Uw2.IsFreedOnDisc
+                && UWCompassGeometry.Uw1.HasArrows && !UWCompassGeometry.Uw1.HasGem && UWCompassGeometry.Uw1.IsFreedOnDisc, true);
+
+            UWCompassGeometry.Uw1.CrossOnDisc(null, out int liCrossX, out int liCrossY);
+
+            Check.Str("uw1: the cross on the disc where the modern compass laid it",
+                liCrossX + "," + liCrossY, (UWClassicLayout.Compass.Left - UWHudArt.CompassDiscX) + "," + (UWClassicLayout.Compass.Top - UWHudArt.CompassDiscY));
+        }
+
+        private static bool fInside(UWRectInt pOInner, UWRectInt pOOuter)
+        {
+            return pOInner.X >= pOOuter.X && pOInner.Y >= pOOuter.Y && pOInner.X + pOInner.Width <= pOOuter.X + pOOuter.Width
+                && pOInner.Y + pOInner.Height <= pOOuter.Y + pOOuter.Height;
+        }
+
+        /// <summary>
+        /// CLASSIC WIDE ON THE SECOND GAME'S FRAME (UW2 plan stage U7 step 1): the geometry per game (the first game's the
+        /// table's numbers as before), the bands and cuts in order, the view's cuts at the hole's edges, every band's second
+        /// cut left of the right block; widened, the right block moved whole and the left edge kept, the hole clear in the
+        /// camera's area only, its black ring and the gargoyle's teeth opaque, the ledge's grown marble without the hollows'
+        /// black lines, the same picture every time.
+        /// </summary>
+        private static void fCheckUw2ClassicWide(CheckContext pOContext)
+        {
+            Check.Group("Classic Wide on the second game's frame (UW2 plan stage U7 step 1)");
+
+            UWClassicWideGeometry lOFirst = UWClassicWideGeometry.Of(null);
+            Check.Bool("classic wide: the first game's geometry is the table's",
+                ReferenceEquals(lOFirst, UWClassicWideGeometry.Uw1) && fSameCuts(lOFirst.Cuts, UWClassicLayout.ClassicWide.Cuts)
+                && lOFirst.TopRows == UWClassicLayout.ClassicWide.TopRows && lOFirst.HoleBlack < 0 && lOFirst.CoversBakedNeedle, true);
+            Check.Str("classic wide: the columns put in shared among the cuts (2 of 106 at 1, 4 of 106 at 1 to 3, 4 of 240)",
+                UWClassicWideGeometry.Share(106, 1, 2) + " " + UWClassicWideGeometry.Share(106, 1, 4) + "/" + UWClassicWideGeometry.Share(106, 2, 4)
+                + "/" + UWClassicWideGeometry.Share(106, 3, 4) + " " + UWClassicWideGeometry.Share(240, 1, 4), "53 26/53/79 60");
+
+            UWClassicWideGeometry lOGeo = UWClassicWideGeometry.Uw2;
+            bool lbOrder = 0 < lOGeo.TopRows && lOGeo.TopRows < lOGeo.LedgeTop && lOGeo.LedgeTop < lOGeo.ScrollTop
+                && lOGeo.ScrollTop < UWClassicLayout.Screen.Height && lOGeo.Cuts.Length == 4 && lOGeo.Sources.Length == 4;
+
+            for (int liBand = 0; liBand < 4; liBand++)
+            {
+                int[] liCuts = lOGeo.Cuts[liBand];
+
+                lbOrder &= liCuts.Length >= 2 && 0 < liCuts[0] && liCuts[liCuts.Length - 1] < UWClassicLayoutUw2.Panel.Left;
+
+                for (int liAt = 1; liAt < liCuts.Length; liAt++)
+                    lbOrder &= liCuts[liAt - 1] < liCuts[liAt];
+            }
+
+            Check.Bool("classic wide uw2: bands and cuts ascend, every last cut left of the right block", lbOrder, true);
+            Check.Str("classic wide uw2: the cuts a band (the ledge four, per user)",
+                lOGeo.Cuts[0].Length + "" + lOGeo.Cuts[1].Length + lOGeo.Cuts[2].Length + lOGeo.Cuts[3].Length, "2242");
+            Check.Str("classic wide: dragons, the weapon's row and the projection's centre row, first and second game",
+                UWClassicWideGeometry.Uw1.HasDragons + " " + UWClassicWideGeometry.Uw1.WeaponRow + " " + UWClassicWideGeometry.Uw1.ProjectionCentreRow
+                + " / " + lOGeo.HasDragons + " " + lOGeo.WeaponRow + " " + lOGeo.ProjectionCentreRow,
+                "True 131 " + UWClassicLayout.Frame.ProjectionCentreRow + " / False 144 80");
+
+            // The second game's command bar and flask area, the rules its classic screen and Classic Wide share (step 2).
+            int liBar = UWClassicLayoutUw2.Commands.Left;
+            int liBarTop = UWClassicLayoutUw2.Commands.Top;
+            Check.Str("classic wide uw2: the command bar's icons (fight, use, talk, outside left, above)",
+                UWClickRules.CommandIconAtUw2(liBar + 1, liBarTop + 1) + " " + UWClickRules.CommandIconAtUw2(liBar + 27, liBarTop + 1) + " "
+                + UWClickRules.CommandIconAtUw2(liBar + 1, liBarTop + 16) + " " + UWClickRules.CommandIconAtUw2(UWClassicLayoutUw2.Commands.AreaLeft - 1, liBarTop + 1)
+                + " " + UWClickRules.CommandIconAtUw2(liBar + 1, liBarTop - 2), "0 1 3 -1 -1");
+            Check.Str("classic wide uw2: the flask area (chain above, chain below, vitality, mana, above the words)",
+                UWClickRules.FlaskAtUw2(0x17, 11) + " " + UWClickRules.FlaskAtUw2(0x17, 5) + " " + UWClickRules.FlaskAtUw2(5, 10) + " "
+                + UWClickRules.FlaskAtUw2(0x30, 10) + " " + UWClickRules.FlaskAtUw2(5, 0x1F), "Chain None Vitality Mana None");
+            Check.Bool("classic wide uw2: the flask area's corners",
+                UWClickRules.IsInFlasksUw2(UWClassicLayoutUw2.FlaskClicks.Left, UWClassicLayoutUw2.FlaskClicks.BottomY)
+                && UWClickRules.IsInFlasksUw2(UWClassicLayoutUw2.FlaskClicks.Right, UWClassicLayoutUw2.FlaskClicks.TopY)
+                && !UWClickRules.IsInFlasksUw2(UWClassicLayoutUw2.FlaskClicks.Left - 1, UWClassicLayoutUw2.FlaskClicks.BottomY), true);
+
+            // THE SECOND GAME'S SLIDE (step 2b): twenty frames, the old page out eight columns a frame, the new one in from the
+            // right, the flip on the eleventh, the chain's pictures 0 to 3 on frames 1, 4, 13 and 16; a frame more ends it.
+            UWPanelTurn lOSlide = new UWPanelTurn { Slides = true };
+            System.Text.StringBuilder lOOffsets = new System.Text.StringBuilder();
+            System.Text.StringBuilder lOChains = new System.Text.StringBuilder();
+            int liFlipAt = -1;
+            int liFrames = 0;
+
+            lOSlide.Begin(UWPanelTurn.SideEnum.Stats);
+
+            for (int liGuard = 0; liGuard < 40; liGuard++)
+            {
+                UWPanelTurn.Frame lOStep = lOSlide.Advance();
+
+                if (lOStep.Finished)
+                    break;
+
+                liFrames++;
+                lOOffsets.Append(lOStep.Offset).Append(' ');
+
+                if (lOStep.ChainFrame >= 0)
+                    lOChains.Append(liFrames).Append(':').Append(lOStep.ChainFrame).Append(' ');
+
+                if (lOStep.Flipped)
+                    liFlipAt = liFrames;
+            }
+
+            Check.Str("classic wide uw2: the slide's frames, offsets, flip and chain pictures",
+                liFrames + " | " + lOOffsets.ToString().Trim() + " | flip " + liFlipAt + " | " + lOChains.ToString().Trim() + " | " + lOSlide.Side + " " + lOSlide.IsTurning,
+                "20 | 8 16 24 32 40 48 56 64 72 80 72 64 56 48 40 32 24 16 8 0 | flip 11 | 1:0 4:1 13:2 16:3 | Stats False");
+            Check.Int("classic wide: the first game's turn still eight steps", new UWPanelTurn().StepCount, UWPanelTurn.Steps);
+
+            Check.Bool("classic wide uw2: the view's cuts at the hole's edges, the hole the camera's area",
+                lOGeo.Cuts[1][0] == lOGeo.Hole.X && lOGeo.Cuts[1][1] == lOGeo.Hole.X + lOGeo.Hole.Width
+                && lOGeo.CameraLeft == lOGeo.Hole.X && lOGeo.CameraRight == lOGeo.Hole.X + lOGeo.Hole.Width
+                && lOGeo.CameraTop == lOGeo.Hole.Y && lOGeo.CameraBottom == lOGeo.Hole.Y + lOGeo.Hole.Height, true);
+
+            string lsData = pOContext.Uw2DataPath;
+
+            if (lsData == null)
+            {
+                Check.Pass("uw2", "no second game here: skipped");
+
+                return;
+            }
+
+            UWTextures lOTextures = new UWTextures(lsData, new UWPalettes(lsData), UWGame.Uw2);
+            Check.Bool("classic wide uw2: the second game's textures give its geometry", ReferenceEquals(UWClassicWideGeometry.Of(lOTextures), lOGeo), true);
+
+            const int Extra = 106;
+            UWPicture lOMain = UWMainFrame.Picture(lOTextures);
+            UWClassicWideBuilder.ClassicWideFrame lOWide = UWClassicWideBuilder.Build(lOTextures, Extra);
+            UWPicture lOPicture = lOWide.Picture;
+            int liRightBlock = UWClassicLayoutUw2.Panel.Left - 9;
+            int liBlockWrong = 0;
+            int liLeftWrong = 0;
+            int liClearOutside = 0;
+            int liLeftEdge = lOMain.Width;
+
+            foreach (int[] liBandCuts in lOGeo.Cuts)
+                liLeftEdge = Math.Min(liLeftEdge, liBandCuts[0]);
+
+            for (int liY = 0; liY < lOMain.Height; liY++)
+            {
+                for (int liX = liRightBlock; liX < lOMain.Width; liX++)
+                    liBlockWrong += fSame(lOPicture.Get(liX + Extra, liY), lOMain.Get(liX, liY)) ? 0 : 1;
+
+                for (int liX = 0; liX < liLeftEdge; liX++)
+                    liLeftWrong += fSame(lOPicture.Get(liX, liY), lOMain.Get(liX, liY)) ? 0 : 1;
+
+                for (int liX = 0; liX < lOPicture.Width; liX++)
+                {
+                    bool lbInCamera = liX >= lOGeo.CameraLeft && liX < lOGeo.CameraRight + Extra && liY >= lOGeo.CameraTop && liY < lOGeo.CameraBottom;
+
+                    liClearOutside += !lbInCamera && lOPicture.Get(liX, liY).A == 0 ? 1 : 0;
+                }
+            }
+
+            Check.Str("classic wide uw2: the widened picture's size", lOPicture.Width + "x" + lOPicture.Height, (320 + Extra) + "x200");
+            Check.Int("classic wide uw2: the right block (panel, flasks, command bar) moved whole", liBlockWrong, 0);
+            Check.Int("classic wide uw2: the left edge kept (left of every band's first cut)", liLeftWrong, 0);
+            Check.Int("classic wide uw2: nothing clear outside the camera's area", liClearOutside, 0);
+
+            // The hole's middle clear, its black ring (rows 15 and 144) opaque, the teeth over its first rows opaque.
+            int liMiddleX = lOGeo.Hole.X + ((lOGeo.Hole.Width + Extra) / 2);
+            int liTeeth = 0;
+
+            for (int liX = UWClassicLayoutUw2.ViewOverlay.TeethX; liX < UWClassicLayoutUw2.ViewOverlay.TeethX + 20; liX++)
+            {
+                if (!lOGeo.IsHolePixel(lOMain.Get(liX, lOGeo.Hole.Y)))
+                    liTeeth += lOPicture.Get(liX + (Extra / 2), lOGeo.Hole.Y).A != 0 ? 1 : -1000;
+            }
+
+            Check.Bool("classic wide uw2: the hole's middle clear, its black ring opaque",
+                lOPicture.Get(liMiddleX, lOGeo.Hole.Y + (lOGeo.Hole.Height / 2)).A == 0
+                && lOPicture.Get(liMiddleX, lOGeo.Hole.Y - 1).A != 0 && lOPicture.Get(liMiddleX, lOGeo.Hole.Y + lOGeo.Hole.Height).A != 0, true);
+            Check.Bool("classic wide uw2: the gargoyle's teeth over the view opaque, moved with the middle", liTeeth > 0, true);
+
+            // The ledge's grown marble (the columns put in at its four cuts) without the hollows' black top lines - below
+            // the bevels' rows at the ends (black above them down to row 149); and each hollow where its share puts it.
+            int liBlackGrown = 0;
+            int[] liLedgeCuts = lOGeo.Cuts[2];
+
+            for (int liCut = 0; liCut < liLedgeCuts.Length; liCut++)
+            {
+                int liBefore = UWClassicWideGeometry.Share(Extra, liCut, liLedgeCuts.Length);
+                int liAfter = UWClassicWideGeometry.Share(Extra, liCut + 1, liLedgeCuts.Length);
+
+                for (int liY = UWClassicLayoutUw2.SpellHollow.Top; liY < UWClassicLayoutUw2.Ledge.Top + UWClassicLayoutUw2.Ledge.Height; liY++)
+                {
+                    for (int liX = liBefore; liX < liAfter; liX++)
+                        liBlackGrown += lOGeo.IsHolePixel(lOPicture.Get(liLedgeCuts[liCut] + liX, liY)) ? 1 : 0;
+                }
+            }
+
+            Check.Int("classic wide uw2: the ledge's grown marble without black", liBlackGrown, 0);
+            Check.Str("classic wide uw2: the spells' hollow, the compass recess and the rune hollow moved a quarter, half, three quarters",
+                lOGeo.ShiftX(UWClassicLayoutUw2.SpellHollow.Left, UWClassicLayoutUw2.SpellHollow.Top, Extra) + " "
+                + lOGeo.ShiftX(UWClassicLayoutUw2.CompassRecess.Left, UWClassicLayoutUw2.CompassRecess.Top, Extra) + " "
+                + lOGeo.ShiftX(UWClassicLayoutUw2.RuneHollow.Left, UWClassicLayoutUw2.RuneHollow.Top, Extra), "26 53 79");
+            Check.Bool("classic wide uw2: the spells' hollow moved whole in the picture",
+                fSame(lOPicture.Get(UWClassicLayoutUw2.SpellHollow.Left + 26 + 5, UWClassicLayoutUw2.SpellHollow.Top + 5),
+                    lOMain.Get(UWClassicLayoutUw2.SpellHollow.Left + 5, UWClassicLayoutUw2.SpellHollow.Top + 5)), true);
+            Check.Bool("classic wide uw2: the same picture every time", fCrc32(lOPicture) == fCrc32(UWClassicWideBuilder.Build(lOTextures, Extra).Picture), true);
+            Check.Str("classic wide uw2: unwidened, the frame's size and the hole the camera's area",
+                UWClassicWideBuilder.Build(lOTextures, 0).Picture.Width + " " + lOWide.Hole.X + "/" + lOWide.Hole.Y + " " + lOWide.Hole.Width + "x" + lOWide.Hole.Height,
+                "320 16/16 " + (208 + Extra) + "x128");
+        }
+
+        /// <summary>
+        /// THE SECOND GAME'S CONVERSATION PIECES (UW2 plan stage U7 step 3a): the sizes; the top's portrait boxes black
+        /// inside (not cleared through the edge), its corner clear; the parchment's paper opaque, the black round it
+        /// clear, lower and taller ones keeping both rims; the answers' scroll at any width with both knobs opaque; the
+        /// same pictures every time.
+        /// </summary>
+        private static void fCheckUw2ConversationPieces(CheckContext pOContext)
+        {
+            Check.Group("The second game's conversation pieces (UW2 plan stage U7 step 3a)");
+
+            // THE LOOK PER GAME (step 3b): the first game's places as the constants the conversation kept before; the
+            // second game's inside its pieces.
+            UWConversationLook lOOne = UWConversationLook.Of(null);
+            Check.Str("conversation look: the first game's places as before (block, parchment, answers, history, names, portraits, first slots)",
+                lOOne.Width + "x" + lOOne.HeaderRows + " " + lOOne.ParchmentX + "/" + lOOne.ParchmentTop + "/" + lOOne.ParchmentRows + " "
+                + lOOne.AnswersX + "/" + lOOne.AnswersTop + "/" + lOOne.AnswersRows + "/" + lOOne.AnswerTextTop + "/" + lOOne.AnswerBottom + " "
+                + lOOne.TextX + "/" + lOOne.TextTop + "/" + lOOne.TextWidth + "/" + lOOne.TextRows + " "
+                + lOOne.NameX[0] + "," + lOOne.NameX[1] + "/" + lOOne.NameWidth + " " + lOOne.PortraitX[0] + "," + lOOne.PortraitX[1] + "/" + lOOne.PortraitTop + " "
+                + lOOne.Slots.Length + ":" + lOOne.Slots[0].X + "/" + lOOne.Slots[0].Y + "," + lOOne.Slots[4].X + "/" + lOOne.Slots[4].Y + " " + lOOne.SlotSize,
+                "190x47 -1/47/89 -1/134/52/141/8 16/53/159/78 5,101/88 2,154/11 8:48/11,105/11 16");
+
+            UWConversationLook lOTwo = UWConversationLook.Uw2;
+            bool lbInside = lOTwo.TextX >= lOTwo.ParchmentX && lOTwo.TextX + lOTwo.TextWidth <= lOTwo.ParchmentX + lOTwo.Width
+                && lOTwo.TextTop >= lOTwo.ParchmentTop && lOTwo.TextTop + lOTwo.TextRows <= lOTwo.ParchmentTop + lOTwo.ParchmentRows
+                && lOTwo.AnswerTextX + lOTwo.AnswerTextWidth <= lOTwo.Width && lOTwo.AnswersTop == lOTwo.ParchmentTop + lOTwo.ParchmentRows;
+
+            foreach ((int X, int Y) lySlot in lOTwo.Slots)
+                lbInside &= lySlot.X >= 0 && lySlot.X + lOTwo.SlotSize <= lOTwo.Width && lySlot.Y + lOTwo.SlotSize <= lOTwo.HeaderRows;
+
+            Check.Bool("conversation look: the second game's texts, answers and slots inside their pieces", lbInside, true);
+            Check.Str("conversation look: the second game's slots (first, second, third of each side), names and portraits",
+                lOTwo.Slots.Length + ": " + lOTwo.Slots[0].X + "/" + lOTwo.Slots[0].Y + " " + lOTwo.Slots[1].X + "/" + lOTwo.Slots[1].Y + " "
+                + lOTwo.Slots[2].X + "/" + lOTwo.Slots[2].Y + " " + lOTwo.Slots[6].X + "/" + lOTwo.Slots[6].Y + " | "
+                + lOTwo.NameX[0] + "/" + lOTwo.NameTop[0] + " " + lOTwo.NameX[1] + "/" + lOTwo.NameTop[1] + " " + lOTwo.NameRight[1] + " | "
+                + lOTwo.PortraitX[0] + "," + lOTwo.PortraitX[1] + "/" + lOTwo.PortraitTop,
+                "12: 75/13 94/13 75/31 124/13 | 71/69 72/1 True | 2,168/3");
+
+            // The block in Classic Wide (step 3c, variant b): the parchment lower so the block fits the frame's 200 rows, the
+            // history shorter by as much, the answers right under it at the block's height; nothing else changed.
+            UWConversationLook lOWideLook = UWConversationLook.Uw2Wide;
+            Check.Str("conversation look: the second game's Classic Wide block (parchment, history, answers, height, width)",
+                lOWideLook.ParchmentTop + "+" + lOWideLook.ParchmentRows + " text " + lOWideLook.TextTop + "+" + lOWideLook.TextRows + " answers " + lOWideLook.AnswersTop
+                + "+" + lOWideLook.AnswersRows + " text " + lOWideLook.AnswerTextTop + " | " + (lOWideLook.AnswersTop + lOWideLook.AnswersRows) + " rows, " + lOWideLook.Width + " wide | "
+                + (lOWideLook.Slots.Length == lOTwo.Slots.Length && lOWideLook.AnswerTextWidth == lOTwo.AnswerTextWidth),
+                "77+70 text 81+63 answers 147+52 text 150 | 199 rows, 234 wide | True");
+
+            string lsData = pOContext.Uw2DataPath;
+
+            if (lsData == null)
+            {
+                Check.Pass("uw2", "no second game here: skipped");
+
+                return;
+            }
+
+            UWTextures lOTextures = new UWTextures(lsData, new UWPalettes(lsData), UWGame.Uw2);
+            UWPicture lOHeader = UWConversationArtBuilder.BuildHeaderUw2(lOTextures);
+            UWPicture lOParchment = UWConversationArtBuilder.BuildParchmentUw2(lOTextures, UWClassicLayoutUw2.Conversation.Parchment.Height);
+            UWPicture lOLow = UWConversationArtBuilder.BuildParchmentUw2(lOTextures, 52);
+            UWPicture lOAnswers = UWConversationArtBuilder.BuildAnswersUw2(lOTextures, lOHeader.Width);
+            UWPicture lOWide = UWConversationArtBuilder.BuildAnswersUw2(lOTextures, 400);
+
+            Check.Str("uw2 conversation: the pieces' sizes (top, parchment, lower, answers narrow and wide)",
+                lOHeader.Width + "x" + lOHeader.Height + " " + lOParchment.Width + "x" + lOParchment.Height + " " + lOLow.Height + " "
+                + lOAnswers.Width + "x" + lOAnswers.Height + " " + lOWide.Width, "234x77 206x85 52 234x33 400");
+
+            // The portraits' boxes: black inside, opaque; the portraits are drawn there.
+            int liNpc = UWClassicLayoutUw2.Conversation.NpcPortraitLeft;
+            int liPlayer = UWClassicLayoutUw2.Conversation.PlayerPortraitLeft;
+            int liBoxRow = 30;
+            int liClearInHeader = 0;
+
+            for (int y = 0; y < lOHeader.Height; y++)
+                for (int x = 0; x < lOHeader.Width; x++)
+                    liClearInHeader += lOHeader.Get(x, y).A == 0 ? 1 : 0;
+
+            Check.Int("uw2 conversation: the top a closed rectangle, nothing clear (the black between the grids too)", liClearInHeader, 0);
+            Check.Bool("uw2 conversation: both portrait boxes black and opaque inside",
+                lOHeader.Get(liNpc + 20, liBoxRow).A != 0 && lOHeader.Get(liNpc + 20, liBoxRow).R + lOHeader.Get(liNpc + 20, liBoxRow).G < 16
+                && lOHeader.Get(liPlayer + 20, liBoxRow).A != 0 && lOHeader.Get(liPlayer + 20, liBoxRow).R + lOHeader.Get(liPlayer + 20, liBoxRow).G < 16, true);
+
+            UWColor32 lOPaper = lOParchment.Get(lOParchment.Width / 2, lOParchment.Height / 2);
+            Check.Bool("uw2 conversation: the parchment's paper opaque, its top-left corner and top row's black clear",
+                lOPaper.A != 0 && lOPaper.R > lOPaper.B && lOParchment.Get(0, 0).A == 0, true);
+
+            int liRimWrong = 0;
+
+            for (int y = 0; y < UWClassicLayoutUw2.Conversation.ParchmentRim; y++)
+            {
+                for (int x = 0; x < lOLow.Width; x++)
+                {
+                    liRimWrong += fSame(lOLow.Get(x, y), lOParchment.Get(x, y)) ? 0 : 1;
+                    liRimWrong += fSame(lOLow.Get(x, lOLow.Height - 1 - y), lOParchment.Get(x, lOParchment.Height - 1 - y)) ? 0 : 1;
+                }
+            }
+
+            Check.Int("uw2 conversation: a lower parchment keeps both rims", liRimWrong, 0);
+
+            int liKnobsWrong = 0;
+
+            foreach (UWPicture lOScroll in new[] { lOAnswers, lOWide })
+            {
+                for (int y = 0; y < lOScroll.Height; y++)
+                {
+                    for (int x = 0; x < UWClassicLayoutUw2.Conversation.AnswersNarrowFrom; x++)
+                    {
+                        UWPicture lOFull = UWConversationArtBuilder.BuildAnswersUw2(lOTextures, UWClassicLayoutUw2.Conversation.AnswersScroll.Width);
+
+                        liKnobsWrong += fSame(lOScroll.Get(x, y), lOFull.Get(x, y)) ? 0 : 1;
+                        liKnobsWrong += fSame(lOScroll.Get(lOScroll.Width - 1 - x, y), lOFull.Get(lOFull.Width - 1 - x, y)) ? 0 : 1;
+                    }
+                }
+            }
+
+            Check.Int("uw2 conversation: the answers' scroll keeps both ends at any width", liKnobsWrong, 0);
+            Check.Bool("uw2 conversation: the same pieces every time",
+                fCrc32(lOHeader) == fCrc32(UWConversationArtBuilder.BuildHeaderUw2(lOTextures))
+                && fCrc32(lOParchment) == fCrc32(UWConversationArtBuilder.BuildParchmentUw2(lOTextures, UWClassicLayoutUw2.Conversation.Parchment.Height)), true);
+        }
+
+        private static bool fSameCuts(int[][] piRows, int[,] piTable)
+        {
+            if (piRows.Length != piTable.GetLength(0))
+                return false;
+
+            for (int liRow = 0; liRow < piRows.Length; liRow++)
+            {
+                if (piRows[liRow].Length != piTable.GetLength(1))
+                    return false;
+
+                for (int liAt = 0; liAt < piRows[liRow].Length; liAt++)
+                {
+                    if (piRows[liRow][liAt] != piTable[liRow, liAt])
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// THE SECOND GAME'S COMPASS AND HOLLOW from its files (UW2 plan stage U6 step 1): the box of its faces and needles,
+        /// where it lies on the recess and the gem on it, the disc's and the hollow's sizes; each step's compass the box's
+        /// size, the freed one with fewer pixels than the whole one.
+        /// </summary>
+        private static void fCheckUw2CompassPieces(CheckContext pOContext)
+        {
+            Check.Group("The second game's compass, gem and hollow (UW2 plan stage U6 step 1)");
+
+            string lsData = pOContext.Uw2DataPath;
+
+            if (lsData == null)
+            {
+                Check.Pass("uw2", "no second game here: skipped");
+
+                return;
+            }
+
+            UWTextures lOTextures = new UWTextures(lsData, new UWPalettes(lsData), UWGame.Uw2);
+            UWRectInt lOBox = UWCompassDiscBuilder.Uw2CompassBox(lOTextures);
+
+            UWCompassGeometry.Uw2.CrossOnDisc(lOTextures, out int liCrossX, out int liCrossY);
+            UWCompassGeometry.Uw2.GemOnCross(lOTextures, out int liGemX, out int liGemY);
+
+            Check.Str("uw2: the faces' and needles' box (a needle a column left of the face)",
+                lOBox.X + "," + lOBox.Y + " " + lOBox.Width + "x" + lOBox.Height, "93,148 53x16");
+            Check.Str("uw2: the compass on the disc and the gem on the compass", liCrossX + "," + liCrossY + " " + liGemX + "," + liGemY, "10,4 20,3");
+
+            UWPicture lODisc = UWCompassDiscBuilder.Build(lOTextures, true);
+            UWPicture lOHollow = UWFrameCutBuilder.BuildRuneHollow(lOTextures, false);
+
+            UWFrameCutBuilder.RuneHollowRunes(lOTextures, out int liRuneX, out int liRuneY, out int liPitch);
+            Check.Str("uw2: the disc with its outline's room, the hollow, its runes",
+                lODisc.Width + "x" + lODisc.Height + " " + lOHollow.Width + "x" + lOHollow.Height + " " + liRuneX + "," + liRuneY + "+" + liPitch,
+                "74x23 50x18 5,1+14");
+
+            int liWrong = 0;
+
+            for (int liStep = 0; liStep < 16; liStep++)
+            {
+                UWPicture lOWhole = UWCompassDiscBuilder.ComposeUw2Compass(lOTextures, liStep, false);
+                UWPicture lOFreed = UWCompassDiscBuilder.ComposeUw2Compass(lOTextures, liStep, true);
+
+                if (lOWhole == null || lOFreed == null || lOWhole.Width != lOBox.Width || lOWhole.Height != lOBox.Height
+                    || fOpaqueCount(lOFreed) == 0 || fOpaqueCount(lOFreed) >= fOpaqueCount(lOWhole))
+                    liWrong++;
+            }
+
+            Check.Int("uw2: every step's compass the box's size, the freed one less than the whole", liWrong, 0);
+
+            // THE LEDGE AS THE STONE SHELF (stage U6 step 2a): the ledge's rows, its two ends as they are, the same shelf
+            // every time, a wider one the narrower one and more on the right - but for the right end and the two columns grown
+            // against it (their surroundings take the end in).
+            UWPicture lOMain = UWMainFrame.Picture(lOTextures);
+            UWPicture lOLedge = lOMain.Crop(UWClassicLayoutUw2.Ledge.Place);
+            UWPicture lONarrow = UWStoneShelfBuilder.Build(lOTextures, 1);
+            UWPicture lOShelf = UWStoneShelfBuilder.Build(lOTextures, 140);
+            UWPicture lOWider = UWStoneShelfBuilder.Build(lOTextures, 200);
+            int liEndsWrong = 0;
+            int liGrowsWrong = 0;
+
+            for (int liY = 0; liY < lOLedge.Height; liY++)
+            {
+                for (int liX = 0; liX < UWClassicLayoutUw2.Ledge.LeftCap; liX++)
+                    liEndsWrong += fSame(lOShelf.Get(liX, liY), UWPixelOps.Opaque(lOLedge.Get(liX, liY))) ? 0 : 1;
+
+                for (int liX = 0; liX < UWClassicLayoutUw2.Ledge.RightCap; liX++)
+                    liEndsWrong += fSame(lOShelf.Get(lOShelf.Width - 1 - liX, liY), UWPixelOps.Opaque(lOLedge.Get(lOLedge.Width - 1 - liX, liY))) ? 0 : 1;
+
+                for (int liX = 0; liX < lOShelf.Width - UWClassicLayoutUw2.Ledge.RightCap - 2; liX++)
+                    liGrowsWrong += fSame(lOShelf.Get(liX, liY), lOWider.Get(liX, liY)) ? 0 : 1;
+            }
+
+            Check.Str("uw2 ledge: the shelf's sizes (the narrowest its ends and four columns)",
+                lONarrow.Width + "x" + lONarrow.Height + " " + lOShelf.Width + "x" + lOShelf.Height, UWStoneShelfBuilder.Uw2MinWidth + "x21 140x21");
+            Check.Int("uw2 ledge: both ends as the ledge has them", liEndsWrong, 0);
+            Check.Int("uw2 ledge: a wider shelf grows on the right", liGrowsWrong, 0);
+            Check.Bool("uw2 ledge: the same shelf every time", fCrc32(lOShelf) == fCrc32(UWStoneShelfBuilder.Build(lOTextures, 140)), true);
+
+            // THE SCROLL (stage U6 step 2b): knob to knob, the first game's rows; the paper in its colour from column 8, the
+            // ground between the knobs clear, the knobs opaque; taller, wider and narrower by the first game's rules.
+            UWPicture lOScroll = UWScrollPaperBuilder.Build(lOTextures, null, 0, 0, 0);
+            UWPicture lOTaller = UWScrollPaperBuilder.Build(lOTextures, null, 12, 2, 0);
+            UWPicture lOWideScroll = UWScrollPaperBuilder.Build(lOTextures, null, 0, 0, 64);
+            UWPicture lONarrowScroll = UWScrollPaperBuilder.Build(lOTextures, null, 0, 0, -96);
+            UWColor32 lOPaper = UWPixelOps.Opaque(new UWPalettes(lsData).GetPalette(0).GetUWColor(UWClassicLayoutUw2.MessageLog.PaperColour));
+            Check.Str("uw2 scroll: its sizes, taller, wider, narrower",
+                lOScroll.Width + "x" + lOScroll.Height + " " + lOTaller.Width + "x" + lOTaller.Height + " " + lOWideScroll.Width + " " + lONarrowScroll.Width,
+                "224x33 224x45 288 128");
+            Check.Bool("uw2 scroll: the paper in its colour from column 8 and row 2, the ground clear, the knob opaque",
+                fSame(lOScroll.Get(UWScrollPaperBuilder.Uw2PaperLeft + 10, 12), lOPaper)
+                && lOScroll.Get(2, 13).A == 0 && lOScroll.Get(1, 4).A != 0, true);
+            // THE BACKS (stage U6 step 2d): six shades each from the second game's own frame, the leather and the bronze warm,
+            // the marble bluish, the stone grey; the patterns its walls 209, 62, 88.
+            string lsRamps = string.Empty;
+
+            foreach (UWBackdropArt.ColourEnum leColour in new[] { UWBackdropArt.ColourEnum.Leather, UWBackdropArt.ColourEnum.Marble,
+                UWBackdropArt.ColourEnum.Stone, UWBackdropArt.ColourEnum.Bronze })
+            {
+                List<UWColor32> lORamp = UWBackdropArt.Ramp(lOTextures, leColour);
+                UWColor32 lOLight = lORamp.Count > 0 ? lORamp[lORamp.Count - 1] : default;
+                string lsKind = lOLight.R > lOLight.B + 30 ? "warm" : lOLight.B > lOLight.R ? "blue" : "grey";
+
+                lsRamps += leColour + " " + lORamp.Count + " " + lsKind + ";";
+            }
+
+            Check.Str("uw2 backs: the ramps from its own frame", lsRamps, "Leather 6 warm;Marble 6 blue;Stone 6 grey;Bronze 6 warm;");
+            Check.Str("uw2 backs: the patterns' walls", string.Join(",", UWClassicLayoutUw2.BackSources.PatternWalls), "-1,209,62,88");
+            Check.Str("uw2 scroll: the log's colours its own (font_color 0x76, spec_col)",
+                string.Join(",", UWMessageLogModel.ColourIndicesOf(UWGame.Uw2)) + " " + string.Join(",", UWMessageLogModel.ColourIndicesOf(UWGame.Uw1)),
+                "118,104,1,2,33,80,72 46,38,241,96,180,196,212");
+        }
+
+        private static int fOpaqueCount(UWPicture pOPicture)
+        {
+            int liCount = 0;
+
+            foreach (UWColor32 lOPixel in pOPicture.Pixels)
+                liCount += lOPixel.A != 0 ? 1 : 0;
+
+            return liCount;
         }
 
         // ------------------------------------------------- The builders

@@ -376,7 +376,7 @@ namespace UnderworldRevisited.Build
                             continue;
                         }
 
-                        // THE SECOND GAME'S WALK (UW2 plan phase 2 step 3): an object whose spawning
+                        // THE SECOND GAME'S SESSION (UW2 plan phase 2 step 3): an object whose spawning
                         // reaches a rule of the first game's play - which the second game's profile
                         // refuses until phase 4 - is left out and reported, once per kind of failure,
                         // instead of ending the whole build (the first test, 2026-10-29: a secret door's
@@ -394,7 +394,7 @@ namespace UnderworldRevisited.Build
             }
 
             if (fIsUw2 && mOUw2Failures.Count > 0)
-                Debug.LogWarning("[Walk] " + mOUw2Failures.Count + " kind(s) of objects could not be spawned on level " + pOLevel.LevelNumber + ".");
+                Debug.LogWarning("[Session] " + mOUw2Failures.Count + " kind(s) of objects could not be spawned on level " + pOLevel.LevelNumber + ".");
         }
 
         /// <summary>Whether the data is the second game's.</summary>
@@ -413,7 +413,7 @@ namespace UnderworldRevisited.Build
             if (!mOUw2Failures.Add(lsKey))
                 return;
 
-            Debug.LogWarning(string.Format("[Walk] Object 0x{0:X3} at {1}/{2} not spawned: {3}: {4} ({5})",
+            Debug.LogWarning(string.Format("[Session] Object 0x{0:X3} at {1}/{2} not spawned: {3}: {4} ({5})",
                 pOObject.ID, piX, piZ, pOError.GetType().Name, pOError.Message, lsWhere));
         }
 
@@ -837,6 +837,24 @@ namespace UnderworldRevisited.Build
                 lOBlock.SetFloat(UWShaderIds.ChainIndex, Mathf.Min(miSpawnChainIndex, UWOwnTile.MaxChainIndex));
 
             pORenderer.SetPropertyBlock(lOBlock);
+        }
+
+        /// <summary>A model's triangle, wound so that its front faces pOFront when given (Unity's front: the normal of
+        /// cross(b - a, c - a)); in the order given otherwise.</summary>
+        private static void fAddTriangle(List<int> pOTriangles, List<Vector3> pOVerts, int piA, int piB, int piC, Vector3? pOFront)
+        {
+            if (pOFront.HasValue
+                && Vector3.Dot(Vector3.Cross(pOVerts[piB] - pOVerts[piA], pOVerts[piC] - pOVerts[piA]), pOFront.Value) < 0f)
+            {
+                int liSwap = piB;
+
+                piB = piC;
+                piC = liSwap;
+            }
+
+            pOTriangles.Add(piA);
+            pOTriangles.Add(piB);
+            pOTriangles.Add(piC);
         }
 
         /// <summary>How far an image on a diagonal wall stands out from the wall plane.</summary>
@@ -1949,18 +1967,6 @@ namespace UnderworldRevisited.Build
         /// <summary>The second game's bed model (do_rect's 0x1D), its blanket and pillow coloured by the owner field.</summary>
         private const int BedModel = 0x1D;
 
-        private static int fGetModelFaceColor(int piModelIndex, UWObject pOObject, int piTableColor)
-        {
-            if (piModelIndex == UW3DModelImport.ModelIndex.Moongate && pOObject != null
-                && pOObject.HasQuantity && pOObject.Quantity >= MoongateColorLinkBase)
-                return (pOObject.Quantity - MoongateColorLinkBase) & 0xFF;
-
-            return piTableColor;
-        }
-
-        /// <summary>From this value on, a moongate's link field is a colour (0x200).</summary>
-        private const int MoongateColorLinkBase = 0x200;
-
         /// <summary>
         /// Maps an object id to the matching original 3D model index, or -1 if the object has no such model: the first
         /// game's mapping (fFirstGameModelIndex), and in the second game its own object-to-model table for the types the
@@ -2165,14 +2171,29 @@ namespace UnderworldRevisited.Build
             // Separate submesh for the solid-colour faces, see mOModelSolidMaterial.
             List<int> lOSolidTriangles = new List<int>();
 
-            // THE LARGE BLACKROCK GEM paints its facets and body by the game's state (UWBlackrockGemLook): each
-            // vertex keeps the colour register of its face, so UWBlackrockGemView can repaint them.
+            // THE FACES SEEN FROM ONE SIDE (per user 2026-11-22: the inner sides of the Void's bridges are see-through in
+            // the original, ours were drawn): a face lying in the plane of its back-face test is wound towards the side the
+            // test shows and goes on a material that culls its back (UW3DModelLayering.FaceFronts). The wall-texture faces
+            // keep their submesh, whose material culls its back already.
+            List<int> lOAtlasFrontTriangles = new List<int>();
+            List<int> lOSolidFrontTriangles = new List<int>();
+
+            // COLOURS THAT FOLLOW THE GAME (UWModelColourView): the large blackrock gem paints its facets and body by the
+            // game's state (UWBlackrockGemLook), each vertex keeping its face's colour register; the moongate its link's
+            // colour plus the clock step plus the record colour (UWMoongateLook, per user 2026-11-22: the Void's gates
+            // were one still colour), each vertex keeping its face's record colour.
             bool lbGem = fIsUw2 && piModelIndex == UWBlackrockGemLook.Model;
-            List<int> lOGemRegisters = lbGem ? new List<int>() : null;
+            bool lbMoongate = piModelIndex == UWMoongateLook.Model && UWMoongateLook.HasColourLink(pOObject);
+            int liGateLink = lbMoongate ? pOObject.Quantity : 0;
+            System.Func<int, int> lOLiveColour = lbGem
+                ? UWBlackrockGemView.ColourNow
+                : lbMoongate ? piKey => UWMoongateLook.Colour(liGateLink, piKey, UWModelColourView.GameTime) : (System.Func<int, int>)null;
+            List<int> lOLiveKeys = lOLiveColour != null ? new List<int>() : null;
 
             // THE ORIGINAL PAINTS IN PROGRAM ORDER (per user 2026-11-18, the chest's bands): the faces of one back-face
             // test laid on its plane, the later ones a hair above the earlier (UW3DModelLayering).
             List<UWVector3[]> lOLayered = UW3DModelLayering.FaceCorners(lOModel);
+            List<UWVector3?> lOFronts = UW3DModelLayering.FaceFronts(lOModel);
             int liFaceAt = -1;
 
             foreach (UW3DModelFace lOFace in lOModel.Faces)
@@ -2227,7 +2248,7 @@ namespace UnderworldRevisited.Build
                         lOUvs.Add(new Vector3(lOFace.Uvs[i].X, lOFace.Uvs[i].Y, lOResolved.Slice));
                         lOColors.Add(new Color32(255, 255, 255, 255));
                         lOPaletteData.Add(Vector2.zero);
-                        lOGemRegisters?.Add(-1);
+                        lOLiveKeys?.Add(-1);
                     }
                     else if (lOFace.Uvs != null)
                     {
@@ -2243,7 +2264,7 @@ namespace UnderworldRevisited.Build
                         lOUvs.Add(lOUvOrigin + Vector2.Scale(new Vector2(lOFace.Uvs[i].X, 1f - lOFace.Uvs[i].Y), lOUvSize));
                         lOColors.Add(new Color32(255, 255, 255, 255));
                         lOPaletteData.Add(Vector2.zero);
-                        lOGemRegisters?.Add(-1);
+                        lOLiveKeys?.Add(-1);
                     }
                     else
                     {
@@ -2264,7 +2285,7 @@ namespace UnderworldRevisited.Build
                         // the atlas. The barrel used to be excluded from the Gouraud darkening (it
                         // looked better plain while Gouraud faces showed the wrong colour); removed
                         // per user, 2026-09-15.
-                        int liFaceColor = fGetModelFaceColor(piModelIndex, pOObject, lOFace.ColorIndex);
+                        int liFaceColor = lOFace.ColorIndex;
 
                         // THE SECOND GAME'S BED (do_rect's model 0x1D, per user 2026-11-16: the original's beds have their own
                         // colours, ours were all blue): registers 2 and 3 come from the bed's owner field - 2 the owner * 4 + 5,
@@ -2272,14 +2293,15 @@ namespace UnderworldRevisited.Build
                         if (fIsUw2 && piModelIndex == BedModel && (lOFace.ColorRegister == 2 || lOFace.ColorRegister == 3))
                             liFaceColor = ((pOObject.Owner << 2) + (lOFace.ColorRegister == 2 ? 5 : 0)) & 0xFF;
 
-                        if (lbGem)
+                        if (lOLiveColour != null)
                         {
-                            int liGemColour = UWBlackrockGemView.ColourNow(lOFace.ColorRegister);
+                            int liKey = lbGem ? lOFace.ColorRegister : lOFace.ColorIndex;
+                            int liLiveColour = lOLiveColour(liKey);
 
-                            if (liGemColour >= 0)
-                                liFaceColor = liGemColour;
+                            if (liLiveColour >= 0)
+                                liFaceColor = liLiveColour;
 
-                            lOGemRegisters.Add(lOFace.ColorRegister);
+                            lOLiveKeys.Add(liKey);
                         }
 
                         int liPaletteIndex = liFaceColor;
@@ -2330,9 +2352,14 @@ namespace UnderworldRevisited.Build
 
                 // Three targets: wall texture, atlas graphic, solid-colour face. The third
                 // is recognised by the face having no UV at all in the model.
+                UWVector3? lOFrontAt = lOFronts[liFaceAt];
+                // The model's X, Y, Z (height) are the mesh's x, z, y.
+                Vector3? lOFront = lOFrontAt.HasValue ? new Vector3(lOFrontAt.Value.X, lOFrontAt.Value.Z, lOFrontAt.Value.Y) : (Vector3?)null;
                 List<int> lOTargetTriangles = lbUseArraySlice
                     ? lOArrayTriangles
-                    : (lOFace.Uvs != null ? lOAtlasTriangles : lOSolidTriangles);
+                    : lOFace.Uvs != null
+                        ? (lOFront.HasValue ? lOAtlasFrontTriangles : lOAtlasTriangles)
+                        : (lOFront.HasValue ? lOSolidFrontTriangles : lOSolidTriangles);
                 int liCount = lOFace.VertexIndices.Count;
 
                 if (liCount <= 4)
@@ -2346,11 +2373,7 @@ namespace UnderworldRevisited.Build
                     // winding inwards - light practically never arrived
                     // (dot(normalWS, lightDir) near 0). Reverted to the standard order.
                     for (int i = 1; i + 1 < liCount; i++)
-                    {
-                        lOTargetTriangles.Add(liBase);
-                        lOTargetTriangles.Add(liBase + i);
-                        lOTargetTriangles.Add(liBase + i + 1);
-                    }
+                        fAddTriangle(lOTargetTriangles, lOVerts, liBase, liBase + i, liBase + i + 1, lOFront);
                 }
                 else
                 {
@@ -2362,11 +2385,7 @@ namespace UnderworldRevisited.Build
                     List<int> lOEarTriangles = fTriangulatePolygon(lOVerts, liBase, liCount);
 
                     for (int i = 0; i + 2 < lOEarTriangles.Count; i += 3)
-                    {
-                        lOTargetTriangles.Add(lOEarTriangles[i]);
-                        lOTargetTriangles.Add(lOEarTriangles[i + 1]);
-                        lOTargetTriangles.Add(lOEarTriangles[i + 2]);
-                    }
+                        fAddTriangle(lOTargetTriangles, lOVerts, lOEarTriangles[i], lOEarTriangles[i + 1], lOEarTriangles[i + 2], lOFront);
                 }
             }
 
@@ -2381,10 +2400,12 @@ namespace UnderworldRevisited.Build
             lOMesh.SetUVs(0, lOUvs);
             lOMesh.SetUVs(1, lOPaletteData);
             lOMesh.SetColors(lOColors);
-            lOMesh.subMeshCount = 3;
+            lOMesh.subMeshCount = 5;
             lOMesh.SetTriangles(lOArrayTriangles, 0);
             lOMesh.SetTriangles(lOAtlasTriangles, 1);
             lOMesh.SetTriangles(lOSolidTriangles, 2);
+            lOMesh.SetTriangles(lOAtlasFrontTriangles, 3);
+            lOMesh.SetTriangles(lOSolidFrontTriangles, 4);
             lOMesh.RecalculateNormals();
             lOMesh.RecalculateBounds();
 
@@ -2415,19 +2436,26 @@ namespace UnderworldRevisited.Build
 
             lOObj.AddComponent<MeshFilter>().sharedMesh = lOMesh;
 
-            // The gem's colours follow the game (its facets as the gems are used, the pulsing body); a repeated side
-            // would have added vertices without a register, then the gem keeps its first colours.
-            if (lbGem && lOGemRegisters.Count == lOVerts.Count)
-                lOObj.AddComponent<UWBlackrockGemView>().Init(lOMesh, lOGemRegisters, lOPaletteData, mOData);
+            // The gem's and the moongate's colours follow the game; a repeated side would have added vertices without a
+            // key, then the model keeps its first colours.
+            if (lOLiveColour != null && lOLiveKeys.Count == lOVerts.Count)
+                lOObj.AddComponent<UWModelColourView>().Init(lOMesh, lOLiveKeys, lOPaletteData, mOData, lOLiveColour);
 
             // Submesh 0 (dungeon material) stays empty (0 triangles) if no wall/
             // floor-referencing face occurs - that is the vast majority of models
             // (shrine, boulder, bench, ...), but it costs nothing extra.
+            Material lOSolidMaterial = mOModelSolidMaterial != null ? mOModelSolidMaterial : lOResolved.Material;
+            Material lOSolidFrontMaterial = mOLevelLoader != null && mOLevelLoader.ModelSolidFrontMaterial != null
+                && lOSolidMaterial == mOLevelLoader.ModelSolidMaterial
+                ? mOLevelLoader.ModelSolidFrontMaterial : fGetSingleSided(lOSolidMaterial);
+
             lOObj.AddComponent<MeshRenderer>().sharedMaterials = new Material[]
             {
                 mODungeonMaterial != null ? mODungeonMaterial : lOResolved.Material,
                 fModelFaceMaterial(lOResolved.Material),
-                mOModelSolidMaterial != null ? mOModelSolidMaterial : lOResolved.Material
+                lOSolidMaterial,
+                fGetSingleSided(fModelFaceMaterial(lOResolved.Material)),
+                lOSolidFrontMaterial
             };
 
             // ITS OWN TILE DOES NOT HIDE IT - floor, ceiling, walls; see UWOwnTile.
@@ -2513,13 +2541,15 @@ namespace UnderworldRevisited.Build
             lOInfo.ObjectData = pOObject;
             lOInfo.IsModel = true;
 
-            // A BRIDGE WITH A FLOOR TEXTURE IS NAMED AFTER THAT FLOOR (per user on the original,
-            // 2026-09-29: the plate over the Wine of Compassion is "a marble floor"; ours said "a
-            // bridge"; the reference's bridge.cs names it by its texture too). The floor names sit in
-            // block 10 counted down from 511, as for the level's own floors (see Interaction).
-            if (pOObject.ID == BridgeObjectId && pOObject.Flags > 1 && pOObject.Texture != null
-                && pOObject.Texture.TextureType == UWTexture.TextureTypes.FLOOR)
-                fDescribeByTexture(lOInfo, 511 - pOObject.Texture.Index);
+            // A BRIDGE WITH A FLOOR TEXTURE IS NAMED AFTER THAT FLOOR (UWItemDescriptions.BridgeTextureDescription:
+            // "a marble floor" in the first game, "a trapdoor" in the second).
+            int liBridgeTexture = UWItemDescriptions.BridgeTextureDescription(pOObject);
+
+            if (liBridgeTexture >= 0)
+            {
+                fDescribeByTexture(lOInfo, liBridgeTexture);
+                lOInfo.NamedByTexture = true;
+            }
             else
                 fDescribeByName(lOInfo, pOObject.ID + 1);
 
@@ -2882,7 +2912,8 @@ namespace UnderworldRevisited.Build
                 return;
             }
 
-            float lfBottom = pOTile.FloorHeight;
+            // At the door's own height as the original draws it, not the tile's floor (UWDoorRules.DrawnZPos).
+            float lfBottom = UWUnits.ZPosToWorld(UWDoorRules.DrawnZPos(pOObject));
 
             // The door texture is 32x64, the door leaf only occupies its lower part.
             // Height, width and UV range come from the measured outline of the graphic.
@@ -3039,7 +3070,8 @@ namespace UnderworldRevisited.Build
                 return;
             }
 
-            float lfBottom = pOTile.FloorHeight;
+            // At the door's own height as the original draws it, not the tile's floor (UWDoorRules.DrawnZPos).
+            float lfBottom = UWUnits.ZPosToWorld(UWDoorRules.DrawnZPos(pOObject));
             float lfHeight = DoorHeight;
             float lfHalfWidth = DoorHalfWidth;
             float lfTop = lfBottom + lfHeight;
@@ -3458,7 +3490,8 @@ namespace UnderworldRevisited.Build
                 return;
             }
 
-            float lfBottom = pOTile.FloorHeight;
+            // At the door's own height as the original draws it, not the tile's floor (UWDoorRules.DrawnZPos).
+            float lfBottom = UWUnits.ZPosToWorld(UWDoorRules.DrawnZPos(pOObject));
             float lfHeight = DoorHeight;
             float lfHalfWidth = DoorHalfWidth;
             float lfTop = lfBottom + lfHeight;

@@ -5,18 +5,18 @@ using UWDataImport;
 using UWDataImport.UWData;
 
 /// <summary>
-/// THE LIGHT OF THE SECOND GAME'S LEVELS ON ITS WALK (UW2 plan phase 2 step 3, 2026-10-29): DL.DAT
+/// THE LIGHT OF THE SECOND GAME'S LEVELS IN ITS SESSION (UW2 plan phase 2 step 3, 2026-10-29): DL.DAT
 /// gives each level a minimum light, which the tile's light bit turns on or off
 /// (UWDarknessUw2.TileMinimum, load_dl and change_GrSq). The tile is the
 /// one under the camera; its minimum goes to UWLighting.LevelMinimum whenever the tile or the level
 /// changes. The first game never has this component.
 ///
-/// AND ITS DOORS (step 4): the walk has no interface to use things with, so the use key of the modern
+/// AND ITS DOORS (step 4): the session has no interface to use things with, so the use key of the modern
 /// scheme or a click opens and closes the door in front - the one the view's centre (or the free
 /// pointer) points at within DoorReach. A locked door stays shut; its triggers and traps are the second game's
 /// rules (G3, built).
 /// </summary>
-public class UWWalkUw2View : MonoBehaviour
+public class UWWorldViewUw2 : MonoBehaviour
 {
     private UWDarknessUw2 mODarkness;
 
@@ -28,13 +28,64 @@ public class UWWalkUw2View : MonoBehaviour
 
     private int miLastTile = -1;
 
-    /// <summary>The walk's view, for the modern HUD's target name.</summary>
-    public static UWWalkUw2View Current { get; private set; }
+    /// <summary>The session's view, for the modern HUD's target name.</summary>
+    public static UWWorldViewUw2 Current { get; private set; }
 
-    /// <summary>What the view's centre or the free pointer is on.</summary>
+    /// <summary>What the view's middle is on - the crosshair's thing, as the first game names it (Interaction.
+    /// AimAtCrosshair through the crosshair's ray), never the free pointer's (per user 2026-11-24, UW2 plan stage U7: the
+    /// name in the middle named what the free pointer was on, even with the pointer on Classic Wide's frame). The clicks
+    /// still follow the pointer (fPointerRay).</summary>
     public UWEntityInfo PointedEntity()
     {
-        return fFirstEntity();
+        return fCentreEntity();
+    }
+
+    /// <summary>The first thing along the view's middle within DoorReach (the camera's viewport middle: in Classic Wide
+    /// the window's, which is this game's projection centre).</summary>
+    private UWEntityInfo fCentreEntity()
+    {
+        Camera lOCamera = UWViewpoint.Current;
+
+        if (lOCamera == null)
+            return null;
+
+        foreach (UWWorldPicker.Hit lOHit in UWWorldPicker.Measure(lOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f)), DoorReach).Hits)
+        {
+            if (lOHit.Entity != null && lOHit.Entity.ObjectData != null)
+                return lOHit.Entity;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A LOCKED DOOR UNDER THE CROSSHAIR, as the first game's (UWModernWorldInput.GetCrosshairLock, part U4e step 2): true
+    /// for a closed, locked door, with the id of the key at hand that fits (UWLockUseUw2.KeyAtHand) or -1 for none - only
+    /// with the automatic key (UWWorldUse.KeyUsedAutomatically, one switch for both).
+    /// </summary>
+    public bool CrosshairLock(out int piKeyId)
+    {
+        piKeyId = -1;
+
+        if (!UWWorldUse.KeyUsedAutomatically || mOScreen == null)
+            return false;
+
+        // The door the name beside the key icon names: the view's middle's (PointedEntity).
+        UWEntityInfo lOThing = fCentreEntity();
+
+        if (lOThing == null || lOThing.ObjectData == null || UWModernWorldInput.HidesFromCrosshair(lOThing.ObjectData.ID))
+            return false;
+
+        UWDoor lODoor = lOThing.GetComponentInParent<UWDoor>();
+
+        if (lODoor == null || !lODoor.IsClosed || !lODoor.IsLocked)
+            return false;
+
+        UWObject lOKey = UWLockUseUw2.KeyAtHand(lODoor, mOScreen.Inventory, mOLoader);
+
+        piKeyId = lOKey != null ? lOKey.ID : -1;
+
+        return true;
     }
 
     private void Start()
@@ -52,7 +103,7 @@ public class UWWalkUw2View : MonoBehaviour
         mOLoader = GetComponent<UWLevelLoader>();
         mOLighting = GetComponent<UWLighting>();
 
-        // The walk leaves the level loader before its sound starts: without this the effects were the first
+        // The session leaves the level loader before its sound starts: without this the effects were the first
         // game's after its menu, or none at all.
         if (mOLoader != null && mOLoader.UWDataImporter != null)
             UWAudioService.Init(mOLoader.UWDataImporter);
@@ -63,13 +114,13 @@ public class UWWalkUw2View : MonoBehaviour
         if (lsFile != null && File.Exists(lsFile))
             mODarkness = new UWDarknessUw2(File.ReadAllBytes(lsFile));
         else
-            Debug.LogWarning("[Walk] No " + UWDarknessUw2.FileName + " - the levels have no minimum light.");
+            Debug.LogWarning("[Session] No " + UWDarknessUw2.FileName + " - the levels have no minimum light.");
 
         // The game screen around the view (phase 3 step 1).
         if (mOLoader != null)
             mOScreen = UWGameScreenUw2.Attach(Camera.main, mOLoader.UWDataImporter);
 
-        // The walk's first theme, the world's first walking theme (MAINMENU.C:224 at the end of real_start; UW2 plan
+        // The session's first theme, the world's first walking theme (MAINMENU.C:224 at the end of real_start; UW2 plan
         // phase 5 part A); the menu's theme gives way at once.
         UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickFirst);
     }
@@ -90,9 +141,13 @@ public class UWWalkUw2View : MonoBehaviour
     /// <summary>The panels and the prompts that have the input while they are up.</summary>
     private bool fIsInputTaken()
     {
+        // The modern game menu and its layout editor hold the world as the first game's (UWControlScheme.IsWorldInputBlocked,
+        // the menu's modal hold; per user at the test of 198, 2026-11-24: things were taken in the world behind the editor).
         return UWControlScheme.SharedControls == null || UWSetupMenu.IsCapturingInput || UWGameScreenUw2.IsOptionsOpen || UWMapScreenUw2.IsOpen
+            || (UWControlScheme.Shared != null && UWControlScheme.Shared.IsWorldInputBlocked)
             || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || UWGameScreenUw2.IsAskingYesNo || UWGameScreenUw2.IsWaitingForPage || UWControls.IsTextEntryActive
-            || (UWSleepUw2.Current != null && UWSleepUw2.Current.IsNight) || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed;
+            || (UWSleepUw2.Current != null && UWSleepUw2.Current.IsNight) || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed
+            || UWGameScreenUw2.IsCutscenePlaying;
     }
 
     /// <summary>player_key_sleep.</summary>
@@ -106,9 +161,9 @@ public class UWWalkUw2View : MonoBehaviour
     }
 
     /// <summary>
-    /// THE WALK SAVED into SAVE1 to SAVE4 under the save folder (phase 2 step 6; since phase 3 step 4 from
+    /// THE SESSION SAVED into SAVE1 to SAVE4 under the save folder (phase 2 step 6; since phase 3 step 4 from
     /// the options' file page with the description typed there, UWGameScreenUw2): the inventory written
-    /// into the walk's PLAYER.DAT first, then where the player stands, how he faces, on which level - the
+    /// into the session's PLAYER.DAT first, then where the player stands, how he faces, on which level - the
     /// motion's fine position and z and the camera's yaw, as the original stores PN and PlayerFacing. Null,
     /// or what failed.
     /// </summary>
@@ -121,14 +176,14 @@ public class UWWalkUw2View : MonoBehaviour
         string lsSlot = UWSavegameSlots.GetWriteSlotPath(lsRoot, piSlot);
 
         if (lOSession == null || lOMovement == null || lOMovement.Motion == null || lsSlot == null || lOLoader == null)
-            return "no walk to save";
+            return "no session to save";
 
         UWWorldSync.Capture(lOLoader);
 
         if (UWVitalsUw2.Current != null)
             UWVitalsUw2.Current.WriteToRecord();
 
-        // The inventory as it is now into the walk's PLAYER.DAT (phase 3 step 3 part D).
+        // The inventory as it is now into the session's PLAYER.DAT (phase 3 step 3 part D).
         UWGameScreenUw2 lOScreen = UWGameScreenUw2.Current;
         string lsInventoryError = lOScreen != null ? lOScreen.WriteInventoryInto(lOSession.PlayerFileUw2) : null;
 
@@ -148,17 +203,12 @@ public class UWWalkUw2View : MonoBehaviour
         string lsError = UWSaveCodec.SaveUw2(lOSession, lsSlot, psDescription, lOLoader.CurrentLevelIndex, liX, liY, liZ,
             lOMovement.Motion.CameraYaw, UWSoundOptions.SoundEnabled, UWSoundOptions.MusicEnabled);
 
+        // The action bar's places and the open bags beside the save, as the first game's (UWHelpNotes.SaveTo captures them).
         if (lsError == null)
-        {
-            // The bar's places beside the save, as the first game's (UWSavegameWriter).
-            if (lOScreen != null)
-                lOScreen.CaptureBar();
-
             UWHelpNotes.SaveTo(lsSlot);
-        }
 
         if (lsError == null)
-            Debug.Log(string.Format("[Walk] Saved into {0}: level {1}, tile {2}/{3}.", lsSlot, lOLoader.CurrentLevelIndex + 1, lOParams.X >> 8, lOParams.Y >> 8));
+            Debug.Log(string.Format("[Session] Saved into {0}: level {1}, tile {2}/{3}.", lsSlot, lOLoader.CurrentLevelIndex + 1, lOParams.X >> 8, lOParams.Y >> 8));
 
         return lsError;
     }
@@ -167,7 +217,7 @@ public class UWWalkUw2View : MonoBehaviour
     /// THE VIEW'S BUTTONS (phase 3 step 1): the modern use key uses the door in front, as since step 4.
     /// On the classic screen the left button walks (UWPlayerInput, UWGameScreenUw2's window), and the
     /// right button does what the command bar has chosen, as mous_in_3d does with RightButtonThing: none
-    /// or Look looks, Use uses a door, the rest are not in the walk yet. A click on the frame does
+    /// or Look looks, Use uses a door, the rest are not in the session yet. A click on the frame does
     /// nothing here.
     /// </summary>
     private void fUseDoor()
@@ -175,7 +225,7 @@ public class UWWalkUw2View : MonoBehaviour
         UWControls lOControls = UWControlScheme.SharedControls;
 
         // The options panel, the map and a conversation have the input while they are up.
-        if (lOControls == null || fIsInputTaken() || (mOScreen != null && mOScreen.IsPanelOpen))
+        if (lOControls == null || fIsInputTaken())
             return;
 
         UnityEngine.InputSystem.Mouse lOClickMouse = UnityEngine.InputSystem.Mouse.current;
@@ -220,49 +270,365 @@ public class UWWalkUw2View : MonoBehaviour
                 fToggleDoor(true);
             else if (leCommand == UWGameScreenUw2.CommandEnum.Talk && mOScreen != null)
                 mOScreen.TalkTo(fTalkEntity());
-            else if (leCommand != UWGameScreenUw2.CommandEnum.Fight)
-                UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
+
+            // The fight's click is UWAttackUw2's; the options icon is no command of the view (mous_in_3d's player_disp
+            // knows use, attack, look, get and talk) - nothing here (per user 2026-11-22: no walk placeholder any more).
 
             return;
         }
 
-        // The use key is the modern scheme's only (per user, 2026-11-06: E took things in the classic scheme too).
-        if (!lbClassic && lOControls[UWAct.ModernUse].WasPressedThisFrame())
-            fModernUse();
-        else if (!lbClassic && lOControls[UWAct.ModernLook].WasPressedThisFrame())
-            fLook();
+        // The use and look keys and the free pointer on the world are the modern scheme's only (per user, 2026-11-06: E
+        // took things in the classic scheme too).
+        if (!lbClassic)
+            fUpdateModernActions(lOControls, lOInventory);
     }
 
-    /// <summary>The thing on the pointer goes into the world, from the modern bags.</summary>
-    public void DropHeld(UWInventoryModel pOInventory)
+    // ------------------------------------------------- The modern scheme's way into the world, as the first game's
+
+    /// <summary>
+    /// THE MODERN SCHEME'S KEYS AND THE FREE POINTER ON THE WORLD AS THE FIRST GAME'S (UWModernWorldInput; UW2 plan, the
+    /// modern interface, "the same mechanisms as UW1", per user 2026-11-23 - until then E acted on the press and had no
+    /// hold, and the free pointer's click and drag on the world did nothing): Q looks (over a window at its slot), E
+    /// TAPPED does the default and acts on the release, E HELD uses directly (ModernUseHoldSeconds, the ring at the
+    /// crosshair), over a window E tapped uses the slot there; the free pointer's click on a thing opens its menu and its
+    /// drag takes the thing onto the pointer. The rules behind them stay this game's (fModernUse, fUseAt, fTake, fLookAt).
+    /// Nothing here while something hangs on the pointer.
+    /// </summary>
+    private void fUpdateModernActions(UWControls pOControls, UWInventoryModel pOInventory)
     {
-        fDrop(pOInventory);
+        if (pOInventory != null && pOInventory.CursorItem != null)
+        {
+            mOModernUse.Cancel();
+            mbWorldPress = false;
+
+            return;
+        }
+
+        bool lbOverUi = UWModernPointer.IsFree && UWPointer.HasMouse && UWModernUi.IsOverUi(UWPointer.Position);
+        UnityEngine.InputSystem.InputAction lOLook = pOControls[UWAct.ModernLook];
+
+        // Q: over a window the slot there (the bags first, then the action bar), else the world.
+        if (lOLook.WasPressedThisFrame() && !UWInput.PadPointerTakes(lOLook))
+        {
+            Vector2 lOAt = UWPointer.Position;
+
+            if (!lbOverUi)
+                fLook();
+            else if ((UWModernBags.Instance == null || !UWModernBags.Instance.TryLookAt(lOAt)) && UWModernActionBar.Instance != null)
+                UWModernActionBar.Instance.TryLookAt(lOAt);
+        }
+
+        fUpdateModernUseKey(pOControls[UWAct.ModernUse], lbOverUi);
+        fUpdateModernPointerWorld(pOInventory);
     }
 
-    /// <summary>The modern use key: a creature in front is talked to, what can be taken goes onto the pointer
-    /// with the bags open, a door opens or closes; the rest of using is the second game's rules (G4, built).</summary>
-    private void fModernUse()
+    /// <summary>How long E has to be held for the direct use (UWModernWorldInput's).</summary>
+    private const float ModernUseHoldSeconds = 0.4f;
+
+    /// <summary>E's tap and hold, the first game's UWHoldTap with its policy.</summary>
+    private readonly UWHoldTap mOModernUse = new UWHoldTap(ModernUseHoldSeconds, UWHoldTap.UseKey);
+
+    /// <summary>E went down with the free pointer over a window: its tap uses the slot there, its hold does nothing.</summary>
+    private bool mbModernUseOnUi;
+
+    /// <summary>How far the hold of E has come, 0 to 1, for the crosshair's ring; -1 while there is none to show.</summary>
+    public float UseHoldProgress => mOModernUse.HeldSeconds >= 0.1f && !mOModernUse.HoldDone && !mbModernUseOnUi
+        ? Mathf.Clamp01(mOModernUse.HeldSeconds / ModernUseHoldSeconds) : -1f;
+
+    private void fUpdateModernUseKey(UnityEngine.InputSystem.InputAction pOKey, bool pbOverUi)
     {
-        // A key or a lockpick waiting for its lock takes the use key as its click (G4 part A).
-        if (UWAttackUw2.Current != null && UWAttackUw2.Current.ApplyWaitingUseOn())
+        // The gamepad's pointer takes its A as the click (the PadPointer context).
+        if (pOKey.WasPressedThisFrame() && UWInput.PadPointerTakes(pOKey))
+        {
+            mOModernUse.Cancel();
+
+            return;
+        }
+
+        if (pOKey.WasPressedThisFrame())
+        {
+            // A key or a lockpick waiting for its lock (the classic page's wait) takes the use key as its click (G4 part A).
+            if (!pbOverUi && UWAttackUw2.Current != null && UWAttackUw2.Current.ApplyWaitingUseOn())
+            {
+                mOModernUse.Cancel();
+
+                return;
+            }
+
+            mOModernUse.Press(Time.unscaledTime);
+            mbModernUseOnUi = pbOverUi;
+
+            return;
+        }
+
+        if (!mOModernUse.IsPressed)
             return;
 
+        // Begun on the world and the pointer went onto a window: that press is gone.
+        if (!mbModernUseOnUi && pbOverUi)
+        {
+            mOModernUse.Cancel();
+
+            return;
+        }
+
+        switch (mOModernUse.Update(pOKey.IsPressed(), pOKey.WasReleasedThisFrame(), Time.unscaledTime))
+        {
+            case UWHoldTap.ResultEnum.Hold:
+                if (!mbModernUseOnUi)
+                    fModernUse(true);
+
+                break;
+
+            case UWHoldTap.ResultEnum.Tap:
+                if (!mbModernUseOnUi)
+                    fModernUse(false);
+                else if (pbOverUi)
+                {
+                    Vector2 lOAt = UWPointer.Position;
+
+                    // The bags first, then the action bar (UWModernWorldInput.fUseAtUi).
+                    if ((UWModernBags.Instance == null || !UWModernBags.Instance.TryUseAt(lOAt)) && UWModernActionBar.Instance != null)
+                        UWModernActionBar.Instance.TryUseAt(lOAt);
+                }
+
+                break;
+        }
+    }
+
+    /// <summary>Screen pixels the pointer moves before a press on the world becomes a drag (UWModernWorldInput's).</summary>
+    private const float WorldDragPixels = 6f;
+
+    private bool mbWorldPress;
+
+    private Vector2 mOWorldPressAt;
+
+    private UWEntityInfo mOWorldPressPickable;
+
+    private UWEntityInfo mOWorldPressThing;
+
+    private UWEntityInfo mOWorldPressBehind;
+
+    /// <summary>What a use from the menu works: the door or thing under the press, within the use's reach.</summary>
+    private UseTarget mOWorldPressUse;
+
+    /// <summary>
+    /// THE FREE POINTER ON THE WORLD (UWModernWorldInput.fUpdateModernPointerWorld): with the weapon put away, a CLICK on
+    /// a thing opens its MENU (UWModernBags.OpenWorldMenu: talk or use, pick up, look); held and DRAGGED it TAKES the
+    /// thing onto the pointer (the take's rules, fTake) and the bags carry it on (BeginWorldDrag). Not over a window, not
+    /// in the use mode, the split box or the menu, not while a spell waits for its click or the rune page is open.
+    /// </summary>
+    private void fUpdateModernPointerWorld(UWInventoryModel pOInventory)
+    {
+        if (!UWPointer.HasMouse || !UWModernPointer.IsFree || UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight
+            || UWModernBags.IsMenuOpen || UWModernBags.IsSplitting || UWModernQuestion.IsBlocking
+            || (UWModernBags.Instance != null && UWModernBags.Instance.IsUsing)
+            || (UWAttackUw2.Current != null && UWAttackUw2.Current.IsAnySpellWaiting) || mOScreen == null)
+        {
+            mbWorldPress = false;
+
+            return;
+        }
+
+        Vector2 lOPointer = UWPointer.Position;
+
+        if (UWMouseButtons.LeftPressed)
+        {
+            mbWorldPress = !UWModernUi.IsOverUi(lOPointer);
+
+            if (mbWorldPress)
+            {
+                mOWorldPressAt = lOPointer;
+                mOWorldPressPickable = fPickableEntity(false);
+                mOWorldPressThing = fWorldThingNow(out mOWorldPressBehind);
+                mOWorldPressUse = fUseTargetNow();
+            }
+
+            return;
+        }
+
+        if (!mbWorldPress)
+            return;
+
+        bool lbMoved = Vector2.Distance(lOPointer, mOWorldPressAt) >= WorldDragPixels;
+
+        if (UWMouseButtons.LeftHeld && lbMoved)
+        {
+            mbWorldPress = false;
+
+            if (mOWorldPressPickable != null && mOWorldPressPickable.CanBePickedUp && !fTalks(mOWorldPressPickable) && pOInventory != null)
+            {
+                fTake(mOWorldPressPickable, pOInventory, true);
+
+                if (pOInventory.CursorItem != null && UWModernBags.Instance != null)
+                    UWModernBags.Instance.BeginWorldDrag(mOWorldPressAt);
+            }
+
+            return;
+        }
+
+        if (!UWMouseButtons.LeftHeld)
+        {
+            mbWorldPress = false;
+
+            if (!lbMoved && mOWorldPressThing != null && mOWorldPressThing.ObjectData != null && UWModernBags.Instance != null)
+            {
+                bool lbTalks = fTalks(mOWorldPressThing);
+
+                UWModernBags.Instance.OpenWorldMenu(mOWorldPressThing, mOWorldPressBehind, lbTalks,
+                    mOWorldPressThing.CanBePickedUp && !lbTalks, mOWorldPressAt);
+            }
+        }
+    }
+
+    /// <summary>A creature or a wisp: talked to, not used or taken.</summary>
+    private static bool fTalks(UWEntityInfo pOThing)
+    {
+        return pOThing != null && pOThing.ObjectData != null && (pOThing.ObjectData is UWNpc || UWTalkRulesUw2.IsWisp(pOThing.ObjectData));
+    }
+
+    /// <summary>The thing a menu is for under the pointer (UWModernWorldInput.fWorldThingAt): the frontmost thing, or the
+    /// pickable one behind geometry; not a wall panel (a piece of wall).</summary>
+    private UWEntityInfo fWorldThingNow(out UWEntityInfo pOPickableBehind)
+    {
+        pOPickableBehind = null;
+
+        Camera lOCamera = UWViewpoint.Current;
+
+        if (lOCamera == null)
+            return null;
+
+        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(lOCamera));
+        UWEntityInfo lOFront = lOMeasured.Frontmost != null && lOMeasured.Frontmost.ObjectData != null ? lOMeasured.Frontmost : null;
+        UWEntityInfo lOTarget = lOFront ?? lOMeasured.Pickable;
+
+        if (lOTarget == null || lOTarget.ObjectData == null || UWModernWorldInput.IsWallPanel(lOTarget.ObjectData.ID))
+            return null;
+
+        pOPickableBehind = lOTarget == lOFront && lOMeasured.Pickable != lOFront ? lOMeasured.Pickable : null;
+
+        return lOTarget;
+    }
+
+    /// <summary>The world menu's Use and Talk (IUWModernWorld.UseThing): the direct use, as E held - a creature or a wisp
+    /// is talked to, anything else used where the click measured it (within the use's reach; beyond it "You cannot use
+    /// that.", as the Use command says there).</summary>
+    public void UseFromMenu(UWEntityInfo pOThing)
+    {
+        if (pOThing == null || pOThing.ObjectData == null)
+            return;
+
+        if (fTalks(pOThing))
+        {
+            if (mOScreen != null)
+                mOScreen.TalkTo(pOThing);
+
+            return;
+        }
+
+        UseTarget lOAt = mOWorldPressUse;
+        bool lbSame = lOAt.Thing == pOThing || (lOAt.Door != null && pOThing.GetComponentInParent<UWDoor>() == lOAt.Door);
+
+        fUseAt(lbSame ? lOAt : default(UseTarget), true);
+    }
+
+    /// <summary>The world menu's Look (IUWModernWorld.LookAt): the look at that thing, as Q at it.</summary>
+    public void LookAtThing(UWEntityInfo pOThing)
+    {
+        if (pOThing != null)
+            fLookAt(pOThing, null);
+    }
+
+    /// <summary>The world menu's Pick up (IUWModernWorld.TakeToPointer): the take's rules, onto the pointer.</summary>
+    public bool TakeToPointer(UWEntityInfo pOThing)
+    {
+        UWInventoryModel lOInventory = mOScreen != null ? mOScreen.Inventory : null;
+
+        if (pOThing == null || lOInventory == null || lOInventory.CursorItem != null)
+            return false;
+
+        fTake(pOThing, lOInventory, true);
+
+        return lOInventory.CursorItem != null;
+    }
+
+    /// <summary>
+    /// WHAT E WOULD DO with what the crosshair is on, for the pad's hint under it (UWModernWorldInput.GetCrosshairPadVerb):
+    /// fModernUse's tap without acting - "Talk" to a creature or a wisp, "Pick up" what can be taken, "Use" a door or a
+    /// thing in reach - and null where the tap does nothing; a closed secret door gives none, as the wall it looks like.
+    /// </summary>
+    public string CrosshairPadVerb()
+    {
+        if (!UWPointer.IsLookLocked)
+            return null;
+
+        if (fTalks(fFirstEntity()))
+            return UWText.T("hud.crosshair.talk");
+
+        if (fPickableEntity(false) != null)
+            return UWText.T("hud.crosshair.pick_up");
+
+        UseTarget lOAt = fUseTargetNow();
+        UWObject lOData = lOAt.Door != null ? lOAt.Door.Data : lOAt.Thing != null ? lOAt.Thing.ObjectData : null;
+
+        if (lOData == null || UWModernWorldInput.HidesFromCrosshair(lOData.ID))
+            return null;
+
+        return UWText.T("hud.crosshair.use");
+    }
+
+    /// <summary>The thing on the pointer goes into the world, from the modern bags: dropped or thrown by the point
+    /// the bags hand over, as the first game's (UWModernSessionUw1.DropOrThrowPointerItem). The system mouse is not
+    /// asked there: captured, it stands in the middle of the screen, and every drop was a throw from the centre (test
+    /// list 183, 2026-11-23).</summary>
+    public void DropHeld(UWInventoryModel pOInventory, Vector2 pOPointer)
+    {
+        fDropHeld(pOInventory, pOPointer);
+    }
+
+    /// <summary>The modern use key: a creature in front is talked to; TAPPED (the default) what can be taken goes into the
+    /// pack, else the door or thing in front is used; HELD (pbDirect) nothing is taken, the thing in front is used - a
+    /// barrel emptied where it stands, as the first game's E held. The using itself is the second game's rules.</summary>
+    private void fModernUse(bool pbDirect)
+    {
         UWEntityInfo lOThing = fFirstEntity();
-        UWEntityInfo lOPickable = fPickableEntity(false);
+        UWEntityInfo lOPickable = pbDirect ? null : fPickableEntity(false);
 
         UWInventoryModel lOInventory = mOScreen != null ? mOScreen.Inventory : null;
 
-        if (lOThing != null && (lOThing.ObjectData is UWNpc || UWTalkRulesUw2.IsWisp(lOThing.ObjectData)) && mOScreen != null)
+        if (fTalks(lOThing) && mOScreen != null)
             mOScreen.TalkTo(lOThing);
         else if (lOPickable != null && lOInventory != null)
         {
             fTake(lOPickable, lOInventory, true);
-
-            if (lOInventory.CursorItem != null)
-                mOScreen.OpenBags();
+            fStowTaken(lOInventory);
         }
         else
             fToggleDoor(true);
+    }
+
+    /// <summary>
+    /// WHAT THE MODERN USE KEY TOOK GOES STRAIGHT INTO THE PACK, as on the first game (UWModernWorldInput: "straight
+    /// into the backpack, as there is no pointer to put it on"; UW2 plan, the modern interface's part U4b step 3,
+    /// 2026-11-23 - until then it stayed on the pointer and this screen's own bag cells opened). The take itself is
+    /// the rule's (fTake: reach, weight, theft, triggers); the model then finds the place, a like stack first. Only
+    /// where the pack has no room does the thing stay on the pointer, with the bag windows open and the pointer free
+    /// to deal with it.
+    /// </summary>
+    private void fStowTaken(UWInventoryModel pOInventory)
+    {
+        if (pOInventory.CursorItem == null)
+            return;
+
+        if (pOInventory.ReturnCursorItem(default(UWCursorOrigin), UWInventoryModel.ReturnEnum.OrAnywhere))
+        {
+            pOInventory.ApplyCarriedLight();
+
+            return;
+        }
+
+        if (mOScreen != null)
+            mOScreen.OpenBags();
     }
 
     /// <summary>
@@ -378,7 +744,7 @@ public class UWWalkUw2View : MonoBehaviour
     /// <summary>
     /// What the Talk command and a right drag talk to: the frontmost thing under the pointer as far as the light's band
     /// draws (TalkTo has no reach in the original; per user 2026-11-20) - the first game's aim (UWClassicWorldGesture:
-    /// UWWorldPicker.Measure's Frontmost within Interaction.IsWithinSight) and this walk's look (fLook) alike.
+    /// UWWorldPicker.Measure's Frontmost within Interaction.IsWithinSight) and this session's look (fLook) alike.
     /// </summary>
     private UWEntityInfo fTalkEntity()
     {
@@ -526,6 +892,9 @@ public class UWWalkUw2View : MonoBehaviour
 
     private const int NothingGet = 3;
 
+    /// <summary>look_nothing's how for the use command (0xA6 + 0: "You cannot use that.").</summary>
+    private const int NothingUse = 0;
+
     private const int CannotPickUpString = 0x6D;
 
     /// <summary>
@@ -537,7 +906,7 @@ public class UWWalkUw2View : MonoBehaviour
     /// </summary>
     private void fDrop(UWInventoryModel pOInventory)
     {
-        fDropHeld(pOInventory);
+        fDropHeld(pOInventory, UWPointer.Position);
     }
 
     /// <summary>punt_mouse_obj: what is on the pointer goes down.</summary>
@@ -546,10 +915,10 @@ public class UWWalkUw2View : MonoBehaviour
         UWInventoryModel lOInventory = UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
 
         if (lOInventory != null && lOInventory.CursorItem != null)
-            fDropHeld(lOInventory);
+            fDropHeld(lOInventory, UWPointer.Position);
     }
 
-    private void fDropHeld(UWInventoryModel pOInventory)
+    private void fDropHeld(UWInventoryModel pOInventory, Vector2 pOPointer)
     {
         DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
         Camera lOCamera = UWViewpoint.Current;
@@ -558,7 +927,7 @@ public class UWWalkUw2View : MonoBehaviour
         if (lOData == null || lOCamera == null || lOItem == null)
             return;
 
-        if (fTryThrow(pOInventory, lOItem, lOCamera.transform))
+        if (fTryThrow(pOInventory, lOItem, lOCamera.transform, pOPointer))
             return;
 
         bool lbFits = UWPlayerThrow.TryFindDropSpot(lOItem, lOCamera.transform, mOLoader, out Vector3 lOSpot);
@@ -584,16 +953,12 @@ public class UWWalkUw2View : MonoBehaviour
         UWTriggerSystem.CheckPlatesUw2(lOItem.TileX, lOItem.TileY, lOItem.ZPos, UWTrapRulesUw2.EnterMode, mOLoader, UWTrapRules.Setter.Thing);
     }
 
-    private bool fTryThrow(UWInventoryModel pOInventory, UWObject pOItem, Transform pOCamera)
+    private bool fTryThrow(UWInventoryModel pOInventory, UWObject pOItem, Transform pOCamera, Vector2 pOPointer)
     {
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
         if (UWGameScreenUw2.Current == null || UWAttackUw2.Current == null)
             return false;
 
-        Vector2 lOPointer = UWGameScreenUw2.IsClassicActive || lOMouse == null ? UWPointer.Position : lOMouse.position.ReadValue();
-
-        UWGameScreenUw2.Current.PointerInMissileWindow(lOPointer, out int liX, out int liY);
+        UWGameScreenUw2.Current.PointerInMissileWindow(pOPointer, out int liX, out int liY);
 
         if (!UWPlayerThrow.TryThrowUw2(pOItem, liX, liY, pOCamera, mOLoader, UWAttackUw2.Current))
             return false;
@@ -685,12 +1050,22 @@ public class UWWalkUw2View : MonoBehaviour
 
         if (lODoor != null)
         {
+            // THE MODERN SCHEME'S AUTOMATIC KEY (part U4e step 2, the first game's UWWorldUse.fTryUseDoor): a carried key
+            // that fits unlocks the closed door through the lock rule and names itself, then the door opens.
+            DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
+            UWObject lOKey = lODoor.IsClosed && lODoor.IsLocked && UWWorldUse.KeyUsedAutomatically && mOScreen != null
+                ? UWLockUseUw2.KeyAtHand(lODoor, mOScreen.Inventory, mOLoader) : null;
+
+            if (lOKey != null && UWLockUseUw2.UnlockDoorWithKey(lOKey, lODoor))
+            {
+                if (lOData != null)
+                    UWGameScreenUw2.Say(UWText.Sentence(lOData, "msg.door.unlocked_with", UWText.TheObject(lOData, lOKey.ID, UWGrammarCase.Dative)));
+            }
+
             if (lODoor.IsLocked)
             {
-                DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
-
                 UWGameScreenUw2.Say(lODoor.Data != null && lOData != null
-                    ? UWItemMessages.IsLocked(lOData, lODoor.Data.ID) : UWText.T("hud.walk.door_locked"));
+                    ? UWItemMessages.IsLocked(lOData, lODoor.Data.ID) : UWText.T("hud.uw2.door_locked"));
                 UWAudioService.PlayEffect(LockedDoorSound);
             }
             else
@@ -706,10 +1081,16 @@ public class UWWalkUw2View : MonoBehaviour
         UWEntityInfo lOThing = pOTarget.Thing;
         UWObject lOObject = lOThing != null ? lOThing.ObjectData : null;
 
+        // NOTHING UNDER THE POINTER (a wall, the floor): look_nothing with how 0, "You cannot use that." (per user
+        // 2026-11-22: ours still said "Not yet in the walk through Ultima Underworld II.").
         if (lOObject == null)
         {
             if (pbSayOther)
-                UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
+            {
+                DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
+
+                UWGameScreenUw2.Say(UWText.Block(lOData, 1, UWTalkRulesUw2.NothingFirstString + NothingUse + 1, string.Empty));
+            }
 
             return;
         }
@@ -789,9 +1170,17 @@ public class UWWalkUw2View : MonoBehaviour
         if ((lOObject.ID & 0x1F0) == UWReadRulesUw2.FirstReadable)
             return;
 
-        // UseRect's minor 2: any other wall picture is looked at (RectLook).
-        if ((lOObject.ID & 0x1F0) == WallPictureClass && UWAttackUw2.Current != null && UWAttackUw2.Current.Look != null)
-            UWAttackUw2.Current.Look.LookAtTarget(lOThing, null);
+        // UseRect's minor 2: any other wall picture goes to RectLook with look -1 (USEITEMS.C:913), which speaks only for
+        // a bridge, a gravestone and a plaque (classes 4, 5, 6); a wall panel (14, 15) - a secret wall, per user
+        // 2026-11-22 on UW2 level 52 at 32/43: ours said "You see ...", the original nothing - and the rest stay silent.
+        if ((lOObject.ID & 0x1F0) == WallPictureClass)
+        {
+            int liInClass = lOObject.ID & 0xF;
+
+            if (liInClass >= RectLookFirstSpeaking && liInClass <= RectLookLastSpeaking && UWAttackUw2.Current != null
+                && UWAttackUw2.Current.Look != null)
+                UWAttackUw2.Current.Look.LookAtTarget(lOThing, null);
+        }
         // UseLight in the world: "Lights may only be used if equipped."
         else if (UWObjectMechanics.IsAnyLight(lOObject.ID))
             UWGameScreenUw2.Say(UWText.Block(mOLoader.UWDataImporter, 1, LightsEquippedString + 1, string.Empty));
@@ -803,6 +1192,11 @@ public class UWWalkUw2View : MonoBehaviour
         if (UWGameScreenUw2.Current != null && mOLoader.CurrentLevel != null)
             UWCarriedSpellRulesUw2.CheckSpellInWorld(lOObject, mOLoader.CurrentLevel.Masterlist, UWGameScreenUw2.Current.CastOnPlayer);
     }
+
+    /// <summary>RectLook's classes that speak when used (look -1): the bridge 4, the gravestone 5, the plaque 6.</summary>
+    private const int RectLookFirstSpeaking = 4;
+
+    private const int RectLookLastSpeaking = 6;
 
     /// <summary>"Lights may only be used if equipped." (UseLight with how 0, 0x89).</summary>
     private const int LightsEquippedString = 0x89;
@@ -856,7 +1250,7 @@ public class UWWalkUw2View : MonoBehaviour
     /// (remove_lock(obj, 0)) and uses the chest with no one (UseCont(0, obj, 0)): a second lock still locked says "The
     /// chest is locked." and keeps the contents, else DumpTheBag spills them (its own remove_lock(cont, 1) first) and
     /// counts as theft from the owner; nothing is said. A chest with the door-direction bit only breaks. Until then the
-    /// spill went through the first game's Interaction, which the second game's walk does not have, and the contents
+    /// spill went through the first game's Interaction, which the second game's session does not have, and the contents
     /// went with the chest.
     /// </summary>
     public void SpillDestroyedContainer(UWEntityInfo pOEntity)
@@ -942,7 +1336,7 @@ public class UWWalkUw2View : MonoBehaviour
         UWGameScreenUw2.Say(UWText.Block(lOData, 1, liLine, string.Empty));
     }
 
-    /// <summary>The look of the walk: the first game's picker and look (player_3dlook), the thing in front or the
+    /// <summary>The look of the session: the first game's picker and look (player_3dlook), the thing in front or the
     /// texture behind nothing; what the light's band does not draw is not there (Interaction.IsWithinSight).</summary>
     private void fLook()
     {
@@ -957,6 +1351,15 @@ public class UWWalkUw2View : MonoBehaviour
         UWEntityInfo lOThing = lbSeen ? lOMeasured.Frontmost : null;
         string lsChunk = lbSeen && lOThing == null
             ? Interaction.ChunkDescriptionAt(mOLoader != null ? mOLoader.UWDataImporter : null, lOMeasured.FrontmostHit) : null;
+
+        fLookAt(lOThing, lsChunk);
+    }
+
+    /// <summary>player_3dlook on a thing (or a piece of the level): the look, the trap search, the look triggers.</summary>
+    private void fLookAt(UWEntityInfo lOThing, string lsChunk)
+    {
+        if (UWAttackUw2.Current == null)
+            return;
 
         UWAttackUw2.Current.Look.LookAtTarget(lOThing, lsChunk);
 

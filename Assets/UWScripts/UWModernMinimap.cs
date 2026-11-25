@@ -53,8 +53,6 @@ public class UWModernMinimap : MonoBehaviour
 
     private const float MapHeight = 200f;
 
-    private UWGameUI mOUi;
-
     private UWControlScheme mOScheme;
 
     private UWHelpWindow mOHelp;
@@ -125,7 +123,6 @@ public class UWModernMinimap : MonoBehaviour
 
     private void Start()
     {
-        mOUi = GetComponent<UWGameUI>();
         mOHelp = GetComponent<UWHelpWindow>();
         mOScheme = GetComponentInParent<UWControlScheme>();
     }
@@ -140,7 +137,7 @@ public class UWModernMinimap : MonoBehaviour
         // a choice of the own layout, the Modern preset shows it.
         if (UWModernLayout.IsMinimapHidden || !UWModernUi.IsActive
             || !UWModernUi.IsShowing
-            || mOUi == null || mOUi.mOUWData == null)
+            || !UWModernUi.Has(UWModernPartEnum.Minimap) || UWModernUi.Data == null)
             return false;
 
         UWModernPanel lOPanel = UWModernPanel.Instance;
@@ -230,7 +227,7 @@ public class UWModernMinimap : MonoBehaviour
             return;
 
         // A thing on the pointer is not put down through the map (UWModernBags asks Contains).
-        UWInventory lOInventory = mOUi.mOInventory;
+        UWInventoryModel lOInventory = UWModernUi.Inventory;
 
         if (lOInventory != null && lOInventory.CursorItem != null)
             return;
@@ -241,7 +238,7 @@ public class UWModernMinimap : MonoBehaviour
             fSetZoom(fZoom() - 1);
         // The big map, as the original's full-screen one (per user, 2026-10-04); without the map
         // carried the help's map tab as before.
-        else if (mOUi.OpenBigMap())
+        else if (UWModernUi.Session.World.OpenMap())
             return;
         else if (UWModernPanel.Instance != null)
         {
@@ -331,8 +328,8 @@ public class UWModernMinimap : MonoBehaviour
         float lfHeading = Camera.main != null ? Mathf.Repeat(Camera.main.transform.eulerAngles.y, 360f) : 0f;
         bool lbTurns = UWUserSettings.MinimapTurns;
         UWLevelLoader lOLoader = UWScene.LevelLoader;
-        UWAutomapPictures lOMap = mOUi.AutomapPictures;
-        bool lbMap = mOUi.IsCarryingMap && lOMap != null && lOMap.TryGetPlayerPixel(out Vector2 lOPlayer);
+        IUWMinimapPictures lOMap = UWModernUi.Session.World.Automap;
+        bool lbMap = UWModernUi.Session.World.CarriesMap && lOMap != null && lOMap.TryGetPlayerPixel(out Vector2 lOPlayer);
 
         mOContent.gameObject.SetActive(lbMap);
         mOArrow.enabled = lbMap;
@@ -391,8 +388,9 @@ public class UWModernMinimap : MonoBehaviour
     }
 
     /// <summary>The parchment, the tiles and the notes, the character's tile in the middle,
-    /// turned by pfTurn degrees (counter-clockwise, so the heading points up).</summary>
-    private void fLayoutMap(UWAutomapPictures pOMap, Vector2 pOPlayer, Vector2 pOCentre, float pfTurn)
+    /// turned by pfTurn degrees (counter-clockwise, so the heading points up) - the game's pictures
+    /// (IUWMinimapPictures: the second game's tiles are the whole map screen, without a parchment).</summary>
+    private void fLayoutMap(IUWMinimapPictures pOMap, Vector2 pOPlayer, Vector2 pOCentre, float pfTurn)
     {
         int liZoom = fZoom();
 
@@ -420,11 +418,11 @@ public class UWModernMinimap : MonoBehaviour
 
         UWUiKit.SetRect(mOParchment.rectTransform, 0f, 0f, MapWidth * liZoom, MapHeight * liZoom);
 
-        Vector2 lOTiles = UWAutomapPictures.TilesTopLeft;
-        float lfTiles = UWAutomapPictures.TilesSize;
+        Rect lOTiles = pOMap.TilesRect;
 
         mOTiles.enabled = mOTiles.texture != null;
-        UWUiKit.SetRect(mOTiles.rectTransform, lOTiles.x * liZoom, (MapHeight - lOTiles.y - lfTiles) * liZoom, lfTiles * liZoom, lfTiles * liZoom);
+        UWUiKit.SetRect(mOTiles.rectTransform, lOTiles.x * liZoom, (MapHeight - lOTiles.y - lOTiles.height) * liZoom, lOTiles.width * liZoom,
+            lOTiles.height * liZoom);
 
         List<UWAutomapPictures.Note> lONotes = pOMap.GetNotes();
 
@@ -464,7 +462,7 @@ public class UWModernMinimap : MonoBehaviour
             return;
 
         mOFrame.texture = mOFrameArt.Set(lOStamp,
-            UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Minimap, mOUi.mOUWData.Textures, Size, Size, mOUi.TextureFilterMode));
+            UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Minimap, UWModernUi.Data.Textures, Size, Size, UWModernUi.Filter));
 
         if (mOArrowTexture == null)
             mOArrowTexture = fBuildArrow(64);
@@ -479,7 +477,7 @@ public class UWModernMinimap : MonoBehaviour
     }
 
     /// <summary>The character's arrow, pointing up: a light head with a dark rim.</summary>
-    /// <summary>The character's arrow, for the second game's HUD too (UWModernHudUw2).</summary>
+    /// <summary>The character's arrow (the second game's stopgap HUD drew it too until part U4e step 4 of the UW2 plan).</summary>
     internal static Texture2D BuildArrow(int piSize)
     {
         return fBuildArrow(piSize);
@@ -593,12 +591,12 @@ public class UWModernMinimap : MonoBehaviour
 
         mOArrow = UWUiKit.CreateRawImage(mOViewport, "Character");
 
-        mONorth = UWUiKit.CreateText(mOViewport, "North", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
+        mONorth = UWUiKit.CreateText(mOViewport, "North", TextAnchor.MiddleCenter, UWModernPalette.Text, UWModernUi.TextUi);
         mONorth.text = "N";
 
-        mOLevel = UWUiKit.CreateText(mOViewport, "Level", TextAnchor.LowerRight, UWModernPalette.Text, mOUi);
+        mOLevel = UWUiKit.CreateText(mOViewport, "Level", TextAnchor.LowerRight, UWModernPalette.Text, UWModernUi.TextUi);
 
-        mONoMap = UWUiKit.CreateText(mOViewport, "No map", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
+        mONoMap = UWUiKit.CreateText(mOViewport, "No map", TextAnchor.MiddleCenter, UWModernPalette.Text, UWModernUi.TextUi);
         mONoMap.text = UWText.T("hud.minimap.no_map");
 
         mOButtons = new RawImage[2];
@@ -609,7 +607,7 @@ public class UWModernMinimap : MonoBehaviour
         for (int liButton = 0; liButton < 2; liButton++)
         {
             mOButtons[liButton] = UWUiKit.CreateRawImage(mOViewport, "Zoom " + lsButtons[liButton]);
-            mOButtonTexts[liButton] = UWUiKit.CreateText(mOViewport, "Zoom text", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
+            mOButtonTexts[liButton] = UWUiKit.CreateText(mOViewport, "Zoom text", TextAnchor.MiddleCenter, UWModernPalette.Text, UWModernUi.TextUi);
             mOButtonTexts[liButton].text = lsButtons[liButton];
             // The sign in the disc's middle by its ink, whatever the font (UWCentredGlyph).
             mOButtonTexts[liButton].gameObject.AddComponent<UWCentredGlyph>();

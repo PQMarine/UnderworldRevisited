@@ -53,7 +53,7 @@ public class UWModernStoneShelf : UWModernPart
         UWArtStamp lOStamp = UWVersionedTexture.Colours(liWidth);
 
         if (!mOStoneShelfTexture.IsCurrent(lOStamp))
-            mOStoneShelfTexture.Set(lOStamp, UWModernHudArt.BuildStoneShelf(mOUi.mOUWData.Textures, liWidth, mOUi.TextureFilterMode));
+            mOStoneShelfTexture.Set(lOStamp, UWModernHudArt.BuildStoneShelf(UWModernUi.Data.Textures, liWidth, UWModernUi.Filter));
 
         Texture2D lOStoneShelf = mOStoneShelfTexture.Texture;
         float liScale = fScaleOf(UWModernLayout.ElementEnum.StoneShelf);

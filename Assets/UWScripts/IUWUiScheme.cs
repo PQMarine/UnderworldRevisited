@@ -26,6 +26,13 @@ public interface IUWUiScheme
     /// five (Interaction.ModernMessageCount).</summary>
     int ShownLogLines { get; }
 
+    /// <summary>
+    /// The width a long text is wrapped to for paging, in the font's pixels: the scroll in use now (2026-11-24, per user:
+    /// a narrowed modern scroll wrapped each line again and a page grew past it, its first lines scrolled away unread;
+    /// both games wrapped to the classic box's width until then). piClassicWidth: the classic box's of the running game.
+    /// </summary>
+    int ShownLogWidth(int piClassicWidth);
+
     /// <summary>The pointer was freed from the mouse look (UWModernPointer: the right button, R3,
     /// the bags); the classic scheme has no lock, its pointer was never freed.</summary>
     bool IsPointerUnlocked { get; }

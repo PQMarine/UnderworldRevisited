@@ -159,7 +159,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
     public void ShowFoeCondition(int piHitPoints, int piTableHitPoints, string psName)
     {
-        UWGameScreenUw2.Current.ShowEyes(piHitPoints, piTableHitPoints);
+        UWGameScreenUw2.Current.ShowEyes(piHitPoints, piTableHitPoints, psName);
     }
 
     // ------------------------------------------------- IUWMissileHost
@@ -268,6 +268,121 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         miSpellBeganFrame = Time.frameCount;
     }
 
+    /// <summary>Where a use that asks for its target comes from, for the modern scheme (UseFrom).</summary>
+    public enum UseOnFromEnum
+    {
+        /// <summary>A carried thing used in the bag windows: the bags' use mode waits for the click.</summary>
+        Carried,
+
+        /// <summary>From the world (the anvil, the pole) or a carried target from the action bar: the bags' use mode,
+        /// which opens the bags and frees the pointer for it and puts both back afterwards.</summary>
+        World,
+
+        /// <summary>The action bar's tool with a target in the world: the crosshair's target at once.</summary>
+        Crosshair
+    }
+
+    /// <summary>Set while UseFrom runs.</summary>
+    private UseOnFromEnum meUseOnFrom = UseOnFromEnum.Carried;
+
+    /// <summary>A thing handed to the first game's bag use mode with the rule that acts on its target (AskUseOn).</summary>
+    private UWObject mOHandedItem;
+
+    private System.Action<UWObject, UWEntityInfo, bool> mOHandedActor;
+
+    /// <summary>
+    /// UseThing: "Use &lt;name&gt; on what?" and the waiting pointer (BeginUseOn), as on the classic page. THE MODERN SCHEME
+    /// WAITS AS THE FIRST GAME DOES (UW2 plan, the modern interface's part U4b, per user 2026-11-23 at test list 182:
+    /// a key kept waiting after the right button): the bag windows' use mode (UWModernBagDrag.BeginUse) holds the thing on
+    /// the pointer, says the question (SayUsePrompt), takes the click and lets go with the right button, Escape, the
+    /// locked pointer or the bags shut - and hands the click back here (ApplyHandedOn, ApplyHandedAt), so the target
+    /// goes through this game's reach and actor as before. Inside UseFrom(Crosshair) no question and the crosshair's
+    /// target at once.
+    /// </summary>
+    public void AskUseOn(UWObject pOItem, DataImport pOData, System.Action<UWObject, UWEntityInfo, bool> pOActor)
+    {
+        mOHandedItem = null;
+        mOHandedActor = null;
+
+        if (meUseOnFrom == UseOnFromEnum.Crosshair)
+        {
+            BeginUseOn(pOItem, pOActor);
+            fApplyTargetAt(InteractionRay());
+
+            return;
+        }
+
+        if (UWGameScreenUw2.IsModernScheme && UWModernUi.Session != null && UWModernUi.Session.Has(UWModernPartEnum.Bags)
+            && UWModernBags.Instance != null)
+        {
+            CancelSpellTarget();
+            mOHandedItem = pOItem;
+            mOHandedActor = pOActor;
+            UWModernBags.Instance.BeginUse(pOItem, meUseOnFrom == UseOnFromEnum.World);
+
+            return;
+        }
+
+        AddMessage(UWItemMessages.UseOnWhat(pOData, pOItem.ID));
+        BeginUseOn(pOItem, pOActor);
+    }
+
+    /// <summary>
+    /// pOUse (the classic use, which reaches AskUseOn) from peFrom. THE MODERN ACTION BAR'S TOOLS (part U4b, per user
+    /// at test list 181): as the first game's bar (UWCarriedItemUse, UWItemTargetUse.OnCrosshair, decided per user
+    /// 2026-10-03) a tool whose target stands in the world acts on the crosshair's target at once - out of reach "You
+    /// cannot reach that.", on nothing nothing happens. A tool for a carried thing opens the bags for its click.
+    /// </summary>
+    public bool UseFrom(UseOnFromEnum peFrom, System.Func<bool> pOUse)
+    {
+        UseOnFromEnum lePrevious = meUseOnFrom;
+
+        meUseOnFrom = peFrom;
+
+        try
+        {
+            return pOUse();
+        }
+        finally
+        {
+            meUseOnFrom = lePrevious;
+        }
+    }
+
+    /// <summary>The bags' use mode's click on a carried thing: the handed thing's rule on it, no reach to test.</summary>
+    public void ApplyHandedOn(UWObject pOItem, UWObject pOTarget)
+    {
+        if (pOTarget != null && fTakeHanded(pOItem))
+            fCastTargetOn(pOTarget, null, true);
+    }
+
+    /// <summary>The bags' use mode's click in the world: the thing under the free pointer, with the reach (mous_in_3d's
+    /// case 2) - on nothing or too far the mode ends as the click's does.</summary>
+    public void ApplyHandedAt(UWObject pOItem, Vector2 pOScreenPoint)
+    {
+        if (!fTakeHanded(pOItem))
+            return;
+
+        Camera lOCamera = MeleeCamera;
+
+        fApplyTargetAt(lOCamera != null ? lOCamera.ScreenPointToRay(pOScreenPoint) : InteractionRay());
+    }
+
+    /// <summary>The handed thing becomes the waiting one for its click; false when another is handed or none.</summary>
+    private bool fTakeHanded(UWObject pOItem)
+    {
+        if (mOHandedActor == null || pOItem == null || mOHandedItem != pOItem)
+            return false;
+
+        System.Action<UWObject, UWEntityInfo, bool> lOActor = mOHandedActor;
+
+        mOHandedItem = null;
+        mOHandedActor = null;
+        BeginUseOn(pOItem, lOActor);
+
+        return true;
+    }
+
     /// <summary>A missile or a target spell waits.</summary>
     public bool IsAnySpellWaiting => IsSpellWaiting || IsTargetSpellWaiting;
 
@@ -317,7 +432,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
         // WHERE THE THING IS, as InPickRange measures it: a creature where it walks (its node), anything else by its
         // record - tile, fine place and height, as the first game's reach (Interaction.fGetTargetGridPosition) and the
-        // walk's take. A door's node stands at its hinge, so Open said "You cannot reach that." in front of it (per user,
+        // session's take. A door's node stands at its hinge, so Open said "You cannot reach that." in front of it (per user,
         // 2026-11-12, test list 30.5).
         if (UWObjectIds.Major(lOData.ID) == UWObjectIds.CreatureMajorClass)
         {
@@ -651,7 +766,10 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
     private static bool fModal => UWGameScreenUw2.IsModalOpen;
 
+    /// <summary>The attack waits; the modern game menu and its layout editor hold the world as for the first game's
+    /// Interaction (UWControlScheme.IsWorldInputBlocked; per user at the test of 198, 2026-11-24).</summary>
     private static bool fBusy => UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen || UWGameScreenUw2.IsOptionsOpen || UWGameScreenUw2.IsAskingCount
+        || (UWControlScheme.Shared != null && UWControlScheme.Shared.IsWorldInputBlocked)
         || UWGameScreenUw2.IsAskingYesNo || UWGameScreenUw2.IsWaitingForPage
         || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed || UWVitalsUw2.PlayerAsleepInVoid;
 
@@ -810,7 +928,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
     private static bool fCanAim(UWGameScreenUw2 pOScreen)
     {
-        return !fBusy && !pOScreen.IsPanelOpen && pOScreen.Inventory != null && pOScreen.Inventory.CursorItem == null;
+        return !fBusy && pOScreen.Inventory != null && pOScreen.Inventory.CursorItem == null;
     }
 
     private static bool fCanBegin(UWGameScreenUw2 pOScreen)
@@ -830,8 +948,11 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
     private static bool fPressed(UWGameScreenUw2 pOScreen)
     {
+        // THE MODERN BLOW AIMS AT THE WORLD, as the first game's (UWModernUiScheme.PressAimsAtWorld: a click on a window
+        // with the free pointer does not strike; per user 2026-11-23, "the same mechanisms as UW1").
         if (UWGameScreenUw2.IsModernScheme)
-            return fModernAttack != null && UWMouseButtons.PressedFree(fModernAttack);
+            return fModernAttack != null && UWMouseButtons.PressedFree(fModernAttack)
+                && (UWGamepad.IsFromGamepad(fModernAttack) || UWModernUi.Session == null || UWModernUi.Session.World.IsMouseInWorld);
 
         Mouse lOMouse = UWMouseButtons.GameMouse;
 

@@ -50,8 +50,11 @@ public static class UWModernLayout
         get
         {
             int liPreset = UWUserSettings.InterfacePreset;
+            PresetEnum lePreset = liPreset >= 0 && liPreset <= (int)PresetEnum.Classic ? (PresetEnum)liPreset : PresetEnum.Modern;
 
-            return liPreset >= 0 && liPreset <= (int)PresetEnum.Classic ? (PresetEnum)liPreset : PresetEnum.Modern;
+            // A preset the running game has no pieces for yet shows as Modern (IUWModernSession.Supports, stage
+            // U4 part A, 2026-11-23); the setting itself stays as the player chose it.
+            return UWModernUi.Session != null && !UWModernUi.Session.Supports(lePreset) ? PresetEnum.Modern : lePreset;
         }
     }
 
@@ -103,16 +106,40 @@ public static class UWModernLayout
     /// <summary>The power gem on a stand of its own instead of between the flasks (UWModernHud;
     /// per user, 2026-10-09: the original's gem stands alone) - as the compass: the own layout's
     /// choice, Classic+ will bring it.</summary>
-    public static bool IsGemApart => (IsCustom && (UWUserSettings.ModernGemApart || UWUserSettings.ModernFlasksApart)) || fIsClassicKind;
+    public static bool IsGemApart => IsGemOfTheCompass
+        ? (IsCustom && UWUserSettings.ModernGemApart) || (IsFlasksApart && !IsCompassShown)
+        : (IsCustom && (UWUserSettings.ModernGemApart || UWUserSettings.ModernFlasksApart)) || fIsClassicKind;
+
+    /// <summary>
+    /// THE GAME'S GEM BELONGS IN ITS COMPASS (the second game; UW2 plan stage U6 step 3, per user 2026-11-24: "the power gem
+    /// is in the compass in UW2, not on a pedestal - we leave it as it is, without anything"): no stand of its own; it lies
+    /// in the compass while the compass shows, else between the flasks. Alone, without a stand, where the own layout
+    /// frees it (ModernGemApart; per user the same day, the editor first offered no way to) and where the flasks stand
+    /// apart and no compass shows. Classic Modular keeps it in the compass.
+    /// </summary>
+    public static bool IsGemOfTheCompass => UWModernUi.Has(UWModernPartEnum.Compass) && UWModernUi.Data != null
+        && UWCompassGeometry.Of(UWModernUi.Data.Textures).HasGem;
 
     /// <summary>The two flasks freed, each an element of its own, and no shelf (UWModernHud; per
     /// user, 2026-10-10: "the flasks freed one by one") - the gem then stands apart as well, the
     /// shelf having nothing left on it. The own layout's choice, Classic+ brings it.</summary>
     public static bool IsFlasksApart => (IsCustom && UWUserSettings.ModernFlasksApart) || fIsClassicKind;
 
+    /// <summary>
+    /// THE POWER GEM IN THE COMPASS (UW2 plan stage U6 step 1): the second game's frame has the gem in the compass's
+    /// middle (UWCompassGeometry.HasGem), so while that game's compass shows and the gem is not apart, the compass
+    /// element draws it and the vitals leave it out. Never on the first game.
+    /// </summary>
+    public static bool IsGemInCompass => IsCompassShown && IsGemOfTheCompass && !IsGemApart;
+
     /// <summary>The stone shelf deco panel shown (UWModernHud; per user, 2026-10-09) - the own
     /// layout's choice, Classic Modular brings it.</summary>
     public static bool IsStoneShelfShown => (IsCustom && UWUserSettings.ModernStoneShelf) || Preset == PresetEnum.ClassicPlus;
+
+    /// <summary>The active spells in the frame's hollow instead of a row (the second game's left hollow, UW2 plan stage U6
+    /// step 2c) - the own layout's choice, Classic Modular brings it; only where the game has it.</summary>
+    public static bool IsSpellHollowShown => ((IsCustom && UWUserSettings.ModernSpellHollow) || Preset == PresetEnum.ClassicPlus)
+        && UWModernUi.Has(UWModernPartEnum.SpellHollow);
 
     /// <summary>The hollow with the prepared runes as an element (UWModernHud; per user,
     /// 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>

@@ -799,6 +799,12 @@ public class UWIntroPlayer : MonoBehaviour
     /// UWCutsceneView.LateUpdate. After the coroutines and before drawing.</summary>
     private void LateUpdate()
     {
+        // THE POINTER STAYS HIDDEN WHILE A SEQUENCE PLAYS (show_cutscene's mouse_hide in both games): a modal hold shows
+        // it (UWControlScheme.fApplyCursorState), and one released during the sequence - the second game's conversation
+        // that leaves the ending behind it closes after starting it - showed it again (per user 2026-11-23).
+        if (IsPlaying && UWPointer.IsShown)
+            UWPointer.IsShown = false;
+
         mOView.LateUpdate();
     }
 

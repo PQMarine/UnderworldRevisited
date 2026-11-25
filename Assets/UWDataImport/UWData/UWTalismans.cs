@@ -39,9 +39,16 @@ namespace UWDataImport.UWData
 			{ 54, 270 }   // an_iron ring  -> the Ring of Humility
 		};
 
+		/// <summary>Only in the first game (IUWObjectVariant.HasTalismans); without a session the first game's rule.</summary>
+		private static bool fGameHasThem()
+		{
+			return UWGameSession.Current == null || UWGameSession.Current.Game == null || UWGameSession.Current.Game.Objects == null
+				|| UWGameSession.Current.Game.Objects.HasTalismans;
+		}
+
 		public static bool IsTalisman(int piObjectId)
 		{
-			return myNames.ContainsKey(piObjectId);
+			return fGameHasThem() && myNames.ContainsKey(piObjectId);
 		}
 
 		/// <summary>
@@ -52,7 +59,7 @@ namespace UWDataImport.UWData
 		{
 			int liString;
 
-			if (pOStrings == null || !myNames.TryGetValue(piObjectId, out liString))
+			if (pOStrings == null || !fGameHasThem() || !myNames.TryGetValue(piObjectId, out liString))
 				return null;
 
 			try

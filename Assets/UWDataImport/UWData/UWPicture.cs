@@ -32,6 +32,54 @@ namespace UWDataImport.UWData
 			return lOPicture;
 		}
 
+		/// <summary>
+		/// A picture with its OWN clear colour (UWTexture.ZeroIsClear, the second game's objects, spells and armour): colour
+		/// 0 clear, every other pixel opaque - the first game's palette rule behind From takes the second game's near black
+		/// (0, 0, 4) for clear and leaves colour 0 as it is (UW2 plan U4b step 2, the armour's outline). Any other picture
+		/// as From gives it. For the crosshair's key (part U4e step 2).
+		/// </summary>
+		public static UWPicture FromOwnClear(UWTexture pOTexture)
+		{
+			return pOTexture.ZeroIsClear ? FromZeroClear(pOTexture) : From(pOTexture);
+		}
+
+		/// <summary>
+		/// A picture with every pixel opaque in its colour: the second game's panel pages and the open bag's back, which
+		/// its classic page draws without a clear colour (UWGameScreenUw2.fPicture's pbTransparent false). Through From
+		/// the first game's palette rule would take the second game's near black (0, 0, 4) - the pages' frames and the
+		/// rune tablet's clear button - for clear (per user at the test of 197, 2026-11-23: the button's frame showed
+		/// through).
+		/// </summary>
+		public static UWPicture FromOpaque(UWTexture pOTexture)
+		{
+			UWPicture lOPicture = From(pOTexture);
+
+			for (int liAt = 0; liAt < lOPicture.Pixels.Length; liAt++)
+				lOPicture.Pixels[liAt].A = 255;
+
+			return lOPicture;
+		}
+
+		/// <summary>
+		/// A picture clear in its own colour 0 alone, every other pixel opaque, whatever kind it is: the second game's
+		/// buttons, which its classic page draws so (UWGameScreenUw2.fCachedPicture) - the arrows of the open bag on the
+		/// modern character page (UW2 plan stage U5 step 2). Without indices as From gives it.
+		/// </summary>
+		public static UWPicture FromZeroClear(UWTexture pOTexture)
+		{
+			UWPicture lOPicture = From(pOTexture);
+
+			if (pOTexture.PaletteIndices == null)
+				return lOPicture;
+
+			int liCount = Math.Min(pOTexture.PaletteIndices.Length, lOPicture.Pixels.Length);
+
+			for (int liAt = 0; liAt < liCount; liAt++)
+				lOPicture.Pixels[liAt].A = pOTexture.PaletteIndices[liAt] == 0 ? (byte)0 : (byte)255;
+
+			return lOPicture;
+		}
+
 		public UWColor32 Get(int piX, int piY)
 		{
 			return Pixels[(piY * Width) + piX];

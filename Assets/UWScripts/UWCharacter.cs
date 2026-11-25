@@ -297,9 +297,9 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         if (mOMovement == null)
             mOMovement = UWScene.PlayerMovement;
 
-        // The second game's walk hands its own on (UWVitalsUw2.RefreshStatus); this idle component must not
+        // The second game's session hands its own on (UWVitalsUw2.RefreshStatus); this idle component must not
         // overwrite them.
-        if (mOMovement != null && !UWWalkUw2.IsWalking)
+        if (mOMovement != null && !UWGameStartUw2.IsRunning)
             mOMovement.MagicalMotionAbilities = mOStatus.MotionAbilities;
 
         if (mOLevelLoaderForStatus == null)
@@ -537,13 +537,13 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// STATIC, because every critter of the level needs this in its own frame update and there
     /// is only one player character - the same pattern as UWConversationController.IsAnyOpen.
     /// </summary>
-    /// <summary>Freeze Time among the player's active spells - on the second game its walk's vitals (UWVitalsUw2),
+    /// <summary>Freeze Time among the player's active spells - on the second game its session's vitals (UWVitalsUw2),
     /// where this component stands idle.</summary>
     public static bool TimeIsFrozen
     {
         get
         {
-            if (UWWalkUw2.IsWalking)
+            if (UWGameStartUw2.IsRunning)
                 return UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.TimeIsFrozen;
 
             return msbTimeIsFrozen;

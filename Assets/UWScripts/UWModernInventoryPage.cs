@@ -26,30 +26,27 @@ using UWDataImport.UWData;
 /// closes it, one level up; a thing dropped on it goes one level up), the two arrows at the right
 /// (BUTTONS.GR 27 and 28, shown only where they can scroll; a row per click) - the classic
 /// UWHudInventory's places.
+///
+/// PER GAME (UW2 plan stage U5 step 2, 2026-11-23): every place on the page is the running game's
+/// (UWPaperdollGeometry): the page's place on the screen, the figure, the armour in the game's
+/// drawing order, the six things, the backpack's boxes and middles, the weight with its colour, the
+/// open bag's back, icon and arrows, and which spot a point is. The second game's page and the bag's
+/// back are opaque everywhere, its arrows clear in their own colour 0, as its classic page draws them.
 /// </summary>
 public class UWModernInventoryPage : IUWModernPart
 {
     public static UWModernInventoryPage Instance { get; private set; }
 
-    /// <summary>Where the page lies on the classic 320 x 200 frame (UWHudPanel's PanelLeft/PanelTop).</summary>
-    private const int PageX = 236;
+    /// <summary>The running game's places (stage U5 step 2), as of the last drawing; the screen's pixels.</summary>
+    private UWPaperdollGeometry mOGeometry = UWPaperdollGeometry.Uw1;
 
-    private const int PageY = 7;
+    /// <summary>The geometry the armour's drawing order was set for.</summary>
+    private UWPaperdollGeometry mOOrderedFor;
 
-    /// <summary>Where the original draws the body and the armour (UWPaperdollLayout), MAIN.BYT pixels.</summary>
-    private static readonly Vector2Int msBodyAt = new Vector2Int(UWPaperdollLayout.BodyX, UWPaperdollLayout.BodyY);
+    /// <summary>Where the whole page lies on the game's screen (the first game's 236/7, the second game's 235/7).</summary>
+    private int PageX => mOGeometry.PanelLeft;
 
-    private static readonly Vector2Int msHelmetAt = new Vector2Int(UWPaperdollLayout.HelmetX, UWPaperdollLayout.HelmetY);
-
-    private static readonly Vector2Int msGlovesAt = new Vector2Int(UWPaperdollLayout.GlovesX, UWPaperdollLayout.GlovesY);
-
-    private static readonly Vector2Int msLegsAt = new Vector2Int(UWPaperdollLayout.LegsX, UWPaperdollLayout.LegsY);
-
-    private static readonly Vector2Int msChestAt = new Vector2Int(UWPaperdollLayout.ChestX, UWPaperdollLayout.ChestY);
-
-    private static readonly Vector2Int msBootsAt = new Vector2Int(UWPaperdollLayout.BootsX, UWPaperdollLayout.BootsY);
-
-    private readonly UWGameUI mOUi;
+    private int PageY => mOGeometry.PanelTop;
 
     private RawImage mOPage;
 
@@ -67,7 +64,8 @@ public class UWModernInventoryPage : IUWModernPart
 
     /// <summary>The remaining carrying capacity in whole stones, in the page's circle as the classic
     /// UWHudInventory shows it (per user, 2026-10-11: Classic Wide and Classic Modular showed no
-    /// weight) - its centre at the frame's 305/62 (UWClassicLayout.Backpack.WeightCentre), in its colour.</summary>
+    /// weight) - its centre at the frame's 305/62 (UWClassicLayout.Backpack.WeightCentre), in its colour;
+    /// the second game's centred on 305 under row 56, in palette colour 0x88 (UWPaperdollGeometry).</summary>
     private Text mOWeight;
 
     /// <summary>The open container's back, its icon and the two scroll arrows.</summary>
@@ -85,21 +83,7 @@ public class UWModernInventoryPage : IUWModernPart
 
     private Texture2D mOScrollDownTexture;
 
-    /// <summary>The container view in the frame (UWHudInventory): its back's top left, the icon's
-    /// bottom left, the arrows' bottom right (the up arrow left of the down one, 3 apart).</summary>
-    private const int ContainerBackX = 236;
-
-    private const int ContainerBackY = 80;
-
-    private const int ContainerIconX = 241;
-
-    private const int ContainerIconBottom = 80;
-
-    private const int ScrollRight = 314;
-
-    private const int ScrollBottom = 80;
-
-    private const int ScrollGap = 3;
+    // The container view's places (its back, the icon, the arrows) are the game's: UWPaperdollGeometry.
 
     private float miScale = 1f;
 
@@ -117,9 +101,8 @@ public class UWModernInventoryPage : IUWModernPart
     /// <summary>Whether the page shows (the bags take clicks then, UWModernBags.IsActive).</summary>
     public bool IsShown => ScreenRect.width > 0f;
 
-    public UWModernInventoryPage(UWGameUI pOUi)
+    public UWModernInventoryPage()
     {
-        mOUi = pOUi;
         Instance = this;
     }
 
@@ -170,11 +153,10 @@ public class UWModernInventoryPage : IUWModernPart
         mOCounts = new Text[UWInventoryModel.BackpackSize + UWPaperdollLayout.IconSlots.Length];
 
         for (int liAt = 0; liAt < mOCounts.Length; liAt++)
-            mOCounts[liAt] = UWUiKit.CreateText(pORoot, "Count " + liAt, TextAnchor.LowerRight, UWModernPalette.HudText, mOUi, UWUiKit.PageText);
+            mOCounts[liAt] = UWUiKit.CreateText(pORoot, "Count " + liAt, TextAnchor.LowerRight, UWModernPalette.HudText, UWModernUi.TextUi, UWUiKit.PageText);
 
-        mOWeight = UWUiKit.CreateText(pORoot, "Weight", TextAnchor.LowerRight, UWModernPalette.HudText, mOUi, UWUiKit.PageText);
+        mOWeight = UWUiKit.CreateText(pORoot, "Weight", TextAnchor.LowerRight, UWModernPalette.HudText, UWModernUi.TextUi, UWUiKit.PageText);
         mOWeight.alignment = TextAnchor.MiddleCenter;
-        mOWeight.color = UWUiKit.Colour(UWClassicLayout.Backpack.WeightColour);
 
         mOContainerIcon = UWUiKit.CreateRawImage(pORoot, "Open container");
         UWIconPalette.Apply(mOContainerIcon);
@@ -193,7 +175,7 @@ public class UWModernInventoryPage : IUWModernPart
             return;
 
         // In Classic Wide only while the frame's panel shows it (UWModernClassicFrame.Page).
-        if (!UWModernLayout.IsCharacterPageShown || mOUi == null || mOUi.mOUWData == null || mOUi.mCharacter == null
+        if (!UWModernLayout.IsCharacterPageShown || UWModernUi.Session == null || UWModernUi.Data == null
             || (UWModernClassicFrame.IsActive && UWModernClassicFrame.Page != UWModernClassicFrame.PageEnum.Inventory))
         {
             Hide();
@@ -202,13 +184,20 @@ public class UWModernInventoryPage : IUWModernPart
 
         UWModernClassicFrame.ApplySquash(mOContent);
 
-        // The original's pictures, shared and following the colour help in place (UWGrTextures).
-        UWTextures lOTextures = mOUi.mOUWData.Textures;
+        // The original's pictures, shared and following the colour help in place (UWGrTextures): the running game's,
+        // the second game's page and bag back opaque, its arrows clear in their own colour 0 (stage U5 step 2).
+        UWTextures lOTextures = UWModernUi.Data.Textures;
 
-        mOPageTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.PANELS, 0, mOUi.TextureFilterMode, UWGrTextures.ModeEnum.Picture);
-        mOContainerBackTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.INV, 6, mOUi.TextureFilterMode, UWGrTextures.ModeEnum.Picture);
-        mOScrollUpTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.BUTTONS, 27, mOUi.TextureFilterMode, UWGrTextures.ModeEnum.Picture);
-        mOScrollDownTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.BUTTONS, 28, mOUi.TextureFilterMode, UWGrTextures.ModeEnum.Picture);
+        mOGeometry = UWPaperdollGeometry.Of(lOTextures);
+
+        UWPaperdollGeometry lOAt = mOGeometry;
+        UWGrTextures.ModeEnum leOpaque = lOAt.IsSecondGame ? UWGrTextures.ModeEnum.Opaque : UWGrTextures.ModeEnum.Picture;
+        UWGrTextures.ModeEnum leArrows = lOAt.IsSecondGame ? UWGrTextures.ModeEnum.ZeroClear : UWGrTextures.ModeEnum.Picture;
+
+        mOPageTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.PANELS, 0, UWModernUi.Filter, leOpaque);
+        mOContainerBackTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.INV, lOAt.BagBackPicture, UWModernUi.Filter, leOpaque);
+        mOScrollUpTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.BUTTONS, lOAt.UpArrowPicture, UWModernUi.Filter, leArrows);
+        mOScrollDownTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.BUTTONS, lOAt.DownArrowPicture, UWModernUi.Filter, leArrows);
 
         if (mOPageTexture == null)
         {
@@ -231,69 +220,87 @@ public class UWModernInventoryPage : IUWModernPart
         mOPage.enabled = true;
         UWUiKit.SetRect(mOPage.rectTransform, lOPlaced.x, lOPlaced.y, lOPlaced.width, lOPlaced.height);
 
-        UWCharacter lOCharacter = mOUi.mCharacter;
+        IUWModernArt lOArt = UWModernUi.Session.Art;
 
-        fPlace(mOArmour[0], lOCharacter.Paperdoll.CharTexture, msBodyAt);
-        fPlace(mOArmour[1], lOCharacter.Paperdoll.HelmetTexture, msHelmetAt);
-        fPlace(mOArmour[2], lOCharacter.Paperdoll.GlovesTexture, msGlovesAt);
-        // The legs' picture carries its drop itself (UWPaperdollView.LegsDrop).
-        fPlace(mOArmour[3], lOCharacter.Paperdoll.LegsArmorTexture, msLegsAt);
-        fPlace(mOArmour[4], lOCharacter.Paperdoll.ChestArmorTexture, msChestAt);
-        fPlace(mOArmour[5], lOCharacter.Paperdoll.BootsTexture, msBootsAt);
+        fPlace(mOArmour[0], lOArt.FigureTexture(UWModernFigurePiece.Body), new Vector2Int(lOAt.BodyX, lOAt.BodyY));
+        fPlace(mOArmour[1 + UWPaperdollGeometry.Helmet], lOArt.FigureTexture(UWModernFigurePiece.Helmet), fArmourAt(UWPaperdollGeometry.Helmet));
+        fPlace(mOArmour[1 + UWPaperdollGeometry.Gloves], lOArt.FigureTexture(UWModernFigurePiece.Gloves), fArmourAt(UWPaperdollGeometry.Gloves));
+        // The first game's legs' picture carries its drop itself (UWPaperdollView.LegsDrop).
+        fPlace(mOArmour[1 + UWPaperdollGeometry.Legs], lOArt.FigureTexture(UWModernFigurePiece.Legs), fArmourAt(UWPaperdollGeometry.Legs));
+        fPlace(mOArmour[1 + UWPaperdollGeometry.Chest], lOArt.FigureTexture(UWModernFigurePiece.Chest), fArmourAt(UWPaperdollGeometry.Chest));
+        fPlace(mOArmour[1 + UWPaperdollGeometry.Boots], lOArt.FigureTexture(UWModernFigurePiece.Boots), fArmourAt(UWPaperdollGeometry.Boots));
+        fOrderArmour();
 
-        UWInventory lOInventory = mOUi.mOInventory;
+        UWInventoryModel lOInventory = UWModernUi.Inventory;
 
-        mOView.Refresh(lOInventory != null ? lOInventory.Model : null, mOUi.mOUWData);
+        mOView.Refresh(lOInventory != null ? lOInventory : null, UWModernUi.Data, UWModernUi.Session.Character.MaxLoad);
 
-        for (int liSlot = 0; liSlot < UWPaperdollLayout.IconSlots.Length; liSlot++)
+        for (int liSlot = 0; liSlot < lOAt.IconSlots.Length; liSlot++)
         {
-            (UWArmorItemMap.BodySlot _, float lfX, float lfY, float lfSize) = UWPaperdollLayout.IconSlots[liSlot];
+            (UWArmorItemMap.BodySlot _, float lfX, float lfY, float lfSize) = lOAt.IconSlots[liSlot];
             UWInventoryView.Slot lOSlot = mOView.Hands[liSlot];
 
-            fPlaceIcon(mOIcons[liSlot], lOSlot.Picture, lfX + (lfSize * 0.5f), lfY + (lfSize * 0.5f) - (lfSize < 16f ? UWPaperdollLayout.RingIconYOffset : 0f));
+            fPlaceIcon(mOIcons[liSlot], lOSlot.Picture, lfX + (lfSize * 0.5f), lfY + (lfSize * 0.5f) - (lfSize < 16f ? lOAt.RingIconYOffset : 0f));
             fPlaceCount(mOCounts[UWInventoryModel.BackpackSize + liSlot], lOSlot, lfX + Mathf.Max(lfSize, 16f), lfY + Mathf.Max(lfSize, 16f));
         }
 
-        // The backpack's things in the eight circles - the slots' areas from the original's table
-        // (y counted from the bottom of the frame) - or the open container's from its offset on.
+        // The backpack's things in the eight places - the pictures centred on the game's middles, the counts at
+        // the boxes' bottom right - or the open container's from its offset on.
         fPlaceContainerView();
 
         for (int liSlot = 0; liSlot < mOBackpack.Length; liSlot++)
         {
             UWInventoryView.Slot lOSlot = mOView.PageSlot(liSlot);
-            UWClickRules.Area lOArea = UWClickRules.BackpackArea(liSlot);
+            UWRectInt lOBox = lOAt.BackpackBoxes[liSlot];
 
-            // The original's odd one a pixel left (UWClassicLayout.Backpack.OddSlot).
-            float lfOdd = liSlot == UWClassicLayout.Backpack.OddSlot ? 1f : 0f;
-
-            fPlaceIcon(mOBackpack[liSlot], lOSlot.Picture, ((lOArea.X0 + lOArea.X1 + 1) * 0.5f) - lfOdd, 199.5f - ((lOArea.Y0 + lOArea.Y1) * 0.5f));
-            fPlaceCount(mOCounts[liSlot], lOSlot, lOArea.X1 + 1, 200 - lOArea.Y0);
+            fPlaceIcon(mOBackpack[liSlot], lOSlot.Picture, lOAt.BackpackCentreX[liSlot], lOAt.BackpackCentreRow[liSlot]);
+            fPlaceCount(mOCounts[liSlot], lOSlot, lOBox.X + lOBox.Width, lOBox.Y + lOBox.Height);
         }
 
         fPlaceWeight(lOInventory);
+    }
+
+    /// <summary>A piece of armour's place (UWPaperdollGeometry.Helmet to Boots) on the game's screen.</summary>
+    private Vector2Int fArmourAt(int piPiece)
+    {
+        return new Vector2Int(mOGeometry.ArmourX[piPiece], mOGeometry.ArmourY[piPiece]);
+    }
+
+    /// <summary>The armour drawn in the game's order (UWPaperdollGeometry.ArmourOrder: the first game's helmet to
+    /// boots, the second game's ArmorSlots - leggings, chest, boots, gloves, helmet), right above the body.</summary>
+    private void fOrderArmour()
+    {
+        if (mOOrderedFor == mOGeometry)
+            return;
+
+        mOOrderedFor = mOGeometry;
+
+        int liBody = mOArmour[0].transform.GetSiblingIndex();
+
+        for (int liAt = 0; liAt < mOGeometry.ArmourOrder.Length; liAt++)
+            mOArmour[1 + mOGeometry.ArmourOrder[liAt]].transform.SetSiblingIndex(liBody + 1 + liAt);
     }
 
     /// <summary>The remaining carrying capacity (maximum weight minus the load, at least 0) in
     /// whole stones, centred in the circle - as UWHudInventory.fRefreshWeight shows it, both from
     /// UWInventoryWeight.RemainingStones since 2026-10-20 (UWInventoryView.RemainingStones since
     /// cleanup step 5.8).</summary>
-    private void fPlaceWeight(UWInventory pOInventory)
+    private void fPlaceWeight(UWInventoryModel pOInventory)
     {
-        UWPlayerData lOPlayer = mOUi.mOUWData.InitialPlayer;
-
-        if (pOInventory == null || lOPlayer == null)
+        if (pOInventory == null || UWModernUi.Session == null || !UWModernUi.Session.Character.IsLoaded)
         {
             mOWeight.enabled = false;
             return;
         }
 
         int liStones = mOView.RemainingStones;
-        Vector2 lOCentre = new Vector2(UWClassicLayout.Backpack.WeightCentreX, UWClassicLayout.Backpack.WeightCentreY);
+        Vector2 lOCentre = new Vector2(mOGeometry.WeightCentreX, mOGeometry.WeightCentreRow);
         float lfAspect = miScale * UWModernHudArt.PixelAspectX;
         float lfWidth = 30f * lfAspect;
         float lfHeight = 10f * miScale;
 
         mOWeight.enabled = true;
+        mOWeight.color = UWUiKit.Colour(mOGeometry.WeightColour(UWModernUi.Data.Palettes));
         mOWeight.text = liStones.ToString();
         mOWeight.fontSize = Mathf.Max(9, Mathf.RoundToInt(5f * miScale));
         UWUiKit.SetRect(mOWeight.rectTransform, ScreenRect.x + ((lOCentre.x - PageX) * lfAspect) - (lfWidth * 0.5f),
@@ -341,8 +348,8 @@ public class UWModernInventoryPage : IUWModernPart
         if (mOContainerBack.enabled)
         {
             mOContainerBack.texture = mOContainerBackTexture;
-            UWUiKit.SetRect(mOContainerBack.rectTransform, ScreenRect.x + ((ContainerBackX - PageX) * lfAspect),
-                ScreenRect.yMax - ((ContainerBackY - PageY + mOContainerBackTexture.height) * miScale),
+            UWUiKit.SetRect(mOContainerBack.rectTransform, ScreenRect.x + ((mOGeometry.BagBackLeft - PageX) * lfAspect),
+                ScreenRect.yMax - ((mOGeometry.BagBackTop - PageY + mOContainerBackTexture.height) * miScale),
                 mOContainerBackTexture.width * lfAspect, mOContainerBackTexture.height * miScale);
         }
 
@@ -358,22 +365,23 @@ public class UWModernInventoryPage : IUWModernPart
 
             mOContainerIcon.texture = lOIcon;
             mOContainerIcon.enabled = true;
-            UWUiKit.SetRect(mOContainerIcon.rectTransform, ScreenRect.x + ((ContainerIconX - PageX) * lfAspect),
-                ScreenRect.yMax - ((ContainerIconBottom - PageY) * miScale), lOIcon.width * lfAspect, lOIcon.height * miScale);
+            UWUiKit.SetRect(mOContainerIcon.rectTransform, ScreenRect.x + ((mOGeometry.BagIconLeft - PageX) * lfAspect),
+                ScreenRect.yMax - ((mOGeometry.BagIconBottom - PageY) * miScale), lOIcon.width * lfAspect, lOIcon.height * miScale);
         }
         else
             mOContainerIcon.enabled = false;
 
         bool lbUp = mOView.ShowsScrollUp && mOScrollUpTexture != null;
         bool lbDown = mOView.ShowsScrollDown && mOScrollDownTexture != null;
-        float lfDownWidth = mOScrollDownTexture != null ? mOScrollDownTexture.width : 0f;
+        int liUpWidth = mOScrollUpTexture != null ? mOScrollUpTexture.width : 0;
+        int liDownWidth = mOScrollDownTexture != null ? mOScrollDownTexture.width : 0;
 
-        fPlaceArrow(mOScrollDown, mOScrollDownTexture, lbDown, ScrollRight);
-        fPlaceArrow(mOScrollUp, mOScrollUpTexture, lbUp, ScrollRight - lfDownWidth - ScrollGap);
+        fPlaceArrow(mOScrollDown, mOScrollDownTexture, lbDown, mOGeometry.ArrowLeft(false, liUpWidth, liDownWidth));
+        fPlaceArrow(mOScrollUp, mOScrollUpTexture, lbUp, mOGeometry.ArrowLeft(true, liUpWidth, liDownWidth));
     }
 
-    /// <summary>An arrow by its right edge and its bottom row on the frame.</summary>
-    private void fPlaceArrow(RawImage pOImage, Texture2D pOTexture, bool pbShown, float pfRight)
+    /// <summary>An arrow by its left edge and the game's row below the arrows (UWPaperdollGeometry.ArrowBottom).</summary>
+    private void fPlaceArrow(RawImage pOImage, Texture2D pOTexture, bool pbShown, int piLeft)
     {
         pOImage.enabled = pbShown;
 
@@ -383,8 +391,8 @@ public class UWModernInventoryPage : IUWModernPart
         float lfAspect = miScale * UWModernHudArt.PixelAspectX;
 
         pOImage.texture = pOTexture;
-        UWUiKit.SetRect(pOImage.rectTransform, ScreenRect.x + ((pfRight - pOTexture.width - PageX) * lfAspect),
-            ScreenRect.yMax - ((ScrollBottom - PageY) * miScale), pOTexture.width * lfAspect, pOTexture.height * miScale);
+        UWUiKit.SetRect(pOImage.rectTransform, ScreenRect.x + ((piLeft - PageX) * lfAspect),
+            ScreenRect.yMax - ((mOGeometry.ArrowBottom - PageY) * miScale), pOTexture.width * lfAspect, pOTexture.height * miScale);
     }
 
     /// <summary>Whether the up arrow (it raises the offset, UWInventoryModel) and the down arrow show.</summary>
@@ -400,8 +408,8 @@ public class UWModernInventoryPage : IUWModernPart
         return ScreenRect.width > 0f && ScreenRect.Contains(pOPointer);
     }
 
-    /// <summary>The equipment slot under a screen point, by the original's table of the page
-    /// (UWClickRules.InventorySpotAt), as UWModernPanel.TryGetEquipSlotAt.</summary>
+    /// <summary>The equipment slot under a screen point, by the game's table of the page
+    /// (UWPaperdollGeometry.SpotAt), as UWModernPanel.TryGetEquipSlotAt.</summary>
     public bool TryGetEquipSlotAt(Vector2 pOPointer, out UWArmorItemMap.BodySlot peSlot)
     {
         peSlot = UWArmorItemMap.BodySlot.Helmet;
@@ -424,11 +432,11 @@ public class UWModernInventoryPage : IUWModernPart
         if (!IsShown || piSlot < 0 || piSlot >= UWInventoryModel.BackpackSize)
             return Rect.zero;
 
-        UWClickRules.Area lOArea = UWClickRules.BackpackArea(piSlot);
+        UWRectInt lOBox = mOGeometry.BackpackBoxes[piSlot];
         float lfAspect = miScale * UWModernHudArt.PixelAspectX;
 
-        return new Rect(ScreenRect.x + ((lOArea.X0 - PageX) * lfAspect), ScreenRect.yMax - ((200 - lOArea.Y0 - PageY) * miScale),
-            (lOArea.X1 + 1 - lOArea.X0) * lfAspect, (lOArea.Y1 + 1 - lOArea.Y0) * miScale);
+        return new Rect(ScreenRect.x + ((lOBox.X - PageX) * lfAspect), ScreenRect.yMax - ((lOBox.Y + lOBox.Height - PageY) * miScale),
+            lOBox.Width * lfAspect, lOBox.Height * miScale);
     }
 
     /// <summary>The backpack slot (0 to 7) under a screen point, -1 for none.</summary>
@@ -444,7 +452,8 @@ public class UWModernInventoryPage : IUWModernPart
     }
 
     /// <summary>
-    /// The spot of the page under a screen point, in the frame's coordinates. NONE WHILE THE
+    /// The spot of the page under a screen point, in the game's screen coordinates (the game's table,
+    /// UWPaperdollGeometry.SpotAt). NONE WHILE THE
     /// CLASSIC WIDE PANEL TURNS (per user, 2026-10-20: turning to the stats or the rune tablet,
     /// the page's slots, paperdoll and arrows still took clicks), as the classic panel locks its
     /// slots during the turn (UWHudPanel.fIsInventoryClickable): the page stands squeezed then and
@@ -461,7 +470,7 @@ public class UWModernInventoryPage : IUWModernPart
         int liX = PageX + Mathf.FloorToInt((pOPointer.x - ScreenRect.x) / (miScale * UWModernHudArt.PixelAspectX));
         int liRow = PageY + Mathf.FloorToInt((ScreenRect.yMax - pOPointer.y) / miScale);
 
-        peSpot = UWClickRules.InventorySpotAt(liX, 199 - liRow);
+        peSpot = mOGeometry.SpotAt(liX, liRow);
 
         return peSpot != UWClickRules.InventorySpot.None;
     }
@@ -529,6 +538,6 @@ public class UWModernInventoryPage : IUWModernPart
     /// <summary>An icon (palette indices, UWIconPalette), shared (UWIconCache).</summary>
     private Texture2D fIcon(UWTexture pOSource)
     {
-        return UWIconCache.Texture(pOSource, mOUi.TextureFilterMode);
+        return UWIconCache.Texture(pOSource, UWModernUi.Filter);
     }
 }

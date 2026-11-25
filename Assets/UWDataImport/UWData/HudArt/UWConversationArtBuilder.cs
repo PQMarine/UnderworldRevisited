@@ -316,6 +316,128 @@ namespace UWDataImport.Presentation
 			return lOOut;
 		}
 
+		// ------------------------------------------------- The second game's conversation screen (BYT.ARK screen 2)
+
+		/// <summary>
+		/// THE SECOND GAME'S CONVERSATION TOP (UW2 plan stage U7 step 3a): BYT.ARK screen 2's top
+		/// (UWClassicLayoutUw2.Conversation.Header) - the two portrait boxes, the trade grids of 2 x 3 and the name bars,
+		/// all opaque, its black too: a closed rectangle (per user 2026-11-24 the black column between the grids, reached
+		/// from the edge, went clear and showed what lay under it). The names, portraits and traded things are drawn on it.
+		/// </summary>
+		public static UWPicture BuildHeaderUw2(UWTextures pOTextures)
+		{
+			return ComposeHeaderUw2(UWPicture.FromOpaque(pOTextures.GetTextureByType(UWTexture.TextureTypes.CONV, 0)));
+		}
+
+		public static UWPicture ComposeHeaderUw2(UWPicture pOScreen)
+		{
+			return pOScreen.Crop(UWClassicLayoutUw2.Conversation.Header);
+		}
+
+		/// <summary>
+		/// THE SECOND GAME'S CONVERSATION PARCHMENT (UW2 plan stage U7 step 3a): screen 2's parchment with its rolling
+		/// edges (UWClassicLayoutUw2.Conversation.Parchment), the black round it transparent; piRows other than its 85:
+		/// the rims' ParchmentRim rows kept at both ends and the plain middle repeated, as the first game's.
+		/// </summary>
+		public static UWPicture BuildParchmentUw2(UWTextures pOTextures, int piRows)
+		{
+			return ComposeParchmentUw2(UWPicture.FromOpaque(pOTextures.GetTextureByType(UWTexture.TextureTypes.CONV, 0)), piRows);
+		}
+
+		public static UWPicture ComposeParchmentUw2(UWPicture pOScreen, int piRows)
+		{
+			UWPicture lOFull = pOScreen.Crop(UWClassicLayoutUw2.Conversation.Parchment);
+
+			// A pixel of the pillars' dark edge stands over each top corner (per user, 2026-11-24): cleared.
+			fClearPillarEdge(lOFull);
+			fClearEdgeBlack(lOFull);
+
+			return fRows(lOFull, piRows, UWClassicLayoutUw2.Conversation.ParchmentRim);
+		}
+
+		/// <summary>
+		/// THE SECOND GAME'S ANSWERS' SCROLL (UW2 plan stage U7 step 3a): screen 2's bottom scroll from rod to rod
+		/// (UWClassicLayoutUw2.Conversation.AnswersScroll), the knobs at both ends, piWidth columns wide - plain columns
+		/// taken out from AnswersNarrowFrom on, or the plain column there repeated -, the black round the knobs and the
+		/// pillars' dark edge beside them transparent.
+		/// </summary>
+		public static UWPicture BuildAnswersUw2(UWTextures pOTextures, int piWidth, int piRows = -1)
+		{
+			return ComposeAnswersUw2(UWPicture.FromOpaque(pOTextures.GetTextureByType(UWTexture.TextureTypes.CONV, 0)), piWidth, piRows);
+		}
+
+		/// <summary>The answers' scroll piWidth wide and piRows high (its own 33 for -1; taller with its plain middle
+		/// repeated, the rods and knobs kept - the modern original look makes it as high as the first game's answers'
+		/// parchment, UWConversationLook.AnswersRowsFixed).</summary>
+		public static UWPicture ComposeAnswersUw2(UWPicture pOScreen, int piWidth, int piRows = -1)
+		{
+			UWPicture lOFull = fRows(pOScreen.Crop(UWClassicLayoutUw2.Conversation.AnswersScroll),
+				piRows > 0 ? piRows : UWClassicLayoutUw2.Conversation.AnswersScroll.Height, UWClassicLayoutUw2.Conversation.AnswersRim);
+			int liFrom = UWClassicLayoutUw2.Conversation.AnswersNarrowFrom;
+			int liWidth = Math.Max(2 * liFrom, piWidth);
+			int liCut = lOFull.Width - liWidth;
+			UWPicture lOOut = new UWPicture(liWidth, lOFull.Height);
+
+			for (int y = 0; y < lOFull.Height; y++)
+			{
+				for (int x = 0; x < liWidth; x++)
+				{
+					int liSource = x < liFrom ? x : liCut >= 0 ? x + liCut : x < liFrom - liCut ? liFrom : x + liCut;
+
+					lOOut.Set(x, y, lOFull.Get(liSource, y));
+				}
+			}
+
+			// The pillars' dark edge beside the knobs (per user at the look at 210, 2026-11-24): cleared.
+			fClearPillarEdge(lOOut);
+			fClearEdgeBlack(lOOut);
+
+			return lOOut;
+		}
+
+		/// <summary>
+		/// THE PILLARS' DARK EDGE (colour 163, bluish, dithered) where screen 2's pieces meet the stone columns - beside the
+		/// answers' knobs, over the parchment's top corners - is the frame's, not the piece's: cleared, as the main scroll's
+		/// bluish stone (UWScrollPaperBuilder.ComposeUw2). The pieces' own colours are brown or grey (R not below B); their
+		/// black goes by the edge flood afterwards.
+		/// </summary>
+		private static void fClearPillarEdge(UWPicture pOPicture)
+		{
+			for (int y = 0; y < pOPicture.Height; y++)
+			{
+				for (int x = 0; x < pOPicture.Width; x++)
+				{
+					UWColor32 lOColour = pOPicture.Get(x, y);
+
+					if (lOColour.B > lOColour.R && lOColour.R + lOColour.G + lOColour.B > 8)
+						pOPicture.Set(x, y, UWPixelOps.Transparent);
+				}
+			}
+		}
+
+		/// <summary>A picture piRows high: piRim rows kept at the top and the bottom, its middle row repeated or left
+		/// out between them.</summary>
+		private static UWPicture fRows(UWPicture pOFull, int piRows, int piRim)
+		{
+			int liRows = Math.Max(2 * piRim + 1, piRows);
+
+			if (liRows == pOFull.Height)
+				return pOFull;
+
+			UWPicture lOOut = new UWPicture(pOFull.Width, liRows);
+			int liMiddle = pOFull.Height / 2;
+
+			for (int y = 0; y < liRows; y++)
+			{
+				int liFrom = y < piRim ? y : y >= liRows - piRim ? pOFull.Height - (liRows - y) : liMiddle;
+
+				for (int x = 0; x < pOFull.Width; x++)
+					lOOut.Set(x, y, pOFull.Get(x, liFrom));
+			}
+
+			return lOOut;
+		}
+
 		/// <summary>The black (or transparent) reached from a picture's edge through black becomes
 		/// transparent; black inside, an outline or a gap between parts, stays.</summary>
 		private static void fClearEdgeBlack(UWPicture pOPicture)

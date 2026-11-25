@@ -10,6 +10,69 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-25
+
+### Added
+- Ultima Underworld II: the modern interface is now the first game's, drawn from the second game's own art - the bags
+  with dragging, splitting, their menu and trade, the action bar, the rune panel and casting, the crosshair with look,
+  use and talk, the minimap and the map, the active spells, the flasks, the power gem and the heading strip. The
+  stopgap interface of the earlier versions is gone.
+- Ultima Underworld II: the character and stats pages and the rune tablet, from the second game's panels.
+- Ultima Underworld II: the interface presets Classic Modular and Classic Wide, built from the second game's frame
+  (in Classic Wide the hollows on the ledge spread over the width, the command bar stays at the bottom right), and the
+  layout editor. An arrangement of your own is kept per game.
+- Ultima Underworld II: in Classic Wide a conversation lies over the wide view as in the first game, with the second
+  game's portraits, parchment and answer scroll.
+- Ultima Underworld II: "Classic screen widescreen" on the Graphics page widens the second game's classic screen
+  too, its clicks and the scroll's text included; the conversation screen and the map keep the original's width.
+
+### Fixed
+- Ultima Underworld II: the colour help's preview shows the game's own flasks (the mana flask was drawn wrong).
+- Ultima Underworld II: a change of the colour help shows on the classic screen at once, not only after the game
+  is loaded again.
+- Ultima Underworld II: "Hatch the health flask while poisoned" works, as in the first game.
+- Ultima Underworld II: cutscenes hide the pointer and take every input, as in the original (during the ending
+  the pointer showed and the map button took clicks).
+- Ultima Underworld II: the final stats screen shows "A level N ... freed Castle British" and the days spent in
+  the Jewel.
+- Ultima Underworld II: the drawn weapon sways while walking, as in the original and in the first game.
+- Ultima Underworld II: the active spell icons move with the palette rotation, as in the original (the daylight
+  icon flickers).
+- Ultima Underworld II: using a wall panel (a secret wall) says nothing, as in the original, instead of describing it.
+- Ultima Underworld II: using a wall or the floor says "You cannot use that.", as in the original, instead of a
+  placeholder text.
+- 3D models (boulders, the shrine) no longer show thin cracks: only faces that lie over another one are moved to
+  keep the original's painting order, and corners lying on another face's edge are joined to it.
+- Remastered and Palette colours: items in a diagonal tile no longer show through its diagonal wall seen from the
+  closed side.
+- The tip of the Wine of Compassion no longer shows above its floor plate from a distance, and the crosshair no
+  longer names it there.
+- Modern scheme: the crosshair label no longer names a bridge that looks like the floor around it (the plate over
+  the Wine of Compassion), which gave it away.
+- Ultima Underworld II: a bridge with a floor texture is named after that floor when looked at, as in the original
+  ("You see a trapdoor." instead of "You see a bridge.").
+- Ultima Underworld II: identified items that are talismans in the first game (the copper ring, an iron ring, a
+  sword, ...) are no longer named as talismans, which gave sentences like "You see You put the instrument away."
+- The creatures of the Ethereal Void are named when looked at, as in the original ("You see an eyeball."), instead
+  of "You see ."; looking at a force field says nothing, as in the original.
+- 3D models draw a face that the original tests for its back from that side only: the inner sides of a bridge's
+  side walls are see-through, as in the original (the bridges of the Ethereal Void).
+- In Palette colours and Remastered the blood or flash of a hit shows in front of the creature, not behind
+  it or half inside it: animations sort one step nearer than the rest of their tile, as in the original and the
+  Palette mode.
+- Moongates are shaded dark at the corners and light in the middle and shimmer with the clock, as in the original,
+  instead of one still colour: the Void's gates and the gate at the end of the first game. Other shaded models keep
+  their shading on unlit levels too.
+- Doors stand at their own height as in the original, not always on the floor of their tile: the doors on the
+  bridges of the Ethereal Void in Ultima Underworld II were hidden under the bridges.
+
+### Changed
+- Remastered effects window: the two xBR switches are one row, "Textures", for everything drawn from the game's
+  pictures - walls, floors, ceilings, pictures on walls, doors, things, creatures and the weapon in the hand: Pixels,
+  Smooth or xBR. Smooth filters the pictures bilinear, as the earliest version of this project did in 2012 (it was
+  asked for, even though it looks soft); the outlines of things and creatures stay hard. A settings file with
+  xBR on keeps xBR. xBR on things and creatures still takes effect from the next load of a game on.
+
 ## [0.23.0] - 2026-11-22
 
 ### Added

@@ -304,6 +304,23 @@ bool UWPainterUnderDeck(float2 pPixel, float3 pPivotWS)
     float3 lRay = ComputeWorldSpacePosition(pPixel / _ScaledScreenParams.xy, lfAnyDepth, UNITY_MATRIX_I_VP)
         - _WorldSpaceCameraPos;
 
+    // THROUGH THE DECK (per user 2026-11-22, UW1 level 6: from some five squares away the tip of the Wine of Compassion
+    // showed above its plate, and the label named it; the original shows nothing there). The bottle is a little taller
+    // than its pit is deep, so at its own depth the tip stands about a unit and a half above the deck, and at a flat
+    // angle its ray meets the deck beyond the tile. The original paints what lies under a bridge before the bridge
+    // (GAMESORT.C z_part) and nothing of it shows: a pixel of such a sprite on the eye's side of the deck, at the
+    // sprite's own depth and inside its tile, is covered too.
+    float3 lAhead = -UNITY_MATRIX_V[2].xyz;
+    float lfRayAhead = dot(lRay, lAhead);
+
+    if (lfRayAhead > 1.0e-5)
+    {
+        float3 lAtSprite = _WorldSpaceCameraPos + (lRay * (dot(pPivotWS - _WorldSpaceCameraPos, lAhead) / lfRayAhead));
+
+        if ((lAtSprite.y - lPlane.b) * (_WorldSpaceCameraPos.y - lPlane.b) > 0.0 && all(UWPainterTileOf(lAtSprite.xz) == lTile))
+            return true;
+    }
+
     if (abs(lRay.y) < 1.0e-5)
         return false;
 

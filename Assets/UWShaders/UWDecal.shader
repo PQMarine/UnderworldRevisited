@@ -69,6 +69,8 @@ Shader "UW/Decal"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "UWOwnTile.hlsl"
             #include "UWHallucination.hlsl"
+            // The textures' look's filter (UWTextureLook): the inside blended, the outline hard.
+            #include "UWSpriteFilter.hlsl"
 
             TEXTURE2D(_MainTex);
             SAMPLER(sampler_MainTex);
@@ -78,6 +80,7 @@ Shader "UW/Decal"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
+                float4 _MainTex_TexelSize;
                 float _Cutoff;
                 float _AmbientFloor;
                 float _PointLightCap;
@@ -146,6 +149,10 @@ Shader "UW/Decal"
                 half4 albedo = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv);
 
                 clip(albedo.a - _Cutoff);
+
+                // THE TEXTURES' LOOK (per user 2026-11-25, UWSpriteFilter.hlsl): smooth or sharp bilinear inside the
+                // picture, its outline the nearest texel's as the cut above.
+                albedo = UWSpriteFilterColour(TEXTURE2D_ARGS(_MainTex, sampler_MainTex), IN.uv, _MainTex_TexelSize, albedo);
 
                 // THE HALLUCINATION (UWHallucination.hlsl), where the palette index is known: from the
                 // vertex on the model faces, else from the index atlas.

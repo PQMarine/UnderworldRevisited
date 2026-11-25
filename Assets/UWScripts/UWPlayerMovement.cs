@@ -293,7 +293,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     private void fReportEasyMovementStep()
     {
         // The second game's step to its own vitals (G0 of the 2026-11-06 sweep: the idle UWCharacter took it).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             if (UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
                 UWVitalsUw2.Current.Vitals.ReportEasyMovementStep();
@@ -436,9 +436,9 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     {
         UWLevelLoader lOLoader = UWScene.LevelLoader;
 
-        // The second game's walk moves the player without the first game's world around it (UW2 plan
+        // The second game's session moves the player without the first game's world around it (UW2 plan
         // phase 2 step 4): HasWorld stays false there for the systems that are the first game's play.
-        if (lOLoader == null || lOLoader.UWDataImporter == null || (!lOLoader.HasWorld && !UWWalkUw2.IsWalking))
+        if (lOLoader == null || lOLoader.UWDataImporter == null || (!lOLoader.HasWorld && !UWGameStartUw2.IsRunning))
             return Motion;
 
         UWMotionHost lOWorld = UWMotionHost.Ensure(lOLoader);
@@ -489,7 +489,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // the teleport trap answers 0x10 and stop_me holds him there (uw2 MOTION.C:535-538); new_player_pos then fades
         // out, moves him and fades in (UWEDIT.C:466) with no physics frame between. Ours ran on during the blink's fade,
         // the fall reached the floor and hurt. No step, no time gathered, until the blink has reached its black.
-        if (UWWalkUw2.IsWalking && UWSleepUw2.Current != null && UWSleepUw2.Current.IsBlinking)
+        if (UWGameStartUw2.IsRunning && UWSleepUw2.Current != null && UWSleepUw2.Current.IsBlinking)
         {
             fStandStill();
 
@@ -612,7 +612,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // frame, so that a teleport is not overwritten by the step.
         UWMotionHost lOTriggerWorld = UWScene.LevelLoader != null ? UWMotionHost.Ensure(UWScene.LevelLoader) : null;
 
-        int liTeleportsBefore = UWScene.LevelLoader != null ? UWScene.LevelLoader.WalkTeleportCount : 0;
+        int liTeleportsBefore = UWScene.LevelLoader != null ? UWScene.LevelLoader.Uw2TeleportCount : 0;
 
         if (lOTriggerWorld != null)
             lOTriggerWorld.FirePendingPlayerTriggers();
@@ -624,7 +624,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
 
             miHeldFallDamage = 0;
 
-            if (UWScene.LevelLoader == null || UWScene.LevelLoader.WalkTeleportCount == liTeleportsBefore)
+            if (UWScene.LevelLoader == null || UWScene.LevelLoader.Uw2TeleportCount == liTeleportsBefore)
                 fDealFallDamage(liHeld);
             else
                 Debug.Log("[Motion] A fall onto a teleport: no fall damage (" + liHeld + "), as do_zbounce stops on the trigger.");
@@ -647,7 +647,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // The second game makes its own footsteps (make_noise, UWPlayerTerrain.fUpdateNoiseUw2 - ice sounds, easy
         // steps, strokes); here only the momentum is measured for it.
         bool lbOnFoot = !(mController == null || IsInLiquid || fIsHovering() || !fIsOnGround()
-            || (lOLoader != null && !lOLoader.HasWorld && !UWWalkUw2.IsWalking) || UWWalkUw2.IsWalking);
+            || (lOLoader != null && !lOLoader.HasWorld && !UWGameStartUw2.IsRunning) || UWGameStartUw2.IsRunning);
 
         mOFootsteps.Step(transform.position, Mathf.Max(mfModernForwardSpeed, mfOriginalForwardSpeed), lbOnFoot);
     }
@@ -680,8 +680,8 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         if (lOLoader != null)
             pOMotion.LevelNumber = lOLoader.CurrentLevelIndex + 1;
 
-        // The second game's walk: the Swimming skill of the save it came from (UW2 plan phase 2 step 6).
-        UWPlayerFile lOWalker = UWWalkUw2.IsWalking ? UWGameSession.Current.PlayerFileUw2 : null;
+        // The second game's session: the Swimming skill of the save it came from (UW2 plan phase 2 step 6).
+        UWPlayerFile lOWalker = UWGameStartUw2.IsRunning ? UWGameSession.Current.PlayerFileUw2 : null;
 
         // Acrobat too (G0 of the 2026-11-06 sweep: it came from the idle UWCharacter, whose skills are 0).
         if (lOWalker != null)
@@ -740,7 +740,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // MOTION.C:535): the teleport trap answers 0x10 (do_teleport, WORLDEV.C:226), stop_me, and no impact is left for
         // phys_affect_player's damage (PHYSICS.C:601). Ours fires the player's move triggers after the frame, the fall
         // having reached the floor - so a step that queued one holds its fall damage until they have fired.
-        UWMotionHost lOHost = UWWalkUw2.IsWalking && UWScene.LevelLoader != null ? UWMotionHost.Ensure(UWScene.LevelLoader) : null;
+        UWMotionHost lOHost = UWGameStartUw2.IsRunning && UWScene.LevelLoader != null ? UWMotionHost.Ensure(UWScene.LevelLoader) : null;
 
         if (lOResult.FallDamage > 0 && lOHost != null && lOHost.HasPendingPlayerTriggers)
             miHeldFallDamage += lOResult.FallDamage;
@@ -759,7 +759,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // The second game's fall and wall hit through the world's player body (UWWorld.DamagePlayer to its vitals,
         // UWVitalsUw2), per user 2026-11-06: a running jump head-on into a wall hurt in the original, ours not -
         // since 2026-10-29 the value was only written to the log, from before the second game had vitals.
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             UWWorld lOWorld = UWScene.World;
 

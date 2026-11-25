@@ -17,7 +17,8 @@ takes blows, the inventory look's Lore target 8. Next: 5E (a full play-through a
 THE MODERN INTERFACE FOR UW2 (decided per user 2026-11-19: before the beta - what phase 3 step 8 built is a
 stopgap, UWModernHudUw2; missing are the first game's windows: the character and rune panels, the bag windows,
 the presets Modern, Classic Modular and Classic Wide, the layout editor, the backs, the automatic key, the
-windows with the free pointer, the [MORE] details 86.2/86.3), then the beta gate (the classic scheme against
+windows with the free pointer, the [MORE] details 86.2/86.3; PLANNED 2026-11-23, see "The modern interface for
+UW2: one interface, two hosts" before phase 6), then the beta gate (the classic scheme against
 the original, phase 6), phase 6's docs, then the second cleanup as a long branch. Written 2026-10-27 from a read of
 [Underworld Exhumed](https://github.com/abedegno/underworld-exhumed) (UE, at commit e5deadd) and a
 read-only survey of this repository's code. Line numbers in UE are its own and will drift; the
@@ -614,7 +615,7 @@ art is not found (UW2's own format). The rest loads. The steps:
    (`UWRenderPathHost`), door and bridge pictures, the creatures and the light. THE START:
    `UWLevelLoader.fStartUw2` reads UW2's data and makes its session current, then shows UW2's main
    menu (`UWMainMenu.InitWalkMenu`: its screen, OPBTN's buttons at the places UE gives both games,
-   three as without a save; Create Character starts the walk, `UWWalkUw2`, the introduction and
+   three as without a save; Create Character starts the walk, `UWGameStartUw2`, the introduction and
    acknowledgements do not answer yet) or builds the walk: level 1 through `fBuildLevel`, the noclip
    camera at tile 0x13/0x30 facing north at the player's eye height (`fEnterWalkView`), Page Up/Down
    to the next level that exists (`DebugLoadLevel` skips the empty places), N cannot leave it. No
@@ -626,7 +627,7 @@ art is not found (UW2's own format). The rest loads. The steps:
    `UWCritterAtlasBuilder.BuildUw2` (a map's frames by number) and `UWCritterAnimator.InitialiseUw2`;
    the spawner gives them no body, mind or remains. THE LIGHT: `UWDarknessUw2.TileMinimum` (DL.DAT's
    minimum, turned by the tile's light bit - `load_dl`, `change_GrSq`) under the camera into
-   `UWLighting.LevelMinimum` (`UWWalkUw2View`); levels 65-72 but 68 unlit (`process_grid`). The 3D
+   `UWLighting.LevelMinimum` (`UWWorldViewUw2`); levels 65-72 but 68 unlit (`process_grid`). The 3D
    models: UW2's `rect_sub` is UW1's plus four (items 0x163, 0x167-0x169), so the shared mapping
    holds; those four stay sprites. KNOWN GAPS for later steps: the TMOBJ indices, the light-source
    ids, the palette rotation ranges and Remastered's gloss table are UW1's; no music; the menu bar has
@@ -648,12 +649,12 @@ art is not found (UW2's own format). The rest loads. The steps:
    conversation - everything but motion; the profile's other variants (magic, combat, player,
    creatures, items, traps, conversation, the trap and a_do tables) still throw. THE WALK: the player
    stands on tile 0x13/0x30 and walks with the motion core (`UWPlayerMovement` runs while
-   `UWWalkUw2.IsWalking`, `HasWorld` stays false for the first game's systems); the modern scheme's
+   `UWGameStartUw2.IsRunning`, `HasWorld` stays false for the first game's systems); the modern scheme's
    mouse look captures, the classic keeps the system arrow and walks by the keys; no move triggers
    fire and no transitions are built (step 5); the Swimming skill is 0 without a character (step 6).
    The variant's numbers are held by the GameProfile group.
    PART B, DOORS AND THE AUTOMAP, BUILT 2026-10-29: the walk opens and closes the door in front with
-   the modern use key or a click (`UWWalkUw2View`, within two tiles; a locked door stays shut, no
+   the modern use key or a click (`UWWorldViewUw2`, within two tiles; a locked door stays shut, no
    door trigger fires). The automap byte is written in each game's order (`UWAutomapCode.Compose`:
    UW2 the kind in bits 4-5 and the floor's terrain class in 6-7, ice as 3; UW1's bytes unchanged),
    the stairs marked by the texture's terrain mark 3 or 4 (`DRAWOBJ.C:251`), the render band runs in
@@ -858,7 +859,7 @@ step by step: from step 2 on it has a character, from step 5 on a new game makes
    hand's reach (UWReachRules.CanReach; too far says 0x6A), the thing out of its tile onto the pointer, a
    container with its contents. Not yet: the terrain between (BlockingTerrain), the weight limit, theft,
    moonstones, pick-up triggers and pressure plates, the throw - the second game's rules (phase 4) (BUILT
-   but the terrain between, stale entry corrected 2026-11-19: `UWWalkUw2View.fTakeCount` checks
+   but the terrain between, stale entry corrected 2026-11-19: `UWWorldViewUw2.fTakeCount` checks
    CanCarry, the theft, the moonstone, the pick-up trigger and the plates (G3 part H4), `fTryThrow` throws;
    the terrain between the hand and the thing is still not tested).
    PART C1 BUILT 2026-10-29 (c65e80d2), CONFIRMED in the game by the user the same day with the arrow fix 1becce45 (nested bags, the rune bag refusing other things; key ring and quiver not yet tried): the bag code is the same in both games (UE
@@ -900,12 +901,12 @@ step by step: from step 2 on it has a character, from step 5 on a new game makes
    the pointer is the plain one; mouse press-follow-release, Up/Left, Space/Right/Down, Enter, Escape
    (clears the scroll), Alt+X on quit, F6 on the game page. Music and sound through UWSoundOptions, the
    detail through UWGraphicsDetail.Choose (Very High opens the effects window as in UW1), quit yes leaves
-   for UW2's main menu (UWWalkUw2.Leave; the first game's Quit also leaves to the menu, not to DOS). The
+   for UW2's main menu (UWGameStartUw2.Leave; the first game's Quit also leaves to the menu, not to DOS). The
    file page lists the four descriptions in the scroll (0x120, "I- " to "IV- "); saving asks 0xB7 with
    the old description (or "<not used yet>") selected, up to 30 characters, Enter or a click saves,
    Escape aborts, then only the outcome stays in the scroll (0xAE + 4/5/6); restoring an empty slot says
    0xAE + 1, a save starts the walk from it and the new screen says "Restore Game Complete.". The
-   provisional Ctrl+S and its backups went (UWWalkUw2View.Save is the panel's). As the first game's
+   provisional Ctrl+S and its backups went (UWWorldViewUw2.Save is the panel's). As the first game's
    panel: no cursor keys inside the description (wdialog has them). Self-check group Uw2OptionsPanel.
 5. **The main menu and character creation**: Create Character builds a character (block 1, palette 3,
    `CHRBTNS.GR` with the answers drawn on them, `CHRGEN.DAT`, `SKILLS.DAT`, the eight questions with
@@ -992,6 +993,8 @@ step by step: from step 2 on it has a character, from step 5 on a new game makes
    frame): UWClassicWideBuilder's cuts are measured on UW1's MAIN.BYT and need UW2's frame measured and checked by
    eye, the top bar either side of the gargoyle, the ledge either side of the compass, the panel at x 224 moved
    whole; UWGameScreenUw2 stands on 320 columns (clicks, the camera's area, the scroll, the parts on the frame).
+   SUPERSEDED 2026-11-23 for everything but the conversation: the stopgap goes, see "The modern interface for
+   UW2: one interface, two hosts" before phase 6 (Classic Wide is its stage U7).
 
 ### Phase 4: the rules (XL, domain by domain)
 
@@ -1012,7 +1015,7 @@ sequences into each other, walking, standing, talking, saving into DOSBox and le
 unchanged. THEY PERCEIVE AND STRIKE THE PLAYER, user-confirmed 2026-11-01 (808d61f8, 5e0cbde1, 080f9ee9): UWVitalsUw2
 is the player in UWCreatureWorld and UWPlayerAvatar, with the status pass's armour, a defender and the noise; note
 UWCharacter stands in the second game's scene too with vitals nothing runs, so its presence says nothing, ask
-UWWalkUw2.IsWalking first. UWCombatVariantUw2 (enchantments below 8, the poison blow's armour roll, fire and cold
+UWGameStartUw2.IsRunning first. UWCombatVariantUw2 (enchantments below 8, the poison blow's armour roll, fire and cold
 doubled, doors damaged, debris); poison confirmed on the flask. Resistances of creatures 0, no death, no remains, the
 rest of step 4 below. THE PLAYER'S BLOW BUILT 2026-11-01, untested: UWAttackUw2 over the first game's UWPlayerAttackState
 and ResolveMelee, player_attack's steps read from WEAP.DAT's flags (0x20 lead-in, 0x40 hold and charge, 0x80 strike; row
@@ -1155,7 +1158,7 @@ to build them:
      trigger's square through UWTrapChainRemoval.AfterOneShotTrigger, both trigger classes; fumbled: UseTrigger with
      mode -1 as by the player with the thing acted on; else "Unable to defuse trap."), CheckTrap (OBJUSE.C:388, every
      trigger in a thing's chain for a mode, the switch's one, the plain trap on a use), the look's search on the walk
-     (UWWalkUw2View.fSearchForTrap: Look lit or the modern look key, wyorn's question in the scroll -
+     (UWWorldViewUw2.fSearchForTrap: Look lit or the modern look key, wyorn's question in the scroll -
      UWGameScreenUw2.AskYesNo on UWYesNoPrompt, the first game's yes/no input moved out of UWPromptController so both
      games share it), Remove Trap ("if (DetectedTrap(...))": any detection but a plain failure), Detect Trap, Open's
      checkTrap 0xB. Fixed: UWObjectSpellRulesUw2.TryFindTrap asked for the trigger's quantity bit clear and found no trap
@@ -1601,6 +1604,947 @@ PARTS, in build order:
   CS403 exists from 0x100 on. Test list section 75 CONFIRMED by the user 2026-11-18 (the final death, the dreams with
   speech and subtitles, the Guardian after a talk, the ending, the opening, the speech on level 26) - PART D COMPLETE.
 - **5E A full play-through** against the original in DOSBox.
+
+### The modern interface for UW2: one interface, two hosts (L)
+
+DECIDED 2026-11-23 per user, after the play-through of phase 5E: the modern interface gets no second copy
+for UW2. Its windows talk to the running game through interfaces, as the modern conversation does since
+phase 3 step 8 part F (`IUWModernConversationHost`), and each game brings a host. It comes before the beta
+gate of phase 6. What phase 3 step 8 built for UW2 (`UWModernHudUw2`, `UWModernBarUw2`) was a stopgap and
+goes when stage U4 stands.
+
+SURVEYED 2026-11-23: 47 `UWModern*` classes of the first game, about 21,100 lines. The layout, the layout
+editor, the message box, the crosshair, the backs and the window mechanics know no game. The rest reaches
+the first game's objects through the HUD that owns the part (`UWModernPart`: `mOUi`, `mOCharacter`,
+`mOInteraction`):
+
+- `UWInventory` (nine classes, the bags above all): the object on the pointer, the equipment slots, the
+  drags from pack, slot and container, the drops, the carried light, the weight, a container's refusal.
+  The rules behind it are `UWInventoryModel`, which UW2 runs already (`UWGameScreenUw2.Inventory`).
+- `UWCharacter`: the vitals (hit points, mana, level, active spells), the flasks' and the gem's pictures,
+  the weapon in the hand, the paperdoll's pictures and where they come from.
+- `Interaction`: what the crosshair is on (name, lock, verb), use, look and talk, the fight mode, a spell's
+  aim, the questions (yes or no, the mantra, how many), the message lines, reading.
+- `UWGameUI`: the texture filter, the runes and the shelf, the cast, the map, the options' refusals, the
+  compass, track, camp and status, the window's picture, the pointer's picture.
+
+None of these runs in a UW2 session. There `UWGameScreenUw2` holds the inventory and the screen,
+`UWPlayerRecordUw2` and `UWVitalsUw2` the character, `UWWorldViewUw2` and `UWAttackUw2` what is done to
+the world.
+
+THE SHAPE. One entry, `IUWModernSession`, built when a session starts and handed to `UWModernUi`. It
+bundles narrow interfaces by domain, not one that knows everything:
+
+| Interface | What the windows get | UW1's host stands on | UW2's host stands on |
+|---|---|---|---|
+| `IUWModernInventory` | the `UWInventoryModel`, the game's slots and paperdoll places, dropping into the world, taking, using, looking, eating | `UWInventory`, `Interaction` | `UWGameScreenUw2` |
+| `IUWModernCharacter` | name, class, level, experience, attributes and skills, hit points, mana, hunger, poison, the gem's state | `UWCharacter` | `UWPlayerRecordUw2`, `UWVitalsUw2` |
+| `IUWModernMagic` | the runes carried, the shelf, the cast, the active spells and their texts | `UWRunicMagic`, `UWHudRunes`, `UWGameActions` | `UWRunicMagic`, `UWVitalsUw2`, `UWSpellHostUw2` |
+| `IUWModernWorld` | the crosshair's target, use, look, talk, attack, the fight mode, a spell's aim, the map, sleep, track, the compass, the level | `Interaction`, `UWGameUI` | `UWWorldViewUw2`, `UWAttackUw2`, `UWGameScreenUw2` |
+| `IUWModernMessages` | the lines for the message box, [MORE], the questions | `Interaction` | `UWGameScreenUw2`'s scroll |
+| `IUWModernArt` | the game's freed pieces: paperdoll, panels, slots, flasks, gem, compass, hollow, shelf | `UWHudArt`, `UWModernHudArt` | new, from `PANELS.GR` and `BYT.ARK` |
+| `IUWModernConversationHost` | stands | `UWModernConversationHostUw1` | `UWModernConversationHostUw2` |
+
+The hosts are `UWModernSessionUw1` and `UWModernSessionUw2`. `UWGameSession` stays what it is, the
+engine-free state of a run (quests, variables, rules); a host may read it, a window may not.
+
+RULES.
+
+1. The windows, the layout and the layout editor name no game and none of `UWCharacter`, `UWInventory`,
+   `Interaction`, `UWGameUI`, `UWGameScreenUw2`. After stage U3 a scan of the `UWModern*` sources in the
+   self-check holds that (the hosts and `UWModernUi`'s wiring excepted).
+2. What needs no engine has none: state, and actions that answer with a message. Unity's types (textures,
+   sprites) only in `IUWModernArt` and in the windows themselves. So the hosts' contracts can be checked
+   with fakes in the self-check.
+3. Where the games differ in kind, the session says which parts exist and brings the part: the Classic
+   Wide frame, the command bar, the panel's slide, the trade's six places.
+4. UW1 does not move. Domain by domain: first UW1 behind the interface with exactly today's behaviour and
+   the user's test, then UW2's host for that domain.
+5. An interface grows from what the windows ask today (the survey's lists), not from what a game could
+   offer. A member only one window of one game needs stays in that game's part.
+
+STAGES. Each of U1 to U3 ends with the first game's modern test repeated, unchanged.
+
+- **U1 The entry, character and messages.** `IUWModernSession` and `UWModernSessionUw1`; `UWModernPart`
+  hands the session on in place of `mOCharacter`. Vitals, flasks, gem, active spells, the weapon in the
+  hand, the message box. BUILT AND USER-CONFIRMED 2026-11-23: the session on `UWModernUi.Session`
+  (made in `UWModernHud.Start`), `IUWModernCharacter`, `IUWModernMagic` (the active spells as a picture
+  of `SPELLS.GR` and a text per place, since the games keep them differently) and `IUWModernMessages`
+  engine-free in `UWData`, `IUWModernArt` with the flasks, the gem and the weapon's frame. The scan of
+  rule 1 waits for U3: `UWModernPanel`, `UWModernInventoryPage` and the rune panel still read
+  `UWCharacter`.
+- **U2 The inventory.** The bags (pages, drag, clicks, split, menu, trade, open bags), the action bar's
+  carried pieces, the pointer's object, the character page's slots: the model directly, the world's part
+  (drop, take, use, look, the carried light) through `IUWModernInventory`. BUILT AND USER-CONFIRMED
+  2026-11-23: the windows used of `UWInventory` only what forwards one to one to the model, so they hold
+  `UWInventoryModel` now (`UWModernUi.Inventory`); `IUWModernInventory` carries the use chain, the use
+  mode's two targets, eating from the pointer, the drop or throw into the view, the look, reading and a
+  spell waiting for a thing; `IUWModernMessages` says the windows' own lines. The context menu's three
+  entries on a thing in the world wait for U3.
+- **U3 Magic and the world.** The rune panel, the bar's casts, the crosshair and its target, use, look and
+  talk, the questions, the minimap and the map, the game menu, the pointer. Then rule 1's scan.
+  PARTS A AND B BUILT AND USER-CONFIRMED 2026-11-23. Part A: the game's data and the texture filter
+  through `UWModernUi.Data` and `UWModernUi.Filter` in every window. Part B: the rune panel, the hollow,
+  the action bar's casts and the clicks on active spells and the compass on `IUWModernMagic` (the bag's
+  runes, what could be cast, the shelf, the two ways to cast, the learned hidden spells) and
+  `IUWModernCharacter.ReportStatus`. `UWModernWorldInput` is the first game's world input in the modern
+  scheme, on the host's side, and keeps `Interaction`. Part C, the world, is next: the crosshair's
+  target, the questions, the fight mode, the menu's world entries, the map, the compass, the options'
+  refusals, track and camp, the pointer's pictures and spell aiming.
+  PART C BUILT AND USER-CONFIRMED 2026-11-23: `IUWModernWorld` (what covers the view, the crosshair's
+  target, the fight mode, a spell's aim, a thing in the world, the map, the compass's step, track and
+  camp, the menu's refusals), the questions on `IUWModernMessages`, the crosshair's, the compass's and
+  the view's picture on `IUWModernArt`. Left before rule 1's scan (part D, with U5): the pages' character
+  data, the fields kept only as null gates, `UWModernUiScheme`, the trade's link to the conversation.
+  PART D BUILT AND USER-CONFIRMED 2026-11-23 (U1 to U3 complete): the pages read the character through
+  `IUWModernCharacter.BindSheet` and the figure through `IUWModernArt`, the game menu saves and loads
+  through `IUWModernWorld`, the session hands out the conversation's host, and `UWGameUI.Start` makes the
+  first game's host before it adds the windows. No window has a `UWGameUI`, `UWCharacter` or `Interaction`
+  field left. RULE 1'S SCAN RUNS in the self-check (`ModernInterfaceSeamChecks`, entry
+  `ModernInterfaceSeam`). What is still the first game's in the windows is content, not a name: the
+  paperdoll's and the classic layout's numbers, the pages of `PANELS.GR`, the Classic Wide frame - stages
+  U5 to U7.
+- **U4 UW2's host, the preset Modern.** `UWModernSessionUw2`; UW2 runs `UWModernHud` with the first game's
+  windows: vitals, bags, action bar, rune panel, minimap, spells, messages, crosshair. The pieces UW1 cuts
+  from its own art come from UW2's. `UWModernHudUw2` and `UWModernBarUw2` go; the bar's bindings kept in
+  UWR.json stay readable. The automatic key, the windows with the free pointer and [MORE] under a fade
+  (test list 86.2 and 86.3) are checked here.
+  SURVEYED AND CUT INTO PARTS 2026-11-23. What helps: the inventory's rules for UW2 are inside the model
+  already (`UWInventoryModel` asks the running game's `IUWInventoryVariant`), so the first game's bag
+  windows get UW2's places and refusals without a change; `UWRunicMagic` asks the running game. What
+  costs: nearly every window lies on art that `UWModernHudArt` cuts from the FIRST game's frame (about 25
+  builders under `UWData/HudArt`: leather, slots, shelf, stone shelf, heading strip, hollow, compass disc,
+  gem stand, paperdoll page), and UW2's frame (`BYT.ARK` block 4) is another picture - each piece needs
+  UW2's own cut, checked by eye. The builders are engine-free, so a tool can write their pictures to PNG
+  for review before anything is tried in the game. Parts, each replacing its piece of `UWModernHudUw2`
+  and ending with the user's test in UW2 (UW1 repeated briefly):
+  THE SAME MECHANISMS AS UW1 (decided per user 2026-11-23, after the bag use mode at test list 182 and the
+  survey of the parts built so far): every part from here on uses the first game's mechanism for what the
+  player sees and does in the modern scheme - its windows, its modes (the bag use mode, the context menus,
+  dragging), its input (E tapped and held, the free pointer on the world, the pad's hints), its timing - and
+  the host only answers the interfaces with the second game's rules. A second way beside the first game's
+  is built only for a compelling reason (the original's rule differs, or the first game's mechanism cannot
+  carry the second game's data), and that reason is written down where it is built. A member of the host
+  left empty is either a later part's (named there) or such a reason, never a quiet gap. The surveys of
+  each part check the host's empty members and the screen's own modern paths against this.
+  - U4a the host `UWModernSessionUw2` (character and messages from `UWPlayerRecordUw2`, `UWVitalsUw2`
+    and the screen's scroll; the world from `UWWorldViewUw2`, `UWAttackUw2`, `UWGameScreenUw2`) and the
+    HUD's core in UW2: weapon, flasks with values, gem, messages, crosshair and target, active spells.
+    `UWModernUi.IsSpellWaiting`'s second half moves into the host.
+    STEP 1 BUILT AND USER-CONFIRMED 2026-11-23: `IUWModernSession.Has(part)` and `Supports(preset)`; the HUD's parts each in
+    a group of its own, shown only while the game has the part. Next: the host with the parts that need
+    no art work (messages, crosshair and target, active spells), then the flasks, the gem and the weapon,
+    which need UW2's pictures and measures.
+    STEP 2 BUILT AND USER-CONFIRMED 2026-11-23: `UWModernSessionUw2` over `UWGameScreenUw2`, set on
+    `UWModernUi.Session` by the screen's modern frame; the first game's message box and crosshair show in
+    UW2 and the stopgap's lines and pointer are off. The active spells' row waits for the minimap (part D),
+    which it aligns with.
+    STEP 3 BUILT AND USER-CONFIRMED 2026-11-23 (part U4a complete): the flasks, the gem and the weapon. The vitals ask the
+    game for their art (`IUWModernArt.BuildVitalsArt`), the weapon's frame carries the game's view measures.
+    UW2's flasks are composed into one picture per state and cut free of their black; they stand in a row
+    without a shelf (decided per user 2026-11-23: they stay free for now).
+  - U4b the bags and the action bar (the model directly; use, look, drop through the host), with the
+    leather and the slots from UW2's art. `UWModernBarUw2` goes.
+    SURVEYED 2026-11-23. What the bag windows and the bar ask beyond the model is `IUWModernInventory`
+    (use, the use mode, eating from the pointer, drop or throw, look and read, a spell waiting for a thing),
+    `IUWModernMessages.SayGeneral` and `General` (the first game's string numbers: the second game's host
+    translates the few the bags say), `IUWModernWorld.ToggleFightMode` and `ShowPointerForBags`; the screen
+    has all of it (`fUseCarried`, the eat of the held thing, `UWWorldViewUw2.DropHeld`, the look with its
+    trap check and `ShowReading`, `UWAttackUw2.ApplyTargetToItem`, `fChoose`). WHAT THE CUT MUST RESPECT:
+    the stopgap's bags show the pack's eight places AND the paperdoll's eleven; the first game's bag windows
+    show the pack and the open bags only - the worn things are the character panel's (`UWModernPanel`, the
+    bags ask it through `UWModernBagPages.PanelSlotAt`). Bags without the panel would leave no place to put
+    a thing on, and two click systems side by side (the first game's drag and the stopgap's cells) would
+    have to hand the pointer's thing to each other. DECIDED per user 2026-11-23 ("Ja, vorziehen"): the
+    character panel comes forward from U4d and U5 into this part, in four steps -
+    (1) the art: leather and slot circle per game; (2) the character panel on UW2 as a view (name, the
+    paperdoll page from `PANELS.GR` 0 with UW2's places, the figure, the attributes and skills through
+    `BindSheet`), the stopgap's cells still taking the clicks; (3) the bag windows switch on with the host's
+    inventory half, the panel's slots take and give, the stopgap's cells and the matching blocks of
+    `fModernKeys` go; (4) the action bar, `UWModernBarUw2` goes.
+    STEP 1 BUILT 2026-11-23 (no change in the game yet, the pictures reviewed as PNG): `UWLeatherBuilder`
+    has a `Frame` per game (`FrameOf`: where the panel picture has its frame, its calm centre and edges).
+    UW2's INV.GR 6 is the open bag's dark marble, 75 x 41, frame 2/1/1/2 and no transparent columns; the
+    constants `LeatherLeft` and so on stay the first game's and stay the windows' insets, the marble runs on
+    under the pixels the frame is thinner by. `UWSlotBuilder` cuts UW2's circle from the inventory page
+    (`PANELS.GR` 0, the left shoulder's ring, 16 across in a box of 17) and frees its ring by UW2's own luma
+    bounds. NOT YET PER GAME: the heading strip (U4d) still composes with the first game's frame.
+    STEP 2 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 179): the character panel shows on UW2.
+    `UWPaperdollGeometry` (UWData, new) holds the page's measures per game - the page's place on the screen,
+    the body's and the armour's places and drawing order, the six places with a thing's own picture, the
+    place under a point (`SlotAt`: UW1's `UWClickRules.InventorySpotAt`, UW2's hit rectangles of InvDisplay) -
+    and `UWModernPanel` reads them instead of the first game's tables. `UWPaperdollBuilder` builds UW2's
+    page from `PANELS.GR` 0 (71 rows, nothing widened or removed), its marks by luma, and frees UW2's figure:
+    the body is what differs from the page under it (the marble is grey, the figure is not), opaque (colour 0
+    is the hair's black), a helmet that paints the page is freed the same way, and only the largest piece
+    stays. The host binds the sheet as the help's Stats tab does, hands out the body and the armour's
+    pictures (`ARMOR_F`/`ARMOR_M` by type and condition) and makes camp; `IUWModernWorld.OffersCamp` and
+    `OffersTrack` say which of the panel's two buttons a game has (tracking is not built on UW2).
+    INTERIM, GOES WITH STEP 3: the stopgap's cells, minimap and spells keep beside the open panel
+    (`UWModernHudUw2.fBagsRight`, `fTopRightEdge`); `fModernKeys` toggles the panel on C and closes it on
+    Escape after the bags; a click on the panel drops nothing into the world. The panel's places take no
+    click on UW2 yet - the bag windows do the dragging (step 3).
+    FOUND BY THE USER 2026-11-23 with a picture, fixed the same day: the things on the panel stood in black
+    boxes. The first game's icons (`UWIconCache`, `UWUploadPixels.IconIndices`) take a pixel as clear by the
+    palette's dark blue marker; the second game's pictures are clear on THEIR OWN colour 0. `UWTexture`
+    carries it now (`ZeroIsClear`, set by `UWTextures` for UW2's OBJECTS, SPELLS, ARMOR_F and ARMOR_M) and
+    the icons go by it - so every first-game window gets UW2's things right, the bags of step 3 included.
+    SECOND FINDING per user the same day, the original beside ours: the armour's black outline was missing
+    on the figure. It is the second game's near black (0, 0, 4), a colour with no red, no green and some blue, which the first game's palette rule (UWPalette) takes for its transparency marker and
+    the resolved colour gives as clear (per user: the first game's finding is not the second's); `UWPaperdollBuilder.PieceUw2` now clears only the picture's own
+    colour 0 and draws every other pixel.
+    STEP 3 BUILT 2026-11-23, ALL 26 POINTS CONFIRMED BY THE USER THE SAME DAY (test list section 180), one wish
+    beside them built and confirmed (180.27): a conversation opens the character panel on its Character tab and puts
+    it back afterwards, as the first game's host does. The first game's bag windows run on
+    UW2 (`Has(Bags)`); the stopgap's nineteen cells are gone, and with them `mbBagsOpen`, the pack-cell press, the
+    cells' and the drop's part of `fClickBags` and the keys B, C and Escape's bag and panel steps in
+    `fModernKeys` (Escape goes down `UWModernUi.CloseNext` after the rune page). The host's inventory half is
+    the classic page's own routines on the screen (`ModernUse`, `ModernLook`, `ModernEatFromPointer`,
+    `ModernDrop`, `ModernContainerOpened`, `ModernToggleFight`); the first game's use mode is not entered (a key
+    waits on `UWAttackUw2` as from the classic page). NEW ON THE INTERFACES: `IUWModernInventory.ContainerOpened`
+    (UseObj's traps and spell after UseCont; called where the player opens a bag window),
+    `IUWModernWorld.HoldsPanels` (mous_in_panel: paralysed, asleep in the Void; part of
+    `UWModernPointer.PanelsHeld`). ENGINE-FREE: `UWStringIds.InGame` maps the sentences the windows say to the
+    second game's numbers (runes only 263, does not fit 264, no place 275, cannot barter 202), used by
+    `UWItemMessages.ContainerRejection` and the host's `SayGeneral`. BEHAVIOUR AS THE FIRST GAME'S NOW: the bags
+    are not modal (`IsPanelOpen` is the rune page alone), B only opens the windows, E takes straight into the
+    pack (`UWWorldViewUw2.fStowTaken`; on the pointer with the pointer freed only where the pack has no room), E
+    and Q over a slot use and look there, a stack is not asked for in the world. The conversation's host frees
+    the pointer and gives it back as the first game's; `UWModernBagTrade.IsConversing` covers both games'
+    conversations (no use, nothing into the world), and UW2's conversation screen takes a thing let go over the
+    player's trade slot. The pointer's thing is drawn by the bag windows; the screen's own pointer shows nothing
+    meanwhile (`ModernThingIsPointer`). The rune bag opens the screen's rune page (`UWModernBags.OpenRunes`)
+    until U4c. KEPT AS IT WAS, UNTIL ITS PART: the screen's rune page, active spells and action bar
+    (`IsOverOwnModernWindow`, counted as interface by `UWModernUi.IsOverUi`). NOT WIRED: the tooltip's line for
+    an identified thing's magic on UW2 (the tables there are the first game's; it shows the plain name).
+    STEP 4 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 181; part U4b complete with it): the first
+    game's action bar runs on UW2 (`Has(ActionBar)`); `UWModernBarUw2` is deleted, and with it the slot keys'
+    block of `fModernKeys`, `fUseBar`, `fClickBar` and `CaptureBar` (UWHelpNotes.SaveTo captures the bar and the
+    open bags for both games). The places are read from the same UWR.json entries, so a save with the old bar
+    keeps them. A weapon goes into the hand or is drawn there (`ToggleFightMode` through the host); the bar's
+    keys stand while `IUWModernWorld.HoldsPanels`. E and Q with the free pointer over a slot reach the bar after
+    the bags. Spells on the bar come with part U4c.
+    ADDED 2026-11-23 per user at the test (test list section 182 open): as the first game's bar
+    (UWCarriedItemUse, UWItemTargetUse.OnCrosshair), a tool whose target stands in the world acts on the
+    crosshair's target at once - `UWToolUseUw2.TargetsWorld` (key, lockpick, rock hammer, pole, bones);
+    `UWModernSessionUw2.Use` runs the classic use inside `UWAttackUw2.UseOnCrosshair`, and the classic use's
+    `AskUseOn` (the question and BeginUseOn, now one place for UWLockUseUw2 and UWToolUseUw2) leaves the question
+    out and applies along the crosshair's ray, through the click's own reach and actor. The oil flask, the anvil
+    and the key gems still ask. Missile spells already fly at once with the pointer locked (BeginSpellMissile).
+    Points 182.1 to 182.8 CONFIRMED per user the same day. The one thing beside them: a key used from the bags with
+    the free pointer kept waiting after the right button (which locks the pointer). A first patch let the game's wait
+    go with the bags' use mode (8a3e5a1d); per user ("Sollte es nicht genauso laufen?") the cause went instead, built
+    and confirmed as 182.9 to 182.16 the same day: step 3 had not entered the first game's bag use mode on UW2, the thing waited on
+    `UWAttackUw2` (BeginUseOn) and `UseOn`/`UseOnWorld` stood idle. NOW `UWAttackUw2.AskUseOn` (UseThing) hands the
+    thing and its actor to `UWModernBags.BeginUse` in the modern scheme; the bags hold it on the pointer, say the
+    question (`SayUsePrompt`), take the click and end it as on the first game (right button, Escape, locked pointer,
+    bags shut); `UseOn` and `UseOnWorld` hand the click back (`ApplyHandedOn` without reach, `ApplyHandedAt` along
+    the free pointer's ray with the reach and the pole's). `UseFrom` says where the use comes from: carried (the
+    bags), world (the anvil and the pole in the world, and the bar's tools for a carried target - the bags open and
+    the pointer frees, as the first game's anvil), crosshair (the bar's world tools). The patch's interface members
+    are gone again. The classic scheme waits on the attack host as before.
+    THE WORLD'S INPUT AS THE FIRST GAME'S, BUILT AND CONFIRMED 2026-11-23 before U4c per user (test list section 183, all thirteen points), from
+    the survey of the parts built so far under the rule above: `UWWorldViewUw2.fUpdateModernActions` is the second
+    game's `UWModernWorldInput.UpdateActions` - E through the first game's `UWHoldTap` (tapped on the release, held
+    the direct use, the ring through `IUWModernWorld.UseHoldProgress`, over a window the slot), Q as before, the
+    free pointer's click on a thing opening `UWModernBags.OpenWorldMenu` and its drag taking onto the pointer
+    (`BeginWorldDrag`); the host's `UseThing`, `LookAt` and `TakeToPointer` answer the menu with this game's
+    rules (`UseFromMenu` with the use target measured at the click, `fLookAt`, `fTake`), `TargetPadVerb` with
+    `CrosshairPadVerb`, `IsMouseInWorld` as the first game's, which `UWAttackUw2.fPressed` now asks (a click on a
+    window does not strike). The crosshair's name hides a closed secret door and a wall panel as the first game's
+    (`UWModernWorldInput.HidesFromCrosshair`, `IsWallPanel`, now public). `LineTimes` gives each line its own
+    time (the host follows the screen's list). STILL EMPTY IN THE HOST AND WHOSE: the magic members (U4c), the
+    active spells' text, look and cancel, the question box, the compass, the map, the game menu and the saves
+    (U4d), the lock icon and `IsSpellAiming` (U4e), the mantra (UW2 trains with teachers, the help's Teachers tab), Track (not built
+    on UW2).
+    THE DROP AND THROW AT THE FREE POINTER, found by the user at 183 (every drop a throw from the centre), built the
+    same day and CONFIRMED (test list section 184, all seven points): `DropOrThrowPointerItem`'s point now reaches the throw
+    (`UWGameScreenUw2.ModernDrop` -> `UWWorldViewUw2.DropHeld(inventory, point)`), as the first game's host hands its
+    point to `UWPlayerThrow`. The throw had read the system mouse in the modern scheme, which is captured there and
+    stands in the screen's middle; the classic view and `punt_mouse_obj` take `UWPointer.Position`.
+    MOVED HERE FROM U4d AND U5: the character panel's sheet, the paperdoll's places per game. U5 keeps the
+    pages of the other presets (`UWModernInventoryPage`, `UWModernStatsPage`), which can read
+    `UWPaperdollGeometry` too.
+  - U4c the rune panel and the hollow (the record's runes, the screen's shelf and cast).
+    SURVEYED 2026-11-23. The first game's rune panel (`UWModernRunePanel`) asks the game only through
+    `IUWModernMagic`, and the action bar's spells too (`TryBindSpell`, `CastCheck`, `CastSequence`), so with the
+    host's magic half filled both run on UW2 as they are. The rules are there already: the spell table is the
+    running game's (`UWRunicMagic.AllSpells`), the names (block 6) and the cast (`UWSpellCasting.CastRunes`
+    through `UWSpellHostUw2`) work for UW2, the screen has the bag (`UWPlayerRecordUw2.HasRune`), the shelf
+    (`miShelf`, the record's three places) and its rules (`fClickRunes`, `fCastShelf`, `PutOnShelf`). WHAT DIFFERS:
+    (1) the tablet. Both games' rune page is `PANELS.GR` 1 and mous_in_rune is the same arithmetic (cells of 18
+    by 15, 20 - 4 * row + column, the clear strip below row 0x12), but the pictures differ and so do the runes'
+    places on them and the mouse region (the first game counts its columns from x 3, the second from 0) -
+    `UWRuneShelfModel`'s page functions read the first game's `UWClassicLayout.RuneShelf`. They need the page's
+    measures per game, as `UWPaperdollGeometry` gave the paperdoll's. (2) The spell's picture in the panel's list
+    and on the bar: `UWModernRunePanel.SpellIcon` works it out with the first game's tables
+    (`UWRunicMagic.GetIconIndex`, the class 11 effects, the missiles); the second game's SPELLS.GR goes by
+    parse_aspells' table (`UWClassicLayoutUw2.Runes.SpellClassFirst`). That belongs to the game: a member of
+    `IUWModernMagic`. (3) FOUND IN PASSING, both schemes: UW2's mous_in_rune and try_cast return at once while
+    GameInputMode is not 0 (UnderworldExhumed uw2 RUNES.C:99, :172), as the first game's
+    (`UWHudRunes.InAnotherInputMode`); ours on UW2 clicks a rune and casts in any mode. The host's
+    `IsHeldByAnotherInput` is that test, and the screen's rune routines ask it too. KEPT: the classic frame's
+    hollow (`UWModernRuneHollow`, Classic+) is stage U6's; the active spells' text, look and cancel stay U4d's
+    with their row; the cast key (F8) stays the screen's, as the first game's is its UI keys' (UWGameUiKeys).
+    STEPS (proposed): (1) the tablet's measures per game in UWData, the second game's tablet with all runes
+    written to PNG and checked, the panel's room for it; (2) the host's magic half, the panel on UW2
+    (`Has(RunePanel)`), the rune bag and the rune key open it, spells on the bar, the screen's modern rune page
+    goes (`mbRunesOpen`, the rune page's and hollow's clicks in `fClickBags`, its block of `fModernKeys`, the
+    stopgap's page and hollow in `UWModernHudUw2`), the GameInputMode test.
+    DECIDED per user 2026-11-23 ("Ja, Schritt 1"): the two steps as proposed.
+    STEP 1 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 185, both points, UW1 only - nothing changes on UW2 yet):
+    `UWRuneTabletGeometry` (UWData, new) holds the rune page's measures per game - the page's size, rune 0's
+    picture and the pitch, the panel's mouse region, where the columns begin in it, the clear strip - with
+    `SlotLeft`, `SlotTop`, `RuneCellAt` and `IsClearStrip`, which were `UWRuneShelfModel`'s with the first game's
+    numbers. The first game's classic frame (`UWHudPanel`, `UWHudRunes`) reads `Uw1`, the modern rune panel the
+    running game's (`Of`), and lays the narrower second game's page (79 x 112 against 83 x 114) in its middle.
+    The second game's numbers come from ShowRune and BeginInventory's region (`UWClassicLayoutUw2.Runes`,
+    `Statistics.AreaTopY` new); the self-check compares every pixel of its region with mous_in_rune as the
+    classic page computes it. The page with all 24 runes and the cells over it was written to PNG with a scratch
+    tool and looked at: every rune sits in its compartment, the cells and the clear strip lie on the picture.
+    STEP 2 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 186, all twelve points; PART U4c COMPLETE): the
+    first game's rune panel runs on UW2 (`Has(RunePanel)`), and with it the action bar's spells. The host's magic half
+    answers from the record's bag, the screen's shelf and its rules (`ModernAddRune`, `ModernLookAtRune`,
+    `ModernCastShelf`, `ModernCastSequence` split out of the classic page's `fClickRunes` and `fCastShelf`), the level
+    and mana of `UWVitalsUw2`. NEW ON THE INTERFACE: `IUWModernMagic.SpellPicture` - the first game's rule moved from
+    `UWModernRunePanel.SpellIcon` into its host; the second game's by parse_aspells' table and its own missiles, checked
+    with the scratch tool against the active spells' names (block 6 from 0x180): all 22 lasting spells match their
+    picture (two by a short name, Bounce and Leap). THE INPUT MODE: `UWGameScreenUw2.IsInAnotherInputMode` (a thing on
+    the pointer, a target or missile spell or a thing used on another waiting, the roaming view, the modern bag use
+    mode) holds the rune clicks and the cast in both schemes, as mous_in_rune and try_cast. GONE: the screen's modal
+    rune page (`mbRunesOpen`, `IsPanelOpen` and its callers, `fTakeOverRunePanel`, the rune key's and Escape's steps in
+    `fModernKeys`, the rune page's and hollow's clicks in `fClickBags`), the stopgap's page and hollow
+    (`UWModernHudUw2`). The rune bag opens the panel (`UWModernBags.OpenRunes`). STILL EMPTY IN THE HOST AND WHOSE:
+    the active spells' text, look and cancel (U4d, with their row), the question box, the compass, the map, the game
+    menu and the saves (U4d), the lock icon and `IsSpellAiming` (U4e), the mantra (UW2 trains with teachers), Track
+    (not built on UW2).
+  - U4d the minimap, the heading strip and compass, the question box, the game menu (UW2 saves through
+    its options panel's rules), the character panel's sheet.
+    SURVEYED 2026-11-23 (per user "Ja, mit U4d anfangen"). In the preset Modern the part's windows are the active
+    spells' row, the heading strip, the minimap, the question box and the game menu; the compass disc and the view's
+    picture show only in the classic kinds and Custom (`UWModernLayout.IsCompassShown`), so they stay U6's. The
+    character panel's sheet came forward into U4b. What each window asks and what UW2 has:
+    (1) THE ACTIVE SPELLS' ROW (`UWModernActiveSpells`): pictures and count are answered since U4a; the text, the
+    look and the cancel are not - the screen has them as try_clear (`fClickActiveSpell`: the name of block 6 from
+    0x180 and the stability's words, the dispel). Its clicks are `UWModernHudInput`'s, which is off on UW2
+    (`Has(HudInput)`); the screen's own spell clicks (`fClickModernSpellIcon`, `fClickBags`) and the stopgap's row
+    go with it. HudInput also carries the heading's click (the status) - FOUND: `IUWModernCharacter.ReportStatus`
+    is empty on UW2 and named nowhere; the screen has print_info (`UWStatusReportUw2.Lines`).
+    (2) THE HEADING STRIP (`UWModernHeadingStrip`): `CompassStep` (empty) and the strip's art, which
+    `UWModernHudArt.BuildHeadingStrip` cuts from the first game's frame (noted at U4b step 1) - it needs UW2's cut,
+    looked at as PNG first. The strip opens on a hit with the gargoyle's eyes and the foe's name and state from the
+    first game's `UWEyesDisplay`; UW2 has the eyes too (uw2 PANELS.C adjust_eyes, `UWClassicLayoutUw2`'s eyes,
+    drawn by the classic screen), so the host hands them over instead of the first game's component.
+    (3) THE MINIMAP (`UWModernMinimap`): `CarriesMap`, `OpenMap` and `Automap` (empty). `UWAutomapPictures` is the
+    first game's class on `UWGameUI` (parchment, tiles apart, notes, the player's pixel); the second game paints the
+    whole map screen at once (`UWAutomapPainter` into BLNKMAP's indices, the stopgap's `fPaintMap`, the map in its own
+    palette). The first game's mechanism cannot take UW2's map as it is, so the minimap's pictures become a per-game
+    answer (an interface or a base class with the two games' sides) - the window stays the first game's.
+    (4) THE QUESTION BOX (`UWModernQuestion`): `YesNoQuestion` and `AnswerYesNo` (empty); the screen asks on the
+    scroll's last line through the first game's `UWYesNoPrompt` (wyorn: the trap found, the anvil's repair), which has the
+    question and an answer call, so the box takes it over.
+    (5) THE GAME MENU (`UWModernGameMenu`): `RefusesMenu`, `RefusesToSave` (both refuse today), the saves and the
+    quit (empty). UW2 has every piece in its options panel: the slots (`UWSavegameSlots`), the save
+    (`UWWorldViewUw2.Save`), the restore (`UWGameStartUw2.Request`), the quit (`UWGameStartUw2.Leave`), the refusal
+    (do_option_shortcut: not while GameInputMode is set). Escape, F1 and the Ctrl shortcuts open the first game's
+    menu then (on UW1 `UWGameUI` routes them); the options panel over the view stays the classic scheme's. The
+    menu's layout entry waits for U4e (`Has(LayoutEditor)`).
+    STEPS (proposed): (1) the heading strip's art per game, written to PNG and looked at; (2) the active spells' row
+    and the heading strip on UW2 with HudInput (the row's text, look and cancel, the status, the compass step, the
+    eyes), the stopgap's row and the screen's spell clicks go; (3) the minimap, its pictures per game, the stopgap's
+    minimap goes; (4) the question box and the game menu, the modern scheme's options panel goes.
+    DECIDED per user 2026-11-23 ("Ja, Schritt 1"): the four steps as proposed.
+    STEP 1 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 187, both points, UW1 only - the strip shows on UW2 with step 2): the heading
+    strip per game. `UWLeatherBuilder.BuildHeadingStrip` and `BuildHeadingStripWithBrandAt` take the game's panel
+    measures (`FrameOf`; until then the strip composed with the first game's whatever the data), its gargoyle's head
+    and that head's mask (`UWHudMasks.GargoyleHeadOf`). The second game's head lies at x 108 on BYT.ARK block 4, the
+    first game's 24 x 18 (`UWClassicLayoutUw2.GargoyleHead`), its eyes' sprite two columns in as the first game's
+    (self-check); its mask (`UWHudMasks.GargoyleHeadUw2`) is set by hand from a luma map - the outline has gaps a
+    flood leaks through - and keeps the frame's moss over the left brow (per user the same day, from the strip's
+    PNG: cut out, the brow showed a notch). FOUND ON THE WAY: `UWMainFrame.Picture`
+    of the second game went partly clear - the first game's palette rule takes the near black (0, 0, 4) for its
+    marker, as at the armour in U4b step 2; the frame is a whole screen, so on UW2 every pixel is opaque now. The
+    strips of both games at 44 and 120 pixels were written to PNG and looked at. FOR STEP 2: the second game's eyes
+    picture's top is the head's row 4, the first game's EYES.GR row 3 (`EyesTopInBrand`), so the eyes' place on the
+    strip needs the game's.
+    STEP 2 BUILT 2026-11-23 (test list section 188 open; self-check green, build done, not tried in the game): the first
+    game's active spells' row and heading strip run on UW2 (`Has(ActiveSpells)`, `Has(Heading)`), with the HUD's clicks
+    (`Has(HudInput)`: the spells' look and cancel, the heading's status). NEW ON THE INTERFACE: `IUWModernWorld.FoeEyes`
+    (struct `UWModernFoeEyes`: lit, picture, alpha, the foe's name and condition, the head's row of the picture's top);
+    the strip read the first game's `UWEyesDisplay` itself until then, the first game's host now hands it over. The
+    second game's host: the eyes from the screen (`ModernFoeEyes`: the blink's picture while it runs, then the
+    condition's widest frame; lit and fading for `UWSettings.EyesSeconds` as the first game's - THE SAME MECHANISM for
+    the strip, the pictures the game's), the name now handed to `ShowEyes`; `CompassStep` (`CompassStepNow`, set_compass's
+    reading); the row's text, look and cancel (`ActiveSpellLine`, `ModernDescribeActiveSpell`, `ModernCancelActiveSpell`
+    out of try_clear); `ReportStatus` (print_info, `ModernReportStatus`). FOUND ON THE WAY: try_clear returns in
+    GameInputMode 1 to 3 (uw2 RUNES.C:142), ours clicked through - `fClickActiveSpell` asks now, in both schemes. GONE: the
+    screen's own spell clicks (`fClickModernSpellIcon`, `fClickBags`), `IsOverOwnModernWindow` (no window of the screen's
+    own is left; `UWModernUi.IsOverUi` lost its second-game line), the stopgap's row. INTERIM until step 3: the row stands
+    at the top right over the stopgap's minimap (it makes room only for the first game's).
+    TEST 188 per user the same day: 188.1 to 188.3, 188.9 and 188.10 CONFIRMED; 188.4 to 188.8 (the row's points) could
+    not be seen under the stopgap's minimap, as the interim said - tested again with step 3 (189.8).
+    STEP 3 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 189, all nine points, and 188.4 to 188.8 with it): the first
+    game's minimap runs on UW2 (`Has(Minimap)`). NEW: `IUWMinimapPictures` (IUWModernWorld.Automap's type; a second way
+    for a reason, written at the interface: the first game's map is the parchment, the tiles apart on a clear ground and
+    the notes, the second game paints the whole screen at once in its own palette). `UWAutomapPictures` answers it for
+    the first game (its members public, `TilesRect` new); `UWAutomapPicturesUw2` (in UWModernSessionUw2.cs) for the
+    second: the whole map screen of `UWHelpMapUw2` (`UWMapScreenUw2.ComposeScreen`, now with `pbPlayerMark` - the
+    minimap draws its own arrow), no parchment, the notes in the map's ink, the player's pixel at every ask
+    (`UWMapScreenUw2.PlayerPixelNow`, the arrow's place out of ComposeScreen). The host: `CarriesMap` (the map carried
+    and the automap on, the stopgap's rule, `ModernCarriesMap`), `OpenMap` (`ModernOpenMap`, the carried map's use
+    without its line). The minimap lays the tiles by `TilesRect`. GONE: the stopgap's minimap.
+    STEP 4 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 190, all twelve points; PART U4d COMPLETE; the own
+    layout greyed on UW2 is as meant, its editor is U4e's): the first
+    game's question box and game menu run on UW2 (`Has(Question)`, `Has(GameMenu)`). THE QUESTION: the screen asks through
+    the first game's `UWYesNoPrompt` already; the host hands its question and the box's answer over
+    (`ModernYesNoQuestion`, `ModernAnswerYesNo`). THE MENU: `UWGameUI`, which routes the first game's menu keys
+    (UWHotkeys groups 2 and 3), is never initialised on UW2, so the screen routes them the same way (`fModernMenuKeys`:
+    with the menu open the back press and F1 close it or step back, closed F1 and the shortcut modifier's S, R, M, F, D,
+    Q, O open its pages; Escape's chain ends in it) - the options panel over the view stays the classic scheme's. The host's
+    saves are the options panel's pieces (`ModernSaveSlotName`, `ModernHasSave`, `ModernWriteSave` - " " for an empty
+    name -, `ModernReportSave` and `ModernReportNoSave` as DoSaveRest's outcome lines, `ModernLoadSave` through
+    `UWGameStartUw2.Request`, `ModernQuit` through `UWGameStartUw2.Leave`), the refusals the original's
+    (`ModernRefusesMenu`: do_option_shortcut with a thing on the pointer or the roaming view; `ModernRefusesToSave`:
+    check_save, uw2 GAMESCR.C:178, while GameInputMode is set - string 0xAE). The menu greys a preset the running game
+    has not built (`IUWModernSession.Supports`, and the own layout also on `Has(LayoutEditor)`; until then every preset
+    was offered on UW2 too). STILL EMPTY IN THE HOST AND WHOSE after part U4d: the lock icon and `IsSpellAiming` (U4e),
+    the mantra (UW2 trains with teachers), Track (not built on UW2), the compass's picture and the view's picture
+    (`Compass`, `ViewPicture`: the classic kinds' pieces, stages U6 and U7).
+  - U4e `UWModernHudUw2` goes; the layout editor in UW2; the automatic key (86.2 and 86.3 confirmed 2026-11-23 with part A's message box), the windows
+    with the free pointer.
+    THE INPUT'S GOAL (decided per user 2026-11-23): today `UWGameScreenUw2.fModernKeys` decides the whole
+    modern input of UW2 in one routine - B and Z for the bags and the runes, H, Escape's order, the right
+    button's pointer switch, the clicks on the pack's cells, the rune page, the hollow and the active
+    spells, the action bar's keys. In UW1 each window brings its own input. So with each window UW2 takes
+    over (U4a the active spells, U4b the bags and the bar, U4c the runes, U4d the game menu) the matching
+    block of `fModernKeys` goes, and exactly one side owns each key and click at every step
+    (`IUWModernSession.Has`). The pointer switch and H end in the HUD, as on UW1. At the end of U4e
+    `fModernKeys` holds only the world's input - drawing the weapon, striking, using and looking in the
+    world, the cast key - which is UW2's counterpart of `UWModernWorldInput` and stays on the game's side.
+    UW2 then behaves in the modern scheme as UW1 does: the same windows, the same order of closing on
+    Escape, the same context menu, dragging and dropping as in UW1.
+    SURVEYED 2026-11-23 (per user "Ja, U4e starten"). WHAT IS LEFT:
+    (1) THE INPUT. `fModernKeys` still holds H (the HUD's own toggle skips UW2, `!UWGameStartUw2.IsRunning`, and the
+    screen's LateUpdate releases the hide by its own rules), the right button's switch (`UWModernPointer.Tick`, the HUD's
+    `Has(HudPointer)` off), Escape's first steps (a waiting missile or target spell lets go - the first game's chain does
+    that through `IsSpellAiming`/`CancelSpellAim`, which the second game's host leaves empty while `UWModernUi.IsSpellWaiting`
+    and the chain's spell row still name `UWAttackUw2` in the root), and the world's own: the cast key, R, the inventory
+    press. The pad's hints (`UWPadHintStrip`, `Has(PadHints)` off) read the first game's `UWGameUI`.
+    (2) THE AUTOMATIC KEY (a modern aid, UWUserSettings.AutoKey, the first game's `UWWorldUse.KeyAtHand` and
+    `UWModernWorldInput.GetCrosshairLock`): E on a closed locked door uses the carried key that fits and the crosshair
+    shows the key or the crossed-out key. The second game has none (its key waits on the use key, `ApplyWaitingUseOn`);
+    `TryGetTargetLock` is empty. By the rule for conveniences it goes through the second game's own lock rule
+    (`UWLockUseUw2`).
+    (3) THE LAYOUT EDITOR AND THE OWN LAYOUT PER GAME (decided 2026-11-23): one `UWUserSettings.ModernLayout` and the own
+    layout's switches (minimap and bar hidden, compass, scroll, stone shelf, hollow, tablet, stats panel, character
+    page ...) serve both games; the editor offers every element. On UW2 the classic kinds' pieces are not built (U6), so
+    the editor offers only what the game has (`Has`), and the layout and its switches are kept per game.
+    `Supports(Custom)` and `Has(LayoutEditor)` turn on with it.
+    (4) THE STOPGAP (`UWModernHudUw2`): every piece of it stands aside behind `Has` (flasks, gem, lines, pointer and
+    name, cells, weapon); the screen still ticks it and hands it the weapon's picture. It goes, and with it the screen's
+    `fTickModernHud`, `ShowWeapon`'s call and `SetShown`. The free pointer's windows (`UWUserSettings.FreeOpens*`,
+    `UWModernPointer`) run through the shared code already; checked in the test.
+    STEPS (proposed): (1) the input into the HUD - H, the pointer's switch, the spell aim through the host (the root's
+    `UWAttackUw2` lines go), the pad's hints; `fModernKeys` keeps the world's input; (2) the automatic key and the lock
+    icon on UW2; (3) the layout editor and the own layout per game; (4) the stopgap goes, the host's empty members checked
+    a last time.
+    DECIDED per user 2026-11-23 ("Ja, Schritt 1"): the four steps, and the preset's choice kept per game as well as the own
+    layout (proposed with the cut: each game keeps its interface, the second game never falls back from a preset it lacks).
+    STEP 1 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 191, all seven points): the input
+    into the HUD. H's toggle and release are the HUD's for both games (`UWModernHud.Update`; the second game's screen
+    toggled and released it itself), the right button's switch too (`Has(HudPointer)` on UW2). The host answers
+    `IsSpellAiming` and `CancelSpellAim` from the attack host (missile, target spell, a thing used on another), so
+    `UWModernUi.IsSpellWaiting` and the chain's spell link name no second-game class any more; Escape on UW2 is the chain
+    and then the menu, as the first game's UI keys route it. The pad's hints run on UW2 (`Has(PadHints)`; they ask the
+    root's `IsConversationOpen` and `IsMapOpen` instead of the first game's conversation controller and map). AS THE FIRST
+    GAME'S NOW: H does nothing while the pointer is free. `fModernKeys` keeps the roaming view's branch, Escape's routing,
+    the cast key, R, the inventory press, the screen's pointer picture and the stopgap's tick (step 4).
+    TEST 191 CONFIRMED per user the same day (all seven points).
+    STEP 2 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 192, all seven points): the automatic
+    key and the lock icon on UW2, as the first game's (doors only, the modern scheme and UWUserSettings.AutoKey through
+    `UWWorldUse.KeyUsedAutomatically`, one switch for both). `UWLockUseUw2.KeyAtHand` finds the key by the first game's
+    search (`UWObjectMechanics.FindMatchingKey`: never the lockpick, no key for a lock 0), `UnlockDoorWithKey` goes through
+    the lock rule as UseKeyOn (`UWLockRules.ToggleWithKey`, the unlock triggers), the door's use (`UWWorldViewUw2.fUseAt`)
+    names the key (the first game's "msg.door.unlocked_with") and opens it. `CrosshairLock` answers the host's
+    `TryGetTargetLock`. FOUND ON THE WAY: the crosshair's key picture came through `UWPicture.From`, whose first-game rule
+    leaves the second game's colour 0 opaque and its (0, 0, 4) outline clear - a key in a black box; `UWPicture.FromOwnClear`
+    (colour 0 clear, all else opaque for a ZeroIsClear picture) - checked as PNG for three keys.
+    TEST 192 CONFIRMED per user the same day (all seven points).
+    STEP 3 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 193, all seven points; self-check green with the settings fixtures recorded anew, build
+    done, not tried in the game): the layout editor on UW2 and the layout per game. THE FIRST PER-GAME SETTING: the table's
+    Layout entries (places and sizes, every part's switches and looks, the UI size, the conversation's text size) and the
+    preset belong to the running game; `UWUserData.LayoutGame` says whose they are, `OtherGameLayout` keeps the other game's
+    as JSON (new entries `LayoutGame`, `OtherGameLayout`, fixture `layout-per-game-2026-11-23`), and
+    `UWUserSettings.UseLayoutOf` swaps the two when the other game's session takes the windows (`UWModernUi.Session`'s
+    setter, by `UWGameSession.Current`'s game; not while the editor holds the file). A game without one starts from the
+    defaults (Modern). On UW2 `Supports(Custom)` and `Has(LayoutEditor)`; the editor offers only what the game has
+    (`UWModernLayoutEditor.Inspector`: the compass, the stone shelf, the hollow, the stats and character pages by `Has`, the
+    tablet alone, the scroll and the stands by `Supports(ClassicPlus)`).
+    Per user at the test: the classic kinds' pieces the editor leaves out on UW2 (193.3) come with Classic Modular's cuts
+    (U6) - the editor asks `Has`/`Supports` already and offers them then by itself.
+    STEP 4 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 194, all four points; PART U4e AND STAGE U4 COMPLETE): the stopgap
+    HUD `UWModernHudUw2` is deleted (every piece already stood aside behind `Has`), and with it the screen's
+    `fTickModernHud`, the weapon's hand-over to it and its `SetShown`; `fEnsureModernHud` makes the host and the
+    conversation's host alone; the seam scan's exception for it went. THE HOST'S EMPTY MEMBERS, checked a last time, each
+    name their stage or reason in the code: the mantra (no shrines, UW2 trains with teachers), Track (not built on UW2),
+    the compass's picture (U6), the view's picture (U7), the dragons (the second game's frame has none, U7), `TextUi` (the
+    first game's interface does not run here, the texts are made without it), `Describe`/`TryRead` (this game's look
+    speaks and reads itself). `fModernKeys` holds the world's input, Escape's routing and the menu's keys - the goal of
+    the input (above) reached. STAGE U4 COMPLETE 2026-11-23 ("194 passt alles"): the modern scheme of UW2 runs on the first
+    game's windows. NEXT: stage U5.
+- **U5 The character and stats pages on UW2's art.** The page from `PANELS.GR` (79 x 112), the paperdoll's
+  places per game (`UWPaperdollLayout` beside a UW2 table), the stats rows, the rune tablet.
+  SURVEYED 2026-11-23 (per user "Ja, U5 starten"). The three pieces are the classic kinds' (Classic+, Custom), each an
+  element of its own; on UW2 they stay off (`Has(StatsPage)`, `Has(CharacterPage)`; the tablet alone by
+  `Supports(ClassicPlus)` in the editor). WHAT EACH ASKS AND WHAT DIFFERS:
+  (1) THE STATS PAGE (`UWModernStatsPage`): `PANELS.GR` 2 through `UWGrTextures` (per game already) and its texts at the
+  first game's rows and columns (constants in the class: the class's row, the six values' rows, the skills' six rows,
+  the labels' and values' columns, the paging strip of eight rows split at x 37) from `UWCharacterSheet`, which the
+  second game's host binds from the record turned into the first game's player data (`UWPlayerData.FromSecondGame`). The
+  second game's page (STATS.C, `UWClassicLayoutUw2.Statistics`, what the classic screen draws) has its own places (the
+  name over 0x48 columns from 0xF0, three attributes, vitality and mana as "now/most", the experience in tenths, six
+  skill rows of which the first is the skill points while the list stands at its top, a paging strip of ten rows
+  split at 0x26). So the page's measures go per game, and the sheet's rows as the second game writes them.
+  (2) THE CHARACTER PAGE (`UWModernInventoryPage`): `PANELS.GR` 0 and the figure at the first game's places
+  (`UWPaperdollLayout`, `UWClassicLayout.Backpack`'s slots and weight, the open container's back INV.GR 6 and the
+  arrows BUTTONS 27/28). `UWPaperdollGeometry` (U4b step 2) has the second game's page, figure, armour and the six
+  places with a thing's picture already; it lacks the backpack's eight places, the weight's place and colour, the open
+  bag's back and its arrows (`UWClassicLayoutUw2.Inventory`: displays 12 to 19, `WeightCentreX`/`WeightTop`,
+  `OpenBagBack*`, `UpArrowPicture`/`DownArrowPicture`). The page then reads the geometry instead of the first game's
+  tables.
+  (3) THE RUNE TABLET ALONE (`UWModernRunePanel` in Classic+'s tablet mode): its measures are per game since U4c step 1;
+  only the editor's gate holds it back on UW2.
+  STEPS (proposed): (1) the stats page per game - its measures, the sheet's rows as the second game writes them, the
+  paging; (2) the character page per game - `UWPaperdollGeometry` grows the backpack, the weight, the open bag and the
+  arrows, the page reads it, checked as PNG; (3) the three pieces on UW2 (`Has(StatsPage)`, `Has(CharacterPage)`, the
+  tablet's gate), offered by the editor in the own layout - Classic+ itself stays U6's. STEPS APPROVED per user the same
+  day ("Ja, Schritt 1").
+  STEP 1 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 195, all six points; the second game's page cannot be
+  opened before step 3): THE STATS PAGE PER GAME. `UWStatsPageGeometry` (UWData, `Uw1`/`Uw2`/`Of`)
+  holds the lines' places (name centred on a column, class and level, the six values seven rows apart, six skill rows),
+  the colours (the first game's fixed black and blue-grey, the second game's palette 0 indices 0xC4 and 0xC9), the paging
+  strip (`PagingStepAt`) and whether the page is opaque (the second game's, as its frame: the near black is no clear
+  colour, so `UWGrTextures` mode Colours). The first game's numbers are `UWClassicLayout.Stats`, the ones the modern page
+  had as constants; the second game's come from RedispStat and the panel's mouse region: name top 3 centred on 41,
+  class and level row 10, labels from 5, values to 74, values from row 17, skills from row 60, the strip rows 102 to 111
+  from x 5 split at 43 (the region reaches two columns past the 79-pixel page). `UWCharacterSheet.Bind` takes the game:
+  the second game's original page has 21 entries, the skill points first (`PointsEntry`, the word 0x1F + 100 "Skill Pt"),
+  the skill words upper case, the offset 0 to 15; the readable spelling keeps the first game's list on both. The second
+  game's host binds with its game; `UWModernStatsPage` reads the geometry instead of its constants. Self-check: the
+  geometry's numbers, every row against RedispStat's y, every pixel of the page paging as mous_in_stat, the second
+  game's list and its words from its STRINGS.PAK. Rendered as PNG with a second-game save: the values stand beside
+  the picture's labels, the strip over the two arrows.
+  STEP 2 BUILT AND USER-CONFIRMED 2026-11-23 (test list section 196, all five points; self-check green; the second
+  game's page cannot be opened before step 3): THE CHARACTER PAGE PER GAME. `UWPaperdollGeometry` grows the whole page:
+  its place on the screen (`PanelLeft`/`PanelTop`), the backpack's boxes and middles, the weight's middle and colour
+  (the second game's 305 under row 56 in FONT5X6P's six rows, palette 0x88), the open bag's back (INV.GR 6 at 0xEE/77),
+  its icon (display 20, ending above row 77) and the arrows (displays 21 and 22, `ArrowLeft`; the first game's by their
+  right edges at 314, 3 apart), and `SpotAt`: the first game's table, the second game's FindInventoryHit over displays 1
+  to 22 named by the first game's spots (the arrows' top row is the right ring's, display 11 found first, as there).
+  `UWModernInventoryPage` reads all of it instead of its constants and `UWPaperdollLayout`, draws the armour in the
+  game's order (`ArmourOrder`), and takes the second game's page and bag back opaque and its arrows clear in their own
+  colour 0 (`UWGrTextures.ModeEnum.ZeroClear`, `UWPicture.FromZeroClear`, as `fCachedPicture` draws BUTTONS.GR).
+  Self-check: the first game's places as the page had them, every point of the screen against both tables, the
+  shoulders', hands' and rings' spots against `SlotAt`. Rendered as PNG for both games, open and with the spots tinted.
+  STEP 3 BUILT 2026-11-23 (test list section 197 open; self-check green, build done, not tried in the game): THE THREE
+  PIECES ON UW2. The second game's host has `StatsPage` and `CharacterPage`; the layout editor offers the tablet alone
+  by the rune panel (`Has(RunePanel)`: it is that panel's own mode, its page per game since U4c) instead of by
+  `Supports(ClassicPlus)`, which keeps only the scroll and the stands. So the own layout on UW2 offers the stats page,
+  the character page and the tablet on the second game's art; Classic+ itself stays U6's (`Supports(ClassicPlus)` false).
+  FOUND AT THE TEST (per user, 2026-11-23: the tablet's clear button with a frame that showed through; no figure and the
+  weight 0 on the character page; the inventory and saving the layout worked), FIXED THE SAME DAY: the second game's
+  pages, the bag's back and the tablet through `UWGrTextures.ModeEnum.Opaque` (`UWPicture.FromOpaque`; Colours kept
+  the first game's palette rule, under which the second game's near black (0, 0, 4) is clear); the second game's
+  host answers `FigureTexture` (BODIES.GR and the armour, clear in their own colour 0 as `fCachedPicture` draws them;
+  it gave null); `IUWModernCharacter.MaxLoad` gives the most the character carries (the second game's record's
+  weight_max), which the page's weight (`UWInventoryView.Refresh`'s piMaxLoad) and the backpack window's load read -
+  both read the first game's player data before. Test points 197.12 to 197.15.
+  TEST 197 CONFIRMED per user the same day (all fifteen points; the hollow is not there in the modern scheme yet - it is
+  U6's - and was checked in the classic scheme: the runes lie in it). STAGE U5 COMPLETE 2026-11-23.
+- **U6 Classic Modular (`ClassicPlus`) from UW2's pieces.** Compass, flasks, gem, hollow, shelf and the
+  panels as single elements, freed from `BYT.ARK` block 4.
+  SURVEYED 2026-11-23 (per user "Ja, U6 starten"; the second game's side read by a subagent and spot-checked, the
+  frame's bottom rendered as PNG). WHAT CLASSIC MODULAR IS ON UW1 (`UWModernLayout`, the preset's pieces): the compass
+  freed, on its stone disc with the movement arrows (`UWCompassDiscBuilder`, MAIN.BYT and COMPASS.GR; `IsCompassDisc`),
+  the rune hollow cut from the frame (`UWFrameCutBuilder.BuildRuneHollow`, the runes at `RuneHollowRuneX/Y/Pitch`), the
+  stone shelf grown from the frame's ledge (`UWStoneShelfBuilder`), the message scroll with the frame's rollers and
+  knobs (`UWScrollPaperBuilder`, MAIN.BYT rows 167-199 and SCRLEDGE.GR), the flasks and the gem apart on stands
+  (`UWShelfBuilder`, the gem's hexagonal collar `UWHudMasks.GemStand`), the pages and the tablet (U5), the
+  conversation in the original's look (`UWConversationArtBuilder`, CONV.BYT), no minimap, no action bar; the places
+  are the user's own layout taken over as the preset (`UWLayoutPresets.ClassicModularLayout`, 2026-10-11). The
+  generated backs (`UWBackdropArt`) take first-game wall textures (W64 126, 207, 201).
+  WHAT THE SECOND GAME'S FRAME HAS (BYT.ARK block 4 through `UWMainFrame.Picture`, every pixel opaque): along the
+  bottom of the view a MARBLE LEDGE with THREE RECESSES - at the left the active spells (`Runes.SpellX` 0x2F, 0x21,
+  0x13, try_clear from 0x11 to 0x42), in the middle the COMPASS (COMPASS.GR 0-3 the faces by step & 3, 4-19 the needles;
+  0x34 x 0x10 at 0x5E/0x33, print_info from 0x5B to 0x94) WITH THE POWER GEM IN ITS MIDDLE (POWER.GR at 0x71/0x30 - not
+  beside the flasks as on UW1), at the right the three prepared runes (`Runes.ShelfX` 0xB3, 0xC1, 0xCF at 0x32,
+  try_cast from 0xA9 to 0xDF); under the ledge the MESSAGE SCROLL with rollers above and below and knobs at both ends
+  (paper 0x71, `MessageLog` 0x10 to 0xDF, the rolling edges SCRLEDGE.GR as on UW1); at the right the two flasks on a
+  stone with golden feet (`UWFlasksUw2` keeps the stone strip as the flask's foot). NO MOVEMENT ARROWS and no stone
+  disc; no measured crop of any of it yet (`UWMainFrame`'s cuts and `UWHudMasks` are MAIN.BYT's, but the gargoyle).
+  The host's empty members for it: `Compass(step, freed)` null, `Has(Compass/RuneHollow/StoneShelf/Backs)` false,
+  `Supports(ClassicPlus)` false, the vitals a free row (`BuildVitalsArt`, no shelf), the conversation host's
+  `HasOriginalLook` false.
+  PROPOSED SHAPE (the second game's pieces as its frame has them, the first game's mechanisms): the CENTRE RECESS is
+  the compass's disc (no arrows: `ArrowAt` finds none on UW2), the compass freed from it as UW1's cross; THE GEM LIES IN
+  THE COMPASS as on UW2's frame, and "gem apart" frees it onto its own small piece of the recess; the RIGHT RECESS is
+  the hollow with the three runes at the frame's places (the hollow's rune places per game, as the tablet's); the
+  LEDGE grown like UW1's stone shelf (its plain marble, the recesses left out); the SCROLL'S PAPER from UW2's rows with
+  its rollers and knobs, grown as UW1's; the flasks as now (their stone is their stand); the LEFT RECESS as an optional
+  back for the active spells; the backs with second-game walls; a Classic Modular layout of its own for UW2, drafted at
+  the original's places, arranged by the user and taken over as UW2's preset (the preset's places per game). The
+  CONVERSATION'S ORIGINAL LOOK on UW2 (its own conversation screen) stays out of U6 - with U7, whose frame it shares.
+  STEPS (proposed): (1) the recesses: compass with gem and the hollow cut from UW2's frame (masks measured on the
+  picture and checked by eye as PNG with the user, as the gargoyle), the host's `Compass` and the hollow's art and rune
+  places per game, `Has(Compass)` and `Has(RuneHollow)`, the editor offers them; (2) the ledge and the scroll: UW2's
+  stone shelf and scroll paper grown, `Has(StoneShelf)`, the scroll for UW2, the left recess as the active spells'
+  back, the backs with UW2's walls (`Has(Backs)`); (3) Classic Modular on UW2: a draft layout at the original's places,
+  the user arranges it, it becomes UW2's preset, `Supports(ClassicPlus)`, the editor's `fHasClassicPieces` gates
+  reviewed. STEPS APPROVED per user the same day ("Ja, Schritt 1").
+  STEP 1 BUILT 2026-11-23, USER-CONFIRMED 2026-11-24 (test list section 198, all thirteen points; the pieces
+  checked as PNG): THE COMPASS WITH THE GEM AND THE HOLLOW ON UW2. `UWClassicLayoutUw2.CompassRecess` (84/145, 72 x 21,
+  its top corners bevelled: `UWHudMasks.CompassRecessUw2`, each row from the outline's left pixel to its right, read
+  from a luma map) and `RuneHollow` (170/148, 54 x 18, the runes at rune_x, pitch 14). `UWCompassDiscBuilder.Build`
+  gives the second game's disc (`BuildUw2`: the recess cut, opaque, a pixel of room, the optional outline),
+  `ComposeUw2Compass` the compass of a step over the box of its four faces and sixteen needles (93/148, 53 x 16; whole,
+  or freed by the first game's cross and tip rules). `UWCompassGeometry` (new, UWData) says per game how the compass
+  lies on its disc (`CrossOnDisc`: the first game's places, the second's 10/4), whether it has arrows (UW1) and the
+  gem (UW2, `GemOnCross` 20/3) and whether the cross goes freed onto the disc (UW1) or whole (UW2: the face's stone
+  covers the cross baked into the recess). `UWFrameCutBuilder` cuts the hollow per game (`RuneHollowOf`,
+  `RuneHollowRunes`). The host answers `Compass(step, freed)` and has `Compass` and `RuneHollow`; `UWModernCompass`
+  draws the live power gem in the compass while `UWModernLayout.IsGemInCompass` (the second game's compass shows, the
+  gem not apart), and the vitals then leave it out of their row (`BuildVitalsArt` without the gem's room). Open for
+  the user: the freed needle keeps only its red tip (the first game's rule) - 198.6.
+  FOUND AT THE TEST (per user, the same day; the rest passed, the freed needle's red tip too): the hollow kept a light
+  strip left of its black line - it now begins at the line (174), as wide on both sides; the compass's look said
+  "Disc" on UW2 too, where it lies in a hollow - the editor's choice says "Hollow" there, as the help names it
+  (`editor.compass.hollow`; the
+  inspector's rows are built anew when another game runs). Test points 198.9 and 198.10.
+  FOUND AT THE SECOND TEST (per user, 2026-11-24; all else passed): clicks behind the open layout editor took things
+  in the world on UW2. The menu holds the world on the control scheme (`HoldUiModal`, `IsWorldInputBlocked`), which the
+  first game's Interaction asks; the second game's world view (`fIsInputTaken`) and attack (`fBusy`) did not - both ask
+  it now, and the menu falls back to the shared scheme when the HUD has none. Test points 198.11 to 198.13.
+  STEP 2 SPLIT 2026-11-24 into four parts, each with its own test: 2a the ledge as the stone shelf, 2b the scroll's
+  paper, 2c the left hollow for the active spells (a new look of theirs, a new setting), 2d the generated backs - their
+  four colours are ramps read at fixed places of the first game's frame (MAIN.BYT 82/135, 104/136, 240/12, INV.GR 6)
+  and their patterns its wall textures (W64 126, 207, 201), so the second game needs its own sources, chosen with the
+  user by eye.
+  STEP 2a BUILT AND USER-CONFIRMED 2026-11-24 (test list section 199, all four points; checked as
+  PNG): THE STONE SHELF FROM THE MARBLE LEDGE. `UWClassicLayoutUw2.Ledge` (0/145, 242 x 21, the bevelled ends 12 and 15
+  columns) and `SpellHollow` (16/148, 50 x 18, as the rune hollow). `UWStoneShelfBuilder.Build` gives the second game's
+  shelf (`ComposeUw2`): its two ends as the ledge has them, the marble between grown pixel by pixel with
+  `UWTextureSynth.GrowFrom` from the ledge's plain marble only (never the three hollows, by their places and the
+  compass recess's mask) - the plain stretches between the hollows are 14 columns, too short for the first game's
+  quilted pieces; the same shelf every time, a wider one grows on the right (but for the two columns grown against the
+  right end). The host has `StoneShelf`.
+  STEP 2b BUILT AND USER-CONFIRMED 2026-11-24 (test list section 200, all ten points; checked as
+  PNG): THE SCROLL FROM UW2'S FRAME. `UWClassicLayoutUw2.ScrollPicture` (8/167, 224 x 33: knob to knob, the rods'
+  rows). `UWScrollPaperBuilder.Build` gives the second game's scroll (`BuildUw2`/`ComposeUw2`): the frame's rows with
+  the ground (0, 0, 4) and the pillars' bluish stone clear, the paper in palette 0x71 over the rows the classic screen
+  fills (169 to 197, column 16 on, 208 wide), the edges SCRLEDGE.GR (left from 0, right from 5, their frames as the
+  classic screen's) opaque at 12 and 224; taller by the first game's row rule, wider at column 120, narrower from
+  column 32 (up to 160). `UWModernScroll` takes the game's paper (its width, its left 8, its own width 224 for the
+  editor's number) and the game's log colours. FOUND ON THE WAY: the modern message box and scroll read the first
+  game's colour codes on UW2 too - `UWMessageLogModel.ColourIndicesOf`/`ColourTable(palettes, game)` give the second
+  game's (font_color 0x76, spec_col). The editor offers the scroll on both games (`fHasClassicPieces` keeps only the
+  stands).
+  FOUND AT THE TEST (per user, 2026-11-24; the rest passed): the scroll kept five lines however tall, and the layout
+  editor's Kenney pointers did not show on UW2. The screen kept five lines (`KeptMessages`, the classic box's) - now
+  `UWMessageLog.HistoryCount` as the first game's - and paged by the classic box always - now by the scroll or box
+  shown in the modern scheme (`UWControlScheme.Ui.ShownLogLines`, decision 17). Every editor pointer goes through
+  `UWModernLayoutEditor.PointerTile`, which only the first game's pointer asked; `UWPointerCursor.TryShowEditorPointer`
+  is the one routine now, the second game's screen asks it too. Test points 200.7 to 200.10. TEST 200 CONFIRMED per
+  user the same day (all ten points).
+  FOUND AT THE TEST (per user, 2026-11-24): on UW2 one click went over more than one [MORE]. THE PAGING'S INPUT IS ONE
+  ROUTINE NOW (per user: "a candidate for a common routine"): `UWPageInput.TryConfirm` - any key, mouse or pad button,
+  one page a frame whoever asks, after a mouse press the buttons up before the next (the original's mouse_release) -
+  asked by the first game's log (`UWMessageLog.UpdatePaging`), the second game's screen (`fUpdatePaging`) and its
+  conversation's answer scroll (`fUpdateLookPaging`), each of which read the press itself until then;
+  `ConsumedThisFrame` and the second game's waiting tell the pad's owners and the back chain on both games (only the
+  first game's Interaction did). No path that paged on the release was found in the code; the routine rules out both
+  a second page in the frame and one on the release. Test list section 201.
+  FOUND AT THE TEST of 201 with a TEMPORARY one-line log per page step (who called, which press): a scroll of 4 lines
+  with the messages at 3 - E printed 2 lines, the mouse's press the last 2, the release paged nothing. But the second
+  game's `IsWaitingForPage` stays true until the buttons are up after the last page (the click must not reach the
+  world), and the modern scroll and box read it for [MORE]: they kept [MORE] and a line less until the release, which
+  looked like a second page; a key holds nothing, so all came at once - right, the text had two pages. Now
+  `UWGameScreenUw2.IsMoreShown` (the pending lines) is what the host gives the windows, `IsWaitingForPage` stays the
+  input's hold - as the first game keeps its wait apart from the press that paged. The log is out again. Test points
+  201.6 and 201.7.
+  FOUND THE SAME DAY (per user): a narrowed scroll did not count its extra wraps. Both games wrapped a long text for
+  paging at the classic box's width (291, 208) and the modern scroll wrapped each line again at its own; a page grew
+  past the scroll and its first lines scrolled away unread - on UW1 too since the scroll could be narrowed (issue 29).
+  `IUWUiScheme.ShownLogWidth` (the classic scheme the box's, the modern scheme `UWModernScroll.ShownTextWidth` while the
+  scroll shows) is what both games wrap to now (`UWHudMessageLog.WrapLogText`, `UWGameScreenUw2.SayPaged`). Test points
+  201.8 to 201.10. TEST 201 CONFIRMED per user the same day (all ten points).
+  STEP 2c BUILT 2026-11-24 (test list section 202 open; self-check green, settings fixtures recorded anew, build done,
+  not tried in the game; checked as PNG): THE ACTIVE SPELLS IN THE LEFT HOLLOW. The piece is `SpellHollow.CutPlace`
+  (16/145, 50 x 21: the hollow with the ledge's rim above it - the spells, 16 x 18 at 0x37, reach up into it on the
+  frame), cut by `UWFrameCutBuilder.BuildSpellHollow` as the rune hollow; `SpellHollowIcon` gives each spell's place
+  (spell_x, the first at the right). New layout setting `ModernSpellHollow` (look: row or hollow; in the presets, Classic
+  Modular on), new part `UWModernPartEnum.SpellHollow` (the second game's host has it), `UWModernLayout.IsSpellHollowShown`;
+  `UWModernActiveSpells` draws the hollow as the Spells element with the spells in it, the hollow's outline as the rune
+  hollow's; the editor offers the look at the spells where the game has the part.
+  FOUND AT THE TEST (per user, the same day; the rest passed): the first game's host answered yes to every part, the
+  spells' hollow too - its editor offered the look and Classic Modular cut the first game's frame at the second game's
+  places; it has every part but `SpellHollow` now. And the hollow at the screen's bottom showed the spell's name under
+  the screen: `UWModernActiveSpells.fPlaceTip` puts it above the spells where there is no room below (row and hollow).
+  Test points 202.7 to 202.9. TEST 202 CONFIRMED per user the same day (all nine points).
+  STEP 2d BUILT 2026-11-24 (test list section 203 open; self-check green, build done, not tried in the game): THE
+  GENERATED BACKS IN UW2'S COLOURS AND WALLS, chosen per user from two sheets (four colour sources with two candidates
+  each beside the first game's, sixteen walls as patterns in one colour). `UWClassicLayoutUw2.BackSources`: leather the
+  scroll's rods and knobs (8/167), marble the ledge between the spells' and the compass's hollows (70/150), stone the
+  compass hollow's inside (86/150), bronze the compass's gold (94/148); patterns T64.TR 209 (rough rock), 62 (blots), 88
+  (veins). `UWBackdropArt.fRampUw2` reads them with its own filters (warm, bluish, plain grey), `fPatternTexture` the
+  game's walls; the host has `Backs`. Until now the second game read the first game's places on its own frame. TEST 203 CONFIRMED per user 2026-11-24 (all five points). STEP 2 COMPLETE.
+  STEP 3 BUILT 2026-11-24 (test list section 204 open; self-check green, build done, not tried in the game): CLASSIC
+  MODULAR ON UW2. Per user the same day: the arrangement about as on UW1, and THE GEM STAYS IN THE COMPASS, without a stand
+  of its own. `Supports(ClassicPlus)` on the second game's host; its places are `UWLayoutPresets.ClassicModularLayoutUw2`,
+  A DRAFT equal to the first game's until the user arranges the pieces in the own layout (from the editor's Classic
+  Modular start) and they are taken over (`ClassicModularLayoutOf`, `Apply(start, data, game)`,
+  `UWModernClassicPlus.Layout` per game). `UWModernLayout.IsGemOfTheCompass` (the game's compass has the gem): the gem
+  lies in the compass while it shows, else between the flasks, and alone without a stand only with the flasks apart and
+  no compass (`UWModernVitals.fUpdateGemAlone`); the editor offers no gem stand there, the flasks' stands it does. The
+  shelf's width in Classic Modular leaves the game's page width (`UWModernClassicPlus.PageWidth`). THE USER'S
+  ARRANGEMENT TAKEN OVER the same day (from settings.json, the second game's own layout laid out from the editor's
+  Classic Modular start): `UWLayoutPresets.ClassicModularLayoutUw2` holds it, pinned in LayoutPresetChecks. Test point
+  204.7. The takeover first missed the narrowed scroll (per user): Classic Modular's scroll width is the game's now
+  (`ClassicModularScrollWidthOf`: 0 on UW1, -48 on UW2; `UWModernClassicPlus.ScrollWidth` in `UWModernScroll.fWide`),
+  and the editor's Classic Modular start writes it (on UW1 back to 0, where it left the own width before). Test point
+  204.8.
+  PER USER the same day: the spells' hollow without the rim above it, cut as the rune hollow (`SpellHollow.Place`; the
+  rim cut `CutPlace` is gone) - the spells reach 2 to 3 pixels above it, as into the rim on the frame. Test point 204.6.
+  TEST 204 CONFIRMED per user 2026-11-24 (all eight points). STEP 3 COMPLETE. STAGE U6 COMPLETE 2026-11-24.
+  AFTER IT, PER USER the same day: the own layout offered no way to free the second game's gem from the compass. Now
+  `ModernGemApart` frees it there too, alone without a stand (`IsGemApart` on UW2: the own layout's switch, or the
+  flasks apart without a compass; `IsGemInCompass` only while not apart); the editor offers it at the compass ("In
+  compass / Apart") and at the freed gem ("Apart / In compass", the flasks left as they are); the Classic Modular
+  start writes it off on UW2. TEST 205 CONFIRMED per user 2026-11-24 (all five points).
+- **U7 Classic Wide (`Classic`) for UW2.** A frame of its own: `UWClassicWideBuilder`'s cuts are measured on
+  UW1's `MAIN.BYT`; UW2 has no dragons, the commands as a 2 x 3 bar at the bottom right and a panel that
+  slides. Measured on UW2's frame and checked by eye with the user (the notes at the end of phase 3 step 8).
+  SURVEYED 2026-11-24 (per user "Ja, U7 starten"; both games' frames and conversation screens rendered as PNG).
+  WHAT CLASSIC WIDE IS ON UW1 (`UWModernClassicFrame`, `UWClassicWideBuilder`): MAIN.BYT pulled to the screen's width
+  at two cuts in each of four bands (`UWClassicLayout.ClassicWide`: top bar rows 0-18 at x 78/198, view 19-127 at
+  53/223, ledge 128-167 at 100/173, scroll 168-199 at 82/223), the columns put in grown pixel by pixel from plain
+  sources (`UWMainFrame.ClassicWideSources`, the rust left out), the hole flooded from the view's middle over MAIN.BYT's
+  clear pixels; the pieces at the frame's places shifted by their band (`ClassicWideShiftX`): the compass on its base,
+  the gem on its stand, the flasks, the rune hollow, the active spells on the left stone, the scroll, the panel at the
+  right with its turn and chains (the stats on the chain's pull, the tablet on the runes key), the gargoyle's eyes,
+  the dragons (`UWHudDragons`), the weapon under the frame, the command column as decoration (the fight icon lit),
+  the conversation in the original's look over the view (`UWConversationArtBuilder`, CONV.BYT's pieces). Nearly all of
+  it reads `UWClassicLayout` (the first game's numbers) directly; the host gives `ViewPicture` and `DragonSprite`.
+  WHAT THE SECOND GAME'S FRAME HAS (BYT.ARK block 4, all opaque): the view's black window x 16-223, rows 16-143; the
+  top bar over it with the gargoyle (head x 108-131, its claws reaching to about x 65 and 177) and the eyes (0x6E);
+  the marble ledge (rows 145-165) with the spells' hollow, the compass recess with the gem and the rune hollow (U6's
+  cuts); the scroll under it (x 8-231, rows 167-199); and A RIGHT BLOCK from about x 226 over all rows - the panel
+  (0xEB, 79 x 112, sliding in twenty frames with CHAINS.GR at 0x110), the flasks on their stone with the chain between
+  them (`FlaskClicks`: values, the chain's pull), the command bar (OPTB.GR, 2 x 3 at 0xF3, rows 171-199) - and no
+  dragons, no left command column, no clear pixel (the hole is the black window, not a flood). THE CONVERSATION SCREEN
+  (BYT.ARK screen 2, `UWConversationScreenUw2`) covers everything left of the right block - the portraits and trade
+  boxes at the top (rows 0-76), the parchment (rows 77-165) and the answers' scroll (rows 166-199) - and keeps the block.
+  PROPOSED SHAPE (UW1's mechanisms, UW2's pieces): the RIGHT BLOCK MOVES WHOLE to the right edge in every band, the
+  left part grows: the top bar cut either side of the gargoyle's claws (the gargoyle stays over the view's middle), the
+  view between its walls, the ledge between the spells' hollow and the compass recess and between the recess and the
+  rune hollow (the compass stays in the middle, the rune hollow goes with the right side), the scroll in its paper -
+  the columns grown as on UW1 (`ClassicWideSources` per game). A CLASSIC WIDE GEOMETRY PER GAME (as the stats page's,
+  the paperdoll's, the compass's, the tablet's): the bands, cuts, sources, hole, camera area, the pieces' places, the
+  panel's turn (UW1) or slide (UW2) with its chains, the eyes, the command bar; `UWModernClassicFrame` reads it instead
+  of `UWClassicLayout`. The conversation's original look on UW2: screen 2 widened by its own cuts over the frame's left
+  part, the right block staying (as the original keeps it); in Classic Modular the screen's pieces freed (the portraits'
+  and trade boxes, the parchment), as UW1's CONV.BYT pieces; the host's `HasOriginalLook` then true.
+  STEPS (proposed): (1) THE WIDENED FRAME: the geometry per game and the builder on UW2's frame, rendered as PNG at
+  16:9 and 21:9 and checked by eye with the user before anything runs (the cuts, the grown stone, the gargoyle's bar);
+  (2) CLASSIC WIDE RUNS ON UW2: `Supports(Classic)`, the frame class on the geometry - the camera's area, the weapon and
+  the gargoyle's teeth (3DWIN.GR 0), the pieces at the frame's places (compass with gem, both hollows, flasks, scroll),
+  the panel with its pages, its slide and chains, the eyes, the command bar as decoration with the fight icon lit (as
+  UW1's column), no dragons; (3) THE CONVERSATION'S ORIGINAL LOOK on UW2, in Classic Wide over the widened left part and
+  in Classic Modular as freed pieces.
+  DECIDED per user the same day: THE COMMAND BAR IS DECORATION, as UW1's column (shown, the fight icon lit while the
+  weapon is drawn, clicks do nothing). THE CLASSIC SCHEME'S WIDESCREEN BOX for UW2 (UWClassicWide, UW1's classic
+  scheme) COMES AFTER U7, as a part of its own on U7's cuts; UW2's classic screen stays at 320 columns until then.
+  STEP 1 BUILT 2026-11-24 (test list section 206 open, PNGs only - Temp/U7/classicwide_uw2_16x9.png and _21x9.png;
+  self-check green, the first game's widened frame byte for byte as before at 0, 106 and 240 columns): THE WIDENED FRAME.
+  `UWClassicWideGeometry` per game (the bands, cuts, sources, hole, camera's area, how the hole is told - the first
+  game's clear pixels, the second game's window black, `HoleBlack` - and whether COMPASS.GR 0 covers a baked needle);
+  `UWClassicWideBuilder.Build/Compose` cut on it, its static members the first game's as before. The second game's
+  numbers in `UWClassicLayoutUw2.ClassicWide` (measured on luma maps): bands from rows 15 (view), 145 (ledge), 167
+  (scroll); cuts top bar 46/209 (plain stone either side of the claws), view 16/224 (the black's edges), ledge 75/165
+  (plain marble either side of the compass recess), scroll 60/180; sources the bar's stone without moss (30-61,
+  201-216), the ledge's marble without the hollows' black top lines on row 148 (70-83, 157-169; the first try took
+  them and grew dark dots), the scroll's rods (20-109, 130-219). The hole is the camera's area (16/16, 208 x 128),
+  flooded over the window's black: its black ring and the gargoyle's teeth stay. Checks: `Uw2ClassicWide`. The
+  baked compass, gem and flasks stay in the frame until step 2 lays the pieces on them.
+  PER USER the same day, from three rendered variants of the ledge (A the hollows apart as built, B together round
+  the compass, C spread): C. A BAND MAY HAVE ANY NUMBER OF CUTS now (`UWClassicWideGeometry.Cuts` rows,
+  `Share`: the columns put in shared evenly, the remainder to the later cuts - two cuts as before, the first game's
+  frame byte for byte the same at 0, 106 and 240); the second game's ledge cuts four times, at 13 and 226 (the only
+  full-height plain columns beside the bevels at its ends) and at 75 and 165, a quarter each: the spells' hollow
+  moves a quarter, the compass recess half, the rune hollow three quarters - the group stays, the rune hollow comes
+  close to the panel and its rune page. Test point 206.6. TEST 206 CONFIRMED per user 2026-11-24 (all six points, on the
+  PNGs; UW1's Classic Wide looked at in the game, on the build before U7). STEP 1 COMPLETE.
+  STEP 2 SPLIT the same day (it touches some twenty places that read the first game's frame): 2a Classic Wide runs on
+  UW2 with its pieces and clicks, a page changing at once; 2b the panel's own slide with the chains. NOTE on the user's
+  answer "decoration as UW1's column": the first game's column is decoration but for the fight icon, which lights and
+  works (draws or sheathes the weapon) - so the second game's bar does the same.
+  STEP 2a BUILT 2026-11-24 (test list section 207 open; self-check green, build done, not tried in the game): the host
+  `Supports` every preset and `Has(ClassicFrame)`; `UWModernClassicFrame` reads the geometry (`ShiftX`, the camera's
+  area, the hole, `ProjectionCentreRow` - the second game's window middle, row 80 -, `WeaponRow` - its view's bottom,
+  144 -, `HasDragons`) and places the second game's pieces (`fTryGetPlaceUw2`: the compass whole over
+  `Uw2CompassBox` with the gem, the flasks at FL_X on their stone, the rune hollow, the spells at spell_x moved with
+  the spells' hollow, the scroll from its knobs, the pages at 0xEB/7, the modern conversation over the view's middle),
+  the eyes at its head, the command bar drawn plain (OPTB.GR 0) with the fight icon lit (OPTB.GR 1's first, 26 x 15)
+  and clickable; the clicks by rules the classic screen now shares (`UWClickRules.CommandIconAtUw2`, `IsInFlasksUw2`,
+  `FlaskAtUw2`). `UWGameScreenUw2` puts the camera in the frame's window at the original's angle. The scroll is its own
+  picture widened by the frame's columns, four lines and [MORE]'s row as on the first game (both boxes are 30 rows;
+  counting the second game's five rows as lines made the paper a line taller and showed its top rod twice, per user's
+  screenshot - fixed the same day); per the user's next screenshot also fixed: the camera's area began half the
+  columns put in too far right (`fSpan`'s left edge now takes the columns put in at a cut on it - the second game's
+  view cuts at its window's edge, the first game's spans start left of their cuts), and the clipped weapon stood the
+  view's bottom too high (its top counted from the clip area's bottom); and per the user's crops beside the original,
+  the scroll's rolling edges were a row short at the bottom in both schemes: SCRLEDGE.GR's pictures are 29 rows and
+  pic_to_screen draws a picture at its own size (GRSPIC.C seg009_73 overwrites the 0x1C draw_edges passes) -
+  `UWClassicLayoutUw2.MessageLog.EdgeHeight` 29 now (test point 207.10); TEST 207 CONFIRMED per user 2026-11-24 (all
+  ten points). STEP 2a COMPLETE.
+  STEP 2b BUILT 2026-11-24 (test list section 208 open; self-check green, build done, not tried in the game): THE PANEL
+  SLIDES in Classic Wide on UW2. `UWPanelTurn.Slides` (set by the frame per game before Begin): twenty frames
+  (`PanelSlide`), `Frame.Offset` the old page's columns out for ten frames, then the new page's in, the flip on the
+  eleventh, `ChainFrame` CHAINS.GR 0 to 3 on frames 1, 4, 13, 16 (-1 between); the same sides, targets and conversation
+  hold as the turn. `UWModernClassicFrame.fUpdateSlideUw2`: a frame each `FrameSeconds`, the pages moved by the offset
+  (`ApplySquash`), the panel's place in palette colour 1 under them, over them the frame right of the panel and black to
+  the screen's edge (a canvas of its own, `UWUiSorting.ClassicWideSlideCover`), the last chain picture kept as the
+  classic screen keeps it. Checks: the slide's frames in `Uw2ClassicWide`. Not done: the classic screen's own slide
+  (`UWGameScreenUw2.fSlideStep`) still has its own copy of the frame rule - a later clean-up could run it on
+  `UWPanelTurn.Slides` too. TEST 208 CONFIRMED per user 2026-11-24 (all six points). STEP 2b AND STEP 2 COMPLETE.
+  PER USER the same day (a screenshot: the pointer on the frame, the name in the middle "Table"): the second game named
+  in the middle what the free pointer was on (its ray through the pointer, even off the camera's area); now as the
+  first game (the user's choice of three): the view's middle's thing (`UWWorldViewUw2.PointedEntity`, `fCentreEntity`;
+  the key icon's door too), the clicks still the pointer's. TEST 209 CONFIRMED per user 2026-11-24 (all three points).
+  STEP 3 SURVEYED 2026-11-24 (per user "Ja, Schritt 3"): THE CONVERSATION'S ORIGINAL LOOK ON UW2. On UW1
+  (`UWModernConversation.fLayoutOriginal`, `UWConversationArtBuilder`) it is one block of CONV.BYT's pieces: the top
+  (name plates, portrait frames, the two trade areas, x 43-232, rows 0-46), the parchment with the history under it
+  (rows 47-135) and an answers' parchment of its own with the scroll's knob rollers; the names, portraits, slots, the
+  history's and the answers' places and the colours are `UWClassicLayout.Conversation`'s; in Classic Wide the block lies
+  over the view at x 43 (the dragons beside it), in Classic Modular where the layout puts it. The host's
+  `HasOriginalLook` is false on UW2. UW2'S CONVERSATION SCREEN (BYT.ARK screen 2, `UWConversationScreenUw2`) covers
+  everything left of the right block and below it: the top (rows 0-76) with the two portrait boxes (portraits at 2 and
+  0xA8, row 3), the two trade grids of 2 x 3 between them (0x4B and 0x7C) and the name bars (the partner's under the
+  grids at 0x47, the player's above them, right-aligned before 0xA4); the parchment (rows 77-165) with the history
+  (npc_scroll, x 0x18 to 0xDA, 13 lines of 6 rows from row 81) and its rolling edges (three tiles a side at 0x11 and
+  0xDB); and the answers on a scroll the full width of the screen (menu_scroll, x 8 to 0x137, rows 166-199) - over the
+  command bar; the inks are palette colours (0x75 partner, 0x68 player, 1 narrator).
+  PROPOSED SUB-STEPS: (3a) the second game's pieces cut from screen 2 (the top, the parchment, the answers' scroll)
+  and a conversation geometry per game for the places, rendered as PNG and checked with the user; (3b) the original
+  look in Classic Modular on UW2 (`HasOriginalLook`, the modern conversation reading the geometry); (3c) the original
+  look in Classic Wide on UW2. OPEN for the user: in Classic Wide, (A) screen 2 widened like the frame (the left part
+  and the bottom scroll grow, the right block stays - as the original covers the screen), or (B) the pieces at their
+  places over the widened frame (as the first game's block over its view). Both can be rendered as PNG in 3a.
+  DECIDED per user the same day, after a third variant came up: (C) CLASSIC WIDE GOES BACK TO 4:3 FOR THE CONVERSATION,
+  as the first game's classic scheme does with its widescreen box (`UWClassicWide.Update`: Extra 0 while the
+  conversation frame shows) - the frame at the original's 320 columns, black at the sides, screen 2's pieces at their
+  own places over its left part and the full-width answers' scroll, as the original shows it; wide again afterwards.
+  The first game's modern Classic Wide keeps its block over the wide view (unchanged). So 3c is the switch to 4:3
+  and the pieces at screen 2's places; 3a and 3b as proposed.
+  STEP 3a BUILT 2026-11-24 (test list section 210 open, a PNG only; self-check green): THE SECOND GAME'S CONVERSATION
+  PIECES from screen 2 (`UWConversationArtBuilder.BuildHeaderUw2`, `BuildParchmentUw2(rows)`, `BuildAnswersUw2(width)`;
+  `UWClassicLayoutUw2.Conversation.Header` 0/0 234 x 77, `Parchment` 17/77 206 x 85 with `ParchmentRim` 6,
+  `AnswersScroll` 0/167 320 x 33 narrowed or widened from `AnswersNarrowFrom` 40): opaque, the black reached from the
+  edge clear; the stone columns and the dark shade beside the parchment are the frame's. First cut a column short at
+  the right box (its outline at 233; the box went clear through the gap) and two columns too wide at the parchment.
+  Checks: `Uw2ConversationPieces`. The places of the names, portraits, slots and texts on them come with 3b. NOTE: the
+  Unity build clears the project's Temp folder - the PNGs for the user go to the session's scratchpad now. PER USER the
+  same day: the black dashes at the answers' scroll's ends were the pillars' dark edge (colour 163, bluish) - cleared
+  as the main scroll's bluish stone (test point 210.4); so was a pixel over each of the parchment's top corners, cleared
+  the same way (`fClearPillarEdge`, test point 210.5). TEST 210 CONFIRMED per user 2026-11-24 (all five points, on the
+  PNG). STEP 3a COMPLETE.
+  STEP 3b BUILT 2026-11-24 (test list section 211 open; self-check green, build done, not tried in the game): THE
+  ORIGINAL LOOK IN CLASSIC MODULAR ON UW2. `UWConversationLook` per game (data layer): the block's width, the pieces'
+  places, the history's and the answers' text, the names (the second game's player's right-aligned), the portraits,
+  the slots (2 x 3 a side on UW2), the colours (the first game's fixed, the second game's palette inks); the first
+  game's values exactly the constants `UWModernConversation` kept (checked). `UWModernConversation.fLayoutOriginal`
+  reads it; `UWHudArt.BuildConversationHeader/Parchment` give the game's pieces (UW2: screen 2's top, parchment, and the
+  answers' scroll the block's width, as high as the first game's answers' parchment, 52 rows - `AnswersRim` 10);
+  the host's `HasOriginalLook` true. Until 3c the original look stands in Classic Wide too, over the view. Fixed at the
+  test: the player's name came from the view (empty on UW2) - now the host's as in the modern look, the view's for the
+  editor's preview; and the preview's history was empty on UW2 (its history shows `LinesRevealed`, 0 without a
+  session) - `UWConversationView.Preview` gives every line out at once; and the preview did not come on UW2 at all
+  (`fIsPreviewing` asked for a control scheme above the conversation, which on UW2 hangs on its screen - the scene's
+  now); the preview's partner is the host's (`PreviewPartnerName/Portrait`: the first game's Shak, the second game's
+  Lord British, whoami 142, his name from block 7), its heads from the view where no conversation runs (UW2 host). Then the preview came only after a first
+  conversation: the UW2 host's `Data` was the conversation screen's, which exists only from then on - the game
+  screen's before; its names and heads only from a running conversation (`fRunning`), else the last partner's showed.
+  The preview's player name is the save's on UW2 (`UWPlayerRecordUw2.Name`, it said "Avatar"); its sample text stays
+  the first game's (Shak at his forge) beside Lord British - per user, fine for a preview. TEST 211 CONFIRMED per user
+  2026-11-24 (all eleven points). STEP 3b COMPLETE.
+  STEP 3c BUILT 2026-11-24 (test list section 212 open; self-check green, build done, not tried in the game): CLASSIC WIDE
+  AT 4:3 FOR THE SECOND GAME'S CONVERSATION. `UWModernClassicFrame.fTalkAt4By3` (UW2 and a conversation open): Extra 0
+  and the frame in the middle as with the 4:3 box; `fUpdateConversationScreenUw2` lays screen 2 over the frame (opaque, the
+  right block from PanelLeft above PanelBottom left clear, so the frame's block with the page shows), the command bar and
+  the fight icon hidden under it; the conversation block from screen 2's top-left (TryGetPlace). `UWConversationLook.Uw2Screen`:
+  the block's places but the answers on the full-width scroll at row 167 (33 rows, menu_scroll's text from x 8 and row
+  169, 302 wide; `AnswersWidth` for the piece); `UWModernConversation` takes it in Classic Wide on UW2 and does not dim
+  there. The first game's Classic Wide unchanged (its block over the wide view). TEST 212 CONFIRMED per user 2026-11-24
+  (all six points). STEP 3c AND STEP 3 COMPLETE. NOTE: the user had thought the first game's Classic Wide goes to 4:3 in a
+  conversation too (it is its classic scheme's widescreen box that does); whether the second game should rather lay its
+  pieces over the wide frame as the first game does is being discussed.
+  DECIDED AND BUILT the same day (per user, from rendered variants; test list section 213 open; self-check green, build
+  done, not tried in the game): AS THE FIRST GAME'S, variant b - the 4:3 switch and screen 2 under the conversation are
+  gone again; the frame stays wide, the block over the view from (Left, 0) (`TryGetPlace`), `UWConversationLook.Uw2Wide`:
+  the parchment 70 rows (`WideParchmentRows`, the history 63 rows), the answers' scroll of its own right under it at 52
+  rows, the block 199 rows - no scaling; the frame's scroll stays empty, the world dims as on the first game. With it the
+  second game's top is whole and opaque (`ComposeHeaderUw2` clears nothing: the black column between the grids, reached
+  from the edge, had gone clear). TEST 213 CONFIRMED per user 2026-11-24 (all five points). STEP 3 COMPLETE. STAGE U7
+  COMPLETE 2026-11-24. Left after it (not U7): the classic scheme's widescreen box for UW2 (on U7's cuts, per user after
+  U7); the clean-up of the classic screen's slide copy onto `UWPanelTurn.Slides`.
+- **U8 The classic scheme's widescreen box for UW2** (per user after U7, "Breitbild-Schalter UW2", 2026-11-24).
+  SURVEYED the same day. ON UW1 (`UWClassicWide`, the Graphics page's "Classic screen widescreen", `ClassicWidescreen`):
+  the classic frame (`UWGameUI.mGameFrame`) widened to the window by Classic Wide's cuts (`UWClassicHud` builds the
+  picture with `UWHudArt.BuildClassicWideFrame`), and once a frame, before the canvases draw, every direct child of the
+  frame moved by its place's band (`ClassicWideShiftX`); parts in the view's hole move with its middle (`InHole`: the
+  weapon, the window picture), the message box grows (`Widened`), corner-anchored nodes keep their size (`FrameSized`);
+  `Extra` 0 while the conversation frame or the big map shows, in the modern scheme and with the help squeezing the
+  frame; the click table reads original columns (`OriginalX` -> `UWClassicGeometry.OriginalColumn`, -1 in the columns
+  put in). It all reads the first game's cuts (two a band). ON UW2: the switch shows on the Graphics page but does
+  nothing (`UWGameScreenUw2` stands on 320 columns): its frame `mOFrame` with the screen picture and every part as a
+  direct child at frame coordinates (`fImage`, groups such as the panel's window with its mask), side bars at 4:3, the
+  camera from `UWClassicLayoutUw2.Frame.ViewWindow*`, `TryGetOriginalPoint` on 320 columns, the pointer's zones in
+  fifteenths of the 208-wide window, its own conversation screen (screen 2) and map screen.
+  PROPOSED STEPS (the first game's mechanism, the second game's geometry): (1) `UWClassicWide` and
+  `UWClassicGeometry.OriginalColumn` per game (`UWClassicWideGeometry`: `ShiftX`, any number of cuts); on UW2 the frame
+  picture widened (`UWClassicWideBuilder.Build`), `mOFrame` and the side bars as wide as the window, the parts moved by
+  their bands, the weapon and the teeth in the hole, the scroll's paper and text widened, the camera in the widened
+  window - a look first, the clicks still at 320; (2) the clicks and the pointer: `TryGetOriginalPoint` through the
+  original columns, the pointer's zones over the widened window as the first game's, the scroll's wrap at the wider
+  width, the hover places; (3) where the original's 320 stays, as on the first game: the conversation screen, the map,
+  the options panel if it covers the view, the help beside it. OPEN: none known; the first game's rules apply.
+  STEP 1 BUILT 2026-11-24 (test list section 214 open; self-check green, build done, not tried in the game): THE LOOK.
+  `UWClassicWide.Attach(frame, geometry)` (the first game's unless given) moves the parts by that game's bands,
+  `PlacedAs` for a part moving as another place (the second game's active spells with their hollow);
+  `UWGameScreenUw2`: attached with `UWClassicWideGeometry.Uw2`, `UWClassicWide.Update` while the classic screen shows
+  (suspended for the conversation screen and the map; 0 otherwise), the frame `320 + Extra` wide with the widened
+  picture (`fEnsureWideScreen`, through the colour help), the side bars from that width, the scroll's paper `Widened`,
+  the camera's window `ViewWindowWidth + Extra` wide. Clicks, the pointer's zones and the scroll's wrap still on 320
+  columns (step 2). TEST 214 CONFIRMED per user 2026-11-24 (all six points). STEP 1 COMPLETE.
+  STEP 2 BUILT the same day (test list section 215 open; self-check green, build done, not tried in the game): THE CLICKS.
+  The way back per game (`UWClassicWideGeometry.OriginalColumn`, any number of cuts; `UWClassicGeometry.OriginalColumn`
+  and `UWClassicWide.OriginalX` onto it - the first game's columns checked to be the same as before); the second game's
+  `TryGetOriginalPoint` reads the widened frame's width and maps back by its cuts, false in the columns put in (every click
+  of the frame - inventory, flasks, chain, compass, cast area, command bar, options - goes through it); the scroll wraps at
+  `MessageLog.Width + Extra` (`ClassicLogWidth`, the paged text too, as the first game's `fLogWidth`). The pointer's zones,
+  the walk and the missile window were already fractions of the camera's window (now widened), as on the first game.
+  TEST 215 CONFIRMED per user 2026-11-24 (all nine points). STEP 2 COMPLETE.
+  STEP 3 SURVEYED the same day, no code (per user, a test only; test list section 216 open): the first game keeps the
+  original's 320 only under its conversation frame and the big map (`UWGameUI`'s `UWClassicWide.Update`), which the second
+  game's screen has done since step 1 (its conversation screen and map, test 214.4); with the help beside the frame
+  `UWClassicWide.Update` itself narrows the widening to leave the help its full width, the same call on both games; the
+  options lie in the panel on both games and cover no view, so the frame stays wide under them. TEST 216 CONFIRMED per
+  user 2026-11-24 (all six points). STEP 3 COMPLETE. STAGE U8 COMPLETE 2026-11-24. Next: the beta gate.
+
+DECIDED 2026-11-23 per user: the Custom layout (`ModernLayout`) is kept PER GAME - UW2's pieces have other
+measures than UW1's, a layout arranged for one does not fit the other; today's layout stays UW1's. It is
+the first per-game setting (phase 0's candidate) and is built with part U4e.
+OPEN, for the user when the stage comes: how Classic Wide lays out UW2's frame (U7) - surveyed 2026-11-24, a shape
+proposed in U7's entry.
 
 ### Phase 6: the port's own things for UW2 (M)
 

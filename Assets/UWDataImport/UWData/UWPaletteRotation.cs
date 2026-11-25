@@ -52,7 +52,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// LAVA AND WATER ARE THE FIRST GAME'S (UW2 plan phase 2 step 3, the second test of the walk,
+		/// LAVA AND WATER ARE THE FIRST GAME'S (UW2 plan phase 2 step 3, the second test of the session,
 		/// 2026-10-29: UW2's walls glittered orange in Remastered - its colours 16 to 23 are no lava): what
 		/// glows and shines as lava or water (UWLookupTables.MaterialLookup, UWRemasterLights) asks these two,
 		/// and nothing does in a second game's session. WHAT ROTATES is IsUpIndex and IsDownIndex, by game.

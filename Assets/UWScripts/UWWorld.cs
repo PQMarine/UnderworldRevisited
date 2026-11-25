@@ -104,12 +104,12 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
             Loader.TeleportTo(piLevelIndex, piTileX, piTileY);
     }
 
-    /// <summary>The walk's teleport with the black between (UWLevelLoader.WalkTeleport): the move is made after the
+    /// <summary>The session's teleport with the black between (UWLevelLoader.Uw2Teleport): the move is made after the
     /// blink, as the original makes it in its main loop after the chain.</summary>
     public void TeleportSecondGame(UWTeleportUw2.Target pOTarget)
     {
         if (Loader != null)
-            Loader.WalkTeleport(pOTarget, true);
+            Loader.Uw2Teleport(pOTarget, true);
     }
 
     public bool RedrawObject(UWObject pOObject)
@@ -290,7 +290,7 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         /// <summary>The second game's player object keeps who struck him last (UWDeathRulesUw2.PlayerLastHit, the jail).</summary>
         public void PlayerStruckBy(int piAttacker)
         {
-            if (UWWalkUw2.IsWalking && UWGameSession.Current != null)
+            if (UWGameStartUw2.IsRunning && UWGameSession.Current != null)
                 UWDeathRulesUw2.SetPlayerLastHit(UWGameSession.Current.PlayerFileUw2, piAttacker);
         }
 
@@ -298,7 +298,7 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         {
             // The first game's component stands in the second game's scene too, with vitals nothing runs: the blows
             // landed there, the view shook and the flask stood still (per user, 2026-11-02).
-            if (UWWalkUw2.IsWalking)
+            if (UWGameStartUw2.IsRunning)
             {
                 if (UWVitalsUw2.Current != null)
                     UWDamagePipeline.Apply(UWVitalsUw2.Current.Vitals, pORequest);
@@ -670,7 +670,7 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         return lOCritter != null && lOCritter.Actor != null && lOCritter.Actor.KillOutright();
     }
 
-    /// <summary>The schedule host of the second game's walk (UWScheduleHostUw2.ForTraps), null otherwise.</summary>
+    /// <summary>The schedule host of the second game's session (UWScheduleHostUw2.ForTraps), null otherwise.</summary>
     public IUWScheduleHost Schedules => UWScheduleHostUw2.ForTraps(mOLoader);
 
     public bool TeleportCreature(UWObject pOCreature, UWTilePos pOTile, int piSubX, int piSubY, int piZPos)
@@ -701,7 +701,7 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         if (lOLoader == null || lOLoader.CurrentLevel == null)
             return;
 
-        int liSentHome = UWLevelExit.PassTime(lOLoader.WorldEdit, new NightCreatureHost(lOLoader), out int liRemoved, UWWalkUw2.IsWalking);
+        int liSentHome = UWLevelExit.PassTime(lOLoader.WorldEdit, new NightCreatureHost(lOLoader), out int liRemoved, UWGameStartUw2.IsRunning);
 
         if (liSentHome > 0 || liRemoved > 0)
             Debug.Log(string.Format("The night passed: {0} creatures sent home, {1} removed.", liSentHome, liRemoved));

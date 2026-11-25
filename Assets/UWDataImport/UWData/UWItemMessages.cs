@@ -67,13 +67,16 @@ namespace UWDataImport.UWData
 		public static string ContainerRejection(UWContainerCapacity.ResultEnum peResult, UWObject pOContainer,
 			DataImport pOData)
 		{
+			// The sentences stand at other numbers in the second game's strings (UWStringIds.InGame).
+			UWGame leGame = pOData != null && pOData.Textures != null ? pOData.Textures.Game : UWGame.Uw1;
+
 			switch (peResult)
 			{
 				case UWContainerCapacity.ResultEnum.RunesOnly:
-					return UWText.General(pOData, UWStringIds.RunesOnlyMessage);
+					return UWText.General(pOData, UWStringIds.InGame(leGame, UWStringIds.RunesOnlyMessage));
 
 				case UWContainerCapacity.ResultEnum.WrongType:
-					return UWText.General(pOData, UWStringIds.DoesNotFitMessage);
+					return UWText.General(pOData, UWStringIds.InGame(leGame, UWStringIds.DoesNotFitMessage));
 
 				case UWContainerCapacity.ResultEnum.TooHeavy:
 					return pOContainer != null ? IsTooFull(pOData, pOContainer.ID) : null;

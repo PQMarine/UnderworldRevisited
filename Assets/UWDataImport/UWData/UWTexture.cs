@@ -104,6 +104,17 @@ namespace UWDataImport.UWData
 		/// back.</summary>
 		public bool IsEmptyEntry { get; set; }
 
+		/// <summary>
+		/// The picture's own colour 0 is its clear colour (the second game's pictures drawn by pic_to_screen: objects,
+		/// spell icons, armour). The first game marks a clear pixel by the palette's dark blue instead (no red, no
+		/// green, some blue - UWPalette), which the resolved colour's alpha carries; the second game's palette has
+		/// such a colour too, its near black (0, 0, 4) of outlines and hair, which is no marker there.
+		/// Set by UWTextures for the second game; an icon made for the first game's
+		/// windows goes by it (UWUploadPixels.IconIndices), so a thing does not stand in a black box there (per user
+		/// 2026-11-23 with a picture of the character panel on the second game).
+		/// </summary>
+		public bool ZeroIsClear { get; set; }
+
 		public UWTexture(string psFileName, int piIndex, int piResolution, byte[] pyData, UWPalettes pOPalettes, TextureTypes peTextureType)
 		{
 			TextureFileName = psFileName;
@@ -237,6 +248,7 @@ namespace UWDataImport.UWData
 			Height = pOther.Height;
 			AuxPaletteIndex = pOther.AuxPaletteIndex;
 			MainPaletteIndex = pOther.MainPaletteIndex;
+			ZeroIsClear = pOther.ZeroIsClear;
 			Palettes = pOther.Palettes;
 			PaletteIndices = new byte[pOther.PaletteIndices.Length];
 			Array.Copy(pOther.PaletteIndices, PaletteIndices, pOther.PaletteIndices.Length);

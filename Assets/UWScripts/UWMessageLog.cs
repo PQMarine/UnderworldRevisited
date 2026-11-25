@@ -357,19 +357,10 @@ public sealed class UWMessageLog : IUWMessageSink
         if (!IsWaitingForPage)
             return false;
 
-        Keyboard lOKeyboard = Keyboard.current;
-
-        bool lbConfirm = (UWPointer.HasMouse
-                && (UWMouseButtons.LeftPressed || UWMouseButtons.RightPressed))
-            || (lOKeyboard != null && lOKeyboard.anyKey.wasPressedThisFrame);
-
-        // Any gamepad button as well (UWGamepad). The press is the paging's: the pad's pointer does not
-        // click with it (UWPadOwners asks Interaction.PagingTakesKeys when the frame begins;
-        // UWGamepad.ConsumePress here until cleanup step 7.8).
-        if (!lbConfirm && UWGamepad.AnyPressed(false))
-            lbConfirm = true;
-
-        if (lbConfirm)
+        // Any key, mouse or pad button (UWGamepad), one page a frame and a click's release no second one - the one
+        // routine of both games (UWPageInput, 2026-11-24). The press is the paging's: the pad's pointer does not click
+        // with it (UWPadOwners asks Interaction.PagingTakesKeys when the frame begins).
+        if (UWPageInput.TryConfirm())
         {
             miPageInputFrame = Time.frameCount;
             fShowNextPage();

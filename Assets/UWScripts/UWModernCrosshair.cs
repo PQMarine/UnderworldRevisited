@@ -56,7 +56,7 @@ public class UWModernCrosshair : UWModernPart
         mOTargetCursor = UWUiKit.CreateRawImage(pORoot, "Spell target", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
         UWPixelArtUI.Apply(mOTargetCursor);
         mOTargetCursor.enabled = false;
-        mOTarget = UWUiKit.CreateText(pORoot, "Target", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), TextAnchor.UpperCenter, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
+        mOTarget = UWUiKit.CreateText(pORoot, "Target", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), TextAnchor.UpperCenter, UWModernPalette.HudText, UWModernUi.TextUi, UWUiKit.HudText);
         mOLockIcon = UWUiKit.CreateRawImage(pORoot, "Door lock", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
         UWPixelArtUI.Apply(mOLockIcon);
         mOLockIcon.enabled = false;
@@ -105,7 +105,7 @@ public class UWModernCrosshair : UWModernPart
         // The game's own pointer in the middle, the target pointer while a spell or a drawn
         // ranged weapon waits; with the pointer free none (UWPointerCursor.CrosshairPicture).
         bool lbLocked = lbCross && !UWModernPointer.IsFree;
-        Texture2D lOCursor = mOUi.PointerCursor.CrosshairPicture(mOInteraction, lbLocked);
+        Texture2D lOCursor = mOSession.Art.Crosshair(lbLocked);
 
         mOTargetCursor.enabled = lOCursor != null;
         // The dot only where the pointer pictures are missing.
@@ -121,7 +121,7 @@ public class UWModernCrosshair : UWModernPart
         // The hold of E for the direct use (Interaction.ModernUseHoldProgress): a ring filling
         // clockwise around the pointer (per user, 2026-10-04 - a bar under the dot before); with
         // the pointer free around the pointer, where E acts then.
-        float lfHold = mOInteraction.ModernUseHoldProgress;
+        float lfHold = mOSession.World.UseHoldProgress;
 
         mOHoldBar.enabled = lbCross && lfHold >= 0f;
 
@@ -145,7 +145,7 @@ public class UWModernCrosshair : UWModernPart
             return;
 
         mfTargetTimer = 0.1f;
-        mOTarget.text = lbCross ? mOInteraction.GetCrosshairTargetName() ?? string.Empty : string.Empty;
+        mOTarget.text = lbCross ? mOSession.World.TargetName ?? string.Empty : string.Empty;
         fUpdateLockIcon(lbCross && mOTarget.text.Length > 0, lOOffset);
 
         fUpdatePadPrompt(lbCross && !UWModernPointer.IsFree);
@@ -160,7 +160,7 @@ public class UWModernCrosshair : UWModernPart
     private void fUpdateLockIcon(bool pbShown, Vector2 pOOffset)
     {
         int liKey = -1;
-        bool lbLocked = pbShown && mOInteraction.GetCrosshairLock(out liKey);
+        bool lbLocked = pbShown && mOSession.World.TryGetTargetLock(out liKey);
         Texture2D lOPicture = lbLocked ? (liKey >= 0 ? fKeyPicture(liKey) : fNoKeyIcon()) : null;
 
         mOLockIcon.enabled = lOPicture != null;
@@ -199,7 +199,7 @@ public class UWModernCrosshair : UWModernPart
         UWTexture lOKey = fObjectTexture(piKeyId);
 
         lOPicture = lOKey != null
-            ? UWTextureFactory.FromPicture(UWDataImport.Presentation.UWKeyIconBuilder.Crop(UWPicture.From(lOKey)), FilterMode.Point, "Key " + piKeyId)
+            ? UWTextureFactory.FromPicture(UWDataImport.Presentation.UWKeyIconBuilder.Crop(UWPicture.FromOwnClear(lOKey)), FilterMode.Point, "Key " + piKeyId)
             : null;
         mOKeyPictures[piKeyId] = lOPicture;
 
@@ -218,7 +218,7 @@ public class UWModernCrosshair : UWModernPart
         mONoKeyIcon = null;
         miNoKeyIconColours = UWColourVision.Version;
 
-        UWPalette lOPalette = mOUi.mOUWData != null && mOUi.mOUWData.Palettes != null ? mOUi.mOUWData.Palettes.GetPalette(0) : null;
+        UWPalette lOPalette = UWModernUi.Data != null && UWModernUi.Data.Palettes != null ? UWModernUi.Data.Palettes.GetPalette(0) : null;
 
         if (lOPalette == null)
             return null;
@@ -237,7 +237,7 @@ public class UWModernCrosshair : UWModernPart
     {
         try
         {
-            return mOUi.mOUWData != null ? mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piObjectId) : null;
+            return UWModernUi.Data != null ? UWModernUi.Data.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piObjectId) : null;
         }
         catch
         {
@@ -254,7 +254,7 @@ public class UWModernCrosshair : UWModernPart
     /// </summary>
     private void fUpdatePadPrompt(bool pbLocked)
     {
-        string lsVerb = pbLocked && UWUserSettings.ShowsPadHints && mOInteraction != null ? mOInteraction.GetCrosshairPadVerb() : null;
+        string lsVerb = pbLocked && UWUserSettings.ShowsPadHints && mOSession != null ? mOSession.World.TargetPadVerb : null;
 
         if (mOPadUseGlyph == null)
         {
@@ -265,8 +265,8 @@ public class UWModernCrosshair : UWModernPart
 
             mOPadUseGlyph = UWUiKit.CreateRawImage(lOParent, "Pad use glyph", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f));
             mOPadLookGlyph = UWUiKit.CreateRawImage(lOParent, "Pad look glyph", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f));
-            mOPadUseText = UWUiKit.CreateText(lOParent, "Pad use", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f), TextAnchor.MiddleLeft, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
-            mOPadLookText = UWUiKit.CreateText(lOParent, "Pad look", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f), TextAnchor.MiddleLeft, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
+            mOPadUseText = UWUiKit.CreateText(lOParent, "Pad use", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f), TextAnchor.MiddleLeft, UWModernPalette.HudText, UWModernUi.TextUi, UWUiKit.HudText);
+            mOPadLookText = UWUiKit.CreateText(lOParent, "Pad look", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f), TextAnchor.MiddleLeft, UWModernPalette.HudText, UWModernUi.TextUi, UWUiKit.HudText);
         }
 
         bool lbShow = lsVerb != null;

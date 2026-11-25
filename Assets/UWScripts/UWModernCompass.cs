@@ -29,11 +29,14 @@ using UWDataImport.UWData;
 /// day - an oval or rectangle of the frame's slate with a border, the original disc - and taken
 /// out again: the original's compass lay embedded in the frame, and lifted out of it every back
 /// looked stuck on; the free cross looked best.
+///
+/// PER GAME (UW2 plan stage U6 step 1, 2026-11-23; UWCompassGeometry): the second game's disc is the middle recess of
+/// its marble ledge, the compass laid on it whole, no movement arrows; the power gem lies in the compass's middle as on
+/// that game's frame - this element draws it there (the live picture, IUWModernArt.PowerGem) while it is not apart
+/// (UWModernLayout.IsGemInCompass), and the vitals leave it out.
 /// </summary>
 public class UWModernCompass : IUWModernPart
 {
-    private readonly UWGameUI mOUi;
-
     private RawImage mOImage;
 
     /// <summary>The pictures by step, back and look, each built for the colours (UWArtCache).</summary>
@@ -51,18 +54,23 @@ public class UWModernCompass : IUWModernPart
 
     private Texture2D mOShown;
 
+    /// <summary>The power gem in the compass (the second game), over the compass.</summary>
+    private RawImage mOGem;
+
     /// <summary>Where it was drawn on the screen (bottom-left origin); empty while hidden.</summary>
     public Rect ScreenRect { get; private set; }
 
-    public UWModernCompass(UWGameUI pOUi)
+    public UWModernCompass()
     {
-        mOUi = pOUi;
     }
 
     public void Build(Transform pORoot)
     {
         mOImage = UWUiKit.CreateRawImage(pORoot, "Compass", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
         UWPixelArtUI.Apply(mOImage);
+        mOGem = UWUiKit.CreateRawImage(pORoot, "Power gem in the compass", new Vector2(0f, 0f), new Vector2(0f, 0f));
+        UWPixelArtUI.Apply(mOGem);
+        mOGem.enabled = false;
     }
 
     /// <summary>Once a frame while the modern HUD shows; pfPixelScale is UWModernUi.PixelScale.</summary>
@@ -73,13 +81,14 @@ public class UWModernCompass : IUWModernPart
         if (mOImage == null)
             return;
 
-        if (!UWModernLayout.IsCompassShown || mOUi == null || mOUi.mOUWData == null)
+        if (!UWModernLayout.IsCompassShown || UWModernUi.Session == null || UWModernUi.Data == null)
         {
             mOImage.enabled = false;
+            mOGem.enabled = false;
             return;
         }
 
-        int liStep = mOUi.Compass.CurrentStep;
+        int liStep = UWModernUi.Session.World.CompassStep;
         UWModernBacks.Back lOBack = UWModernBacks.Get(UWModernLayout.ElementEnum.Compass);
         bool lbDisc = UWModernLayout.IsCompassDisc;
         bool lbWhole = UWModernClassicFrame.IsActive;
@@ -95,6 +104,7 @@ public class UWModernCompass : IUWModernPart
         if (lOTexture == null)
         {
             mOImage.enabled = false;
+            mOGem.enabled = false;
             return;
         }
 
@@ -117,6 +127,41 @@ public class UWModernCompass : IUWModernPart
         ScreenRect = lOPlaced;
         mOShown = lOTexture;
         miShownPad = lOBack.Shape == UWBackdropArt.ShapeEnum.None ? 0 : Pad;
+
+        fPlaceGem(lOPlaced, lfScale, lbDisc);
+    }
+
+    /// <summary>The power gem at its place in the compass (UWCompassGeometry.GemOnCross; on the disc moved by where the
+    /// compass lies on it), the back's room in, at the compass's scale - while it lies in the compass.</summary>
+    private void fPlaceGem(Rect pOPlaced, float pfScale, bool pbDisc)
+    {
+        Texture2D lOGem = UWModernLayout.IsGemInCompass ? UWModernUi.Session.Art.PowerGem : null;
+
+        mOGem.enabled = lOGem != null;
+
+        if (lOGem == null)
+            return;
+
+        UWTextures lOTextures = UWModernUi.Data.Textures;
+        UWCompassGeometry lOAt = UWCompassGeometry.Of(lOTextures);
+        int liDiscX = 0;
+        int liDiscY = 0;
+
+        if (pbDisc)
+            lOAt.CrossOnDisc(lOTextures, out liDiscX, out liDiscY);
+
+        lOAt.GemOnCross(lOTextures, out int liGemX, out int liGemY);
+
+        float lfAspect = pfScale * UWModernHudArt.PixelAspectX;
+        float lfX = pOPlaced.x + ((miShownPad + liDiscX + liGemX) * lfAspect);
+        float lfTop = pOPlaced.yMax - ((miShownPad + liDiscY + liGemY) * pfScale);
+
+        mOGem.texture = lOGem;
+
+        RectTransform lORect = (RectTransform)mOGem.transform;
+
+        lORect.anchoredPosition = new Vector2(Mathf.Round(lfX), Mathf.Round(lfTop - (lOGem.height * pfScale)));
+        lORect.sizeDelta = new Vector2(lOGem.width * lfAspect, lOGem.height * pfScale);
     }
 
     /// <summary>
@@ -126,7 +171,8 @@ public class UWModernCompass : IUWModernPart
     /// </summary>
     public int ArrowAt(Vector2 pOPointer)
     {
-        if (!UWModernLayout.IsCompassDisc || mOShown == null || ScreenRect.width <= 0f || !ScreenRect.Contains(pOPointer))
+        if (!UWModernLayout.IsCompassDisc || mOShown == null || ScreenRect.width <= 0f || !ScreenRect.Contains(pOPointer)
+            || !UWCompassGeometry.Of(UWModernUi.Data.Textures).HasArrows)
             return -1;
 
         float lfX = (pOPointer.x - ScreenRect.x) / ScreenRect.width * mOShown.width;
@@ -144,9 +190,10 @@ public class UWModernCompass : IUWModernPart
         // them over the frame - they cover the needle baked into it (per user's screenshots,
         // 2026-10-10: the freed cross left the baked one showing); no back.
         if (UWModernClassicFrame.IsActive)
-            return mOUi.Compass.BuildComposite(piStep, mOUi.TextureFilterMode, false);
+            return UWModernUi.Session.Art.Compass(piStep, false);
 
-        Texture2D lOCross = mOUi.Compass.BuildComposite(piStep, mOUi.TextureFilterMode, true);
+        // On the second game's disc the compass whole: its face covers the cross baked into the recess.
+        Texture2D lOCross = UWModernUi.Session.Art.Compass(piStep, !pbDisc || UWCompassGeometry.Of(UWModernUi.Data.Textures).IsFreedOnDisc);
 
         if (lOCross != null && pbDisc)
             lOCross = fOnDisc(lOCross);
@@ -156,7 +203,7 @@ public class UWModernCompass : IUWModernPart
 
         int liWidth = lOCross.width + (2 * Pad);
         int liHeight = lOCross.height + (2 * Pad);
-        Texture2D lOTexture = UWModernHudArt.BuildBackdrop(mOUi.mOUWData.Textures, liWidth, liHeight, pOBack, mOUi.TextureFilterMode);
+        Texture2D lOTexture = UWModernHudArt.BuildBackdrop(UWModernUi.Data.Textures, liWidth, liHeight, pOBack, UWModernUi.Filter);
         Color32[] lOPixels = lOTexture.GetPixels32();
         Color32[] lOCrossPixels = lOCross.GetPixels32();
 
@@ -186,13 +233,12 @@ public class UWModernCompass : IUWModernPart
         UWArtStamp lODiscStamp = UWVersionedTexture.Colours(lbOutline ? 1 : 0);
 
         if (!mODisc.IsCurrent(lODiscStamp))
-            mODisc.Set(lODiscStamp, UWModernHudArt.BuildCompassDisc(mOUi.mOUWData.Textures, lbOutline, mOUi.TextureFilterMode));
+            mODisc.Set(lODiscStamp, UWModernHudArt.BuildCompassDisc(UWModernUi.Data.Textures, lbOutline, UWModernUi.Filter));
 
         Texture2D lODisc = mODisc.Texture;
         int liWidth = lODisc.width;
         int liHeight = lODisc.height;
-        int liLeft = UWClassicLayout.Compass.Left - UWHudArt.CompassDiscX;
-        int liTop = UWClassicLayout.Compass.Top - UWHudArt.CompassDiscY;
+        UWCompassGeometry.Of(UWModernUi.Data.Textures).CrossOnDisc(UWModernUi.Data.Textures, out int liLeft, out int liTop);
         Color32[] lOPixels = lODisc.GetPixels32();
         Color32[] lOCrossPixels = pOCross.GetPixels32();
 
@@ -213,7 +259,7 @@ public class UWModernCompass : IUWModernPart
 
         Texture2D lOTexture = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false);
         lOTexture.name = "UWModernCompass disc";
-        lOTexture.filterMode = mOUi.TextureFilterMode;
+        lOTexture.filterMode = UWModernUi.Filter;
         lOTexture.wrapMode = TextureWrapMode.Clamp;
         lOTexture.SetPixels32(lOPixels);
         lOTexture.Apply(false, false);
@@ -228,5 +274,8 @@ public class UWModernCompass : IUWModernPart
 
         if (mOImage != null)
             mOImage.enabled = false;
+
+        if (mOGem != null)
+            mOGem.enabled = false;
     }
 }

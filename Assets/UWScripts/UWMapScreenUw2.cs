@@ -314,7 +314,7 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
     /// place on the 320x200 screen from the top-left, also when the arrow is not drawn - the help's Map tab centres
     /// on it (UWHelpMapUw2). Null without the blank map. Shared by this screen and the help (per user, 2026-11-07).
     /// </summary>
-    public static byte[] ComposeScreen(DataImport pOData, int piLevel, out Vector2 pOPlayer)
+    public static byte[] ComposeScreen(DataImport pOData, int piLevel, out Vector2 pOPlayer, bool pbPlayerMark = true)
     {
         pOPlayer = new Vector2(UWScreenUi.ScreenWidth / 2f, UWScreenUi.ScreenHeight / 2f);
 
@@ -337,24 +337,54 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
 
         fShowGem(pOData, lyScreen, piLevel);
 
-        Camera lOCamera = Camera.main;
-
-        if (lOLoader != null && lOCamera != null && piLevel == lOLoader.CurrentLevelIndex + 1)
+        if (lOLoader != null && piLevel == lOLoader.CurrentLevelIndex + 1 && fArrowPlace(pOData, out UWTexture lOArrow, out int liLeft, out int liTop))
         {
-            UWTilePos lOAt = UWTileQueries.WorldToTile(lOCamera.transform.position.x, lOCamera.transform.position.z);
-            UWTexture lOArrow = fPictureOf(pOData, UWTexture.TextureTypes.BUTTONS, UWClassicLayoutUw2.Map.PlayerPicture);
-            int liLeft = ((lOAt.X - 1) * 3) + UWClassicLayoutUw2.Map.PlayerOffsetX;
-            int liTop = ((lOAt.Y - 1) * 3) + UWClassicLayoutUw2.Map.PlayerOffsetY;
-
             // fOverlay's rows start at ScreenHeight - 1 - piTop, counted from the top.
             if (lOArrow != null)
                 pOPlayer = new Vector2(liLeft + (lOArrow.Width / 2f), UWScreenUi.ScreenHeight - 1 - liTop + (lOArrow.Height / 2f));
 
-            if (UWAutomapStateUw2.IsOn(fPlayerFile()))
+            // The modern minimap draws its own arrow (UWAutomapPicturesUw2, as the first game's minimap leaves its mark out).
+            if (pbPlayerMark && UWAutomapStateUw2.IsOn(fPlayerFile()))
                 fOverlay(lyScreen, lOArrow, liLeft, liTop);
         }
 
         return lyScreen;
+    }
+
+    /// <summary>The map's arrow (BUTTONS.GR) and its place for the character's tile, the left and the row from the bottom
+    /// as fOverlay takes them; false without a camera.</summary>
+    private static bool fArrowPlace(DataImport pOData, out UWTexture pOArrow, out int piLeft, out int piTop)
+    {
+        Camera lOCamera = Camera.main;
+
+        pOArrow = null;
+        piLeft = 0;
+        piTop = 0;
+
+        if (lOCamera == null)
+            return false;
+
+        UWTilePos lOAt = UWTileQueries.WorldToTile(lOCamera.transform.position.x, lOCamera.transform.position.z);
+
+        pOArrow = fPictureOf(pOData, UWTexture.TextureTypes.BUTTONS, UWClassicLayoutUw2.Map.PlayerPicture);
+        piLeft = ((lOAt.X - 1) * 3) + UWClassicLayoutUw2.Map.PlayerOffsetX;
+        piTop = ((lOAt.Y - 1) * 3) + UWClassicLayoutUw2.Map.PlayerOffsetY;
+
+        return true;
+    }
+
+    /// <summary>The middle of the map's arrow for where the character stands now, on the map screen from the top-left
+    /// (ComposeScreen's pOPlayer) - for the modern minimap, which asks at every frame (UWAutomapPicturesUw2).</summary>
+    public static bool PlayerPixelNow(DataImport pOData, out Vector2 pOPixel)
+    {
+        pOPixel = Vector2.zero;
+
+        if (pOData == null || !fArrowPlace(pOData, out UWTexture lOArrow, out int liLeft, out int liTop) || lOArrow == null)
+            return false;
+
+        pOPixel = new Vector2(liLeft + (lOArrow.Width / 2f), UWScreenUi.ScreenHeight - 1 - liTop + (lOArrow.Height / 2f));
+
+        return true;
     }
 
     /// <summary>The indices in the map's palette as a texture, top row first in pyScreen, opaque; pOOld is

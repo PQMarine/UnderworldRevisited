@@ -137,7 +137,7 @@ public sealed class UWTestMarkView
         if (lOMarks == null)
             return;
 
-        bool lbUw2 = UWWalkUw2.IsWalking;
+        bool lbUw2 = UWGameStartUw2.IsRunning;
         int liLevel = pOLoader != null ? pOLoader.CurrentLevelIndex + 1 : 0;
         UWLevel lOLevel = pOLoader != null ? pOLoader.CurrentLevel : null;
         UWTile lOHere = pOSnapshot.HasPlace && lOLevel != null ? lOLevel.GetTile(pOSnapshot.TileX, pOSnapshot.TileZ) : null;
@@ -189,7 +189,7 @@ public sealed class UWTestMarkView
         if (!lbShown)
             return;
 
-        bool lbUw2 = UWWalkUw2.IsWalking;
+        bool lbUw2 = UWGameStartUw2.IsRunning;
         int liLevel = pOLoader.CurrentLevelIndex + 1;
         float lfScale = UWGuiTheme.Scale;
         float lfWidth = mOKit.Width;

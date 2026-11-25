@@ -60,6 +60,8 @@ public class UWLevelLoader : MonoBehaviour
 
     private Material mOModelSolidMaterial;
 
+    private Material mOModelSolidFrontMaterial;
+
     private Material mOPortcullisMaterial;
 
     /// <summary>The material of the portcullis - like that of the model faces, only with
@@ -75,6 +77,13 @@ public class UWLevelLoader : MonoBehaviour
     public Material ModelSolidMaterial
     {
         get { return mOModelSolidMaterial; }
+    }
+
+    /// <summary>The same for the solid-colour faces the original draws from one side only (UW3DModelLayering.FaceFronts):
+    /// back faces culled. The palette renderer recognises it as well.</summary>
+    public Material ModelSolidFrontMaterial
+    {
+        get { return mOModelSolidFrontMaterial; }
     }
 
     /// <summary>The object atlas, so that the palette renderer can get at its index
@@ -233,7 +242,7 @@ public class UWLevelLoader : MonoBehaviour
         fBuildLevel();
 
         // The second game's level load picks the walking theme as a teleport's does (GAMEWRAP.C:457).
-        if (UWWalkUw2.IsWalking && UWGameScreenUw2.Command != UWGameScreenUw2.CommandEnum.Fight)
+        if (UWGameStartUw2.IsRunning && UWGameScreenUw2.Command != UWGameScreenUw2.CommandEnum.Fight)
             UWAudioService.Uw2Walking(UWMusicSelectorUw2.PickKeep);
     }
 
@@ -303,13 +312,13 @@ public class UWLevelLoader : MonoBehaviour
         UWMods.ScanAndLog();
         UWMods.PinGameFiles(UWSettings.Game);
 
-        // The second game (UW2 plan phase 2 step 3): its main menu with its buttons, or the walk its
-        // Create Character asked for (UWWalkUw2) - the screen alone where its data cannot be read.
-        bool lbWalk = UWWalkUw2.Take();
+        // The second game (UW2 plan phase 2 step 3): its main menu with its buttons, or the session its
+        // Create Character asked for (UWGameStartUw2) - the screen alone where its data cannot be read.
+        bool lbStartGame = UWGameStartUw2.Take();
 
-        UWWalkUw2.IsWalking = false;
+        UWGameStartUw2.IsRunning = false;
 
-        if (UWSettings.Game.Game == UWGame.Uw2 && fStartUw2(lbWalk))
+        if (UWSettings.Game.Game == UWGame.Uw2 && fStartUw2(lbStartGame))
             return;
 
         if (!UWSettings.Game.IsPlayable && fShowScreenOnly())
@@ -453,7 +462,7 @@ public class UWLevelLoader : MonoBehaviour
     }
 
     /// <summary>
-    /// THE SECOND GAME'S TELEPORT IN ITS WALK (UW2 plan phase 2 step 5; new_player_pos, see
+    /// THE SECOND GAME'S TELEPORT IN ITS SESSION (UW2 plan phase 2 step 5; new_player_pos, see
     /// UWTeleportUw2): the level the target names (0 the one the player is on), the first free tile near
     /// the target by the strict pass of find_good_x_and_y (the loose pass clears objects, the first
     /// game's rule - not run; without a free tile the target itself), the player set up there - near the
@@ -464,38 +473,38 @@ public class UWLevelLoader : MonoBehaviour
     /// (do_babl_teleport) and death fades by itself (SKILLS.C:846), so those move at once. While a blink waits
     /// for its black, another teleport is not taken (the trigger the player still stands on).
     /// </summary>
-    public void WalkTeleport(UWTeleportUw2.Target pOTarget, bool pbFade = false)
+    public void Uw2Teleport(UWTeleportUw2.Target pOTarget, bool pbFade = false)
     {
         UWSleepUw2 lOBlack = UWSleepUw2.Current;
 
-        WalkTeleportCount++;
+        Uw2TeleportCount++;
 
         if (lOBlack != null && lOBlack.IsBlinking)
             return;
 
-        if (pbFade && lOBlack != null && lOBlack.Blink(() => fWalkTeleportNow(pOTarget)))
+        if (pbFade && lOBlack != null && lOBlack.Blink(() => fUw2TeleportNow(pOTarget)))
             return;
 
-        fWalkTeleportNow(pOTarget);
+        fUw2TeleportNow(pOTarget);
     }
 
-    /// <summary>How many teleports the second game's walk was asked for (WalkTeleport, a blink's included) - the
+    /// <summary>How many teleports the second game's session was asked for (Uw2Teleport, a blink's included) - the
     /// player's movement asks whether its triggers teleported (UWPlayerMovement, the fall onto a teleport).</summary>
-    public int WalkTeleportCount { get; private set; }
+    public int Uw2TeleportCount { get; private set; }
 
-    private void fWalkTeleportNow(UWTeleportUw2.Target pOTarget)
+    private void fUw2TeleportNow(UWTeleportUw2.Target pOTarget)
     {
         int liLevel = UWTeleportUw2.LevelOf(pOTarget, miLevelIndex + 1) - 1;
 
         if (pOTarget.AutomapOff)
         {
             UWAutomapStateUw2.StopByTrap(UWDataImporter.Session.PlayerFileUw2, miLevelIndex + 1);
-            Debug.Log("[Walk] The teleport trap stops the automap on level " + (miLevelIndex + 1) + ".");
+            Debug.Log("[Session] The teleport trap stops the automap on level " + (miLevelIndex + 1) + ".");
         }
 
         if (liLevel < 0 || liLevel >= UWDataImporter.Levels.Count || UWDataImporter.Levels[liLevel] == null)
         {
-            Debug.LogWarning("[Walk] A teleport to level " + (liLevel + 1) + ", which is not in this world.");
+            Debug.LogWarning("[Session] A teleport to level " + (liLevel + 1) + ", which is not in this world.");
 
             return;
         }
@@ -506,14 +515,14 @@ public class UWLevelLoader : MonoBehaviour
         // do_teleport: asleep in the Void, no teleport leads out of its world (G6, the Void).
         if (lOPlayerFile != null && UWVoidRulesUw2.TeleportRefused(lOPlayerFile, pOTarget.Level))
         {
-            Debug.Log("[Walk] Asleep in the Void: the teleport to level " + pOTarget.Level + " does not go.");
+            Debug.Log("[Session] Asleep in the Void: the teleport to level " + pOTarget.Level + " does not go.");
 
             return;
         }
 
         // do_teleport's jail test (G6 part 3): out of the cell by a teleport is an escape (quest 112 off, 124 on).
         if (lOPlayerFile != null && UWDeathRulesUw2.CheckEscape(lOPlayerFile, pOTarget.Level, pOTarget.TileX, pOTarget.TileY))
-            Debug.Log("[Walk] Out of the jail by a teleport: escaped (quest 124).");
+            Debug.Log("[Session] Out of the jail by a teleport: escaped (quest 124).");
 
         // do_teleport's pits test (G6 part 4): in a fight, a teleport to another level, out of the arena or into another of
         // its quarters is running away (arena_player_runs).
@@ -532,7 +541,7 @@ public class UWLevelLoader : MonoBehaviour
                     if (lONpc != null && lOHost != null && lOHost.Traps != null)
                         lOHost.Traps.TalkTo(lONpc);
                 });
-                Debug.Log("[Walk] Out of the pit fight by a teleport: running away.");
+                Debug.Log("[Session] Out of the pit fight by a teleport: running away.");
             }
         }
 
@@ -591,7 +600,7 @@ public class UWLevelLoader : MonoBehaviour
             }
         }
 
-        Debug.Log(string.Format("[Walk] Teleport to level {0}, tile {1}/{2}{3}.", miLevelIndex + 1, liX, liY, pOTarget.Falls ? ", falling" : string.Empty));
+        Debug.Log(string.Format("[Session] Teleport to level {0}, tile {1}/{2}{3}.", miLevelIndex + 1, liX, liY, pOTarget.Falls ? ", falling" : string.Empty));
 
         // do_level_hacks(to, 0): the arriving cases (G6 part 5).
         if (lbLevelChanged)
@@ -608,7 +617,7 @@ public class UWLevelLoader : MonoBehaviour
 
         // new_player_pos's npp_func: set_me_inarena after a challenge or a fight's set-up (G6 part 4).
         if (lOPlayerFile != null && UWArenaRulesUw2.Arrive(lOPlayerFile))
-            Debug.Log("[Walk] In the pits.");
+            Debug.Log("[Session] In the pits.");
     }
 
     /// <summary>player_setup's ceiling for a falling arrival: 1000 in fine z, 125 in zpos.</summary>
@@ -628,7 +637,7 @@ public class UWLevelLoader : MonoBehaviour
         IUWScheduleHost lOHost = UWScheduleHostUw2.ForTraps(this);
 
         if (UWLevelHacksUw2.ChecksPrisonAlarm(piLevel) && UWLevelHacksUw2.PrisonAlarmCheck(CurrentLevel, lOProperties, pOFile) > 0)
-            Debug.Log("[Walk] Leaving the Prison Tower with hostile goblins: the alarm (quest 60).");
+            Debug.Log("[Session] Leaving the Prison Tower with hostile goblins: the alarm (quest 60).");
 
         if (UWLevelHacksUw2.FiresPrisonTriggers(piLevel) && lOHost != null && lOHost.Traps != null)
             foreach (int[] liAt in UWLevelHacksUw2.PrisonLevel2Triggers)
@@ -637,7 +646,7 @@ public class UWLevelLoader : MonoBehaviour
         if (UWLevelHacksUw2.KeepCrashes(piLevel, pOFile))
         {
             UWLevelHacksUw2.KeepCrashed(pOFile);
-            Debug.Log("[Walk] Killorn Keep crashes (quest 54).");
+            Debug.Log("[Session] Killorn Keep crashes (quest 54).");
         }
 
         if (UWLevelHacksUw2.TakesTelekinesisWand(piLevel))
@@ -683,7 +692,7 @@ public class UWLevelLoader : MonoBehaviour
         lOWand.YPos = UWLevelHacksUw2.WandHomeY8 & 7;
         lOWand.ZPos = UWLevelHacksUw2.WandHomeZ;
         lOWorld.PutAt(lOWand, new UWTilePos(UWLevelHacksUw2.WandHomeX8 >> 3, UWLevelHacksUw2.WandHomeY8 >> 3), 3);
-        Debug.Log("[Walk] The telekinesis wand goes back to 31/29.");
+        Debug.Log("[Session] The telekinesis wand goes back to 31/29.");
     }
 
     /// <summary>
@@ -707,7 +716,7 @@ public class UWLevelLoader : MonoBehaviour
 
                 UWLockRules.Unlock(lODoor.LockState, null, null, !lODoor.IsClosed, -UWLevelHacksUw2.DoorHackPickSkill, true);
                 lODoor.Open(UWTrapRules.Setter.Thing);
-                Debug.Log("[Walk] Arriving on level 1 at a door: it opens.");
+                Debug.Log("[Session] Arriving on level 1 at a door: it opens.");
 
                 break;
             }
@@ -717,7 +726,7 @@ public class UWLevelLoader : MonoBehaviour
         {
             int liKilled = UWLevelHacksUw2.Genocide(lOWorld, UWDataImporter.ObjectClassProperties, UWDataImporter.CommonObjectProperties, out int liSkulls);
 
-            Debug.Log("[Walk] The Tombs after Loth's death: " + liKilled + " undead die, " + liSkulls + " skulls fall.");
+            Debug.Log("[Session] The Tombs after Loth's death: " + liKilled + " undead die, " + liSkulls + " skulls fall.");
         }
     }
 
@@ -737,14 +746,14 @@ public class UWLevelLoader : MonoBehaviour
 
         mfTransitionBlockedUntil = Time.time + TransitionCooldown;
 
-        // THE SECOND GAME'S WALK (UW2 plan phase 2 step 4, for the debug jump to its ice and water):
+        // THE SECOND GAME'S SESSION (UW2 plan phase 2 step 4, for the debug jump to its ice and water):
         // the level built and the player on the tile, nothing of the first game's level change
         // (creatures, carried objects, arrival rules) - the second game's is step 5.
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             if (UWDataImporter.Levels[piLevelIndex] == null)
             {
-                Debug.LogWarning("[Walk] Level " + (piLevelIndex + 1) + " is not in this world.");
+                Debug.LogWarning("[Session] Level " + (piLevelIndex + 1) + " is not in this world.");
                 return;
             }
 
@@ -758,7 +767,7 @@ public class UWLevelLoader : MonoBehaviour
             }
 
             fPlacePlayerAtTile(piTileX, piTileZ);
-            Debug.Log(string.Format("[Walk] Level {0}, tile {1}/{2}.", piLevelIndex + 1, piTileX, piTileZ));
+            Debug.Log(string.Format("[Session] Level {0}, tile {1}/{2}.", piLevelIndex + 1, piTileX, piTileZ));
 
             return;
         }
@@ -1003,6 +1012,9 @@ public class UWLevelLoader : MonoBehaviour
     /// <summary>The xBR passes the shared colour array was built with (fTextureScalePasses).</summary>
     private static int msiSharedScalePasses;
 
+    /// <summary>Whether the shared colour array's small textures were enlarged bilinear (fSmoothEnlarge).</summary>
+    private static bool msbSharedSmoothEnlarge;
+
     /// <summary>The sprites' xBR passes the shared object atlas and the creature atlases are built with (fSpriteScalePasses),
     /// taken when a game is loaded.</summary>
     public static int SpriteScalePasses { get; private set; }
@@ -1117,14 +1129,14 @@ public class UWLevelLoader : MonoBehaviour
 
     /// <summary>
     /// THE SECOND GAME'S START (UW2 plan phase 2 step 3, 2026-10-29): its data read (DataImport with its
-    /// profile) and its session current; then either its main menu (UWMainMenu.InitWalkMenu) or the
-    /// walk - the level a new game starts on, built as the first game's are, seen through the noclip
+    /// profile) and its session current; then either its main menu (UWMainMenu.InitUw2Menu) or the
+    /// session - the level a new game starts on, built as the first game's are, seen through the noclip
     /// camera at the start tile (UWGameProfileUw2.NewGame...). Nothing of the first game's play runs:
     /// no rules file (the session has no rule set), no player (it stays off), no HUD, no creature
     /// driver, death or Void (UW1 components that read the rules). HasWorld stays false for them.
     /// False when the data cannot be read: the screen alone then (fShowScreenOnly).
     /// </summary>
-    private bool fStartUw2(bool pbWalk)
+    private bool fStartUw2(bool pbStartGame)
     {
         // A first-game character waiting from its creation does not belong to this game.
         myNewCharacter = null;
@@ -1134,8 +1146,8 @@ public class UWLevelLoader : MonoBehaviour
             if (!fLoadData())
                 return false;
 
-            // A save chosen in the walk menu's Journey Onward (step 6): its world and its PLAYER.DAT.
-            string lsSave = pbWalk ? UWWalkUw2.TakeSavePath() : null;
+            // A save chosen in the main menu's Journey Onward (step 6): its world and its PLAYER.DAT.
+            string lsSave = pbStartGame ? UWGameStartUw2.TakeSavePath() : null;
 
             if (lsSave != null)
             {
@@ -1149,10 +1161,10 @@ public class UWLevelLoader : MonoBehaviour
                     UWSoundOptions.ApplyFromSave(UWPlayerRecordUw2.MusicOn(lOLoaded), UWPlayerRecordUw2.SoundOn(lOLoaded));
             }
 
-            // A character just created (step 5 part B): the new walk is its game.
+            // A character just created (step 5 part B): the new session is its game.
             UWPlayerData.NewCharacter lONewCharacter = UWCharacterCreationScreenUw2.TakePendingCharacter();
 
-            if (pbWalk && lsSave == null && lONewCharacter != null)
+            if (pbStartGame && lsSave == null && lONewCharacter != null)
                 UWSaveCodec.StartNewCharacterUw2(UWDataImporter.Session, lONewCharacter);
         }
         catch (System.Exception lOError)
@@ -1170,11 +1182,11 @@ public class UWLevelLoader : MonoBehaviour
         HasWorld = false;
 
         // THE MENU'S PIECE PLAYS ON THROUGH A LOAD (per user 2026-11-18: loading a save from the second game's menu
-        // cut the running theme at the start of the black, and the follow-up theme 10 started in the dark): a walk
-        // starts from this game's own menu or creation, whose music is this game's, and the walk's first frames
+        // cut the running theme at the start of the black, and the follow-up theme 10 started in the dark): a session
+        // starts from this game's own menu or creation, whose music is this game's, and the session's first frames
         // change it (change_music_maybe). Only the menu's start stops what plays - a piece of the first game after a
         // switch of game.
-        if (!pbWalk)
+        if (!pbStartGame)
         {
             UWAudioService.StopMusic();
             UWGameClock.Hold(UWGameClock.NoWorldHold);
@@ -1190,16 +1202,16 @@ public class UWLevelLoader : MonoBehaviour
 
             // The sound of this game before its menu asks for its theme (UW2 plan phase 5 part A).
             UWAudioService.Init(UWDataImporter);
-            lOMenu.InitWalkMenu(UWDataImporter);
-            Debug.Log("[Game] " + UWSettings.Game.Title + ": its main menu (Create Character starts a walk through its world).");
+            lOMenu.InitUw2Menu(UWDataImporter);
+            Debug.Log("[Game] " + UWSettings.Game.Title + ": its main menu (Create Character starts a game).");
 
             return true;
         }
 
-        UWWalkUw2.IsWalking = true;
+        UWGameStartUw2.IsRunning = true;
         UWMainMenu.ForgetOpen();
 
-        // The arena's runtime flags (npp_func, running_away) belong to the walk that set them, not to the next one.
+        // The arena's runtime flags (npp_func, running_away) belong to the session that set them, not to the next one.
         UWArenaRulesUw2.InArenaOnArrival = false;
         UWArenaRulesUw2.RunningAway = false;
 
@@ -1220,7 +1232,7 @@ public class UWLevelLoader : MonoBehaviour
 
         if (CurrentLevel == null)
         {
-            Debug.LogWarning("[Walk] Level " + UWGameProfileUw2.NewGameLevel + " is missing from LEV.ARK.");
+            Debug.LogWarning("[Session] Level " + UWGameProfileUw2.NewGameLevel + " is missing from LEV.ARK.");
 
             return false;
         }
@@ -1235,47 +1247,47 @@ public class UWLevelLoader : MonoBehaviour
             // user: saved on a bridge, loaded under it).
             fPlacePlayerAtSavedPosition(UWPlayerRecordUw2.PositionX(lOPlayer), UWPlayerRecordUw2.PositionY(lOPlayer), UWPlayerRecordUw2.ZPosition(lOPlayer) >> 3);
 
-            if (GetComponent<UWWalkUw2View>() == null)
-                gameObject.AddComponent<UWWalkUw2View>();
+            if (GetComponent<UWWorldViewUw2>() == null)
+                gameObject.AddComponent<UWWorldViewUw2>();
 
             UWHelpNotes.LoadFrom(UWDataImporter.SavegamePath);
             fReportSaveMods();
-            Debug.Log(string.Format("[Walk] From {0}: {1}, level {2}, tile {3}/{4}.", UWDataImporter.SavegamePath, lOPlayer.Name,
+            Debug.Log(string.Format("[Session] From {0}: {1}, level {2}, tile {3}/{4}.", UWDataImporter.SavegamePath, lOPlayer.Name,
                 miLevelIndex + 1, UWPlayerRecordUw2.PositionX(lOPlayer) >> 8, UWPlayerRecordUw2.PositionY(lOPlayer) >> 8));
         }
         else
         {
             UWHelpNotes.Clear();
-            fEnterWalkView(UWGameProfileUw2.NewGameTileX, UWGameProfileUw2.NewGameTileY, UWGameProfileUw2.NewGameHeading);
+            fEnterGameView(UWGameProfileUw2.NewGameTileX, UWGameProfileUw2.NewGameTileY, UWGameProfileUw2.NewGameHeading);
         }
 
-        // The debug jump (Shift+F7, "level,X,Y") for the walk's tests, on the debug panel; the panel's
-        // report (F1) reads the first game's character and is not for the walk.
+        // The debug jump (Shift+F7, "level,X,Y") for the session's tests, on the debug panel; the panel's
+        // report (F1) reads the first game's character and is not for the session.
         fInitialiseDebugOverlay();
 
         UWSetupMenu.EnsureInGame(UWDataImporter);
         UWScreenUi.HideLoadingCover();
 
         if (lOPlayer == null || liSavedLevel != miLevelIndex)
-            Debug.Log(string.Format("[Walk] {0}: level {1}, tile {2}/{3} - walking with its motion (N for noclip, Page Down/Up there go a level deeper/back).",
+            Debug.Log(string.Format("[Session] {0}: level {1}, tile {2}/{3} - walking with its motion (N for noclip, Page Down/Up there go a level deeper/back).",
                 UWSettings.Game.Title, miLevelIndex + 1, UWGameProfileUw2.NewGameTileX, UWGameProfileUw2.NewGameTileY));
 
         return true;
     }
 
     /// <summary>
-    /// The walk's start: the player in the tile's centre on its floor, facing piHeading (the original's
+    /// The session's start: the player in the tile's centre on its floor, facing piHeading (the original's
     /// 16-bit heading, 0 north), as player_setup puts a new game's (step 4: the player walks with the
     /// second game's motion; step 3 had the noclip camera here). The second game's light of the level
-    /// follows the view (UWWalkUw2View).
+    /// follows the view (UWWorldViewUw2).
     /// </summary>
-    private void fEnterWalkView(int piTileX, int piTileY, int piHeading)
+    private void fEnterGameView(int piTileX, int piTileY, int piHeading)
     {
         fSetPlayerHeading(UWUnits.AngleToDegrees(piHeading));
         fPlacePlayerAtTile(piTileX, piTileY);
 
-        if (GetComponent<UWWalkUw2View>() == null)
-            gameObject.AddComponent<UWWalkUw2View>();
+        if (GetComponent<UWWorldViewUw2>() == null)
+            gameObject.AddComponent<UWWorldViewUw2>();
     }
 
     /// <summary>
@@ -1344,7 +1356,7 @@ public class UWLevelLoader : MonoBehaviour
             meSharedFilterMode = fGetFilterMode();
         }
 
-        if (msiSharedScalePasses != fTextureScalePasses())
+        if (msiSharedScalePasses != fTextureScalePasses() || msbSharedSmoothEnlarge != fSmoothEnlarge())
             msOSharedTextureArray = null;
 
         // THE SPRITES' xBR (per user 2026-11-22): the object atlas and the creature atlases are made anew when it changed since
@@ -1369,9 +1381,14 @@ public class UWLevelLoader : MonoBehaviour
             if (msOSharedTextureArray == null)
             {
                 msiSharedScalePasses = fTextureScalePasses();
-                msOSharedTextureArray = UWTextureArrayBuilder.Build(UWDataImporter, fGetFilterMode(), msiSharedScalePasses);
+                msbSharedSmoothEnlarge = fSmoothEnlarge();
+                msOSharedTextureArray = UWTextureArrayBuilder.Build(UWDataImporter, fGetWorldFilterMode(), msiSharedScalePasses,
+                    msbSharedSmoothEnlarge);
             }
 
+            // A kept array takes the textures' look's filter of now (UWTextureLook).
+            if (msOSharedTextureArray != null)
+                msOSharedTextureArray.filterMode = fGetWorldFilterMode();
             mOTextureArray = msOSharedTextureArray;
             mODungeonMaterial = UWLevelAssembler.CreateMaterial(mOTextureArray, "UW Dungeon");
 
@@ -1395,10 +1412,10 @@ public class UWLevelLoader : MonoBehaviour
             gameObject.AddComponent<UWRenderPathHost>();
 
         // And for the frame tick of the creatures: the 16-slot clock and the walk over every
-        // creature that is due (see UWCritterDriver). Not on the second game's walk, whose creatures
+        // creature that is due (see UWCritterDriver). Not in the second game's session, whose creatures
         // stand and whose session has no rules (UW2 plan phase 2 step 3) - nor death and the Void
         // below.
-        bool lbFirstGamePlay = !UWWalkUw2.IsWalking;
+        bool lbFirstGamePlay = !UWGameStartUw2.IsRunning;
 
         if (lbFirstGamePlay && GetComponent<UWCritterDriver>() == null)
             gameObject.AddComponent<UWCritterDriver>();
@@ -1452,7 +1469,7 @@ public class UWLevelLoader : MonoBehaviour
     public bool ArmageddonActive
     {
         // The second game keeps it in the record (player->b60_11), so a save carries it.
-        get { return UWWalkUw2.IsWalking ? UWPlayerRecordUw2.IsArmageddon(UWDataImporter != null ? UWDataImporter.Session.PlayerFileUw2 : null) : mbArmageddon; }
+        get { return UWGameStartUw2.IsRunning ? UWPlayerRecordUw2.IsArmageddon(UWDataImporter != null ? UWDataImporter.Session.PlayerFileUw2 : null) : mbArmageddon; }
         private set { mbArmageddon = value; }
     }
 
@@ -1474,7 +1491,7 @@ public class UWLevelLoader : MonoBehaviour
 
         // UW.EXE MajorSpellClassB clears the silver tree nibble along with the objects (the first game's;
         // the second game's flag is the record's, set by UWExtraSpellRulesUw2).
-        if (!UWWalkUw2.IsWalking)
+        if (!UWGameStartUw2.IsRunning)
             UWSilverTree.TreeLevel = 0;
 
         fWipeObjects();
@@ -1647,11 +1664,11 @@ public class UWLevelLoader : MonoBehaviour
 
         // THE SECOND GAME DRAWS NO INVISIBLE THING (do_obj, 3d/DRAWOBJ.C: ID_INVIS): built, but hidden until hack 39 shows
         // it (G3 part H6) - the switches in the walls, the book and the sword a puzzle brings out.
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             fHideInvisibleObjects();
 
         // The second game's stairs and teleports come with step 5 of its plan.
-        if (!UWWalkUw2.IsWalking)
+        if (!UWGameStartUw2.IsRunning)
             fSpawnTransitions(mOLevelRoot.transform);
 
         // After Armageddon every level is empty, even one never entered - see
@@ -1828,7 +1845,7 @@ public class UWLevelLoader : MonoBehaviour
         {
             // A CARRIED THING has no picture in the world: the second game's pack redraws (per user 2026-11-16, hack 38
             // turned the red potion in the pack green and the slot kept showing it red).
-            if (pOObject != null && UWWalkUw2.IsWalking && UWGameScreenUw2.Current != null)
+            if (pOObject != null && UWGameStartUw2.IsRunning && UWGameScreenUw2.Current != null)
             {
                 UWGameScreenUw2.Current.InventoryChanged();
 
@@ -1838,7 +1855,7 @@ public class UWLevelLoader : MonoBehaviour
             return false;
         }
 
-        if (UWWalkUw2.IsWalking && pOObject.IsHidden && TryGetEntity(pOObject, out UWEntityInfo lOEntity) && lOEntity != null)
+        if (UWGameStartUw2.IsRunning && pOObject.IsHidden && TryGetEntity(pOObject, out UWEntityInfo lOEntity) && lOEntity != null)
             lOEntity.gameObject.SetActive(false);
 
         return true;
@@ -3310,6 +3327,13 @@ public class UWLevelLoader : MonoBehaviour
 
         mOModelSolidMaterial.SetFloat(UWShaderIds.VertexIndex, 1f);
         mOPortcullisMaterial.SetFloat(UWShaderIds.VertexIndex, 1f);
+
+        // THE FACES SEEN FROM ONE SIDE (per user 2026-11-22, the bridges of the second game's Void): a model face lying in
+        // the plane of its back-face test is drawn by the original only from the side the test shows (UW3DModelLayering.
+        // FaceFronts); the spawner winds it towards that side and puts it on this copy, which culls its back.
+        mOModelSolidFrontMaterial = new Material(mOModelSolidMaterial);
+        mOModelSolidFrontMaterial.name = "UW Model Faces (front only)";
+        mOModelSolidFrontMaterial.SetFloat(UWShaderIds.Cull, (float)UnityEngine.Rendering.CullMode.Back);
     }
 
     private static FilterMode fGetFilterMode()
@@ -3317,31 +3341,65 @@ public class UWLevelLoader : MonoBehaviour
         return UWSettings.Instance != null ? UWSettings.Instance.TextureFilterMode : FilterMode.Point;
     }
 
-    /// <summary>The xBR texture scaling (per user 2026-11-22): xBR twice, 4x, on the colour array of walls, floors and
-    /// ceilings; 0 without. The palette path's index array is not touched.</summary>
+    /// <summary>The xBR texture scaling (per user 2026-11-22; since 2026-11-25 the textures' look, UWTextureLook): xBR twice,
+    /// 4x, on the colour array of walls, floors and ceilings; 0 without. The palette path's index array is not touched.</summary>
     private static int fTextureScalePasses()
     {
-        return UWUserSettings.XbrTextures ? 2 : 0;
+        return UWTextureLook.ScalesByXbr(UWUserSettings.TextureLook) ? 2 : 0;
     }
 
-    /// <summary>The sprites' xBR (per user 2026-11-22): creatures and things scaled 4x when the switch is on and Remastered
-    /// is the mode at the load; the palette path reads the index atlases, which only grow, so it draws as before.</summary>
+    /// <summary>The sprites' xBR (per user 2026-11-22; since 2026-11-25 the textures' look): creatures and things scaled 4x
+    /// when the look scales by xBR and Remastered is the mode at the load; the palette path reads the index atlases, which
+    /// only grow, so it draws as before.</summary>
     private static int fSpriteScalePasses()
     {
-        return UWUserSettings.XbrSprites && UWGraphicsDetail.Mode == UWGraphicsDetail.ModeEnum.Remastered ? UWSpriteXbr.Passes : 0;
+        return UWTextureLook.ScalesByXbr(UWUserSettings.TextureLook) && UWGraphicsDetail.Mode == UWGraphicsDetail.ModeEnum.Remastered
+            ? UWSpriteXbr.Passes : 0;
     }
 
-    /// <summary>The xBR texture scaling's switch at once: the shared colour array built anew at the chosen size, handed to
-    /// the dungeon material, and water and lava's rotation set up again for it; the old array freed.</summary>
-    public void ApplyXbrTextures()
+    /// <summary>The walls', floors' and ceilings' colour array's filter by the textures' look (per user 2026-11-25): bilinear
+    /// for Smooth, as the 2012 version's textures, else the project's mode. The palette path's index array is not
+    /// touched.</summary>
+    private static FilterMode fGetWorldFilterMode()
     {
-        if (UWDataImporter == null || mODungeonMaterial == null || msiSharedScalePasses == fTextureScalePasses())
+        return UWTextureLook.Filter(UWUserSettings.TextureLook) == UWTextureLook.FilterEnum.Smooth ? FilterMode.Bilinear : fGetFilterMode();
+    }
+
+    /// <summary>The floors (32 square in a 64 slice) enlarged bilinear for Smooth (per user 2026-11-25 with a picture: the floor
+    /// stayed pixelated while the wall was smooth - enlarged by the nearest pixel, the filter only blended the 2x2 blocks'
+    /// seams), as the 2012 version filtered each floor at its own size.</summary>
+    private static bool fSmoothEnlarge()
+    {
+        return UWTextureLook.Filter(UWUserSettings.TextureLook) == UWTextureLook.FilterEnum.Smooth;
+    }
+
+    /// <summary>The sprites' filter (UWShaderIds.SpriteFilter) while Remastered draws: at once, with no rebuild - the shaders
+    /// blend the atlases' texels themselves.</summary>
+    public static float SpriteFilter =>
+        UWGraphicsDetail.Mode == UWGraphicsDetail.ModeEnum.Remastered ? (float)UWTextureLook.Filter(UWUserSettings.TextureLook) : 0f;
+
+    /// <summary>The textures' look at once (per user 2026-11-25): with another xBR the shared colour array built anew at the
+    /// chosen size, handed to the dungeon material, and water and lava's rotation set up again for it, the old array freed;
+    /// with the same, only its filter. The sprites' filter follows in the render path's tick, their xBR at the next load.</summary>
+    public void ApplyTextureLook()
+    {
+        if (UWDataImporter == null || mODungeonMaterial == null)
             return;
+
+        if (msiSharedScalePasses == fTextureScalePasses() && msbSharedSmoothEnlarge == fSmoothEnlarge())
+        {
+            if (msOSharedTextureArray != null)
+                msOSharedTextureArray.filterMode = fGetWorldFilterMode();
+
+            return;
+        }
 
         Texture2DArray lOOld = msOSharedTextureArray;
 
         msiSharedScalePasses = fTextureScalePasses();
-        msOSharedTextureArray = UWTextureArrayBuilder.Build(UWDataImporter, fGetFilterMode(), msiSharedScalePasses);
+        msbSharedSmoothEnlarge = fSmoothEnlarge();
+        msOSharedTextureArray = UWTextureArrayBuilder.Build(UWDataImporter, fGetWorldFilterMode(), msiSharedScalePasses,
+            msbSharedSmoothEnlarge);
         mOTextureArray = msOSharedTextureArray;
         mODungeonMaterial.SetTexture(UWShaderIds.TexArray, mOTextureArray);
         fStartTextureAnimation();
@@ -3362,7 +3420,7 @@ public class UWLevelLoader : MonoBehaviour
         float lfAmbient = fGetAmbientFloor();
 
         foreach (Material lOMaterial in new[] { mODungeonMaterial, mOBillboardMaterial, mOTranslucentBillboardMaterial,
-            mOModelSolidMaterial, mOPortcullisMaterial, mODecalMaterial })
+            mOModelSolidMaterial, mOModelSolidFrontMaterial, mOPortcullisMaterial, mODecalMaterial })
         {
             if (lOMaterial != null)
                 lOMaterial.SetFloat(UWShaderIds.AmbientFloor, lfAmbient);
@@ -3389,7 +3447,7 @@ public class UWLevelLoader : MonoBehaviour
             return;
 
         List<UWTextureArrayBuilder.AnimatedSlice> lOSlices =
-            UWTextureArrayBuilder.BuildAnimatedSlices(UWDataImporter, fGetFilterMode(), msiSharedScalePasses);
+            UWTextureArrayBuilder.BuildAnimatedSlices(UWDataImporter, fGetWorldFilterMode(), msiSharedScalePasses, msbSharedSmoothEnlarge);
 
         if (lOSlices.Count == 0)
             return;

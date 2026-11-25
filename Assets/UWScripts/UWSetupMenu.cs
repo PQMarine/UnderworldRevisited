@@ -145,8 +145,8 @@ public partial class UWSetupMenu : MonoBehaviour
             return true;
 
         // The second game's options panel (G0 of the 2026-11-06 sweep, per user 2026-11-07: the bar never showed
-        // in its walk - only the first game's menus were asked, whose parts sit idle there).
-        if (UWWalkUw2.IsWalking)
+        // in its session - only the first game's menus were asked, whose parts sit idle there).
+        if (UWGameStartUw2.IsRunning)
             return UWGameScreenUw2.IsOptionsOpen;
 
         UWGameUI lOGameUi = UWScene.GameUi;
@@ -301,10 +301,10 @@ public partial class UWSetupMenu : MonoBehaviour
 
         UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
 
-        // In the second game's walk F10 makes camp as in the first game's play (per user, 2026-11-02: it opened the
+        // In the second game's session F10 makes camp as in the first game's play (per user, 2026-11-02: it opened the
         // bar and nobody slept); over its options panel it is the bar's. The bar shows over that panel only, as in
         // the first game (per user, 2026-11-07; until then a stale UWMainMenu.AcceptsMenuBar offered it everywhere).
-        bool lbCampKey = UWWalkUw2.IsWalking && !UWGameScreenUw2.IsOptionsOpen && !fKeyNavIsActive;
+        bool lbCampKey = UWGameStartUw2.IsRunning && !UWGameScreenUw2.IsOptionsOpen && !fKeyNavIsActive;
 
         if (lOKeyboard != null && lOKeyboard.f10Key.wasPressedThisFrame && !UWControls.IsShiftHeld && !lbCampKey)
         {
@@ -470,7 +470,10 @@ public partial class UWSetupMenu : MonoBehaviour
     /// </summary>
     private void fDrawFlaskPreview(float pfLeft, float pfTop)
     {
-        if (mOData == null || mOData.Flasks == null)
+        bool lbSecondGame = UWSettings.Game != null && UWSettings.Game.Game == UWGame.Uw2;
+
+        // The second game's flasks are composed from its pictures (UWFlasksUw2), not from the first game's UWFlasks.
+        if (mOData == null || (lbSecondGame ? mOData.Textures == null : mOData.Flasks == null))
             return;
 
         bool lbHatch = UWUserSettings.MarkPoison;
@@ -483,11 +486,23 @@ public partial class UWSetupMenu : MonoBehaviour
                 ? UWSettings.Instance.TextureFilterMode : FilterMode.Point;
 
             mOFlaskPreview = new Texture2D[3];
-            // Index 3 is the panel stone around the flask - cut away, so it stands on the dark
-            // dialog (per user, 2026-09-17).
-            mOFlaskPreview[0] = UWScreenUi.BuildTexture(mOData.Flasks.GetFlask(UWFlasks.FlaskTypeEnum.Red, 1f), leFilter, true, FlaskBackgroundIndex);
-            mOFlaskPreview[1] = UWScreenUi.BuildTexture(mOData.Flasks.GetFlask(UWFlasks.FlaskTypeEnum.Green, 1f, lbHatch), leFilter, true, FlaskBackgroundIndex);
-            mOFlaskPreview[2] = UWScreenUi.BuildTexture(mOData.Flasks.GetFlask(UWFlasks.FlaskTypeEnum.Blue, 1f), leFilter, true, FlaskBackgroundIndex);
+
+            if (lbSecondGame)
+            {
+                // THE SECOND GAME'S FLASKS (per user 2026-11-23: its mana flask was wrong here - UWFlasks composes the
+                // first game's FLASKS.GR): the empty flask and its twelve slices as the game draws them (UWFlasksUw2).
+                mOFlaskPreview[0] = fFlaskPreviewUw2(UWClassicLayoutUw2.Flasks.HealthFirst, false, leFilter);
+                mOFlaskPreview[1] = fFlaskPreviewUw2(UWClassicLayoutUw2.Flasks.PoisonFirst, lbHatch, leFilter);
+                mOFlaskPreview[2] = fFlaskPreviewUw2(UWClassicLayoutUw2.Flasks.ManaFirst, false, leFilter);
+            }
+            else
+            {
+                // Index 3 is the panel stone around the flask - cut away, so it stands on the dark
+                // dialog (per user, 2026-09-17).
+                mOFlaskPreview[0] = UWScreenUi.BuildTexture(mOData.Flasks.GetFlask(UWFlasks.FlaskTypeEnum.Red, 1f), leFilter, true, FlaskBackgroundIndex);
+                mOFlaskPreview[1] = UWScreenUi.BuildTexture(mOData.Flasks.GetFlask(UWFlasks.FlaskTypeEnum.Green, 1f, lbHatch), leFilter, true, FlaskBackgroundIndex);
+                mOFlaskPreview[2] = UWScreenUi.BuildTexture(mOData.Flasks.GetFlask(UWFlasks.FlaskTypeEnum.Blue, 1f), leFilter, true, FlaskBackgroundIndex);
+            }
 
             miPreviewVersion = UWColourVision.Version;
             mbPreviewHatch = lbHatch;
@@ -537,6 +552,17 @@ public partial class UWSetupMenu : MonoBehaviour
 
     /// <summary>The colour of the panel behind the flask pictures.</summary>
     private const int FlaskBackgroundIndex = 3;
+
+    /// <summary>A full flask of the second game for the preview, standing free, through the colour help.</summary>
+    private Texture2D fFlaskPreviewUw2(int piFirst, bool pbHatch, FilterMode peFilter)
+    {
+        UWTexture lOFlask = UWFlasksUw2.Compose(mOData.Textures, piFirst, UWClassicLayoutUw2.Flasks.Levels, pbHatch);
+
+        return lOFlask != null
+            ? UWTextureFactory.Upload(UWFlasksUw2.ToRgba(lOFlask, UWColourVision.Filter), lOFlask.Width, lOFlask.Height, peFilter, TextureWrapMode.Clamp,
+                "UW2 flask preview " + piFirst)
+            : null;
+    }
 
     private Texture2D[] mOFlaskPreview;
 
@@ -1032,7 +1058,7 @@ public partial class UWSetupMenu : MonoBehaviour
         // Graphics needs the game data - not on the first-run screen. Controls do not, but there
         // is nothing to play yet either. The same over the main menu screen of a game the port cannot
         // play yet (UW2 plan phase 0 step 5): Game only, to switch back.
-        // The second game's walk menu has the whole bar too since 2026-11-07 (per user): it loads that game's data,
+        // The second game's main menu has the whole bar too since 2026-11-07 (per user): it loads that game's data,
         // and the Game-only rule came from the time the port could not play it (phase 0 step 5).
         if (mbFirstRun || UWMainMenu.IsScreenOnly)
             return;
@@ -1044,7 +1070,7 @@ public partial class UWSetupMenu : MonoBehaviour
         if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.gameplay", meOpenDialog == DialogEnum.Gameplay))
             fToggleDialog(DialogEnum.Gameplay);
 
-        // The second game's walk has the whole bar since G0 of the 2026-11-06 sweep (until then Game and Graphics
+        // The second game's session has the whole bar since G0 of the 2026-11-06 sweep (until then Game and Graphics
         // only, from UW2 plan phase 2 step 3): motion, display, the key bindings, sound and colours are settings of
         // the port, not of the first game's play.
 

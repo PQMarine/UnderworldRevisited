@@ -55,8 +55,11 @@ public class UWModernVitals : UWModernPart
 
     private bool mbGemApart;
 
-    /// <summary>The keyed copies of the flask and gem pictures, by the picture UWCharacter
-    /// shows (it caches those itself, so this stays small).</summary>
+    /// <summary>The gem lies in the compass (UWModernLayout.IsGemInCompass), as of the art's building.</summary>
+    private bool mbGemInCompass;
+
+    /// <summary>The keyed copies of the flask and gem pictures, by the picture the session's art
+    /// hands out (IUWModernArt: the same object for the same state, so this stays small).</summary>
     private readonly System.Collections.Generic.Dictionary<Texture2D, Texture2D> mOKeyed
         = new System.Collections.Generic.Dictionary<Texture2D, Texture2D>();
 
@@ -88,8 +91,8 @@ public class UWModernVitals : UWModernPart
         UWPixelArtUI.Apply(mOHealthFlask);
         UWPixelArtUI.Apply(mOPowerGem);
         UWPixelArtUI.Apply(mOManaFlask);
-        mOHealthText = UWUiKit.CreateText(pORoot, "Vitality value", new Vector2(0f, 0f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
-        mOManaText = UWUiKit.CreateText(pORoot, "Mana value", new Vector2(0f, 0f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
+        mOHealthText = UWUiKit.CreateText(pORoot, "Vitality value", new Vector2(0f, 0f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter, UWModernPalette.HudText, mOSession.TextUi, UWUiKit.HudText);
+        mOManaText = UWUiKit.CreateText(pORoot, "Mana value", new Vector2(0f, 0f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter, UWModernPalette.HudText, mOSession.TextUi, UWUiKit.HudText);
     }
 
     public override void OnPixelScale(float pfPixelScale)
@@ -154,25 +157,31 @@ public class UWModernVitals : UWModernPart
 
         if (lbFlasksApart)
         {
-            fUpdateFlaskApart(UWModernLayout.ElementEnum.HealthFlask, mOHealthFlask, mOCharacter.Flasks.HealthFlaskTeture, mOHealthText,
-                mOCharacter.Vitals.CurrentHP + "/" + mOCharacter.Vitals.MaxHP,
+            fUpdateFlaskApart(UWModernLayout.ElementEnum.HealthFlask, mOHealthFlask, mOSession.Art.HealthFlask, mOHealthText,
+                mOSession.Character.HitPoints + "/" + mOSession.Character.MaxHitPoints,
                 new Vector2(lOOrigin.x + (lOLayout.HealthFlask.x * liScale * UWModernHudArt.PixelAspectX), lOOrigin.y));
-            fUpdateFlaskApart(UWModernLayout.ElementEnum.ManaFlask, mOManaFlask, mOCharacter.Flasks.ManaFlaskTeture, mOManaText,
-                mOCharacter.Vitals.CurrentMana + "/" + mOCharacter.Vitals.MaxMana,
+            fUpdateFlaskApart(UWModernLayout.ElementEnum.ManaFlask, mOManaFlask, mOSession.Art.ManaFlask, mOManaText,
+                mOSession.Character.Mana + "/" + mOSession.Character.MaxMana,
                 new Vector2(lOOrigin.x + (lOLayout.ManaFlask.x * liScale * UWModernHudArt.PixelAspectX), lOOrigin.y));
         }
         else
         {
-            fPlaceOnShelf(mOHealthFlask, fKeyed(mOCharacter.Flasks.HealthFlaskTeture, mbFlaskMask), lOLayout.HealthFlask, lOOrigin, liScale);
-            fPlaceOnShelf(mOManaFlask, fKeyed(mOCharacter.Flasks.ManaFlaskTeture, mbFlaskMask), lOLayout.ManaFlask, lOOrigin, liScale);
+            fPlaceOnShelf(mOHealthFlask, fKeyed(mOSession.Art.HealthFlask, mbFlaskMask), lOLayout.HealthFlask, lOOrigin, liScale);
+            fPlaceOnShelf(mOManaFlask, fKeyed(mOSession.Art.ManaFlask, mbFlaskMask), lOLayout.ManaFlask, lOOrigin, liScale);
         }
 
-        if (mbGemApart)
+        // In the compass (the second game, UWModernLayout.IsGemInCompass) the compass element draws it.
+        if (mbGemInCompass)
+        {
+            mOGemStand.enabled = false;
+            mOPowerGem.enabled = false;
+        }
+        else if (mbGemApart)
             fUpdateGemStand(lOPlaced);
         else
         {
             mOGemStand.enabled = false;
-            fPlaceOnShelf(mOPowerGem, fKeyed(mOCharacter.Weapon.PowerGemTeture, mbGemMask), lOLayout.Gem, lOOrigin, liScale);
+            fPlaceOnShelf(mOPowerGem, fKeyed(mOSession.Art.PowerGem, mbGemMask), lOLayout.Gem, lOOrigin, liScale);
         }
 
         if (lbFlasksApart)
@@ -184,11 +193,11 @@ public class UWModernVitals : UWModernPart
         mOManaText.fontSize = liTextSize;
 
         float lfTextY = lOOrigin.y + ((lOLayout.Height + 1) * liScale);
-        float lfHealthCentre = lOOrigin.x + ((lOLayout.HealthFlask.x + (fWidth(mOCharacter.Flasks.HealthFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
-        float lfManaCentre = lOOrigin.x + ((lOLayout.ManaFlask.x + (fWidth(mOCharacter.Flasks.ManaFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
+        float lfHealthCentre = lOOrigin.x + ((lOLayout.HealthFlask.x + (fWidth(mOSession.Art.HealthFlask) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
+        float lfManaCentre = lOOrigin.x + ((lOLayout.ManaFlask.x + (fWidth(mOSession.Art.ManaFlask) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
 
-        mOHealthText.text = mOCharacter.Vitals.CurrentHP + "/" + mOCharacter.Vitals.MaxHP;
-        mOManaText.text = mOCharacter.Vitals.CurrentMana + "/" + mOCharacter.Vitals.MaxMana;
+        mOHealthText.text = mOSession.Character.HitPoints + "/" + mOSession.Character.MaxHitPoints;
+        mOManaText.text = mOSession.Character.Mana + "/" + mOSession.Character.MaxMana;
 
         ((RectTransform)mOHealthText.transform).anchoredPosition = new Vector2(lfHealthCentre, lfTextY);
         ((RectTransform)mOHealthText.transform).sizeDelta = new Vector2(120f, mOHealthText.fontSize * 1.5f);
@@ -199,14 +208,15 @@ public class UWModernVitals : UWModernPart
     /// <summary>
     /// A CLICK ON A FLASK WITH THE FREE POINTER (2026-11-19, a wish from a forum post: the modern flasks turned green while
     /// poisoned but named no degree and took no click): the same messages as a click on the classic frame's flask - the
-    /// health flask says how poisoned and the vitality, the mana flask the mana - through UWHudRunes.DescribeFlask, the
-    /// classic path itself (Classic Wide uses it too). Not while a menu or a typed line has the input, not with a thing on
+    /// health flask says how poisoned and the vitality, the mana flask the mana - through the session's character
+    /// (IUWModernCharacter.DescribeFlask; the first game's is UWHudRunes.DescribeFlask, the classic path itself, which
+    /// Classic Wide uses too). Not while a menu or a typed line has the input, not with a thing on
     /// the pointer, and a bag window over the flask takes the click.
     /// </summary>
     private void fClickFlask()
     {
         if (mOScheme == null || !mOScheme.IsPointerFree || !UWPointer.HasMouse || UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive
-            || UWModernPointer.PanelsHeld || mOUi == null || mOUi.Runes == null)
+            || UWModernPointer.PanelsHeld || UWModernUi.Session == null)
             return;
 
         UWControls lOControls = mOScheme.Controls;
@@ -214,7 +224,7 @@ public class UWModernVitals : UWModernPart
         if (lOControls == null || !lOControls.Player.CursorDrag.WasPressedThisFrame())
             return;
 
-        if (mOUi.mOInventory != null && mOUi.mOInventory.CursorItem != null)
+        if (UWModernUi.Inventory != null && UWModernUi.Inventory.CursorItem != null)
             return;
 
         Vector2 lOPointer = UWPointer.Position;
@@ -223,9 +233,9 @@ public class UWModernVitals : UWModernPart
             return;
 
         if (fIsOver(mOHealthFlask, lOPointer))
-            mOUi.Runes.DescribeFlask(UWClickRules.FlaskPart.Vitality);
+            mOSession.Character.DescribeFlask(UWClickRules.FlaskPart.Vitality);
         else if (fIsOver(mOManaFlask, lOPointer))
-            mOUi.Runes.DescribeFlask(UWClickRules.FlaskPart.Mana);
+            mOSession.Character.DescribeFlask(UWClickRules.FlaskPart.Mana);
     }
 
     private static bool fIsOver(RawImage pOImage, Vector2 pOPointer)
@@ -282,6 +292,13 @@ public class UWModernVitals : UWModernPart
     /// </summary>
     private void fUpdateGemStand(Rect pOVitals)
     {
+        // THE SECOND GAME'S GEM HAS NO STAND (UWModernLayout.IsGemOfTheCompass): apart, it is its own element alone.
+        if (mOGemStandTexture == null)
+        {
+            fUpdateGemAlone(pOVitals);
+            return;
+        }
+
         float liScale = fScaleOf(UWModernLayout.ElementEnum.PowerGem);
         float lfWidth = mOGemStandTexture.width * liScale * UWModernHudArt.PixelAspectX;
         float lfHeight = mOGemStandTexture.height * liScale;
@@ -293,7 +310,7 @@ public class UWModernVitals : UWModernPart
         ((RectTransform)mOGemStand.transform).anchoredPosition = lOPlaced.position;
         ((RectTransform)mOGemStand.transform).sizeDelta = lOPlaced.size;
 
-        Texture2D lOGem = fKeyed(mOCharacter.Weapon.PowerGemTeture, mbGemMask);
+        Texture2D lOGem = fKeyed(mOSession.Art.PowerGem, mbGemMask);
 
         if (lOGem == null)
         {
@@ -310,17 +327,43 @@ public class UWModernVitals : UWModernPart
         lORect.sizeDelta = new Vector2(lOGem.width * liScale * UWModernHudArt.PixelAspectX, lOGem.height * liScale);
     }
 
+    /// <summary>The gem as an element of its own without a stand (the second game's, where the flasks stand apart and no
+    /// compass shows): by default right of the vitals' place.</summary>
+    private void fUpdateGemAlone(Rect pOVitals)
+    {
+        mOGemStand.enabled = false;
+
+        Texture2D lOGem = fKeyed(mOSession.Art.PowerGem, mbGemMask);
+
+        if (lOGem == null)
+        {
+            mOPowerGem.enabled = false;
+            return;
+        }
+
+        float liScale = fScaleOf(UWModernLayout.ElementEnum.PowerGem);
+        Rect lOPlaced = fPlaceAndReport(UWModernLayout.ElementEnum.PowerGem,
+            new Rect(pOVitals.xMax + (ShelfMargin * miPixelScale), pOVitals.y, lOGem.width * liScale * UWModernHudArt.PixelAspectX, lOGem.height * liScale));
+
+        mOPowerGem.texture = lOGem;
+        mOPowerGem.enabled = true;
+        ((RectTransform)mOPowerGem.transform).anchoredPosition = lOPlaced.position;
+        ((RectTransform)mOPowerGem.transform).sizeDelta = lOPlaced.size;
+    }
+
     /// <summary>The shelf and the masks, built once and again when the colour help changes or the
     /// gem goes apart or back.</summary>
     private void fEnsureArt()
     {
         bool lbGemApart = UWModernLayout.IsGemApart;
-        UWArtStamp lOStamp = UWVersionedTexture.Colours(lbGemApart ? 1 : 0);
+        bool lbGemInCompass = UWModernLayout.IsGemInCompass;
+        UWArtStamp lOStamp = UWVersionedTexture.Colours((lbGemApart ? 1 : 0) + (lbGemInCompass ? 2 : 0));
 
         if (mOShelfArt.IsCurrent(lOStamp))
             return;
 
         mbGemApart = lbGemApart;
+        mbGemInCompass = lbGemInCompass;
 
         if (mOGemStandTexture != null)
             Object.Destroy(mOGemStandTexture);
@@ -335,13 +378,18 @@ public class UWModernVitals : UWModernPart
 
         mOKeyedFree.Clear();
 
-        DataImport lOData = mOUi.mOUWData;
+        // The game's own shelf, stand and masks (IUWModernArt.BuildVitalsArt, stage U4 part A step 3; the first
+        // game's builders called here until then).
+        // The gem in the compass is not in the row either.
+        UWModernVitalsArt lOArt = mOSession.Art.BuildVitalsArt(mbGemApart || mbGemInCompass);
 
-        mOShelfArt.Set(lOStamp, UWModernHudArt.BuildShelf(lOData.Textures, mOUi.TextureFilterMode, out mOShelfLayout, mbGemApart));
-        mOGemStandTexture = UWModernHudArt.BuildGemStand(lOData.Textures, mOUi.TextureFilterMode, out mOGemOnStand);
-        mbFlaskMask = UWModernHudArt.BuildFlaskMask(lOData.Flasks);
-        mbFreeFlaskMask = UWModernHudArt.BuildFreeFlaskMask(lOData.Flasks);
-        mbGemMask = UWModernHudArt.BuildGemMask(lOData.PowerGem);
+        mOShelfArt.Set(lOStamp, lOArt.Shelf);
+        mOShelfLayout = lOArt.Layout;
+        mOGemStandTexture = lOArt.GemStand;
+        mOGemOnStand = lOArt.GemOnStand;
+        mbFlaskMask = lOArt.FlaskMask;
+        mbFreeFlaskMask = lOArt.FreeFlaskMask;
+        mbGemMask = lOArt.GemMask;
     }
 
     /// <summary>A flask or gem picture with its backdrop keyed out, kept per picture (in
@@ -351,6 +399,10 @@ public class UWModernVitals : UWModernPart
     {
         if (pOSource == null)
             return null;
+
+        // No mask: the game's picture comes cut free already and is the game's to keep (IUWModernArt).
+        if (pbMask == null)
+            return pOSource;
 
         System.Collections.Generic.Dictionary<Texture2D, Texture2D> lOCache = pOCache ?? mOKeyed;
         Texture2D lOKeyed;

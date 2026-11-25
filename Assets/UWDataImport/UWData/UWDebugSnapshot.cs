@@ -269,6 +269,9 @@ namespace UWDataImport.UWData
 
 		public int Heading;
 
+		/// <summary>The object's flags (word 0 bits 9-12).</summary>
+		public int Flags;
+
 		/// <summary>The entity's description, "-" when it has none.</summary>
 		public string Description = string.Empty;
 

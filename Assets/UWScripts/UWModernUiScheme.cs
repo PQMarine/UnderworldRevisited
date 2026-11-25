@@ -21,8 +21,12 @@ public sealed class UWModernUiScheme : IUWUiScheme
     public UWUiSchemePolicy Policy => UWUiSchemePolicy.Modern;
 
     /// <summary>The modern scroll's paper while it is shown (UWModernScroll.Rows), else the
-    /// modern message box's lines (Interaction.ModernMessageCount).</summary>
-    public int ShownLogLines => UWModernLayout.IsScrollShown ? UWModernScroll.Rows : Interaction.ModernMessageCount;
+    /// modern message box's lines (UWMessageLog.ModernShownCount).</summary>
+    public int ShownLogLines => UWModernLayout.IsScrollShown ? UWModernScroll.Rows : UWMessageLog.ModernShownCount;
+
+    /// <summary>The modern scroll's paper while it is shown (UWModernScroll.ShownTextWidth: the game's, widened or narrowed),
+    /// else the classic box's width, as the message box's lines always were.</summary>
+    public int ShownLogWidth(int piClassicWidth) => UWModernLayout.IsScrollShown ? UWModernScroll.ShownTextWidth : piClassicWidth;
 
     /// <summary>The pointer hold of UWModernPointer, the bags and whatever else freed it
     /// (UWControlScheme.IsPointerFree).</summary>
@@ -52,9 +56,7 @@ public sealed class UWModernUiScheme : IUWUiScheme
     /// the world must not strike).</summary>
     public bool PressAimsAtWorld(bool pbFromPad)
     {
-        Interaction lOInteraction = UWScene.Interaction;
-
-        return pbFromPad || (lOInteraction != null && lOInteraction.MouseInWorld());
+        return pbFromPad || (UWModernUi.Session != null && UWModernUi.Session.World.IsMouseInWorld);
     }
 
     /// <summary>
@@ -70,9 +72,7 @@ public sealed class UWModernUiScheme : IUWUiScheme
     {
         get
         {
-            Interaction lOInteraction = UWScene.Interaction;
-
-            return lOInteraction != null && lOInteraction.IsPointerFree() && UWPointer.HasMouse
+            return UWModernUi.Session != null && UWModernUi.Session.World.IsPointerFree && UWPointer.HasMouse
                 ? UWAttackKindSource.PointerThirdsOnScreen
                 : UWAttackKindSource.ViewPitch;
         }
@@ -91,8 +91,7 @@ public sealed class UWModernUiScheme : IUWUiScheme
         if (!pbLeftPressed)
             return false;
 
-        Interaction lOInteraction = UWScene.Interaction;
-        bool lbFree = lOInteraction != null && lOInteraction.IsPointerFree() && UWPointer.HasMouse;
+        bool lbFree = UWModernUi.Session != null && UWModernUi.Session.World.IsPointerFree && UWPointer.HasMouse;
 
         pOAt = lbFree ? UWPointer.Position : UWModernClassicFrame.ViewCentre;
 

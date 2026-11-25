@@ -1,8 +1,8 @@
 namespace UWDataImport.UWData
 {
 	/// <summary>
-	/// THE SECOND GAME'S PLAYER RECORD AS THE WALK USES IT (Docs/UW2-PLAN.md phase 2 step 6, 2026-10-29):
-	/// the fields of PLAYER.DAT's deciphered record (UWPlayerFile.Record) the walk reads and writes, at the
+	/// THE SECOND GAME'S PLAYER RECORD AS THE SESSION USES IT (Docs/UW2-PLAN.md phase 2 step 6, 2026-10-29):
+	/// the fields of PLAYER.DAT's deciphered record (UWPlayerFile.Record) the session reads and writes, at the
 	/// offsets of Underworld Exhumed's struct Player (uw2 include/player.h:20) - which agree with the first
 	/// game's up to 0x5D: the name from 0, the 20 skills from 0x21 (Swimming the last, 0x34), and where the
 	/// game was saved, saved_x and saved_y (PN's x and y: the tile in the high byte, the fine position in the
@@ -29,7 +29,7 @@ namespace UWDataImport.UWData
 
 		public const int LevelOffset = 0x5C;
 
-		/// <summary>The name a walk begun without a save is written with.</summary>
+		/// <summary>The name a session begun without a save is written with.</summary>
 		public const string WalkerName = "Avatar";
 
 		public static int PositionX(UWPlayerFile pOFile) => UWBinary.ReadU16(pOFile.Record, PositionXOffset);
@@ -363,8 +363,8 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// A record for a walk begun without a save: the name (WalkerName), its key, everything else zero,
-		/// no saved objects - enough for the walk to come back to, NOT a character the original could play
+		/// A record for a session begun without a save: the name (WalkerName), its key, everything else zero,
+		/// no saved objects - enough for the session to come back to, NOT a character the original could play
 		/// (no vitality, no skills; it would come in dead).
 		/// </summary>
 		/// <summary>
@@ -792,10 +792,10 @@ namespace UWDataImport.UWData
 		/// init_char sets the time of day to 15 and then clears all sixteen (CHARGEN.C:86 and :116). The byte
 		/// 0x65: lefty (the second game asks Right, Left and stores 1 - choice, CHARGEN.C:591 - the first
 		/// answer's bit, which UWCharacterGeneration's IsLeftHanded is), female, body, class. No position or
-		/// level: the walk starts where a new game does (player_setup at 0x13/0x30 on level 1).
+		/// level: the session starts where a new game does (player_setup at 0x13/0x30 on level 1).
 		///
 		/// The workspace: the player object as InitPlayerRec and player_setup make it (PlayerItemId and the
-		/// rest, its home the start tile, its z left 0 - the walk places the player by the floor, and the
+		/// rest, its home the start tile, its z left 0 - the session places the player by the floor, and the
 		/// original takes PN from the record's position when it restores), its hit points (byte 8) at the
 		/// maximum; then the cursor object and the slots, zero.
 		/// </summary>

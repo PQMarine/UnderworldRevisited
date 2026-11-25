@@ -296,7 +296,7 @@ public static class UWPlayerThrow
     /// The drop's spot (ReturnObject, the same in both games): (player radius + item radius + 1)
     /// eighth tiles ahead in the player's facing, and if the item fits there three eighths further,
     /// where it must fit again. False when it does not - the spot is then where it was tried. The
-    /// second game's walk drops through it too (UWGameScreenUw2, UW2 plan phase 3 step 3).
+    /// second game's session drops through it too (UWGameScreenUw2, UW2 plan phase 3 step 3).
     /// </summary>
     public static bool TryFindDropSpot(UWObject pOItem, Transform pOCamera, UWLevelLoader pOLevelLoader, out Vector3 pOSpot)
     {

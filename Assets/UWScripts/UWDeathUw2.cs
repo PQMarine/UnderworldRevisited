@@ -72,7 +72,7 @@ public sealed class UWDeathUw2 : MonoBehaviour
 
         int liLevel = lOLoader.CurrentLevelIndex + 1;
 
-        Debug.Log("[Walk] The player dies on level " + liLevel + ".");
+        Debug.Log("[Session] The player dies on level " + liLevel + ".");
 
         // KILLED BY THE CASTLE'S PEOPLE ON LEVEL 1: jail instead (G6 part 3). The killer is the player object's last_hit.
         UWPlayerFile lOFile = lOSession.PlayerFileUw2;
@@ -110,8 +110,8 @@ public sealed class UWDeathUw2 : MonoBehaviour
         if (lOAttack != null)
             lOAttack.ClearFight();
 
-        if (UWWalkUw2View.Current != null)
-            UWWalkUw2View.Current.DropCursorItem();
+        if (UWWorldViewUw2.Current != null)
+            UWWorldViewUw2.Current.DropCursorItem();
 
         // player_is_dead's fadeout3d(5): the way to the gem goes through the black (per user in the original 2026-11-17,
         // test 70.2: a moment of black, then the gem; ours moved at once until then).
@@ -132,7 +132,7 @@ public sealed class UWDeathUw2 : MonoBehaviour
         int liY = UWDeathRulesUw2.GemTileY;
 
         UWDeathRulesUw2.MoveAlong(UWRandom.Next(UWOriginalRandom.Range), UWDeathRulesUw2.GemDistance, ref liX, ref liY);
-        pOLoader.WalkTeleport(new UWTeleportUw2.Target { Level = UWDeathRulesUw2.GemLevel, TileX = liX, TileY = liY });
+        pOLoader.Uw2Teleport(new UWTeleportUw2.Target { Level = UWDeathRulesUw2.GemLevel, TileX = liX, TileY = liY });
 
         mOVitals.ApplyConversationValues(mOVitals.Hunger, UWDeathRules.ResurrectionHitPoints(mOVitals.MaxHP),
             UWDeathRules.ResurrectionMana(mOVitals.MaxMana), 0);
@@ -169,7 +169,7 @@ public sealed class UWDeathUw2 : MonoBehaviour
         UWPlayerFile lOFile = pOSession.PlayerFileUw2;
         UWWorld lOWorld = UWWorld.Of(pOLoader);
 
-        Debug.Log("[Walk] Killed by the castle's people: the player wakes in jail.");
+        Debug.Log("[Session] Killed by the castle's people: the player wakes in jail.");
 
         mOVitals.ApplyConversationValues(mOVitals.Hunger, mOVitals.Strength, mOVitals.CurrentMana, mOVitals.Poison);
         mOVitals.ChangeExperience(-UWDeathRulesUw2.ExperienceLoss(mOVitals.Experience), piLevel);
@@ -183,10 +183,10 @@ public sealed class UWDeathUw2 : MonoBehaviour
         mOVitals.TakeClock(UWPlayerRecordUw2.GameClock(lOFile));
         UWScheduleHostUw2.RunAll();
 
-        if (UWWalkUw2View.Current != null)
-            UWWalkUw2View.Current.DropCursorItem();
+        if (UWWorldViewUw2.Current != null)
+            UWWorldViewUw2.Current.DropCursorItem();
 
-        pOLoader.WalkTeleport(new UWTeleportUw2.Target { Level = UWDeathRulesUw2.JailLevel, TileX = UWDeathRulesUw2.JailTileX, TileY = UWDeathRulesUw2.JailTileY });
+        pOLoader.Uw2Teleport(new UWTeleportUw2.Target { Level = UWDeathRulesUw2.JailLevel, TileX = UWDeathRulesUw2.JailTileX, TileY = UWDeathRulesUw2.JailTileY });
 
         UWLevel lOLevel = pOLoader.CurrentLevel;
         UWObjectClassProperties lOProperties = pOLoader.UWDataImporter != null ? pOLoader.UWDataImporter.ObjectClassProperties : null;
@@ -241,6 +241,6 @@ public sealed class UWDeathUw2 : MonoBehaviour
         else
             yield return new WaitForSecondsRealtime(FinalPause);
 
-        UWWalkUw2.Leave();
+        UWGameStartUw2.Leave();
     }
 }

@@ -177,6 +177,12 @@ namespace UWDataImport.UWData
 			WhenUnset = d => string.IsNullOrEmpty(d.ModernLayout) && !d.MinimapHidden ? 0 : 1
 		};
 
+		/// <summary>The game the layout's entries and the preset belong to (UWGame, 0 the first's), and the other game's as
+		/// JSON (UWUserSettings.UseLayoutOf, UW2 plan part U4e step 3). Kept by the swap, shown nowhere.</summary>
+		public static readonly UWIntSettingDef LayoutGame = fInt(nameof(UWUserData.LayoutGame), UWSettingKind.Int, d => d.LayoutGame, (d, v) => d.LayoutGame = v);
+
+		public static readonly UWTextSettingDef OtherGameLayout = fText(nameof(UWUserData.OtherGameLayout), d => d.OtherGameLayout, (d, v) => d.OtherGameLayout = v, UWSettingNormalize.None);
+
 		public static readonly UWBoolSettingDef ClassicWide4By3 = fBool(nameof(UWUserData.ClassicWide4By3), d => d.ClassicWide4By3, (d, v) => d.ClassicWide4By3 = v);
 
 		public static readonly UWBoolSettingDef MinimapHidden = fBool(nameof(UWUserData.MinimapHidden), d => d.MinimapHidden, (d, v) => d.MinimapHidden = v, UWSettingStore.Layout);
@@ -217,6 +223,8 @@ namespace UWDataImport.UWData
 		public static readonly UWBoolSettingDef ModernRuneHollow = fBool(nameof(UWUserData.ModernRuneHollow), d => d.ModernRuneHollow, (d, v) => d.ModernRuneHollow = v, UWSettingStore.Layout);
 
 		public static readonly UWBoolSettingDef ModernRuneHollowOutline = fBool(nameof(UWUserData.ModernRuneHollowOutline), d => d.ModernRuneHollowOutline, (d, v) => d.ModernRuneHollowOutline = v, UWSettingStore.Layout);
+
+		public static readonly UWBoolSettingDef ModernSpellHollow = fBool(nameof(UWUserData.ModernSpellHollow), d => d.ModernSpellHollow, (d, v) => d.ModernSpellHollow = v, UWSettingStore.Layout);
 
 		public static readonly UWBoolSettingDef ModernRuneTablet = fBool(nameof(UWUserData.ModernRuneTablet), d => d.ModernRuneTablet, (d, v) => d.ModernRuneTablet = v, UWSettingStore.Layout);
 
@@ -329,9 +337,20 @@ namespace UWDataImport.UWData
 
 		public static readonly UWBoolSettingDef OriginalWorldResolution = fBool(nameof(UWUserData.OriginalWorldResolution), d => d.OriginalWorldResolution, (d, v) => d.OriginalWorldResolution = v);
 
+		/// <summary>Retired 2026-11-25 (TextureLook took their place); kept for the file only.</summary>
 		public static readonly UWBoolSettingDef XbrTextures = fBool(nameof(UWUserData.XbrTextures), d => d.XbrTextures, (d, v) => d.XbrTextures = v);
 
 		public static readonly UWBoolSettingDef XbrSprites = fBool(nameof(UWUserData.XbrSprites), d => d.XbrSprites, (d, v) => d.XbrSprites = v);
+
+		/// <summary>The textures' look in Remastered (UWTextureLookEnum); -1 = not chosen yet, which reads xBR where one of the
+		/// two retired xBR switches was on, else Pixels.</summary>
+		public static readonly UWIntSettingDef TextureLook = new UWIntSettingDef(nameof(UWUserData.TextureLook), UWSettingKind.Choice,
+			d => d.TextureLook, (d, v) => d.TextureLook = v)
+		{
+			Normalize = UWSettingNormalize.UnsetIsComputed,
+			Unset = NotChosen,
+			WhenUnset = d => UWTextureLook.FromXbrSwitches(d.XbrTextures, d.XbrSprites)
+		};
 
 		/// <summary>1 to 4; UWWorldResolution.Factor keeps the limits.</summary>
 		public static readonly UWIntSettingDef OriginalWorldResolutionFactor = fInt(nameof(UWUserData.OriginalWorldResolutionFactor), UWSettingKind.Int, d => d.OriginalWorldResolutionFactor, (d, v) => d.OriginalWorldResolutionFactor = v);
@@ -491,13 +510,13 @@ namespace UWDataImport.UWData
 		{
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
 			FixOriginalBugs, RemoveExploits, KnowledgeShowAll, LizardWords, ModernFont, ModernFontLanguage, SkillRaises, IceGrip, PassPeaceful, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
-			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
+			InterfacePreset, LayoutGame, OtherGameLayout, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
 			ModernBacks, ModernScrollLines, ModernScrollWidth, ModernMessageLines, ModernMessageFade, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
-			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,
+			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernSpellHollow, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,
 			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle, AutoKey, FreeOpensCharacter, FreeOpensRunes, FreeOpensBags, DebugKeys,
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,
 			RightStickDeadzone, ModernPanelPinned, ModernRunesPinned, ControlScheme, EasyMovementInterval, ShowOpeningSequence,
-			CutsceneSubtitles, RunInBackground, CheckForUpdates, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, XbrTextures, XbrSprites, OriginalWorldResolutionFactor,
+			CutsceneSubtitles, RunInBackground, CheckForUpdates, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, XbrTextures, XbrSprites, TextureLook, OriginalWorldResolutionFactor,
 			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, AmbientLight, IceRelief, LightTone, PaletteGroundShadows,
 			PaletteCavity, PaletteDepth, PaletteDitherCell, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,

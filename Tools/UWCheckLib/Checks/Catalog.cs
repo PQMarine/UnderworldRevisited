@@ -213,6 +213,8 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("PanelTurn", pOContext => fCheckPanelTurn(), false, "hud");
             lOCatalog.Add("CharacterSheet", pOContext => fCheckCharacterSheet(), false, "hud", "player");
             lOCatalog.Add("CharacterSheetData", pOContext => fCheckCharacterSheetData(pOContext.Data), true, "hud", "player");
+            lOCatalog.Add("StatsPageGeometry", pOContext => fCheckStatsPageGeometry(), false, "hud", "uw2", "original");
+            lOCatalog.Add("Uw2StatsPageWords", pOContext => fCheckUw2StatsPageWords(pOContext), false, "uw2", "hud");
             lOCatalog.Add("ConversationView", pOContext => fCheckConversationView(pOContext.Data), true, "hud", "conversation", "original");
             lOCatalog.Add("MessageLogModel", pOContext => fCheckMessageLogModel(), false, "hud", "original");
             lOCatalog.Add("Knowledge", pOContext => fCheckKnowledge(pOContext.Data), true, "player", "original");
@@ -281,6 +283,12 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("LayoutPresets", pOContext => fCheckLayoutPresets(), false, "settings", "hud", "pin");
             lOCatalog.Add("HelpTabIds", pOContext => fCheckHelpTabIds(), false, "settings", "pin");
             lOCatalog.Add("TextTable", pOContext => fCheckTextTable(), false, "settings", "text");
+            lOCatalog.Add("ModernInterfaceSeam", pOContext => fCheckModernInterfaceSeam(), false, "hud", "settings");
+            lOCatalog.Add("PaperdollGeometry", pOContext => fCheckPaperdollGeometry(), false, "hud");
+            lOCatalog.Add("CharacterPageGeometry", pOContext => fCheckCharacterPageGeometry(), false, "hud", "uw2", "original");
+            lOCatalog.Add("Uw2CompassPieces", pOContext => fCheckUw2CompassPieces(pOContext), false, "hud", "uw2");
+            lOCatalog.Add("Uw2ClassicWide", pOContext => fCheckUw2ClassicWide(pOContext), false, "hud", "uw2");
+            lOCatalog.Add("Uw2ConversationPieces", pOContext => fCheckUw2ConversationPieces(pOContext), false, "hud", "uw2");
             lOCatalog.Add("LanguageFiles", pOContext => fCheckLanguageFiles(), false, "text");
             lOCatalog.Add("TextTemplate", pOContext => fCheckTextTemplate(), false, "text");
             lOCatalog.Add("LanguageFont", pOContext => fCheckLanguageFont(), false, "text", "input");

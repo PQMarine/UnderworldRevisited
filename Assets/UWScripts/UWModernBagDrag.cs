@@ -63,7 +63,7 @@ internal sealed class UWModernBagDrag
 
     internal bool ReturnCursorItem()
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         if (lOInventory == null || lOInventory.CursorItem == null)
             return true;
@@ -92,7 +92,7 @@ internal sealed class UWModernBagDrag
     // ------------------------------------------------- Taking and putting down
 
     /// <summary>Takes the thing in a slot onto the pointer and remembers where from.</summary>
-    internal void Take(Window pOWindow, int piSlot, UWInventory pOInventory)
+    internal void Take(Window pOWindow, int piSlot, UWInventoryModel pOInventory)
     {
         ForgetOrigin();
 
@@ -113,7 +113,7 @@ internal sealed class UWModernBagDrag
     }
 
     /// <summary>Takes the thing in a paperdoll slot onto the pointer and remembers where from.</summary>
-    internal void TakeEquipped(UWArmorItemMap.BodySlot peSlot, UWInventory pOInventory)
+    internal void TakeEquipped(UWArmorItemMap.BodySlot peSlot, UWInventoryModel pOInventory)
     {
         ForgetOrigin();
         pOInventory.BeginDragFromEquip(peSlot);
@@ -126,7 +126,7 @@ internal sealed class UWModernBagDrag
     /// there takes it inside, as in the original), a bag slot (the model stacks, combines,
     /// swaps or appends), a window's free space, or - outside the windows - the world.
     /// </summary>
-    internal void Place(Vector2 pOPointer, UWInventory pOInventory)
+    internal void Place(Vector2 pOPointer, UWInventoryModel pOInventory)
     {
         // Let go on the help: it stays on the pointer, nothing lands under the help.
         if (UWModernUi.IsHelpUnderPointer)
@@ -152,9 +152,9 @@ internal sealed class UWModernBagDrag
         {
             // What lands on the head is eaten, as on the classic page (UWItemDrag, per user
             // 2026-10-04); a stack is refused (one at a time) and stays on the pointer, its origin with it.
-            UWItemDrag lODrag = UWScene.ItemDrag;
+            IUWModernInventory lOGame = UWModernUi.Session != null ? UWModernUi.Session.Inventory : null;
 
-            if (leEquip == UWArmorItemMap.BodySlot.Helmet && lODrag != null && lODrag.TryConsumeCursorItemOnHead())
+            if (leEquip == UWArmorItemMap.BodySlot.Helmet && lOGame != null && lOGame.TryConsumePointerItem())
             {
                 if (pOInventory.CursorItem == null)
                     ForgetOrigin();
@@ -172,7 +172,7 @@ internal sealed class UWModernBagDrag
             if (lOWindow.Container == null)
             {
                 // A container lying there takes it - the classic frame's rule (cleanup step 5.8).
-                lbPlaced = UWInventoryView.DropOnBackpackSlot(pOInventory.Model, liSlot) == UWInventoryView.PutOutcomeEnum.Placed;
+                lbPlaced = UWInventoryView.DropOnBackpackSlot(pOInventory, liSlot) == UWInventoryView.PutOutcomeEnum.Placed;
             }
             else
             {
@@ -203,7 +203,7 @@ internal sealed class UWModernBagDrag
             ReturnCursorItem();
             return;
         }
-        else if ((UWModernPanel.Instance != null && UWModernPanel.Instance.Contains(pOPointer)) || UWModernBagTrade.IsTalking
+        else if ((UWModernPanel.Instance != null && UWModernPanel.Instance.Contains(pOPointer)) || UWModernBagTrade.IsConversing
             || (UWModernBagPages.IsPageShown && UWModernInventoryPage.Instance.Contains(pOPointer))
             || (UWModernRunePanel.Instance != null && UWModernRunePanel.Instance.Contains(pOPointer))
             || (UWModernMinimap.Instance != null && UWModernMinimap.Instance.Contains(pOPointer)))
@@ -213,12 +213,8 @@ internal sealed class UWModernBagDrag
         }
         else
         {
-            UWPlayerThrow.GetPointerInFullScreenView(pOPointer, out int liX, out int liY);
-
-            Camera lOCamera = Camera.main;
-
-            lbPlaced = lOCamera != null && UWPlayerThrow.TryDropOrThrowAtView(liX, liY, lOCamera.transform,
-                pOInventory, UWScene.LevelLoader, mOBags.Interaction);
+            // Into the world: laid down or thrown as the game does it (IUWModernInventory, stage U2).
+            lbPlaced = UWModernUi.Session != null && UWModernUi.Session.Inventory.DropOrThrowPointerItem(pOPointer);
         }
 
         if (!lbPlaced)
@@ -232,23 +228,23 @@ internal sealed class UWModernBagDrag
 
     /// <summary>Says why a container refused the item - the sentences are
     /// UWItemMessages.ContainerRejection, shared with UWItemDrag.</summary>
-    internal void ReportRejection(UWInventory pOInventory)
+    internal void ReportRejection(UWInventoryModel pOInventory)
     {
-        if (mOBags.Interaction == null)
+        if (UWModernUi.Session == null)
             return;
 
         string lsMessage = UWItemMessages.ContainerRejection(pOInventory.LastContainerRejection,
             pOInventory.LastContainerRejectionContainer, mOBags.Data);
 
         if (lsMessage != null)
-            mOBags.Interaction.AddMessage(lsMessage);
+            UWModernUi.Session.Messages.Say(lsMessage);
     }
 
     // ------------------------------------------------- Putting a piece on
 
     /// <summary>Where the right button puts a piece on: armour on its place, a ring on a free
     /// finger, a weapon into the weapon hand. Nothing else.</summary>
-    internal static bool TryGetEquipSlot(UWObject pOItem, UWInventory pOInventory, out UWArmorItemMap.BodySlot peSlot)
+    internal static bool TryGetEquipSlot(UWObject pOItem, UWInventoryModel pOInventory, out UWArmorItemMap.BodySlot peSlot)
     {
         peSlot = UWArmorItemMap.BodySlot.RightHandSlot;
 
@@ -281,7 +277,7 @@ internal sealed class UWModernBagDrag
     /// <summary>Puts a piece on through the pointer, as a drag onto the paperdoll would: what
     /// was worn there goes back to the piece's place; if that refuses it, it stays on the
     /// pointer.</summary>
-    internal void Equip(Window pOWindow, int piSlot, UWArmorItemMap.BodySlot peSlot, UWInventory pOInventory)
+    internal void Equip(Window pOWindow, int piSlot, UWArmorItemMap.BodySlot peSlot, UWInventoryModel pOInventory)
     {
         Take(pOWindow, piSlot, pOInventory);
 
@@ -311,7 +307,7 @@ internal sealed class UWModernBagDrag
     /// </summary>
     internal bool EquipCarried(UWObject pOItem, UWArmorItemMap.BodySlot peSlot)
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         if (lOInventory == null || pOItem == null || lOInventory.CursorItem != null)
             return false;
@@ -360,7 +356,7 @@ internal sealed class UWModernBagDrag
         return true;
     }
 
-    private static bool fFindEquipped(UWInventory pOInventory, UWObject pOItem, out UWArmorItemMap.BodySlot peSlot)
+    private static bool fFindEquipped(UWInventoryModel pOInventory, UWObject pOItem, out UWArmorItemMap.BodySlot peSlot)
     {
         UWObject[] lOSlots = pOInventory.EquipSlots;
 
@@ -378,9 +374,9 @@ internal sealed class UWModernBagDrag
     }
 
     /// <summary>The carried container a piece lies in directly.</summary>
-    private static bool fFindHolder(UWInventory pOInventory, UWObject pOItem, out UWObject pOHolder)
+    private static bool fFindHolder(UWInventoryModel pOInventory, UWObject pOItem, out UWObject pOHolder)
     {
-        foreach (UWObject lOItem in pOInventory.Model.EnumerateAll())
+        foreach (UWObject lOItem in pOInventory.EnumerateAll())
         {
             if (lOItem.Contents != null && lOItem.Contents.Contains(pOItem))
             {
@@ -422,10 +418,8 @@ internal sealed class UWModernBagDrag
 
         mOUseItem = pOItem;
 
-        UWItemDrag lODrag = UWScene.ItemDrag;
-
-        if (lODrag != null)
-            lODrag.ReportUsePrompt(pOItem);
+        if (UWModernUi.Session != null)
+            UWModernUi.Session.Inventory.SayUsePrompt(pOItem);
     }
 
     internal void CancelUse()
@@ -445,7 +439,7 @@ internal sealed class UWModernBagDrag
         // A question follows (the anvil's repair): the pointer locks only after its answer. Locked
         // now and freed by the question box the next moment, Windows kept the pointer invisible
         // (per user, 2026-10-04).
-        if (lbLock && mOBags.Interaction != null && mOBags.Interaction.IsAskingYesNo)
+        if (lbLock && UWModernUi.Session != null && UWModernUi.Session.Messages.IsAskingYesNo)
             UWModernQuestion.LockWhenAnswered();
         else if (lbLock)
             UWModernPointer.Lock();
@@ -454,10 +448,11 @@ internal sealed class UWModernBagDrag
     /// <summary>The click of the use mode: onto the thing in a slot, onto nothing on another window
     /// of the modern UI, else onto the world under the pointer. The mode ends either way, as the
     /// classic one does.</summary>
-    internal void ApplyUse(Vector2 pOPointer, UWInventory pOInventory)
+    internal void ApplyUse(Vector2 pOPointer, UWInventoryModel pOInventory)
     {
         UWObject lOUse = mOUseItem;
-        UWItemDrag lODrag = UWScene.ItemDrag;
+        IUWModernInventory lOGame = UWModernUi.Session != null ? UWModernUi.Session.Inventory : null;
+        bool lbCanUse = lOGame != null && lOGame.CanUse;
         UWObject lOTarget = null;
 
         if (UWModernBagPages.PanelSlotAt(pOPointer, out UWArmorItemMap.BodySlot leSlot))
@@ -474,11 +469,11 @@ internal sealed class UWModernBagDrag
         // The pole on a carried thing keeps the mode (UWItemTargetRules.KeepsUseMode, 2026-10-15).
         bool lbKeep = false;
 
-        if (lODrag != null && lOTarget != null)
-            lbKeep = UWItemTargetUse.Apply(mOBags.Interaction, lOUse, lOTarget, null);
-        else if (lODrag != null && !lbOverUi)
+        if (lbCanUse && lOTarget != null)
+            lbKeep = lOGame.UseOn(lOUse, lOTarget);
+        else if (lbCanUse && !lbOverUi)
         {
-            UWItemTargetUse.Apply(mOBags.Interaction, lOUse, null, pOPointer);
+            lOGame.UseOnWorld(lOUse, pOPointer);
             pOInventory.ApplyCarriedLight();
         }
 
@@ -499,7 +494,7 @@ internal sealed class UWModernBagDrag
     {
         mOCursorIcon = UWUiKit.CreateRawImage(pORoot, "Pointer item");
         UWIconPalette.ApplySmooth(mOCursorIcon);
-        mOCursorCount = UWUiKit.CreateText(pORoot, "Pointer count", TextAnchor.LowerRight, UWModernPalette.HudText, mOBags.Ui);
+        mOCursorCount = UWUiKit.CreateText(pORoot, "Pointer count", TextAnchor.LowerRight, UWModernPalette.HudText, UWModernUi.TextUi);
     }
 
     internal void KeepPointerItemOnTop()
@@ -508,7 +503,7 @@ internal sealed class UWModernBagDrag
         mOCursorCount.transform.SetAsLastSibling();
     }
 
-    internal void LayoutPointerItem(UWInventory pOInventory)
+    internal void LayoutPointerItem(UWInventoryModel pOInventory)
     {
         UWObject lOItem = mOBags.IsActive ? pOInventory.CursorItem ?? mOUseItem : null;
         UWTexture lOSource = lOItem != null ? lOItem.Icon ?? lOItem.Texture : null;
@@ -517,11 +512,11 @@ internal sealed class UWModernBagDrag
         {
             mOCursorIcon.enabled = false;
             mOCursorCount.enabled = false;
-            mOBags.Ui.PointerCursor.ShowSystemPointerForBags(true);
+            UWModernUi.Session.World.ShowPointerForBags(true);
             return;
         }
 
-        Texture2D lOIcon = UWIconCache.Texture(lOSource, mOBags.Ui.TextureFilterMode);
+        Texture2D lOIcon = UWIconCache.Texture(lOSource, UWModernUi.Filter);
         Vector2 lOPointer = UWPointer.Position;
         float liScale = mOBags.View.Scale;
 
@@ -534,7 +529,7 @@ internal sealed class UWModernBagDrag
         // can never agree under a fast hand. So while something hangs on the free pointer the
         // system pointer is hidden and the thing alone shows where one points, as in the
         // original, where the picked-up thing replaces the cursor. Restored once the hand is empty.
-        mOBags.Ui.PointerCursor.ShowSystemPointerForBags(false);
+        UWModernUi.Session.World.ShowPointerForBags(false);
         UWUiKit.SetRect(mOCursorIcon.rectTransform, lOPointer.x - (lOIcon.width * UWModernHudArt.PixelAspectX * liScale * 0.5f),
             lOPointer.y - (lOIcon.height * liScale * 0.5f), lOIcon.width * UWModernHudArt.PixelAspectX * liScale, lOIcon.height * liScale);
 

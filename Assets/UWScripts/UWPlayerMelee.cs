@@ -620,7 +620,7 @@ public sealed class UWPlayerMelee
 
         // using_altaras_dagger (uw2 combat/COMBAT.C:625, G6 part 2): while a blow with the jewelled dagger lands, the
         // Listener's death_check may break it (UWSpecialDeathsUw2.AltarasDaggerStrike); cleared after the blow.
-        UWSpecialDeathsUw2.AltarasDaggerStrike = UWWalkUw2.IsWalking && lOWeapon != null && lOWeapon.ID == UWSpecialDeathsUw2.JewelledDaggerId
+        UWSpecialDeathsUw2.AltarasDaggerStrike = UWGameStartUw2.IsRunning && lOWeapon != null && lOWeapon.ID == UWSpecialDeathsUw2.JewelledDaggerId
             ? (System.Action)(() => fBreakAltarasDagger(lOWeapon, lOWorld))
             : null;
 

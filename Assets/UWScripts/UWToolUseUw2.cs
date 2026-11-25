@@ -28,7 +28,13 @@ public static class UWToolUseUw2
         if (pOItem == null || (pOItem.ID != UWToolRulesUw2.Anvil && pOItem.ID != UWToolRulesUw2.Pole))
             return false;
 
-        Use(pOItem, pOData, pOInventory, null);
+        // From the world: the modern scheme's bag use mode opens the bags and frees the pointer for it (UWAttackUw2.AskUseOn).
+        if (UWAttackUw2.Current != null)
+            UWAttackUw2.Current.UseFrom(UWAttackUw2.UseOnFromEnum.World, () =>
+            {
+                Use(pOItem, pOData, pOInventory, null);
+                return true;
+            });
 
         return true;
     }
@@ -94,7 +100,7 @@ public static class UWToolUseUw2
         UWGameScreenUw2.Say(UWText.Block(pOData, 1, piLine, string.Empty));
     }
 
-    /// <summary>UseThing: "Use &lt;name&gt; on what?" and the waiting pointer.</summary>
+    /// <summary>UseThing: "Use &lt;name&gt; on what?" and the waiting pointer (UWAttackUw2.AskUseOn).</summary>
     private static void fBeginUseOn(UWObject pOItem, DataImport pOData, System.Action<UWObject, UWEntityInfo, bool> pOActor)
     {
         UWAttackUw2 lOAttack = UWAttackUw2.Current;
@@ -102,8 +108,19 @@ public static class UWToolUseUw2
         if (lOAttack == null)
             return;
 
-        lOAttack.AddMessage(UWItemMessages.UseOnWhat(pOData, pOItem.ID));
-        lOAttack.BeginUseOn(pOItem, pOActor);
+        lOAttack.AskUseOn(pOItem, pOData, pOActor);
+    }
+
+    /// <summary>
+    /// The carried things whose target stands in the world: a key or a lockpick (a door's or a chest's lock), the rock
+    /// hammer (a boulder), the pole (a switch), the bones (a gravestone). The modern action bar applies them to the
+    /// crosshair's target at once (UWAttackUw2.UseFrom). The oil flask and the anvil work on carried things and the key
+    /// gems on the large blackrock gem; they still ask, with the bags opened.
+    /// </summary>
+    public static bool TargetsWorld(UWObject pOItem)
+    {
+        return pOItem != null && (UWLockUseUw2.IsKeyOrLockpick(pOItem) || pOItem.ID == UWToolRulesUw2.RockHammer
+            || pOItem.ID == UWToolRulesUw2.Pole || UWToolRulesUw2.IsBones(pOItem.ID));
     }
 
     /// <summary>One of the pack's things used up (using_punt): one off a stack, else the thing.</summary>
@@ -223,7 +240,7 @@ public static class UWToolUseUw2
     /// cannot be.</summary>
     private static void fPole(UWObject pOTarget, UWEntityInfo pOEntity, DataImport pOData)
     {
-        if (pOTarget == null || pOEntity == null || !UWToolRulesUw2.IsSwitch(pOTarget.ID) || UWWalkUw2View.Current == null)
+        if (pOTarget == null || pOEntity == null || !UWToolRulesUw2.IsSwitch(pOTarget.ID) || UWWorldViewUw2.Current == null)
         {
             fSay(pOData, UWToolRulesUw2.PoleCannotString);
 
@@ -231,7 +248,7 @@ public static class UWToolUseUw2
         }
 
         fSay(pOData, UWToolRulesUw2.PoleTriggersString);
-        UWWalkUw2View.Current.UseThing(pOEntity);
+        UWWorldViewUw2.Current.UseThing(pOEntity);
     }
 
     /// <summary>

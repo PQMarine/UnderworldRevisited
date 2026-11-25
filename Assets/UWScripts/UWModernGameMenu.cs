@@ -56,11 +56,8 @@ public class UWModernGameMenu
     /// <summary>The HUD that owns the menu; the scene's parts below are its (found in its Start).</summary>
     private readonly UWModernHud mOHud;
 
-    private UWGameUI mOUi => mOHud.Ui;
-
-    private Interaction mOInteraction => mOHud.Interaction;
-
-    private UWControlScheme mOScheme => mOHud.Scheme;
+    /// <summary>The scheme the menu holds the world on: the HUD's, else the shared one (the one scheme there is).</summary>
+    private UWControlScheme mOScheme => mOHud.Scheme != null ? mOHud.Scheme : UWControlScheme.Shared;
 
     private PageEnum mePage = PageEnum.Closed;
 
@@ -103,9 +100,13 @@ public class UWModernGameMenu
             return;
         }
 
+        // A game without this menu yet keeps its own (IUWModernSession.Has, stage U4 part A).
+        if (!UWModernUi.Has(UWModernPartEnum.GameMenu))
+            return;
+
         if (mePage == PageEnum.Closed)
         {
-            if (mOUi != null && mOUi.Options != null && mOUi.Options.RefusesToOpen())
+            if (UWModernUi.Session != null && UWModernUi.Session.World.RefusesMenu())
                 return;
 
             if (mOScheme != null)
@@ -145,31 +146,31 @@ public class UWModernGameMenu
     /// the menu closes between the write and the report (UWSaveFlow).</summary>
     private void fSave()
     {
-        string lsError = UWSaveFlow.Write(miSaveSlot, msSaveName.Trim());
+        string lsError = UWModernUi.Session.World.WriteSave(miSaveSlot, msSaveName.Trim());
 
         CloseMenu();
-        UWSaveFlow.ReportSave(mOInteraction, mOUi != null ? mOUi.mOUWData : null, lsError, false);
+        UWModernUi.Session.World.ReportSave(lsError);
     }
 
     /// <summary>An empty slot says so and leaves the menu up; a full one closes the menu and
     /// loads (UWSaveFlow).</summary>
     private void fLoad(int piSlot)
     {
-        if (!UWSaveFlow.Exists(piSlot))
+        if (!UWModernUi.Session.World.HasSave(piSlot))
         {
-            UWSaveFlow.ReportNoSaveGame(mOInteraction);
+            UWModernUi.Session.World.ReportNoSave();
 
             return;
         }
 
         CloseMenu();
-        UWSaveFlow.Restore(mOInteraction, piSlot);
+        UWModernUi.Session.World.LoadSave(piSlot);
     }
 
     private void fQuitToMainMenu()
     {
         CloseMenu();
-        UWSaveFlow.QuitToMainMenu();
+        UWModernUi.Session.World.QuitToMainMenu();
     }
 
     // ------------------------------------------------- The gamepad in the menu
@@ -450,9 +451,10 @@ public class UWModernGameMenu
     /// (UWUserSettings.ClassicWide4By3); the one in force in gold. Until then one button "Classic
     /// Wide", always widened.
     /// </summary>
-    private void fKitClassic(UWModernLayout.PresetEnum peCurrent)
+    private void fKitClassic(UWModernLayout.PresetEnum peCurrent, bool pbBuilt)
     {
         Rect lORow = fKitNext(4f, 30f, PresetIndent);
+        bool lbEnabled = mOKit.Enabled;
         UWKitRows.HelpLook lOButton = KitLook(UWGuiTheme.GameMenuButtonSize, UWGuiTheme.Text, TextAnchor.MiddleCenter);
         float lfButton = fWidest(msClassicWidthIds, lOButton, 2f * ButtonPadding);
         bool lbClassic = peCurrent == UWModernLayout.PresetEnum.Classic;
@@ -465,11 +467,22 @@ public class UWModernGameMenu
         Rect lOWide = new Rect(lORow.xMax - (2f * lfButton) - ClassicGap, lORow.y, lfButton, lORow.height);
         Rect lO4By3 = new Rect(lORow.xMax - lfButton, lORow.y, lfButton, lORow.height);
 
+        mOKit.Enabled = lbEnabled && pbBuilt;
+
         if (fKitButton(lOWide, UWText.T("menu.preset.wide"), null, lbClassic && !lb4By3))
             fChooseClassic(false);
 
         if (fKitButton(lO4By3, UWText.T("menu.preset.4by3"), null, lbClassic && lb4By3))
             fChooseClassic(true);
+
+        mOKit.Enabled = lbEnabled;
+    }
+
+    /// <summary>Whether the running game has the preset's pieces (IUWModernSession.Supports; the second game only Modern
+    /// until stages U5 to U7, and the own layout with its editor at part U4e).</summary>
+    private static bool fSupports(UWModernLayout.PresetEnum pePreset)
+    {
+        return UWModernUi.Session == null || UWModernUi.Session.Supports(pePreset);
     }
 
     private static void fChooseClassic(bool pb4By3)
@@ -493,7 +506,7 @@ public class UWModernGameMenu
 
         // Refused in the Void (the original's check_save, UWHudOptions.RefusesToSave); restoring
         // is always allowed there (check_rest).
-        if (fKitButton(UWText.T("menu.save_game")) && (mOUi == null || mOUi.Options == null || !mOUi.Options.RefusesToSave()))
+        if (fKitButton(UWText.T("menu.save_game")) && (UWModernUi.Session == null || !UWModernUi.Session.World.RefusesToSave()))
             mePage = PageEnum.Save;
 
         if (fKitButton(UWText.T("menu.restore_game")))
@@ -515,11 +528,13 @@ public class UWModernGameMenu
 
         UWModernLayout.PresetEnum lePreset = UWModernLayout.Preset;
 
-        fKitClassic(lePreset);
-        fKitPreset(UWText.T("menu.preset.classic_modular"), UWModernLayout.PresetEnum.ClassicPlus, lePreset, true);
-        fKitPreset(UWText.T("menu.preset.modern"), UWModernLayout.PresetEnum.Modern, lePreset, true);
+        // A preset the running game has not built yet stands greyed (fSupports; the second game, part U4d step 4).
+        fKitClassic(lePreset, fSupports(UWModernLayout.PresetEnum.Classic));
+        fKitPreset(UWText.T("menu.preset.classic_modular"), UWModernLayout.PresetEnum.ClassicPlus, lePreset, fSupports(UWModernLayout.PresetEnum.ClassicPlus));
+        fKitPreset(UWText.T("menu.preset.modern"), UWModernLayout.PresetEnum.Modern, lePreset, fSupports(UWModernLayout.PresetEnum.Modern));
 
-        if (fKitPreset(UWText.T("menu.preset.customize"), UWModernLayout.PresetEnum.Custom, lePreset, true))
+        if (fKitPreset(UWText.T("menu.preset.customize"), UWModernLayout.PresetEnum.Custom, lePreset,
+            fSupports(UWModernLayout.PresetEnum.Custom) && UWModernUi.Has(UWModernPartEnum.LayoutEditor)))
             mePage = PageEnum.Layout;
 
         // The minimap's north up / turning left this menu on 2026-10-09 (per user): the layout
@@ -538,7 +553,7 @@ public class UWModernGameMenu
 
         for (int liSlot = 1; liSlot <= UWSavegameSlots.SlotCount; liSlot++)
         {
-            string lsName = UWSaveFlow.SlotName(liSlot);
+            string lsName = UWModernUi.Session.World.SaveSlotName(liSlot);
 
             if (!fKitButton(liSlot + ": " + lsName))
                 continue;
@@ -546,7 +561,7 @@ public class UWModernGameMenu
             if (pbSave)
             {
                 miSaveSlot = liSlot;
-                msSaveName = UWSaveFlow.Exists(liSlot) ? lsName : string.Empty;
+                msSaveName = UWModernUi.Session.World.HasSave(liSlot) ? lsName : string.Empty;
                 mbFocusName = true;
                 mePage = PageEnum.SaveName;
             }

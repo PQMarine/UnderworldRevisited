@@ -10,9 +10,43 @@ namespace UWDataImport.Presentation
 	/// UWHudArt forwards to it). Build reads the pictures from the data, Compose works on pictures
 	/// given - INV.GR 6 without its transparent right columns (Source) and the gargoyle's head
 	/// (GargoyleHead) - so the core runs on synthetic input too.
+	///
+	/// THE SECOND GAME'S PANEL (UW2 plan, the modern interface's part U4b, 2026-11-23): its INV.GR 6 is the
+	/// open bag's dark marble, 75 x 41, with a thinner frame and no transparent columns. The panel's measures
+	/// are a Frame per game (FrameOf); the constants below stay the first game's and stay what the windows lay
+	/// their contents out by - on the second game the marble simply runs on under the two pixels the frame is
+	/// thinner by.
 	/// </summary>
 	public static class UWLeatherBuilder
 	{
+		/// <summary>Where a game's panel picture has its frame and its calm parts.</summary>
+		public sealed class Frame
+		{
+			public int Left;
+
+			public int Right;
+
+			public int Top;
+
+			public int Bottom;
+
+			/// <summary>Fully transparent columns at the picture's right edge, cut off.</summary>
+			public int TransparentRight;
+
+			/// <summary>The most even part of the inside: the clouds' shades.</summary>
+			public UWRectInt CalmCentre;
+
+			/// <summary>The stretch of the top and bottom edge with the least variation.</summary>
+			public int CalmEdgeX0;
+
+			public int CalmEdgeX1;
+
+			/// <summary>The same for the left and right edge.</summary>
+			public int CalmEdgeY0;
+
+			public int CalmEdgeY1;
+		}
+
 		// ------------------------------------------------- The leather (INV.GR 6)
 
 		/// <summary>The panel's frame: 4 columns on the left, 3 on the right, 3 rows on top, 4 at
@@ -44,27 +78,82 @@ namespace UWDataImport.Presentation
 
 		private const int CalmEdgeY1 = 26;
 
+		/// <summary>The first game's leather (the constants above).</summary>
+		public static readonly Frame Uw1Frame = new Frame
+		{
+			Left = LeatherLeft, Right = LeatherRight, Top = LeatherTop, Bottom = LeatherBottom, TransparentRight = LeatherTransparentRight,
+			CalmCentre = msCalmCentre, CalmEdgeX0 = CalmEdgeX0, CalmEdgeX1 = CalmEdgeX1, CalmEdgeY0 = CalmEdgeY0, CalmEdgeY1 = CalmEdgeY1
+		};
+
+		/// <summary>
+		/// The second game's marble: one light row on top, a light and a shadow row at the bottom, a light and a
+		/// dark column on the left, one light column on the right. The calm centre is a part without the
+		/// near-black blotches (as a shade of the clouds they made the panels heavy); the calm edges are where
+		/// the frame's lines change least.
+		/// </summary>
+		public static class Uw2
+		{
+			[UWClassicLayout.Measured("UW2 INV.GR 6")]
+			public const int Left = 2;
+
+			[UWClassicLayout.Measured("UW2 INV.GR 6")]
+			public const int Right = 1;
+
+			[UWClassicLayout.Measured("UW2 INV.GR 6")]
+			public const int Top = 1;
+
+			[UWClassicLayout.Measured("UW2 INV.GR 6")]
+			public const int Bottom = 2;
+
+			[UWClassicLayout.Measured("UW2 INV.GR 6")]
+			public static readonly UWRectInt CalmCentre = new UWRectInt(40, 12, 18, 10);
+
+			[UWClassicLayout.Measured("UW2 INV.GR 6")]
+			public const int CalmEdgeX0 = 43;
+
+			[UWClassicLayout.Measured("UW2 INV.GR 6")]
+			public const int CalmEdgeX1 = 53;
+
+			[UWClassicLayout.Measured("UW2 INV.GR 6")]
+			public const int CalmEdgeY0 = 10;
+
+			[UWClassicLayout.Measured("UW2 INV.GR 6")]
+			public const int CalmEdgeY1 = 18;
+		}
+
+		public static readonly Frame Uw2Frame = new Frame
+		{
+			Left = Uw2.Left, Right = Uw2.Right, Top = Uw2.Top, Bottom = Uw2.Bottom, TransparentRight = 0,
+			CalmCentre = Uw2.CalmCentre, CalmEdgeX0 = Uw2.CalmEdgeX0, CalmEdgeX1 = Uw2.CalmEdgeX1, CalmEdgeY0 = Uw2.CalmEdgeY0, CalmEdgeY1 = Uw2.CalmEdgeY1
+		};
+
+		/// <summary>The measures of the panel picture the data carries.</summary>
+		public static Frame FrameOf(UWTextures pOTextures)
+		{
+			return pOTextures != null && pOTextures.Game == UWGame.Uw2 ? Uw2Frame : Uw1Frame;
+		}
+
 		// ------------------------------------------------- The leather's pictures
 
-		/// <summary>The leather's source: INV.GR 6 without its two transparent right columns.</summary>
+		/// <summary>The leather's source: INV.GR 6 without its transparent right columns (the first game's two).</summary>
 		public static UWPicture Source(UWTextures pOTextures)
 		{
 			UWPicture lOPanel = UWPicture.From(pOTextures.GetTextureByType(UWTexture.TextureTypes.INV, LeatherImage));
 
-			return lOPanel.Crop(new UWRectInt(0, 0, lOPanel.Width - LeatherTransparentRight, lOPanel.Height));
+			return lOPanel.Crop(new UWRectInt(0, 0, lOPanel.Width - FrameOf(pOTextures).TransparentRight, lOPanel.Height));
 		}
 
-		/// <summary>The gargoyle's head's crop of MAIN.BYT (UWHudMasks.GargoyleHead's place).</summary>
+		/// <summary>The gargoyle's head's crop of the game's frame (UWHudMasks.GargoyleHeadOf's place).</summary>
 		public static UWPicture GargoyleHead(UWTextures pOTextures)
 		{
-			return UWMainFrame.Picture(pOTextures).Crop(UWHudMasks.GargoyleHead.Place);
+			return UWMainFrame.Picture(pOTextures).Crop(UWHudMasks.GargoyleHeadOf(pOTextures).Place);
 		}
 
 		/// <summary>The leather at any size, its inside the clouds (fClouds); piVariant picks another
 		/// part of the cloud field, so neighbouring panels do not start alike.</summary>
 		public static UWPicture Build(UWTextures pOTextures, int piWidth, int piHeight, int piVariant = 0)
 		{
-			return Compose(Source(pOTextures), piWidth, piHeight, piVariant);
+			return Compose(Source(pOTextures), piWidth, piHeight, piVariant, 0, FrameOf(pOTextures));
 		}
 
 		/// <summary>A tab of leather, framed on the top, left and bottom and OPEN on the right. Laid
@@ -74,12 +163,12 @@ namespace UWDataImport.Presentation
 		/// off).</summary>
 		public static UWPicture BuildTab(UWTextures pOTextures, int piWidth, int piHeight)
 		{
-			return ComposeTab(Source(pOTextures), piWidth, piHeight);
+			return ComposeTab(Source(pOTextures), piWidth, piHeight, FrameOf(pOTextures));
 		}
 
-		public static UWPicture ComposeTab(UWPicture pOSource, int piWidth, int piHeight)
+		public static UWPicture ComposeTab(UWPicture pOSource, int piWidth, int piHeight, Frame pOFrame = null)
 		{
-			UWPicture lOFull = Compose(pOSource, piWidth + LeatherRight + LeatherLeft, piHeight, 0);
+			UWPicture lOFull = Compose(pOSource, piWidth + LeatherRight + LeatherLeft, piHeight, 0, 0, pOFrame);
 
 			return lOFull.Crop(new UWRectInt(0, 0, piWidth, piHeight));
 		}
@@ -132,22 +221,24 @@ namespace UWDataImport.Presentation
 		}
 
 		/// <summary>The strip; piClosedWidth is the closed strip's width in the strip's own pixels
-		/// (wider when the modern scheme shows the strip narrowed, UWModernHud).</summary>
+		/// (wider when the modern scheme shows the strip narrowed, UWModernHud). PER GAME since part U4d step 1 of the
+		/// UW2 plan (2026-11-23): the game's panel and frame measures, its gargoyle's head and that head's mask - until
+		/// then the leather's measures and the head were the first game's whatever the data.</summary>
 		public static UWPicture BuildHeadingStrip(UWTextures pOTextures, int piWidth, int piOpenHalf, int piClosedWidth = StripClosedWidth)
 		{
 			return ComposeHeadingStrip(Source(pOTextures), piWidth > piClosedWidth ? GargoyleHead(pOTextures) : null, piWidth, piOpenHalf,
-				piClosedWidth);
+				piClosedWidth, FrameOf(pOTextures), UWHudMasks.GargoyleHeadOf(pOTextures));
 		}
 
 		/// <summary>The strip from the leather's source and the gargoyle's head's crop (none: no
-		/// brand).</summary>
+		/// brand); the frame and the head's mask the first game's unless given.</summary>
 		public static UWPicture ComposeHeadingStrip(UWPicture pOSource, UWPicture pOHead, int piWidth, int piOpenHalf,
-			int piClosedWidth = StripClosedWidth)
+			int piClosedWidth = StripClosedWidth, Frame pOFrame = null, UWMaskText pOHeadMask = null)
 		{
-			UWPicture lOStrip = Compose(pOSource, piWidth, StripHeight, 4, -(piWidth / 2));
+			UWPicture lOStrip = Compose(pOSource, piWidth, StripHeight, 4, -(piWidth / 2), pOFrame);
 
 			if (piWidth > piClosedWidth && pOHead != null)
-				fPasteGargoyle(pOHead, lOStrip, BrandLeft(piWidth, piOpenHalf), BrandTop);
+				fPasteGargoyle(pOHead, lOStrip, BrandLeft(piWidth, piOpenHalf), BrandTop, pOHeadMask);
 
 			return lOStrip;
 		}
@@ -156,14 +247,16 @@ namespace UWDataImport.Presentation
 		/// closed strip (the compass variant: centred when closed, moving to the left as it opens).</summary>
 		public static UWPicture BuildHeadingStripWithBrandAt(UWTextures pOTextures, int piWidth, int piBrandLeft)
 		{
-			return ComposeHeadingStripWithBrandAt(Source(pOTextures), GargoyleHead(pOTextures), piWidth, piBrandLeft);
+			return ComposeHeadingStripWithBrandAt(Source(pOTextures), GargoyleHead(pOTextures), piWidth, piBrandLeft, FrameOf(pOTextures),
+				UWHudMasks.GargoyleHeadOf(pOTextures));
 		}
 
-		public static UWPicture ComposeHeadingStripWithBrandAt(UWPicture pOSource, UWPicture pOHead, int piWidth, int piBrandLeft)
+		public static UWPicture ComposeHeadingStripWithBrandAt(UWPicture pOSource, UWPicture pOHead, int piWidth, int piBrandLeft,
+			Frame pOFrame = null, UWMaskText pOHeadMask = null)
 		{
-			UWPicture lOStrip = Compose(pOSource, piWidth, StripHeight, 4, -(piWidth / 2));
+			UWPicture lOStrip = Compose(pOSource, piWidth, StripHeight, 4, -(piWidth / 2), pOFrame);
 
-			fPasteGargoyle(pOHead, lOStrip, piBrandLeft, BrandTop);
+			fPasteGargoyle(pOHead, lOStrip, piBrandLeft, BrandTop, pOHeadMask);
 
 			return lOStrip;
 		}
@@ -171,9 +264,10 @@ namespace UWDataImport.Presentation
 		/// <summary>Lays the gargoyle's head onto the strip's inside at the given top left - its own
 		/// pixels (UWHudMasks.GargoyleHead). BuildHeadingStrip leaves it off the closed strip: there
 		/// its edge showed a sliver of it (per user, 2026-10-04).</summary>
-		private static void fPasteGargoyle(UWPicture pOHead, UWPicture pOStrip, int piLeft, int piTop)
+		private static void fPasteGargoyle(UWPicture pOHead, UWPicture pOStrip, int piLeft, int piTop, UWMaskText pOMask = null)
 		{
 			UWPicture lOHead = pOHead;
+			UWMaskText lOMask = pOMask ?? UWHudMasks.GargoyleHead;
 			int liInsideRight = pOStrip.Width - LeatherRight;
 			int liInsideBottom = pOStrip.Height - LeatherBottom;
 
@@ -185,7 +279,7 @@ namespace UWDataImport.Presentation
 					int liAtX = piLeft + x;
 					int liAtY = piTop + y;
 
-					if (lOColour.A == 0 || UWPixelRules.Luma(lOColour) > UWHudTuning.Leather.GargoyleMaxLuma || !UWHudMasks.GargoyleHead.Is(x, y, 'X')
+					if (lOColour.A == 0 || UWPixelRules.Luma(lOColour) > UWHudTuning.Leather.GargoyleMaxLuma || !lOMask.Is(x, y, 'X')
 						|| liAtX < LeatherLeft || liAtY < LeatherTop || liAtX >= liInsideRight || liAtY >= liInsideBottom)
 						continue;
 
@@ -210,10 +304,10 @@ namespace UWDataImport.Presentation
 		/// odd). The noise (three octaves, UWNoise.Clouds) is the modern backs' too, its range and
 		/// grain UWHudTuning.Leather's.
 		/// </summary>
-		private static UWPicture fClouds(UWPicture pOSource, int piWidth, int piHeight, int piVariant, int piShiftX = 0)
+		private static UWPicture fClouds(UWPicture pOSource, int piWidth, int piHeight, int piVariant, int piShiftX, Frame pOFrame)
 		{
 			UWPicture lOOut = new UWPicture(Math.Max(0, piWidth), Math.Max(0, piHeight));
-			List<UWColor32> lOShades = CloudColours(pOSource);
+			List<UWColor32> lOShades = CloudColours(pOSource, pOFrame);
 
 			if (lOShades.Count == 0)
 				return lOOut;
@@ -244,10 +338,11 @@ namespace UWDataImport.Presentation
 		/// <summary>The shades, darkest first: the calm centre's colours, and below them the most
 		/// frequent darker colour of the leather's inside (not the near-black of the scratches). The
 		/// modern backs' leather ramp too (UWBackdropArt).</summary>
-		public static List<UWColor32> CloudColours(UWPicture pOSource)
+		public static List<UWColor32> CloudColours(UWPicture pOSource, Frame pOFrame = null)
 		{
+			Frame lOFrame = pOFrame ?? Uw1Frame;
 			List<UWColor32> lOShades = new List<UWColor32>();
-			UWPicture lOCalm = pOSource.Crop(msCalmCentre);
+			UWPicture lOCalm = pOSource.Crop(lOFrame.CalmCentre);
 
 			foreach (UWColor32 lOColour in lOCalm.Pixels)
 			{
@@ -265,9 +360,9 @@ namespace UWDataImport.Presentation
 			UWColor32 lODark = lOShades[0];
 			int liBest = 0;
 
-			for (int y = LeatherTop; y < pOSource.Height - LeatherBottom; y++)
+			for (int y = lOFrame.Top; y < pOSource.Height - lOFrame.Bottom; y++)
 			{
-				for (int x = LeatherLeft; x < pOSource.Width - LeatherRight; x++)
+				for (int x = lOFrame.Left; x < pOSource.Width - lOFrame.Right; x++)
 				{
 					UWColor32 lOColour = pOSource.Get(x, y);
 					float lfLuma = UWPixelRules.Luma(lOColour);
@@ -295,38 +390,46 @@ namespace UWDataImport.Presentation
 		}
 
 		/// <summary>The leather at any size from its source (Source); piShiftX moves the clouds (the
-		/// heading strip anchors them at its centre).</summary>
-		public static UWPicture Compose(UWPicture pOSource, int piWidth, int piHeight, int piVariant, int piShiftX = 0)
+		/// heading strip anchors them at its centre). pOFrame says where the source has its frame (the first
+		/// game's when left out).</summary>
+		public static UWPicture Compose(UWPicture pOSource, int piWidth, int piHeight, int piVariant, int piShiftX = 0, Frame pOFrame = null)
 		{
+			Frame lOFrame = pOFrame ?? Uw1Frame;
 			UWPicture lOSource = pOSource;
 			int liSourceWidth = lOSource.Width;
 			int liSourceHeight = lOSource.Height;
+			int liLeft = lOFrame.Left;
+			int liRight = lOFrame.Right;
+			int liTop = lOFrame.Top;
+			int liBottom = lOFrame.Bottom;
 
+			// The least size is the windows' (the constants), whatever the frame's own thickness.
 			piWidth = Math.Max(piWidth, LeatherLeft + LeatherRight + 1);
 			piHeight = Math.Max(piHeight, LeatherTop + LeatherBottom + 1);
 
-			int liInnerWidth = piWidth - LeatherLeft - LeatherRight;
-			int liInnerHeight = piHeight - LeatherTop - LeatherBottom;
+			int liInnerWidth = piWidth - liLeft - liRight;
+			int liInnerHeight = piHeight - liTop - liBottom;
 
 			UWPicture lOOut = new UWPicture(piWidth, piHeight);
 
-			lOOut.Paste(fClouds(lOSource, liInnerWidth, liInnerHeight, piVariant, piShiftX), LeatherLeft, LeatherTop);
+			// The clouds stay anchored where the windows' inside begins, so a thinner frame shows the same field.
+			lOOut.Paste(fClouds(lOSource, liInnerWidth, liInnerHeight, piVariant, piShiftX - (LeatherLeft - liLeft), lOFrame), liLeft, liTop);
 
-			UWRectInt lOTop = new UWRectInt(CalmEdgeX0, 0, CalmEdgeX1 - CalmEdgeX0, LeatherTop);
-			UWRectInt lOBottom = new UWRectInt(CalmEdgeX0, liSourceHeight - LeatherBottom, CalmEdgeX1 - CalmEdgeX0, LeatherBottom);
-			UWRectInt lOLeft = new UWRectInt(0, CalmEdgeY0, LeatherLeft, CalmEdgeY1 - CalmEdgeY0);
-			UWRectInt lORight = new UWRectInt(liSourceWidth - LeatherRight, CalmEdgeY0, LeatherRight, CalmEdgeY1 - CalmEdgeY0);
+			UWRectInt lOTop = new UWRectInt(lOFrame.CalmEdgeX0, 0, lOFrame.CalmEdgeX1 - lOFrame.CalmEdgeX0, liTop);
+			UWRectInt lOBottom = new UWRectInt(lOFrame.CalmEdgeX0, liSourceHeight - liBottom, lOFrame.CalmEdgeX1 - lOFrame.CalmEdgeX0, liBottom);
+			UWRectInt lOLeft = new UWRectInt(0, lOFrame.CalmEdgeY0, liLeft, lOFrame.CalmEdgeY1 - lOFrame.CalmEdgeY0);
+			UWRectInt lORight = new UWRectInt(liSourceWidth - liRight, lOFrame.CalmEdgeY0, liRight, lOFrame.CalmEdgeY1 - lOFrame.CalmEdgeY0);
 
-			lOOut.Paste(UWPixelOps.MirrorTile(lOSource.Crop(lOTop), liInnerWidth, LeatherTop, true, false), LeatherLeft, 0);
-			lOOut.Paste(UWPixelOps.MirrorTile(lOSource.Crop(lOBottom), liInnerWidth, LeatherBottom, true, false), LeatherLeft, piHeight - LeatherBottom);
-			lOOut.Paste(UWPixelOps.MirrorTile(lOSource.Crop(lOLeft), LeatherLeft, liInnerHeight, false, true), 0, LeatherTop);
-			lOOut.Paste(UWPixelOps.MirrorTile(lOSource.Crop(lORight), LeatherRight, liInnerHeight, false, true), piWidth - LeatherRight, LeatherTop);
+			lOOut.Paste(UWPixelOps.MirrorTile(lOSource.Crop(lOTop), liInnerWidth, liTop, true, false), liLeft, 0);
+			lOOut.Paste(UWPixelOps.MirrorTile(lOSource.Crop(lOBottom), liInnerWidth, liBottom, true, false), liLeft, piHeight - liBottom);
+			lOOut.Paste(UWPixelOps.MirrorTile(lOSource.Crop(lOLeft), liLeft, liInnerHeight, false, true), 0, liTop);
+			lOOut.Paste(UWPixelOps.MirrorTile(lOSource.Crop(lORight), liRight, liInnerHeight, false, true), piWidth - liRight, liTop);
 
-			lOOut.Paste(lOSource.Crop(new UWRectInt(0, 0, LeatherLeft, LeatherTop)), 0, 0);
-			lOOut.Paste(lOSource.Crop(new UWRectInt(liSourceWidth - LeatherRight, 0, LeatherRight, LeatherTop)), piWidth - LeatherRight, 0);
-			lOOut.Paste(lOSource.Crop(new UWRectInt(0, liSourceHeight - LeatherBottom, LeatherLeft, LeatherBottom)), 0, piHeight - LeatherBottom);
-			lOOut.Paste(lOSource.Crop(new UWRectInt(liSourceWidth - LeatherRight, liSourceHeight - LeatherBottom, LeatherRight, LeatherBottom)),
-				piWidth - LeatherRight, piHeight - LeatherBottom);
+			lOOut.Paste(lOSource.Crop(new UWRectInt(0, 0, liLeft, liTop)), 0, 0);
+			lOOut.Paste(lOSource.Crop(new UWRectInt(liSourceWidth - liRight, 0, liRight, liTop)), piWidth - liRight, 0);
+			lOOut.Paste(lOSource.Crop(new UWRectInt(0, liSourceHeight - liBottom, liLeft, liBottom)), 0, piHeight - liBottom);
+			lOOut.Paste(lOSource.Crop(new UWRectInt(liSourceWidth - liRight, liSourceHeight - liBottom, liRight, liBottom)),
+				piWidth - liRight, piHeight - liBottom);
 
 			return lOOut;
 		}

@@ -85,6 +85,9 @@ namespace UWDataImport.Presentation
 		/// </summary>
 		public static UWPicture Build(UWTextures pOTextures, UWPicture pOWideFrame, int piExtra, int piEdgeFrame, int piWiden = 0)
 		{
+			if (pOWideFrame == null && pOTextures != null && pOTextures.Game == UWGame.Uw2)
+				return BuildUw2(pOTextures, piExtra, piEdgeFrame, piWiden);
+
 			UWPicture lOFrame = pOWideFrame;
 			int? liPedestalShift = null;
 
@@ -120,6 +123,126 @@ namespace UWDataImport.Presentation
 
 			return Compose(lOFrame, fEdge(pOTextures, UWScrollEdgeRules.GetMainLeftImage(piEdgeFrame)),
 				fEdge(pOTextures, UWScrollEdgeRules.GetMainRightImage(piEdgeFrame)), piExtra, pOWideFrame != null, liPedestalShift);
+		}
+
+		// ------------------------------------------------- The second game's scroll (UW2 plan stage U6 step 2b)
+
+		/// <summary>
+		/// THE SECOND GAME'S SCROLL (UWClassicLayoutUw2.MessageLog, ScrollPicture): the frame's rows 167 to 199 from the
+		/// left knobs to the right ones - the rods above and below, the knobs at both ends -, the frame's dark ground
+		/// (0, 0, 4) and the pillars' bluish stone beside the knobs left transparent, everything else opaque; the paper
+		/// filled in its colour (palette 0x71) over the rows the classic screen fills (169 to 197, its last row the rod's);
+		/// the rolling edges (SCRLEDGE.GR, the left from 0, the right from 5, by the frame of piEdgeFrame) laid on at 12
+		/// and 224, opaque as that screen draws them. Taller by the first game's rule (a row of the plain middle repeated,
+		/// the edges' middle row too); wider or narrower by a plain column of the rods (Uw2WidenColumn), the knobs and the
+		/// edges keeping their shape.
+		/// </summary>
+		public static UWPicture BuildUw2(UWTextures pOTextures, int piExtra, int piEdgeFrame, int piWiden = 0)
+		{
+			UWTexture lOMain;
+
+			try
+			{
+				lOMain = pOTextures.GetTextureByType(UWTexture.TextureTypes.MAIN, 0);
+			}
+			catch
+			{
+				return null;
+			}
+
+			if (lOMain == null || lOMain.Width != UWClassicLayout.Screen.Width || lOMain.Height < SourceTop + SourceRows)
+				return null;
+
+			// The frame picture's own palettes (palette 0, as the classic screen fills the paper).
+			UWPalette lOPalette = lOMain.Palettes != null ? lOMain.Palettes.GetPalette(0) : null;
+			UWColor32 lOPaper = lOPalette != null ? UWPixelOps.Opaque(lOPalette.GetUWColor(UWClassicLayoutUw2.MessageLog.PaperColour)) : Paper;
+			int liFrames = UWClassicLayoutUw2.MessageLog.EdgeFrames;
+			int liFrame = ((piEdgeFrame % liFrames) + liFrames) % liFrames;
+
+			return ComposeUw2(UWMainFrame.Picture(pOTextures), fEdge(pOTextures, UWClassicLayoutUw2.MessageLog.EdgeLeftFirst + liFrame),
+				fEdge(pOTextures, UWClassicLayoutUw2.MessageLog.EdgeRightFirst + liFrame), lOPaper, piExtra, piWiden);
+		}
+
+		/// <summary>The rods' plain column repeated to widen the second game's scroll, and the run taken out to narrow it.</summary>
+		public const int Uw2WidenColumn = 120;
+
+		private const int Uw2NarrowFirst = 32;
+
+		/// <summary>The most columns the second game's scroll can be narrowed.</summary>
+		public const int Uw2MaxNarrow = 160;
+
+		/// <summary>The second game's scroll's own width (from its left knobs to its right ones) and where its paper begins
+		/// in it.</summary>
+		public static int Uw2Width => UWClassicLayoutUw2.ScrollPicture.Width;
+
+		public static int Uw2PaperLeft => UWClassicLayoutUw2.MessageLog.Left - UWClassicLayoutUw2.ScrollPicture.Left;
+
+		public static UWPicture ComposeUw2(UWPicture pOMain, UWPicture pOLeftEdge, UWPicture pORightEdge, UWColor32 pOPaper, int piExtra, int piWiden)
+		{
+			UWRectInt lOPlace = UWClassicLayoutUw2.ScrollPicture.Place;
+			int liWiden = Math.Max(-Uw2MaxNarrow, piWiden);
+			int liWidth = lOPlace.Width + liWiden;
+			int liHeight = SourceRows + piExtra;
+			UWPicture lOOut = new UWPicture(liWidth, liHeight);
+
+			for (int liRow = 0; liRow < liHeight; liRow++)
+			{
+				int liSource = fSourceRow(liRow, SourceTop, RepeatRow, piExtra);
+
+				for (int liX = 0; liX < liWidth; liX++)
+				{
+					UWColor32 lOColour = pOMain.Get(lOPlace.X + fUw2SourceColumn(liX, liWiden), liSource);
+
+					// The ground and the pillars' stone beside the knobs (bluish) stay clear; rods and knobs are brown.
+					if (fIsGround(lOColour) || lOColour.B > lOColour.R)
+						continue;
+
+					lOOut.Set(liX, liRow, UWPixelOps.Opaque(lOColour));
+				}
+			}
+
+			int liPaperLeft = Uw2PaperLeft;
+			int liPaperWidth = UWClassicLayoutUw2.MessageLog.Width + liWiden;
+
+			for (int liRow = PaperTop - SourceTop; liRow < PaperTop - SourceTop + UWClassicLayoutUw2.MessageLog.Height - 1 + piExtra; liRow++)
+			{
+				for (int liX = liPaperLeft; liX < liPaperLeft + liPaperWidth; liX++)
+					lOOut.Set(liX, liRow, pOPaper);
+			}
+
+			fLayEdge(lOOut, fTop(pOLeftEdge, UWClassicLayoutUw2.MessageLog.EdgeHeight), UWClassicLayoutUw2.MessageLog.EdgeLeft - lOPlace.X, piExtra);
+			fLayEdge(lOOut, fTop(pORightEdge, UWClassicLayoutUw2.MessageLog.EdgeHeight), UWClassicLayoutUw2.MessageLog.EdgeRight - lOPlace.X + liWiden, piExtra);
+
+			return lOOut;
+		}
+
+		/// <summary>The scroll picture's column taken from the frame (columns from the scroll's left), widened or narrowed.</summary>
+		private static int fUw2SourceColumn(int piX, int piWiden)
+		{
+			int liWiden = Uw2WidenColumn - UWClassicLayoutUw2.ScrollPicture.Left;
+			int liNarrow = Uw2NarrowFirst - UWClassicLayoutUw2.ScrollPicture.Left;
+
+			if (piWiden >= 0)
+				return piX < liWiden ? piX : piX < liWiden + piWiden ? liWiden : piX - piWiden;
+
+			return piX < liNarrow ? piX : piX - piWiden;
+		}
+
+		/// <summary>An edge picture's top rows, all opaque (the classic screen draws them so, cut to EdgeHeight).</summary>
+		private static UWPicture fTop(UWPicture pOEdge, int piRows)
+		{
+			if (pOEdge == null)
+				return null;
+
+			UWPicture lOOut = new UWPicture(pOEdge.Width, Math.Min(piRows, pOEdge.Height));
+
+			for (int y = 0; y < lOOut.Height; y++)
+			{
+				for (int x = 0; x < lOOut.Width; x++)
+					lOOut.Set(x, y, UWPixelOps.Opaque(pOEdge.Get(x, y)));
+			}
+
+			return lOOut;
 		}
 
 		/// <summary>The column of the frame repeated to widen the scroll: right of the compass's pedestal, where the

@@ -139,7 +139,7 @@ internal sealed class UWModernBagView
 
         fEnsureArt();
 
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
         DataImport lOData = mOBags.Data;
         UWModernBagPages lOPages = mOBags.Pages;
         UWModernOpenBags lOOpen = mOBags.OpenBags;
@@ -251,7 +251,8 @@ internal sealed class UWModernBagView
         UWModernLayout.Report(UWModernLayout.ElementEnum.Bags, lOPlaced);
 
         int liCarried = lOInventory.GetCarriedTenthStones(lOData.CommonObjectProperties);
-        int liMax = lOData.InitialPlayer != null ? lOData.InitialPlayer.MaxWeight : 0;
+        // The game's own most (IUWModernCharacter.MaxLoad; the first game's player data alone until stage U5 step 3).
+        int liMax = UWModernUi.Session != null ? UWModernUi.Session.Character.MaxLoad : 0;
         string lsLoad = UWText.F("hud.bag.weight_of", UWInventoryWeight.Format(liCarried), UWInventoryWeight.Format(liMax));
 
         lOPages.LayoutWindow(lOPack, 2, lfRight, lfBottom, -1, UWText.T("hud.bag.backpack"), lsLoad);
@@ -389,7 +390,7 @@ internal sealed class UWModernBagView
     }
 
     /// <summary>The name and the weight of the thing under the pointer.</summary>
-    internal void UpdateTooltip(UWInventory pOInventory, DataImport pOData)
+    internal void UpdateTooltip(UWInventoryModel pOInventory, DataImport pOData)
     {
         UWObject lOItem = null;
         Vector2 lOPointer = Vector2.zero;
@@ -455,6 +456,12 @@ internal sealed class UWModernBagView
         psTalisman = null;
         pbCursed = false;
 
+        // The talismans' names and the enchantments' wording here are the first game's tables; on the second game the
+        // label stays the thing's plain name until its own are wired in (UW2 plan, the modern interface's part U4b
+        // step 3, 2026-11-23: a wrong line would be worse than none).
+        if (pOData.Textures != null && pOData.Textures.Game == UWGame.Uw2)
+            return string.Empty;
+
         if (!UWLoreCheck.CanBeIdentified(pOItem, pOData.CommonObjectProperties)
             || (pOItem.Heading & 0x3) != UWLoreCheck.ResultNamed)
             return string.Empty;
@@ -497,7 +504,7 @@ internal sealed class UWModernBagView
         if (mOSlotArt.IsCurrent(lOStamp))
             return;
 
-        mOSlotArt.Set(lOStamp, UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.Bags, mOBags.Data.Textures, mOBags.Ui.TextureFilterMode));
+        mOSlotArt.Set(lOStamp, UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.Bags, mOBags.Data.Textures, UWModernUi.Filter));
 
         if (mODiscTexture == null)
             mODiscTexture = fBuildCircle(64, 29f, 3.5f, UWModernPalette.BadgeFill, UWModernPalette.Gold);
@@ -552,6 +559,6 @@ internal sealed class UWModernBagView
         mOBags.Drag.BuildPointerItem(mORoot);
 
         mOTooltipBack = UWUiKit.CreateImage(mORoot, "Tooltip", new Color(0.05f, 0.05f, 0.06f, 0.88f));
-        mOTooltip = UWUiKit.CreateText(mORoot, "Tooltip text", TextAnchor.MiddleLeft, UWModernPalette.HudText, mOBags.Ui);
+        mOTooltip = UWUiKit.CreateText(mORoot, "Tooltip text", TextAnchor.MiddleLeft, UWModernPalette.HudText, UWModernUi.TextUi);
     }
 }

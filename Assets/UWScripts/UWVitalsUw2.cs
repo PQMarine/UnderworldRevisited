@@ -45,7 +45,7 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         if (mOVitals != null)
             UWArmourProtection.Compute(lOInventory, mOData, mOVitals.ActiveSpells, mOStatus);
 
-        // THE MOTION SPELLS ON THE WALK (per user, 2026-11-06: Bouncing did nothing; magic stage 1 left "the motion
+        // THE MOTION SPELLS IN THE SESSION (per user, 2026-11-06: Bouncing did nothing; magic stage 1 left "the motion
         // spells' effect on the walk" open): Leap, Slow Fall, Levitate, Water Walk, Fly and Bouncing, as UWCharacter
         // hands them on in the first game, which stands idle here.
         if (UWScene.PlayerMovement != null)
@@ -419,7 +419,7 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         if (leStep != UWVoidRulesUw2.CountdownEnum.Crash)
             return;
 
-        Debug.Log("[Walk] Killorn Keep crashes.");
+        Debug.Log("[Session] Killorn Keep crashes.");
         UWScheduleHostUw2.RunAll();
 
         UWWorld lOWorld = UWWorld.Of(UWScene.LevelLoader);
@@ -498,7 +498,7 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
     public int DungeonLevelIndex => UWScene.LevelLoader != null ? UWScene.LevelLoader.CurrentLevelIndex : -1;
 
-    /// <summary>The tile column of the walk's eye, -1 without a level.</summary>
+    /// <summary>The tile column of the session's eye, -1 without a level.</summary>
     public int PlayerTileX => UWScene.LevelLoader != null && UWScene.LevelLoader.CurrentLevel != null && UWViewpoint.Current != null
         ? UWScene.LevelLoader.WorldPositionToTile(UWViewpoint.Current.transform.position).X : -1;
 

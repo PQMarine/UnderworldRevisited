@@ -319,7 +319,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `LookAt` (ovr122_0) | UWItemDescriptions.cs |
 | `MagicItemDescription` (ovr122_3AC) | UWEnchantment.cs |
 | `Read` (ovr122_586) | UWItemMessages.cs, UWLookService.cs |
-| `LookAtTalisman` (ovr122_CC3) | UWItemDescriptions.cs |
+| `LookAtTalisman` (ovr122_CC3) | IUWObjectVariant.cs, UWItemDescriptions.cs |
 
 ### ovr130
 
@@ -565,6 +565,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `seg009_265` | UWAutomapView.cs |
+| `seg009_73` | UWClassicLayoutUw2.cs |
 
 ### seg010
 
@@ -800,6 +801,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg032_2DCA_3DA` | UWObjectSpawner.cs |
 | `RenderingObjects` (seg032_2DCA_5) | UW3DModelImport.cs, UWObjectSpawner.cs |
 | `seg032_2DCA_597` | UW3DModelImport.cs, UWObjectSpawner.cs |
+| `RenderDoor` (seg032_2DCA_C56) | UWDoorRules.cs |
 
 ### seg033
 
@@ -886,6 +888,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
+| `seg039_3452` | UWCharacterSheet.cs |
 | `seg039_3452_814` | UWGameScreenUw2.cs |
 | `seg039_3495_85A` | UWConversationTextRules.cs |
 

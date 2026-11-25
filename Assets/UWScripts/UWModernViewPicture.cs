@@ -38,7 +38,7 @@ public class UWModernViewPicture : UWModernPart
 
     protected override void fUpdate()
     {
-        Sprite lOSprite = mOUi != null ? mOUi.Pictures.CurrentWindowPicture : null;
+        Sprite lOSprite = mOSession != null ? mOSession.Art.ViewPicture : null;
 
         if (lOSprite == null)
         {
@@ -71,7 +71,7 @@ public class UWModernViewPicture : UWModernPart
         if (!mOPictureFrameTexture.IsCurrent(lOFrameStamp))
         {
             mOPictureFrame.texture = mOPictureFrameTexture.Set(lOFrameStamp,
-                UWModernHudArt.BuildLeather(mOUi.mOUWData.Textures, liFrameWidth, liFrameHeight, mOUi.TextureFilterMode));
+                UWModernHudArt.BuildLeather(UWModernUi.Data.Textures, liFrameWidth, liFrameHeight, UWModernUi.Filter));
         }
 
         float lfWidth = liFrameWidth * liScale;

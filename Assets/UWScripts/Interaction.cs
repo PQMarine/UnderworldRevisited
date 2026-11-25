@@ -386,11 +386,11 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
 
     private void Update()
     {
-        // THE SECOND GAME'S WALK uses nothing through the first game's interaction (UW2 plan phase 2
+        // THE SECOND GAME'S SESSION uses nothing through the first game's interaction (UW2 plan phase 2
         // step 4, the door test of 2026-10-29: the modern use key's tap toggled the door a second time
-        // on release, after the walk's own use had, and the leaf turned back mid-swing). Its doors are
-        // UWWalkUw2View's; using anything else is its rules' (phase 4).
-        if (UWWalkUw2.IsWalking)
+        // on release, after the session's own use had, and the leaf turned back mid-swing). Its doors are
+        // UWWorldViewUw2's; using anything else is its rules' (phase 4).
+        if (UWGameStartUw2.IsRunning)
             return;
 
         // Jumping into water with the weapon drawn ends combat mode and puts the weapon away:
@@ -1540,7 +1540,7 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
         return ChunkDescriptionAt(mOUWDataImporter, pOHit);
     }
 
-    /// <summary>The same for either game (the second game's walk asks here).</summary>
+    /// <summary>The same for either game (the second game's session asks here).</summary>
     public static string ChunkDescriptionAt(UWDataImport.DataImport pOData, RaycastHit pOHit)
     {
         if (pOData == null)

@@ -240,10 +240,13 @@ float UWOwnTileDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float
 //     tile it keeps the box rule.
 //   - Between tiles of one row the column order decides (left outer to inner, right outer to
 //     inner, the viewer's column last), counted three columns out; the key only inside a tile.
+//   - The animations 0x1C0-0x1FF sort one key step nearer (pfKeyBonus -1, as UWPainterObjectPlace
+//     does; per user 2026-11-22: in Palette colours a hit's blood or flash showed behind or inside
+//     the creature it struck - the effect stands on the creature's own spot with its radius, and
+//     without the step the two tied and fought over every pixel).
 //
 // NOT MODELLED: the original's hole for a big object in the viewer's row that pokes towards him
-// (deferred to a row that never comes - not drawn); the partition around doors and bridges;
-// animations 0x1C0-0x1FF one key step nearer.
+// (deferred to a row that never comes - not drawn); the partition around doors and bridges.
 #define UW_OWN_TILE_SQUEEZE 0.1
 #define UW_OWN_TILE_KEY_STEPS 32.0
 
@@ -353,6 +356,21 @@ bool UWOwnTileBehindRock(float3 pPositionWS, float3 pPivotWS)
 
                 if (round(lOwnTile.g) < 5.5 && lOwnTile.r < UW_SOLID_TILE_FLOOR && lfEntryY < lOwnTile.r - UW_STEP_TOLERANCE)
                     return true;
+
+                // THE OWN TILE'S DIAGONAL (per user 2026-11-22, UW2 level 50 from 26/55 looking north-east: two items in the
+                // open half of the diagonal 28/56 showed through its diagonal wall in Remastered and Palette colours, the
+                // palette mode right): where the line comes into the sprite's own diagonal tile through the closed half, it
+                // comes through the rock and the diagonal wall.
+                float lfOwnType = round(lOwnTile.g);
+
+                if (lfOwnType > 1.5 && lfOwnType < 5.5)
+                {
+                    float2 lOwnCorner = (lCell * lfSize) - lfHalf;
+                    float3 lEntry = lerp(_WorldSpaceCameraPos, pPositionWS, lfEnter);
+
+                    if (!UWOwnTileInOpenHalf(lfOwnType, (lEntry.xz - lOwnCorner) / lfSize))
+                        return true;
+                }
             }
         }
 
@@ -534,7 +552,8 @@ float UWOwnTileDepthBesideTrue(float3 pPositionWS, float3 pPivotWS, float pfGrou
 // is 1.5 deep on each side (UWObjectSpawner.DoorAssemblyHalfDepth).
 #define UW_BEHIND_DOOR 2.0
 
-float UWOwnTileSpriteDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float pfDepth, float pfBigRadius)
+float UWOwnTileSpriteDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float pfDepth, float pfBigRadius,
+    float pfKeyBonus)
 {
     if (_UWOwnTileSize <= 0.0)
         return UWOwnTileDepth(pPositionWS, pPivotWS, pfGroundY, pfDepth);
@@ -614,7 +633,8 @@ float UWOwnTileSpriteDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY,
         }
     }
 
-    float lfKey = lfColumn == 0.0 ? 2.0 * lfY : (lfColumn > 0.0 ? lfX + lfY + 1.0 : 8.0 - lfX + lfY);
+    // An animation one step nearer (pfKeyBonus); never below its tile and column slot's start.
+    float lfKey = max((lfColumn == 0.0 ? 2.0 * lfY : (lfColumn > 0.0 ? lfX + lfY + 1.0 : 8.0 - lfX + lfY)) + pfKeyBonus, -1.0);
 
     // The near edge of the (target) tile along "ahead", the inset inside it.
     float2 lTarget = lEyeTile + (lRight * lfColumn) + (lAhead * lfRow);

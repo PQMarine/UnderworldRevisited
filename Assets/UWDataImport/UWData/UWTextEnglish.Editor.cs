@@ -30,9 +30,12 @@ namespace UWDataImport.UWData
 			fAdd("editor.stands", "Stands");
 			fAdd("editor.stands.apart", "Apart");
 			fAdd("editor.stands.on_shelf", "On shelf");
+			fAdd("editor.stands.in_compass", "In compass");
 			fAdd("editor.direction", "Direction");
 			fAdd("editor.direction.text", "Text");
 			fAdd("editor.direction.compass", "Compass");
+			// The second game's compass lies in a hollow of its frame, not on a disc (per user, 2026-11-23; "Hollow" as the help calls it, 2026-11-24).
+			fAdd("editor.compass.hollow", "Hollow");
 			fAdd("editor.window", "Window");
 			fAdd("editor.window.dock", "Dock");
 			fAdd("editor.window.docked", "Docked");

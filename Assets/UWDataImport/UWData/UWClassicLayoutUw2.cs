@@ -58,6 +58,67 @@ namespace UWDataImport.UWData
 			public const float VerticalViewTangent = ViewZoom / 32768f;
 		}
 
+		// ------------------------------------------------- The frame widened (Classic Wide)
+
+		/// <summary>
+		/// THE BANDS AND CUTS OF CLASSIC WIDE on the second game's frame (UWClassicWideGeometry; UW2 plan stage U7 step 1,
+		/// 2026-11-24): the right block (the panel, the flasks, the command bar, from about column 226 down every row)
+		/// moves whole, the left part grows. Measured on luma maps of BYT.ARK block 4.
+		/// </summary>
+		public static class ClassicWide
+		{
+			/// <summary>The view's band from row 15: the top bar's rim line is row 14, the view's black from row 15.</summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the view's black from row 15, the rim line row 14")]
+			public const int TopRows = 15;
+
+			/// <summary>The ledge's band from its top row: the view's black ends on row 144.</summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the ledge's top row (Ledge.Top)")]
+			public const int LedgeTop = 145;
+
+			/// <summary>The scroll's band from its top rod (ScrollPicture.Top); row 166 is the black line under the ledge.</summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the scroll's top rod (ScrollPicture.Top)")]
+			public const int ScrollTop = 167;
+
+			/// <summary>
+			/// The cuts of each band (top bar, view, ledge, scroll): the top bar in its plain stone left of the
+			/// gargoyle's claws (x 28 to 61) and between the moss right of them (x 201 to 216); the view at its black's
+			/// edges (x 16 and 224, the walls and their light rims staying with their sides); the ledge FOUR TIMES, each
+			/// a quarter of the columns put in (per user 2026-11-24, variant C of three: the hollows spread, the group
+			/// staying): in the only full-height plain columns at its ends (x 12 to 14, right of the left bevel; x 225 and
+			/// 226, left of the right one) and in the plain marble between the spells' hollow and the compass recess
+			/// (x 66 to 83) and between the recess and the rune hollow (x 156 to 173); the scroll in its black paper
+			/// between the rods.
+			/// </summary>
+			[UWClassicLayout.UserTuned("2026-11-24, the ledge's four cuts chosen from three rendered variants; measured on luma maps")]
+			public static readonly int[][] Cuts =
+			{
+				new[] { 46, 209 },
+				new[] { 16, 224 },
+				new[] { 13, 75, 165, 226 },
+				new[] { 60, 180 }
+			};
+
+			/// <summary>Each band's plain source columns, as ranges (first, end): the bar's stone without the moss, the
+			/// ledge's plain marble (without the hollows' black top lines, which reach x 69 and from x 170 on row 148), the scroll's rods and paper away from the knobs.</summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, plain columns of each band (luma maps, 2026-11-24)")]
+			public static readonly int[][] Sources =
+			{
+				new[] { 30, 62, 201, 217 },
+				new int[0],
+				new[] { 70, 84, 157, 170 },
+				new[] { 20, 110, 130, 220 }
+			};
+
+			/// <summary>The view's hole: the camera's area (place_3d_view), its black ring left to the frame.</summary>
+			[UWClassicLayout.Derived("Frame.ViewWindowLeft, ViewWindowTop, ViewWindowWidth, ViewWindowHeight")]
+			public static readonly UWRectInt Hole = new UWRectInt(Frame.ViewWindowLeft, Frame.ViewWindowTop, Frame.ViewWindowWidth,
+				Frame.ViewWindowHeight);
+
+			/// <summary>The window's black: its colours add up to at most this (the screen's near black is 0, 0, 4).</summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the view's black window")]
+			public const int HoleBlack = 8;
+		}
+
 		// ------------------------------------------------- Over the view: the gargoyle's teeth and the weapon
 
 		/// <summary>
@@ -186,8 +247,12 @@ namespace UWDataImport.UWData
 			[UWClassicLayout.Derived("199 - 0x1E, draw_edges' y")]
 			public const int EdgeTop = 199 - 0x1E;
 
-			[UWClassicLayout.Exe("uw2 ui/SCROLL.C:116 draw_edges, pic_to_screen(..., 0x1C, 4)")]
-			public const int EdgeHeight = 0x1C;
+			/// <summary>The edges' height: their pictures' own, 29 rows (SCRLEDGE.GR 0 to 9) - pic_to_screen draws a picture
+			/// at its own size, the 0x1C draw_edges passes is overwritten (GRSPIC.C seg009_73). Until UW2 plan stage U7 step 2a
+			/// cut to 0x1C, which left the edges' last row black above the bottom rod, in the classic scheme too (per user's
+			/// screenshots beside the original, 2026-11-24).</summary>
+			[UWClassicLayout.Measured("SCRLEDGE.GR 0 to 9, 4 x 29; uw2 gfx/GRSPIC.C seg009_73 draws at the picture's size")]
+			public const int EdgeHeight = 29;
 
 			[UWClassicLayout.Exe("uw2 ui/SCROLL.C:116 draw_edges, pic_to_screen(..., 0x1C, 4)")]
 			public const int EdgeWidth = 4;
@@ -295,6 +360,187 @@ namespace UWDataImport.UWData
 
 			[UWClassicLayout.Exe("uw2 ui/PANELS.C:287 the slow elements, every 64 ticks")]
 			public const float PulseSeconds = 64f / 256f;
+		}
+
+		/// <summary>The gargoyle's head on the frame (BYT.ARK block 4) above the view, its eyes' sockets at 112-115 and
+		/// 124-127 in rows 4 and 5 - the first game's head's size, its eyes two columns in as there (EYES at 0x6E). The
+		/// modern heading strip lays it on (UW2 plan part U4d step 1).</summary>
+		public static class GargoyleHead
+		{
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the head's outline")]
+			public const int Left = 108;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4")]
+			public const int Top = 0;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the first game's 24 x 18")]
+			public const int Width = 24;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4")]
+			public const int Height = 18;
+
+			[UWClassicLayout.Derived("Left, Top, Width, Height")]
+			public static readonly UWRectInt Place = new UWRectInt(Left, Top, Width, Height);
+		}
+
+		/// <summary>
+		/// THE MIDDLE RECESS of the marble ledge under the view, which holds the compass and the power gem: from its
+		/// dark outline's left column to its right, from the top of its raised rim to the ledge's last row above the
+		/// scroll's black line - its top corners bevelled (UWHudMasks.CompassRecessUw2). The modern compass's disc (UW2
+		/// plan stage U6 step 1).
+		/// </summary>
+		public static class CompassRecess
+		{
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the recess's outline")]
+			public const int Left = 84;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the rim's top row")]
+			public const int Top = 145;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to column 155")]
+			public const int Width = 72;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to row 165, the scroll's black line under it")]
+			public const int Height = 21;
+
+			[UWClassicLayout.Derived("Left, Top, Width, Height")]
+			public static readonly UWRectInt Place = new UWRectInt(Left, Top, Width, Height);
+		}
+
+		/// <summary>
+		/// THE RIGHT RECESS of the ledge, which holds the three prepared runes (Runes.ShelfX at 0x32): a rectangle from
+		/// its outline's top row to the ledge's last, from the outline's left column to its right - its black line the
+		/// edge on both sides (per user at the test of 198, 2026-11-23: the bevel left of the line went, so both sides
+		/// are as wide). The modern rune hollow (UW2 plan stage U6 step 1), the runes at the frame's places.
+		/// </summary>
+		public static class RuneHollow
+		{
+			[UWClassicLayout.UserTuned("2026-11-23, the outline's black line at column 174, as the right one at 223")]
+			public const int Left = 174;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the outline's top row")]
+			public const int Top = 148;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to column 223")]
+			public const int Width = 50;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to row 165")]
+			public const int Height = 18;
+
+			[UWClassicLayout.Derived("Left, Top, Width, Height")]
+			public static readonly UWRectInt Place = new UWRectInt(Left, Top, Width, Height);
+
+			/// <summary>The first rune's top-left corner on the screen and the step to the next (Runes.ShelfX, ShelfY).</summary>
+			[UWClassicLayout.Derived("Runes.ShelfX[0]")]
+			public const int RuneLeft = 0xB3;
+
+			[UWClassicLayout.Derived("199 - Runes.ShelfY")]
+			public const int RuneTop = 199 - 0x32;
+
+			[UWClassicLayout.Derived("Runes.ShelfX[1] - Runes.ShelfX[0]")]
+			public const int RunePitch = 0xC1 - 0xB3;
+		}
+
+		/// <summary>
+		/// THE MARBLE LEDGE under the view with its three hollows (the active spells', the compass's, the runes'): from
+		/// the frame's left edge to the last column before the flasks' stone, from its top row to its last above the
+		/// scroll's black line. Its two ends are bevelled at the top (LeftCap, RightCap columns); the rest is marble but
+		/// where the hollows lie (SpellHollow, CompassRecess, RuneHollow). The modern stone shelf grows from it (UW2 plan
+		/// stage U6 step 2).
+		/// </summary>
+		public static class Ledge
+		{
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the frame's left edge")]
+			public const int Left = 0;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the ledge's top row")]
+			public const int Top = 145;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to column 241, the flasks' stone from 242")]
+			public const int Width = 242;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to row 165")]
+			public const int Height = 21;
+
+			[UWClassicLayout.Derived("Left, Top, Width, Height")]
+			public static readonly UWRectInt Place = new UWRectInt(Left, Top, Width, Height);
+
+			/// <summary>The left end's bevel (black above it down to row 149) and the right end's.</summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the bevel's columns 0 to 11")]
+			public const int LeftCap = 12;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the bevel's columns 227 to 241")]
+			public const int RightCap = 15;
+		}
+
+		/// <summary>
+		/// THE LEFT HOLLOW of the ledge, which holds the active spells (Runes.SpellX at 0x37): from its outline's left
+		/// black line to its right one, as the rune hollow, the same size (UW2 plan stage U6 step 2).
+		/// </summary>
+		public static class SpellHollow
+		{
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the outline's black line at column 16")]
+			public const int Left = 16;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the outline's top row")]
+			public const int Top = 148;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to the black line at column 65")]
+			public const int Width = 50;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to row 165")]
+			public const int Height = 18;
+
+			[UWClassicLayout.Derived("Left, Top, Width, Height")]
+			public static readonly UWRectInt Place = new UWRectInt(Left, Top, Width, Height);
+		}
+
+		/// <summary>
+		/// THE SCROLL'S PICTURE on the frame: the rows 167 to 199 (the top rod to the bottom one), from the left knobs'
+		/// first column to the right knobs' last - the pillars beside them are the frame's. The modern scroll is cut from
+		/// it (UW2 plan stage U6 step 2b).
+		/// </summary>
+		public static class ScrollPicture
+		{
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the left knobs from column 8")]
+			public const int Left = 8;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, the top rod's row")]
+			public const int Top = 167;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to the right knobs' column 231")]
+			public const int Width = 224;
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK block 4, to row 199")]
+			public const int Height = 33;
+
+			[UWClassicLayout.Derived("Left, Top, Width, Height")]
+			public static readonly UWRectInt Place = new UWRectInt(Left, Top, Width, Height);
+		}
+
+		/// <summary>
+		/// THE GENERATED BACKS' SOURCES on the frame (UWBackdropArt; UW2 plan stage U6 step 2d, chosen per user 2026-11-24
+		/// from a sheet of candidates): the leather from the scroll's brown rods and knobs, the marble from the ledge's
+		/// plain marble, the stone from the compass hollow's grey, the bronze from the compass's gold. And the three
+		/// patterns' walls (T64.TR): 209 rough rock, 62 large blots, 88 dark with light veins - the first game's 126, 207,
+		/// 201 in kind.
+		/// </summary>
+		public static class BackSources
+		{
+			[UWClassicLayout.UserTuned("2026-11-24, the scroll's rods and knobs (B2 of the sheet)")]
+			public static readonly UWRectInt Leather = new UWRectInt(8, 167, 224, 33);
+
+			[UWClassicLayout.UserTuned("2026-11-24, the ledge between the spells' and the compass's hollows (M1)")]
+			public static readonly UWRectInt Marble = new UWRectInt(70, 150, 14, 15);
+
+			[UWClassicLayout.UserTuned("2026-11-24, the compass hollow's inside (S1)")]
+			public static readonly UWRectInt Stone = new UWRectInt(86, 150, 68, 14);
+
+			[UWClassicLayout.UserTuned("2026-11-24, the compass's gold (B1)")]
+			public static readonly UWRectInt Bronze = new UWRectInt(94, 148, 52, 16);
+
+			[UWClassicLayout.UserTuned("2026-11-24, T64.TR 209, 62, 88 for rock, blots, marble")]
+			public static readonly int[] PatternWalls = { -1, 209, 62, 88 };
 		}
 
 		/// <summary>EYES.GR, the gargoyle's eyes above the view: picture 0 open.</summary>
@@ -819,6 +1065,9 @@ namespace UWDataImport.UWData
 			[UWClassicLayout.Exe("uw2 inv/INVPANEL.C:138 input_addmouse(0xF0, 0x51, 0x13B, 0xBE, ...)")]
 			public const int AreaRight = 0x13B;
 
+			[UWClassicLayout.Exe("uw2 inv/INVPANEL.C:138 input_addmouse(0xF0, 0x51, 0x13B, 0xBE, ...)")]
+			public const int AreaTopY = 0xBE;
+
 			[UWClassicLayout.Exe("uw2 ui/STATS.C:170 mous_in_stat, inplist->y < 10")]
 			public const int ScrollStrip = 10;
 
@@ -1146,6 +1395,39 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static class Conversation
 		{
+			/// <summary>
+			/// THE SCREEN'S PIECES for the original's look in the modern scheme (UWConversationArtBuilder.BuildHeaderUw2,
+			/// BuildParchmentUw2, BuildAnswersUw2; UW2 plan stage U7 step 3a, measured on luma maps of BYT.ARK screen 2):
+			/// the top with the two portrait boxes, the trade grids and the name bars (x 0 to 233, the right box's outline the last, rows 0 to 76); the
+			/// parchment with its rolling edges (x 17 to 222, the edges' tiles at 0x11 and 0xDB; the dark shade beside them, 13
+			/// to 16 and 223 to 226, and the stone columns are the frame's; rows 77 to 161 - the black line
+			/// and the ledge's grey strip under it are the frame's); the answers' scroll the screen's whole width (rows
+			/// 167 to 199, the knobs at both ends).
+			/// </summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK screen 2, the portrait boxes' and name bars' outlines")]
+			public static readonly UWRectInt Header = new UWRectInt(0, 0, 234, 77);
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK screen 2, the parchment and its rolling edges")]
+			public static readonly UWRectInt Parchment = new UWRectInt(17, 77, 206, 85);
+
+			[UWClassicLayout.Measured("UW2 BYT.ARK screen 2, the answers' scroll from rod to rod")]
+			public static readonly UWRectInt AnswersScroll = new UWRectInt(0, 167, 320, 33);
+
+			/// <summary>The parchment's rims kept at the top and the bottom when it is made lower or taller (its plain
+			/// middle repeated), as the first game's (UWConversationArtBuilder.ParchmentRim).</summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK screen 2, the parchment's top and bottom rims")]
+			public const int ParchmentRim = 6;
+
+			/// <summary>The answers' scroll narrowed by taking out plain columns from here (the paper and the rods run
+			/// plain between the knobs).</summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK screen 2, plain paper and rods")]
+			public const int AnswersNarrowFrom = 40;
+
+			/// <summary>The answers' scroll's rows kept at the top and the bottom when it is made taller (the rods and
+			/// the knobs; its plain middle repeated).</summary>
+			[UWClassicLayout.Measured("UW2 BYT.ARK screen 2, the knobs from the scroll's third row and to its third last")]
+			public const int AnswersRim = 10;
+
 			/// <summary>The right panel stays: the screen is laid over what lies left of it and under it. Rows
 			/// from the top.</summary>
 			[UWClassicLayout.Measured("BYT.ARK screens 2 and 4 compared")]

@@ -4,6 +4,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnderworldRevisited;
 using UnderworldRevisited.Build;
+using UWDataImport.UWData;
 
 /// <summary>
 /// The "Remastered" render mode: hard pixels as in the original, but modern lighting.
@@ -140,6 +141,7 @@ public sealed class UWRemasterRenderPath : IUWRenderPath
 
         mbXfer = false;
         UWShaderGlobals.SetFloat(UWShaderIds.RemasterXfer, 0f);
+        UWShaderGlobals.SetFloat(UWShaderIds.SpriteFilter, 0f);
         UWShaderGlobals.ClearTexture(UWPaletteCommon.Raw.ColoursId);
         UWShaderGlobals.ClearTexture(UWPaletteCommon.Raw.LightEffectId);
         UWShaderGlobals.ClearTexture(UWPaletteCommon.Raw.InverseLookupId);
@@ -162,6 +164,10 @@ public sealed class UWRemasterRenderPath : IUWRenderPath
 
         UWShaderGlobals.SetFloat(UWShaderIds.RemasterXfer, mbXfer ? 1f : 0f);
         UWShaderGlobals.SetFloat(UWShaderIds.Demaster, lOSettings.RemasterDemaster ? 1f : 0f);
+
+        // The textures' look's filter for the sprites, the pictures on walls, the models' faces and the weapon
+        // (UWSpriteFilter.hlsl, UWWeaponFilterUI): at once, the shaders blend the texels themselves.
+        UWShaderGlobals.SetFloat(UWShaderIds.SpriteFilter, UWLevelLoader.SpriteFilter);
 
         Material lOMaterial = lOLoader.DungeonMaterial;
 

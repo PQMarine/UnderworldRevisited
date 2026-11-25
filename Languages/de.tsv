@@ -118,10 +118,11 @@ setting.ClassicWidescreen	Klassischer Bildschirm in Breitbild
 setting.ViewAngle	Blickwinkel
 setting.ViewGamma	Gamma
 setting.ViewGamma.hint	Hellt die dunklen Töne der 3D-Ansicht auf, in beiden Modi; die Oberfläche behält ihre Farben. Bei 1.00 bleibt das Bild, wie es gezeichnet wird.
-setting.XbrTextures	xBR-Texturskalierung (4x)
-setting.XbrTextures.hint	Wände, Böden und Decken mit dem Pixel-Art-Skalierer xBR auf die vierfache Größe hochgerechnet (zweimal 2x); in Remastered. Gegenstände und Kreaturen werden nicht skaliert.
-setting.XbrSprites	xBR für Figuren, Gegenstände und Waffen (4x, ab nächstem Laden)
-setting.XbrSprites.hint	Kreaturen, Gegenstände und die Waffe in der Hand mit dem Pixel-Art-Skalierer xBR auf die vierfache Größe hochgerechnet, mit hartem Rand; in Remastered, ab dem nächsten Laden eines Spielstands.
+setting.TextureLook	Texturen
+setting.TextureLook.hint	Wie die Bilder der Welt in Remastered gezeichnet werden - Wände, Böden, Decken, Gegenstände, Kreaturen und die Waffe gleich: die Pixel des Originals, weich (bilinear gefiltert, wie die Fassung von 2012) oder xBR (mit dem Pixel-Art-Skalierer auf die vierfache Größe hochgerechnet). Umrisse bleiben hart. xBR für Gegenstände und Kreaturen ab dem nächsten Laden eines Spielstands.
+setting.TextureLook.choice.pixels	Pixel
+setting.TextureLook.choice.smooth	Weich
+setting.TextureLook.choice.xbr	xBR
 setting.OriginalWorldResolution	Welt in der Auflösung des Originals
 setting.OriginalWorldResolutionFactor	Auflösungsfaktor
 setting.PaletteAmbientOcclusion	Umgebungsverdeckung
@@ -222,6 +223,7 @@ setting.ModernCompassOutline.choice.on	An
 setting.ModernGemApart	Kraftstein
 setting.ModernGemApart.choice.shelf	Ablage
 setting.ModernGemApart.choice.apart	Einzeln
+setting.ModernGemApart.choice.compass	Im Kompass
 setting.ModernFlasksApart	Flaschen
 setting.ModernFlasksApart.choice.shelf	Ablage
 setting.ModernFlasksApart.choice.apart	Einzeln
@@ -247,6 +249,9 @@ setting.ModernRuneHollow.choice.off	Aus
 setting.ModernRuneHollowOutline	Umriss
 setting.ModernRuneHollowOutline.choice.off	Aus
 setting.ModernRuneHollowOutline.choice.on	An
+setting.ModernSpellHollow	Aussehen
+setting.ModernSpellHollow.choice.row	Reihe
+setting.ModernSpellHollow.choice.hollow	Mulde
 setting.ModernStoneShelf	Sichtbar
 setting.ModernStoneShelf.choice.on	An
 setting.ModernStoneShelf.choice.off	Aus
@@ -819,9 +824,11 @@ editor.size	Größe
 editor.stands	Steht
 editor.stands.apart	Einzeln
 editor.stands.on_shelf	Auf Ablage
+editor.stands.in_compass	Im Kompass
 editor.direction	Richtung
 editor.direction.text	Text
 editor.direction.compass	Kompass
+editor.compass.hollow	Mulde
 editor.window	Fenster
 editor.window.dock	Andocken
 editor.window.docked	Angedockt
@@ -971,8 +978,7 @@ hud.sheet.class_level	{0}, Stufe {1}
 hud.sheet.level_class	{1}, Stufe {0}
 hud.sheet.point_to_spend	1 Punkt zu vergeben
 hud.sheet.points_to_spend	{0} Punkte zu vergeben
-hud.walk.not_yet	Im Spaziergang durch Ultima Underworld II noch nicht möglich.
-hud.walk.door_locked	Die Tür ist verschlossen.
+hud.uw2.door_locked	Die Tür ist verschlossen.
 hud.uw2.level_1	{0}.
 hud.uw2.level_2	{0}.
 hud.uw2.level_3	{0}.
@@ -1010,8 +1016,10 @@ effects.grime_along_the_walls	Schmutz an den Wänden
 effects.grime_colour	Schmutzfarbe
 effects.ambient_light	Umgebungslicht
 effects.ice_relief	Eisrelief (UW2)
-effects.xbr_textures	xBR-Texturskalierung (4x)
-effects.xbr_sprites	xBR für Figuren, Gegenstände und Waffen (4x, ab nächstem Laden)
+effects.textures	Texturen (xBR bei Gegenständen: ab nächstem Laden)
+effects.textures.pixels	Pixel
+effects.textures.smooth	Weich
+effects.textures.xbr	xBR
 effects.light_colour	Lichtfarbe
 effects.light.warm	Warm
 effects.light.cool	Kühler

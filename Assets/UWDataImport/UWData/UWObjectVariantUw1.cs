@@ -26,6 +26,13 @@ namespace UWDataImport.UWData
 
 		public int NothingToSeeString => 155;
 
+		public bool HasTalismans => true;
+
+		public int NamelessCreatureKindString(UWNpc pONpc)
+		{
+			return -1;
+		}
+
 		public int DoorSpikedString => UWItemApplications.DoorIsSpikedMessage;
 
 		public int BonesLeadString => 0x16 + 1;

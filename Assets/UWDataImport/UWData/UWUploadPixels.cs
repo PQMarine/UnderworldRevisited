@@ -150,16 +150,12 @@ namespace UWDataImport.Presentation
 		}
 
 		/// <summary>
-		/// An icon for the palette shader (UWIconTextureBuilder until 2026-10-19): the main palette
-		/// index in red, opacity in alpha, everything else 0. The opacity comes from the resolved
-		/// colour - the palette's transparency marker is a very dark blue, which the index alone
-		/// does not tell (see UWPalette); 4-bit object pictures are mapped back to the main palette
-		/// first (UWTexture.GetMainPaletteIndices). No colour help here: the shader's palette table
-		/// carries it.
+		/// An icon for the palette shader whose transparent pixels are index 0 (the second game's pictures: SPELLS.GR's
+		/// clear background is index 0, not the first game's dark blue marker): the main palette index in red, opacity
+		/// in alpha, rows bottom up as IconIndices.
 		/// </summary>
-		public static byte[] IconIndices(UWTexture pOTexture)
+		public static byte[] IconIndicesZeroClear(UWTexture pOTexture)
 		{
-			UWColor32[] lyColours = pOTexture.GetUWColor32();
 			byte[] lyIndices = pOTexture.GetMainPaletteIndices();
 			int liWidth = pOTexture.Width;
 			int liHeight = pOTexture.Height;
@@ -171,8 +167,50 @@ namespace UWDataImport.Presentation
 				for (int x = 0; x < liWidth; x++)
 				{
 					int liAt = (y * liWidth) + x;
+					byte lyIndex = lyIndices != null && liAt < lyIndices.Length ? lyIndices[liAt] : (byte)0;
 
-					if (lyColours[liAt].A != 0)
+					if (lyIndex != 0)
+					{
+						lyOut[liOut] = lyIndex;
+						lyOut[liOut + 3] = 255;
+					}
+
+					liOut += BytesPerPixel;
+				}
+			}
+
+			return lyOut;
+		}
+
+		/// <summary>
+		/// An icon for the palette shader (UWIconTextureBuilder until 2026-10-19): the main palette
+		/// index in red, opacity in alpha, everything else 0. The opacity comes from the resolved
+		/// colour - the palette's transparency marker is a very dark blue, which the index alone
+		/// does not tell (see UWPalette); 4-bit object pictures are mapped back to the main palette
+		/// first (UWTexture.GetMainPaletteIndices). No colour help here: the shader's palette table
+		/// carries it.
+		/// </summary>
+		public static byte[] IconIndices(UWTexture pOTexture)
+		{
+			UWColor32[] lyColours = pOTexture.GetUWColor32();
+			byte[] lyIndices = pOTexture.GetMainPaletteIndices();
+			// The second game's pictures: clear is the picture's OWN colour 0 (UWTexture.ZeroIsClear), not the main
+			// palette's - a thing's black edge is another colour of its picture that maps to main colour 0.
+			byte[] lyOwn = pOTexture.ZeroIsClear ? pOTexture.PaletteIndices : null;
+			int liWidth = pOTexture.Width;
+			int liHeight = pOTexture.Height;
+			byte[] lyOut = new byte[liWidth * liHeight * BytesPerPixel];
+			int liOut = 0;
+
+			for (int y = liHeight - 1; y >= 0; y--)
+			{
+				for (int x = 0; x < liWidth; x++)
+				{
+					int liAt = (y * liWidth) + x;
+
+					bool lbOpaque = lyOwn != null ? liAt < lyOwn.Length && lyOwn[liAt] != 0 : lyColours[liAt].A != 0;
+
+					if (lbOpaque)
 					{
 						lyOut[liOut] = lyIndices != null && liAt < lyIndices.Length ? lyIndices[liAt] : (byte)0;
 						lyOut[liOut + 3] = 255;

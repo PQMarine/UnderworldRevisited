@@ -111,18 +111,8 @@ public sealed class UWPointerCursor
             ? UWHudRunes.SpellTargetCursor
             : (int)UWCursors.CursorEnum.Center;
 
-        // The layout editor's arrows (UWModernLayoutEditor.PointerTile, per user 2026-10-10),
-        // as large as the game's own pointers; the middle is where they point.
-        if (UWPointer.IsShown && UWModernLayout.IsEditing && UWModernLayoutEditor.PointerTile >= 0)
-        {
-            Texture2D lOArrow = UWGlyphs.Pointer(UWModernLayoutEditor.PointerTile, fModernPointerScale());
-
-            if (lOArrow != null)
-            {
-                UWPointer.SetPicture(lOArrow, new Vector2(lOArrow.width * 0.5f, lOArrow.height * 0.5f));
-                return;
-            }
-        }
+        if (TryShowEditorPointer())
+            return;
 
         // ALSO WHILE THE POINTER IS HIDDEN (GitHub issue 28, 2026-11-10: after the full map, freeing the pointer showed
         // the map's quill for a frame): in the look mode the pointer is hidden, the picture last set stayed the
@@ -142,6 +132,27 @@ public sealed class UWPointerCursor
     /// rounded to whole pixels), the size the crosshair's picture has with the pointer locked (per
     /// user, 2026-10-23, once Unity drew the pointer at its full size: the classic frame's scale
     /// was too big for the full-screen view, half of it a guess).</summary>
+    /// <summary>
+    /// The layout editor's arrows (UWModernLayoutEditor.PointerTile, per user 2026-10-10: four ways to move, left and
+    /// right for a width, up and down for the lines or the dock), as large as the game's own pointers, the middle where
+    /// they point - true when one is shown. Both games' pointers ask it (the second game's screen since UW2 plan stage
+    /// U6 step 2b: per user at the test of 200, its pointer kept the cross while widening and moving).
+    /// </summary>
+    internal static bool TryShowEditorPointer()
+    {
+        if (!UWPointer.IsShown || !UWModernLayout.IsEditing || UWModernLayoutEditor.PointerTile < 0)
+            return false;
+
+        Texture2D lOArrow = UWGlyphs.Pointer(UWModernLayoutEditor.PointerTile, fModernPointerScale());
+
+        if (lOArrow == null)
+            return false;
+
+        UWPointer.SetPicture(lOArrow, new Vector2(lOArrow.width * 0.5f, lOArrow.height * 0.5f));
+
+        return true;
+    }
+
     private static int fModernPointerScale()
     {
         return Mathf.Max(1, Mathf.RoundToInt(UWModernUi.PixelScale));

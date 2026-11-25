@@ -109,7 +109,8 @@ public static class UWBack
         fSet(ref leStates, UWBackState.Rebind, UWKeyBindings.HoldsKeys);
         fSet(ref leStates, UWBackState.SetupKeyNav, UWSetupMenu.IsKeyNavOn);
         fSet(ref leStates, UWBackState.LayoutAsk, UWModernLayoutEditor.IsAskingLeave);
-        fSet(ref leStates, UWBackState.Paging, lOInteraction != null && lOInteraction.PagingTakesKeys);
+        fSet(ref leStates, UWBackState.Paging, (lOInteraction != null && lOInteraction.PagingTakesKeys)
+            || UWGameScreenUw2.IsWaitingForPage || UWPageInput.ConsumedThisFrame);
         fSet(ref leStates, UWBackState.WindowPicture, lOInteraction != null && lOInteraction.PictureTakesKeys);
 
         return leStates;

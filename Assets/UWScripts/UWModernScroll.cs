@@ -26,14 +26,16 @@ using UWDataImport.UWData;
 /// THE FONT KEY IN THE CLASSIC PRESET (per user, 2026-11-05): there the text and [MORE] follow F
 /// as the classic screen's box does - its fields (UWTextLabel) at the scroll's scale. In the
 /// other presets they keep the original font (decided with the presets, 2026-10-09).
+///
+/// PER GAME (UW2 plan stage U6 step 2b, 2026-11-24): the second game's scroll is cut from its own
+/// frame (UWScrollPaperBuilder.BuildUw2: 224 columns from knob to knob, its paper 208 wide from
+/// column 8, in its colour), the text in its log's colours (UWMessageLogModel.ColourIndicesOf).
 /// </summary>
 public class UWModernScroll
 {
     public const int MinLines = 2;
 
     public const int MaxLines = 8;
-
-    private readonly UWGameUI mOUi;
 
     private RawImage mOPaper;
 
@@ -57,12 +59,13 @@ public class UWModernScroll
 
     private Color32[] myColourTable;
 
-    public UWModernScroll(UWGameUI pOUi)
+    public UWModernScroll()
     {
-        mOUi = pOUi;
     }
 
-    /// <summary>Lines of text the scroll holds: the original's four unless made taller.</summary>
+    /// <summary>Lines of text the scroll holds: the original's four unless made taller - both games' boxes are 30 rows,
+    /// four lines and [MORE]'s row (Rows). On the second game's frame first counted as its five rows, which made the
+    /// paper a line taller and showed its top rod twice (per user's screenshot, UW2 plan stage U7 step 2a).</summary>
     public static int Lines => UWModernClassicFrame.IsActive ? 4
         : UWModernClassicPlus.IsActive ? UWModernClassicPlus.ScrollLines
         : Mathf.Clamp(UWUserSettings.ModernScrollLines > 0 ? UWUserSettings.ModernScrollLines : 4, MinLines, MaxLines);
@@ -77,14 +80,14 @@ public class UWModernScroll
 
     /// <summary>
     /// The columns the scroll is wider than the original's: in Classic Wide the frame's widening; in Classic
-    /// Modular none, as its lines; else the width chosen in the layout editor (GitHub issue 29, 2026-11-10: the
+    /// Modular the game's preset width (none on the first game, narrowed on the second); else the width chosen in the layout editor (GitHub issue 29, 2026-11-10: the
     /// paper between the rollers grows, the rollers stay as they are - nothing is stretched), WidthStep at a time
     /// up to MaxExtraWidth.
     /// </summary>
     private static int fWide()
     {
         return UWModernClassicFrame.IsActive ? UWModernClassicFrame.Extra
-            : UWModernClassicPlus.IsActive ? 0
+            : UWModernClassicPlus.IsActive ? UWModernClassicPlus.ScrollWidth
             : ExtraWidth;
     }
 
@@ -104,8 +107,15 @@ public class UWModernScroll
     /// UWScrollPaperBuilder.Narrow can take out, in whole WidthSteps - a negative ExtraWidth.</summary>
     public const int MinExtraWidth = -(UWDataImport.Presentation.UWScrollPaperBuilder.MaxNarrow / WidthStep) * WidthStep;
 
-    /// <summary>The scroll's own width in its pixels: the original's 320 and ExtraWidth (the inspector's number).</summary>
-    public static int OwnWidth => UWDataImport.UWData.UWClassicLayout.Screen.Width + ExtraWidth;
+    /// <summary>The scroll's own width in its pixels: the original's 320 (the second game's 224, knob to knob) and
+    /// ExtraWidth (the inspector's number).</summary>
+    public static int OwnWidth => (fIsSecondGame ? UWScrollPaperBuilder.Uw2Width : UWDataImport.UWData.UWClassicLayout.Screen.Width) + ExtraWidth;
+
+    /// <summary>The running game is the second (its own scroll, UW2 plan stage U6 step 2b).</summary>
+    private static bool fIsSecondGame => UWModernUi.Data != null && UWModernUi.Data.Textures != null && UWModernUi.Data.Textures.Game == UWGame.Uw2;
+
+    /// <summary>The paper's left column in the scroll's picture: the first game's 15, the second game's 8.</summary>
+    private static int fPaperLeft => fIsSecondGame ? UWScrollPaperBuilder.Uw2PaperLeft : UWScrollPaperBuilder.PaperLeft;
 
     /// <summary>The step of the layout editor's width row.</summary>
     public const int WidthStep = 16;
@@ -116,7 +126,11 @@ public class UWModernScroll
     /// The text is wrapped AND drawn at it (B27, fixed 2026-10-20: until then it was wrapped this wide
     /// but drawn into a texture 291 wide, so a long line lost its end in Classic Wide).
     /// </summary>
-    private static int TextWidth => UWScrollPaperBuilder.PaperWidth + fWide();
+    private static int TextWidth => (fIsSecondGame ? UWClassicLayoutUw2.MessageLog.Width : UWScrollPaperBuilder.PaperWidth) + fWide();
+
+    /// <summary>The paper's width the text is wrapped and drawn at - what a long text is wrapped to for paging while the
+    /// scroll shows (IUWUiScheme.ShownLogWidth).</summary>
+    public static int ShownTextWidth => TextWidth;
 
     public void Build(Transform pORoot)
     {
@@ -147,12 +161,12 @@ public class UWModernScroll
     /// Once a frame while shown: the messages (Interaction.ActiveStrings), the input box's blink and
     /// [MORE]; placed as the messages element (pODefaultBottomLeft its default corner).
     /// </summary>
-    public void Update(Interaction pOInteraction, float pfPixelScale, Vector2 pODefaultBottomLeft)
+    public void Update(IUWModernMessages pOSaid, float pfPixelScale, Vector2 pODefaultBottomLeft)
     {
-        if (mOPaper == null || mOUi == null || mOUi.mOUWData == null || pOInteraction == null)
+        if (mOPaper == null || UWModernUi.Session == null || UWModernUi.Data == null || pOSaid == null)
             return;
 
-        UWFont lOFont = mOUi.mOUWData.Fonts.Get(UWFonts.FontType.Normal);
+        UWFont lOFont = UWModernUi.Data.Fonts.Get(UWFonts.FontType.Normal);
 
         if (lOFont == null)
             return;
@@ -164,12 +178,13 @@ public class UWModernScroll
         // The messages wrapped to the paper, the newest that fit, [MORE]'s row kept free while it
         // waits, the input box blinking at the one rate of both schemes (decision 17); the edges turn
         // one frame per line that left the top, as in the classic box (UWMessageLogModel).
-        bool lbCursor = pOInteraction.ShowsPromptTextCursor && UWMessageLogModel.IsCursorOn(Time.unscaledTime);
+        bool lbCursor = pOSaid.ShowsPromptCursor && UWMessageLogModel.IsCursorOn(Time.unscaledTime);
 
-        mOModel.Update(lOFont, pOInteraction.ActiveStrings, TextWidth, Rows, pOInteraction.IsWaitingForPage, lbCursor);
+        mOModel.Update(lOFont, pOSaid.Lines, TextWidth, Rows, pOSaid.IsWaitingForPage, lbCursor);
 
         int liEdgeFrame = mOModel.EdgeFrame;
-        int liKey = (((fWide() * 1000) + liExtra) * 100) + liEdgeFrame;
+        // The game in the key too: the second game's paper is another picture.
+        int liKey = (((((fWide() * 1000) + liExtra) * 100) + liEdgeFrame) * 2) + (fIsSecondGame ? 1 : 0);
 
         UWArtStamp lOStamp = UWVersionedTexture.Colours();
 
@@ -196,13 +211,13 @@ public class UWModernScroll
         // The text: newest lines from the paper's top, the input box blinking; drawn as wide as it
         // was wrapped (B27). The field sizes itself (UWTextLabel: the picture's size at the scale).
         fScale(mOTextLabel, lfScale);
-        mOTextLabel.SetText(lOFont, mOModel.ShownLines, mOModel.Width, UWHudMessageLog.LogColourTable(mOUi.mOUWData, ref myColourTable),
-            UWTextRaster.ColoursEnum.Codes, false, mOUi.TextureFilterMode, mOModel.CursorOn);
+        mOTextLabel.SetText(lOFont, mOModel.ShownLines, mOModel.Width, fColourTable(),
+            UWTextRaster.ColoursEnum.Codes, false, UWModernUi.Filter, mOModel.CursorOn);
 
         Texture2D lOTextTexture = mOTextLabel.IsShown ? mOTextLabel.Picture : null;
 
         // The paper's top-left in the picture: x 15, row 2 of it (169 - 167).
-        float lfPaperLeft = lOPlaced.x + (UWScrollPaperBuilder.PaperLeft * lfScaleX);
+        float lfPaperLeft = lOPlaced.x + (fPaperLeft * lfScaleX);
         float lfPaperTop = lOPlaced.yMax - ((UWScrollPaperBuilder.PaperTop - UWScrollPaperBuilder.SourceTop) * lfScale);
 
         if (lOTextTexture != null)
@@ -219,7 +234,7 @@ public class UWModernScroll
         string lsMore = UWMessageLogModel.MoreMarkerText;
 
         fScale(mOMoreLabel, lfScale);
-        mOMoreLabel.SetLine(lOFont, lsMore, UWTextRaster.TightWidth(lOFont, lsMore), Color.white, false, mOUi.TextureFilterMode,
+        mOMoreLabel.SetLine(lOFont, lsMore, UWTextRaster.TightWidth(lOFont, lsMore), Color.white, false, UWModernUi.Filter,
             FontStyle.Normal, UWTextLabel.MoreMarkerRaise);
 
         Texture2D lOMoreTexture = mOMoreLabel.IsShown ? mOMoreLabel.Picture : null;
@@ -227,6 +242,33 @@ public class UWModernScroll
         if (lOMoreTexture != null)
             ((RectTransform)mOMore.transform).anchoredPosition = new Vector2(lfPaperLeft,
                 lfPaperTop - (((mOModel.MoreRowShown + 1) * liLineHeight) * lfScale));
+    }
+
+    /// <summary>The game the colour table was made for.</summary>
+    private UWGame meColourGame;
+
+    /// <summary>The log's colours by code for the running game (UWMessageLogModel.ColourTable), kept once the palette is
+    /// there, made anew when another game runs.</summary>
+    private Color32[] fColourTable()
+    {
+        UWGame leGame = fIsSecondGame ? UWGame.Uw2 : UWGame.Uw1;
+
+        if (myColourTable != null && meColourGame == leGame)
+            return myColourTable;
+
+        UWColor32[] lyTable = UWMessageLogModel.ColourTable(UWModernUi.Data != null ? UWModernUi.Data.Palettes : null, leGame, out bool lbFromPalette);
+        Color32[] lyColours = new Color32[lyTable.Length];
+
+        for (int liAt = 0; liAt < lyColours.Length; liAt++)
+            lyColours[liAt] = new Color32(lyTable[liAt].R, lyTable[liAt].G, lyTable[liAt].B, lyTable[liAt].A);
+
+        if (lbFromPalette)
+        {
+            myColourTable = lyColours;
+            meColourGame = leGame;
+        }
+
+        return lyColours;
     }
 
     /// <summary>Destroys the papers (the HUD goes); the fields give their texts back themselves.</summary>
@@ -251,9 +293,12 @@ public class UWModernScroll
     /// </summary>
     private Texture2D fBuildPaper(int piExtra, int piEdgeFrame)
     {
-        UWPicture lOFrame = UWModernClassicFrame.IsActive && UWModernClassicFrame.Instance != null ? UWModernClassicFrame.Instance.Picture : null;
-        UWPicture lOPaper = UWScrollPaperBuilder.Build(mOUi.mOUWData.Textures, lOFrame, piExtra, piEdgeFrame, lOFrame == null ? fWide() : 0);
+        // The second game's scroll is its own picture widened by the frame's columns (fWide), not the frame's rows: its
+        // ground stays clear over the frame's (UW2 plan stage U7 step 2).
+        UWPicture lOFrame = UWModernClassicFrame.IsActive && UWModernClassicFrame.Instance != null && !fIsSecondGame
+            ? UWModernClassicFrame.Instance.Picture : null;
+        UWPicture lOPaper = UWScrollPaperBuilder.Build(UWModernUi.Data.Textures, lOFrame, piExtra, piEdgeFrame, lOFrame == null ? fWide() : 0);
 
-        return lOPaper != null ? UWTextureFactory.FromPicture(lOPaper, mOUi.TextureFilterMode, "UWModernScroll " + piExtra) : null;
+        return lOPaper != null ? UWTextureFactory.FromPicture(lOPaper, UWModernUi.Filter, "UWModernScroll " + piExtra) : null;
     }
 }

@@ -168,7 +168,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// THE SECOND GAME'S WALK SAVED (UW2 plan phase 2 step 6, 2026-10-29) into psSlotPath as the
+		/// THE SECOND GAME'S SESSION SAVED (UW2 plan phase 2 step 6, 2026-10-29) into psSlotPath as the
 		/// original's save holds a game (Underworld Exhumed docs/FORMATS.md): LEV.ARK through UWArk - every
 		/// level's block written back from the session by UWLevelWriter (the shared 0x7C08 bytes) with its
 		/// animation overlays and timers inside it (Anim_Save zeroes what follows the count, MAP.C:169),

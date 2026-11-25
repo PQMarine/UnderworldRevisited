@@ -16,13 +16,13 @@ public static class UWEndingUw2
 
         if (lOPlayer == null)
         {
-            UWWalkUw2.Leave();
+            UWGameStartUw2.Leave();
 
             return;
         }
 
         IsRunning = true;
-        UnityEngine.Debug.Log("[Walk] The game is won: the ending.");
+        UnityEngine.Debug.Log("[Session] The game is won: the ending.");
         UWGameClock.Hold(UWGameClock.DeathHold);
         UWAudioService.Uw2Load(UWMusicSelectorUw2.MenuTheme);
 
@@ -34,6 +34,6 @@ public static class UWEndingUw2
     private static void fBackToMenu()
     {
         IsRunning = false;
-        UWWalkUw2.Leave();
+        UWGameStartUw2.Leave();
     }
 }

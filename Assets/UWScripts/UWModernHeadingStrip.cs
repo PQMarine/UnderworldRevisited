@@ -27,7 +27,8 @@ public class UWModernHeadingStrip : UWModernPart
 
     private Text mOFoeState;
 
-    private UWEyesDisplay mOEyes;
+    /// <summary>The game's eyes this frame (IUWModernWorld.FoeEyes).</summary>
+    private UWModernFoeEyes mOEyes;
 
     /// <summary>0 closed (the heading alone) to 1 open (the gargoyle and the foe).</summary>
     private float mfStripOpen;
@@ -77,10 +78,10 @@ public class UWModernHeadingStrip : UWModernPart
         UWPixelArtUI.Apply(mOStrip);
         mOStripEyes = UWUiKit.CreateRawImage(pORoot, "Gargoyle eyes", new Vector2(0.5f, 1f), new Vector2(0f, 1f));
         UWPixelArtUI.Apply(mOStripEyes);
-        mOFoeName = UWUiKit.CreateText(pORoot, "Foe", new Vector2(0.5f, 1f), new Vector2(0f, 1f), TextAnchor.MiddleLeft, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
-        mOFoeState = UWUiKit.CreateText(pORoot, "Foe state", new Vector2(0.5f, 1f), new Vector2(0f, 1f), TextAnchor.MiddleLeft, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
+        mOFoeName = UWUiKit.CreateText(pORoot, "Foe", new Vector2(0.5f, 1f), new Vector2(0f, 1f), TextAnchor.MiddleLeft, UWModernPalette.HudText, UWModernUi.TextUi, UWUiKit.HudText);
+        mOFoeState = UWUiKit.CreateText(pORoot, "Foe state", new Vector2(0.5f, 1f), new Vector2(0f, 1f), TextAnchor.MiddleLeft, UWModernPalette.HudText, UWModernUi.TextUi, UWUiKit.HudText);
 
-        mOHeading = UWUiKit.CreateText(pORoot, "Heading", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), TextAnchor.MiddleCenter, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
+        mOHeading = UWUiKit.CreateText(pORoot, "Heading", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), TextAnchor.MiddleCenter, UWModernPalette.HudText, UWModernUi.TextUi, UWUiKit.HudText);
     }
 
     public override void OnPixelScale(float pfPixelScale)
@@ -118,7 +119,9 @@ public class UWModernHeadingStrip : UWModernPart
         mOFoeState.enabled = false;
         ScreenRect = Rect.zero;
 
-        Texture2D lOEyes = mOEyes != null && mOEyes.IsLit ? mOEyes.CurrentFrame : null;
+        mOEyes = mOSession.World.FoeEyes;
+
+        Texture2D lOEyes = mOEyes.IsLit ? mOEyes.Picture : null;
 
         mOStripEyes.enabled = lOEyes != null;
 
@@ -146,7 +149,7 @@ public class UWModernHeadingStrip : UWModernPart
         // The classic compass's step (UWHudCompass.CurrentStep): the view's in sixteen points, and
         // in the void the frozen one, as the original's compass shows it - until 2026-10-09 the
         // heading followed the view there.
-        int liStep = mOUi.Compass.CurrentStep;
+        int liStep = mOSession.World.CompassStep;
 
         mOHeading.text = UWText.T(msHeadings[liStep]);
 
@@ -161,27 +164,26 @@ public class UWModernHeadingStrip : UWModernPart
 
     /// <summary>
     /// THE HEADING STRIP (UWModernHudArt.BuildHeadingStrip, per user on mockups, 2026-10-04):
-    /// closed around the heading; when a hit lights the gargoyle's eyes (UWEyesDisplay) it opens
+    /// closed around the heading; when a hit lights the gargoyle's eyes (IUWModernWorld.FoeEyes) it opens
     /// to both sides - the burned gargoyle with the original's eyes at the left, the foe's name and
     /// condition at the right - and closes again once they have faded. A click on it reports the
     /// status, as the heading did.
     /// </summary>
     private void fUpdateStrip()
     {
-        if (mOEyes == null)
-            mOEyes = mOHud.GetComponent<UWEyesDisplay>();
-
         if (UWModernClassicFrame.IsActive)
         {
             fUpdateStripClassic();
             return;
         }
 
-        bool lbLit = mOEyes != null && mOEyes.IsLit;
+        mOEyes = mOSession.World.FoeEyes;
+
+        bool lbLit = mOEyes.IsLit;
         float lfElement = UWModernLayout.Scale(UWModernLayout.ElementEnum.Heading);
         float lfScale = miPixelScale * lfElement;
-        string lsName = lbLit ? mOEyes.TargetName : null;
-        int liGroup = mOEyes != null ? Mathf.Clamp(mOEyes.Group, 0, 2) : 0;
+        string lsName = lbLit ? mOEyes.Name : null;
+        int liGroup = Mathf.Clamp(mOEyes.Group, 0, 2);
 
         // The texts first: their width decides how far the strip opens - decided while it is
         // closed, so the brand does not move while it opens.
@@ -227,8 +229,8 @@ public class UWModernHeadingStrip : UWModernPart
         if (!mOStripTextures.TryGet(liKey, lOStripStamp, out Texture2D lOTexture))
         {
             lOTexture = mOStripTextures.Set(liKey, lOStripStamp, lbCompass
-                ? UWModernHudArt.BuildHeadingStripWithBrandAt(mOUi.mOUWData.Textures, liTexWidth, liBrandLeft, mOUi.TextureFilterMode)
-                : UWModernHudArt.BuildHeadingStrip(mOUi.mOUWData.Textures, liTexWidth, liTexOpenHalf, mOUi.TextureFilterMode,
+                ? UWModernHudArt.BuildHeadingStripWithBrandAt(UWModernUi.Data.Textures, liTexWidth, liBrandLeft, UWModernUi.Filter)
+                : UWModernHudArt.BuildHeadingStrip(UWModernUi.Data.Textures, liTexWidth, liTexOpenHalf, UWModernUi.Filter,
                     Mathf.RoundToInt(UWModernHudArt.StripClosedWidth / UWModernHudArt.PixelAspectX)));
         }
 
@@ -256,7 +258,7 @@ public class UWModernHeadingStrip : UWModernPart
         ScreenRect = lOPlaced;
 
         // The eyes in the brand, once the strip shows them.
-        Texture2D lOEyes = lbLit ? mOEyes.CurrentFrame : null;
+        Texture2D lOEyes = lbLit ? mOEyes.Picture : null;
         int liEyesX = liBrandLeft + UWModernHudArt.EyesLeftInBrand;
 
         mOStripEyes.enabled = lOEyes != null && liEyesX >= UWModernHudArt.LeatherLeft;
@@ -266,12 +268,12 @@ public class UWModernHeadingStrip : UWModernPart
             mOStripEyes.texture = lOEyes;
             mOStripEyes.color = new Color(1f, 1f, 1f, mOEyes.Alpha);
             ((RectTransform)mOStripEyes.transform).anchoredPosition = new Vector2(lfShiftX + ((liEyesX - (liTexWidth * 0.5f)) * lfScale * UWModernHudArt.PixelAspectX),
-                -lfTop - ((UWModernHudArt.BrandTop + UWModernHudArt.EyesTopInBrand) * lfScale));
+                -lfTop - ((UWModernHudArt.BrandTop + mOEyes.TopInHead) * lfScale));
             ((RectTransform)mOStripEyes.transform).sizeDelta = new Vector2(lOEyes.width * lfScale * UWModernHudArt.PixelAspectX, lOEyes.height * lfScale);
         }
 
         // The foe at the right, once the strip is open.
-        float lfFoe = Mathf.InverseLerp(0.85f, 1f, mfStripOpen) * (mOEyes != null ? mOEyes.Alpha : 0f);
+        float lfFoe = Mathf.InverseLerp(0.85f, 1f, mfStripOpen) * mOEyes.Alpha;
         float lfFoeX = lfShiftX + (FoeFromCentre * lfScale);
 
         mOFoeName.enabled = lfFoe > 0f && !string.IsNullOrEmpty(lsName);

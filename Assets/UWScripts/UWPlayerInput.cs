@@ -85,7 +85,7 @@ public sealed class UWPlayerInput
     /// <summary>The fight mode of the original scheme (the drawn weapon, PD[0x5F] bit 1).</summary>
     private static bool fIsFightMode()
     {
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             return UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight;
 
         Interaction lOInteraction = UWScene.Interaction;
@@ -100,7 +100,7 @@ public sealed class UWPlayerInput
     private bool fIsCursorMoving()
     {
         return mScheme != null && !UWControlScheme.IsModern
-            && (mGameUi != null || UWWalkUw2.IsWalking) && UWMouseButtons.LeftHeld && mbCursorDragStartedInViewport;
+            && (mGameUi != null || UWGameStartUw2.IsRunning) && UWMouseButtons.LeftHeld && mbCursorDragStartedInViewport;
     }
 
     /// <summary>
@@ -461,16 +461,16 @@ public sealed class UWPlayerInput
         // The left button is read through UWMouseButtons: a click under a held right button is
         // ignored there, everywhere (per user on the original, 2026-09-19).
         //
-        // THE SECOND GAME'S WALK (UW2 plan phase 3 step 1) drives in its own screen's window, 208 by 128
+        // THE SECOND GAME'S SESSION (UW2 plan phase 3 step 1) drives in its own screen's window, 208 by 128
         // (UWGameScreenUw2); the first game's interface stays uninitialised there.
-        UWGameScreenUw2 lOWalkScreen = UWWalkUw2.IsWalking ? UWGameScreenUw2.Current : null;
+        UWGameScreenUw2 lOUw2Screen = UWGameStartUw2.IsRunning ? UWGameScreenUw2.Current : null;
 
-        if (!lbHeldDrag && (mGameUi != null || lOWalkScreen != null) && UWMouseButtons.LeftPressed && UWPointer.HasMouse)
-            mbCursorDragStartedInViewport = lOWalkScreen != null
-                ? lOWalkScreen.IsInViewWindow(UWPointer.Position)
+        if (!lbHeldDrag && (mGameUi != null || lOUw2Screen != null) && UWMouseButtons.LeftPressed && UWPointer.HasMouse)
+            mbCursorDragStartedInViewport = lOUw2Screen != null
+                ? lOUw2Screen.IsInViewWindow(UWPointer.Position)
                 : mGameUi.ClassicScreen.IsScreenPositionInGameArea(UWPointer.Position);
 
-        IsCursorMovementInProgress = !lbHeldDrag && (mGameUi != null || lOWalkScreen != null) && UWMouseButtons.LeftHeld
+        IsCursorMovementInProgress = !lbHeldDrag && (mGameUi != null || lOUw2Screen != null) && UWMouseButtons.LeftHeld
             && mbCursorDragStartedInViewport;
 
         if (IsCursorMovementInProgress)
@@ -481,8 +481,8 @@ public sealed class UWPlayerInput
             {
                 UWPlayerMotion.Command leCommand;
 
-                if (lOWalkScreen != null)
-                    UWPlayerMotion.PointerCommand(lOWalkScreen.CursorAreaX, lOWalkScreen.CursorAreaY,
+                if (lOUw2Screen != null)
+                    UWPlayerMotion.PointerCommand(lOUw2Screen.CursorAreaX, lOUw2Screen.CursorAreaY,
                         UWGameScreenUw2.CursorAreaWidth, UWGameScreenUw2.CursorAreaHeight,
                         out leCommand, out miPointerWalk, out miPointerTurn);
                 else

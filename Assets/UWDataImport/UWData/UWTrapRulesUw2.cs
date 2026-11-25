@@ -500,7 +500,7 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// TRAP_TELEPORT: only the player moves (do_teleport records his move for the main loop; anyone else gets
 		/// trap_teleport_data -1 and stays). The target, the fall from the ceiling, the heading and the map scrap are
-		/// UWTeleportUw2's; the walk carries it out (IUWWorld.TeleportSecondGame).
+		/// UWTeleportUw2's; the session carries it out (IUWWorld.TeleportSecondGame).
 		/// </summary>
 		private static bool fFireTeleport(UWObject pOTrap, IUWTrapHost pIHost)
 		{

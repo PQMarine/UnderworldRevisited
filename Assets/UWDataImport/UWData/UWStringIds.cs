@@ -85,5 +85,41 @@ namespace UWDataImport.UWData
 		/// <summary>The skill names begin here, one per skill number - for the stats page, the
 		/// shrine and character creation alike (declared three times until 2026-09-18).</summary>
 		public const int SkillNameBase = 32;
+
+		// ------------------------------------------------- The second game's numbers of the sentences both games' windows say
+		// (UW2 plan, the modern interface's part U4b step 3, 2026-11-23: the bag windows run on the second game). The same
+		// sentences stand at other places of the second game's block 1; read off its STRINGS.PAK.
+
+		/// <summary>"You cannot barter a container. Instead, remove the contents you want to trade."</summary>
+		public const int CannotBarterContainerMessageUw2 = 202;
+
+		/// <summary>"You can only put runes in the rune bag."</summary>
+		public const int RunesOnlyMessageUw2 = 263;
+
+		/// <summary>"That item does not fit."</summary>
+		public const int DoesNotFitMessageUw2 = 264;
+
+		/// <summary>"There is no place to put that."</summary>
+		public const int NoPlaceToPutMessageUw2 = 275;
+
+		/// <summary>
+		/// A general sentence's number in a game's block 1, given the first game's number: itself on the first game;
+		/// on the second the sentence's own place there, -1 for one this table does not know (nothing is said then,
+		/// rather than another sentence).
+		/// </summary>
+		public static int InGame(UWGame peGame, int piFirstGameId)
+		{
+			if (peGame != UWGame.Uw2)
+				return piFirstGameId;
+
+			switch (piFirstGameId)
+			{
+				case CannotBarterContainerMessage: return CannotBarterContainerMessageUw2;
+				case RunesOnlyMessage: return RunesOnlyMessageUw2;
+				case DoesNotFitMessage: return DoesNotFitMessageUw2;
+				case NoPlaceToPutMessage: return NoPlaceToPutMessageUw2;
+				default: return -1;
+			}
+		}
 	}
 }

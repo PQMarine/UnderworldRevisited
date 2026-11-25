@@ -21,7 +21,7 @@ public sealed class UWScheduleHostUw2 : IUWScheduleHost
         mOTalkingTo = pOTalkingTo;
     }
 
-    /// <summary>A host for the castle hacks (36, 37) fired from a trap; null outside the second game's walk.</summary>
+    /// <summary>A host for the castle hacks (36, 37) fired from a trap; null outside the second game's session.</summary>
     public static UWScheduleHostUw2 ForTraps(UWLevelLoader pOLoader)
     {
         return fCanRun(pOLoader) ? new UWScheduleHostUw2(pOLoader, null) : null;
@@ -40,7 +40,7 @@ public sealed class UWScheduleHostUw2 : IUWScheduleHost
         int liError = UWScheduleRulesUw2.SetAllClocks(lOBook, new UWScheduleHostUw2(lOLoader, pOTalkingTo));
 
         if (liError != 0)
-            UnityEngine.Debug.Log("[Walk] The schedules stopped with " + liError + ".");
+            UnityEngine.Debug.Log("[Session] The schedules stopped with " + liError + ".");
     }
 
     /// <summary>duration_check's hour: block 0 after X clock 0 stepped on.</summary>
@@ -55,7 +55,7 @@ public sealed class UWScheduleHostUw2 : IUWScheduleHost
 
     private static bool fCanRun(UWLevelLoader pOLoader)
     {
-        return UWWalkUw2.IsWalking && pOLoader != null && pOLoader.CurrentLevel != null && UWGameSession.Current != null
+        return UWGameStartUw2.IsRunning && pOLoader != null && pOLoader.CurrentLevel != null && UWGameSession.Current != null
             && UWGameSession.Current.PlayerFileUw2 != null && UWWorld.Of(pOLoader) != null;
     }
 

@@ -75,7 +75,7 @@ internal sealed class UWModernBagClicks
         BeginPress(true, pOStart, null, -1);
     }
 
-    internal void LeftPressed(Vector2 pOPointer, UWInventory pOInventory)
+    internal void LeftPressed(Vector2 pOPointer, UWInventoryModel pOInventory)
     {
         UWModernBagPages lOPages = mOBags.Pages;
 
@@ -107,9 +107,9 @@ internal sealed class UWModernBagClicks
         // A spell waiting for an item (Name Enchantment, UWHudRunes.fAfterModernCast) takes the
         // thing clicked - B17's one rule with the modern policy (UWPendingSpellState.
         // InventoryPolicy.Modern, cleanup step 5.14, 2026-10-22): on no item it keeps waiting.
-        Interaction lOInteraction = mOBags.Interaction;
+        IUWModernInventory lOGame = UWModernUi.Session != null ? UWModernUi.Session.Inventory : null;
 
-        if (lOInteraction != null && lOInteraction.IsItemTargetSpellPending)
+        if (lOGame != null && lOGame.IsItemSpellPending)
         {
             UWObject lOTarget = null;
 
@@ -118,8 +118,7 @@ internal sealed class UWModernBagClicks
             else if (lOPages.FindSlot(pOPointer, out Window lOTargetWindow, out int liTargetSlot))
                 lOTarget = lOPages.GetItem(lOTargetWindow, liTargetSlot);
 
-            if (lOInteraction.ResolveTargetSpellInInventory(lOTarget, UWPendingSpellState.InventoryPolicy.Modern)
-                == UWPendingSpellState.InventoryClickOutcome.CastOnItem)
+            if (lOGame.CastPendingSpellOn(lOTarget) == UWPendingSpellState.InventoryClickOutcome.CastOnItem)
                 return;
         }
 
@@ -167,7 +166,7 @@ internal sealed class UWModernBagClicks
 
     /// <summary>A press that took a thing ends: on the same slot without moving it stays on
     /// the pointer (click and click), anywhere else it is put down there.</summary>
-    internal void LeftReleased(Vector2 pOPointer, UWInventory pOInventory)
+    internal void LeftReleased(Vector2 pOPointer, UWInventoryModel pOInventory)
     {
         if (!mbPressDrag)
             return;
@@ -190,9 +189,9 @@ internal sealed class UWModernBagClicks
     /// <summary>The right button on a thing in a bag window or on the paperdoll: its context menu
     /// (UWModernBagMenu) - a CONTAINER opens or closes at once instead, the rune bag opens the rune
     /// panel (per user, 2026-10-04: the most frequent use by far); Shift with it gives the menu.</summary>
-    internal void RightPressed(Vector2 pOPointer, UWInventory pOInventory)
+    internal void RightPressed(Vector2 pOPointer, UWInventoryModel pOInventory)
     {
-        if (mOBags.Interaction == null || UWModernPointer.PanelsHeld)
+        if (UWModernUi.Session == null || UWModernPointer.PanelsHeld)
             return;
 
         // In a conversation a trade slot looks (UWModernBagTrade); one's own things keep their menu,
@@ -230,7 +229,7 @@ internal sealed class UWModernBagClicks
     /// left button keeps doing both. The pointer is empty here (RightPressed's caller), so the
     /// icon's "put the thing one level up" does not arise. True when the press was this.
     /// </summary>
-    private bool fRightCloses(Vector2 pOPointer, UWInventory pOInventory)
+    private bool fRightCloses(Vector2 pOPointer, UWInventoryModel pOInventory)
     {
         if (mOBags.Pages.FindCloseBadge(pOPointer, out Window lOClosing))
         {
@@ -239,7 +238,7 @@ internal sealed class UWModernBagClicks
         }
 
         UWModernInventoryPage lOPage = UWModernInventoryPage.Instance;
-        UWInventoryModel lOModel = pOInventory.Model;
+        UWInventoryModel lOModel = pOInventory;
 
         if (!UWModernBagPages.IsPageShown || lOModel == null || lOModel.OpenContainer == null || !lOPage.IsContainerIconShown
             || UWInventoryView.ControlOf(lOPage.SpotAt(pOPointer)) != UWInventoryView.ControlEnum.ContainerIcon)
@@ -257,14 +256,9 @@ internal sealed class UWModernBagClicks
             return false;
 
         if (pOItem.ID == UWObjectMechanics.RuneBagId)
-        {
-            if (UWModernRunePanel.Instance != null)
-                UWModernRunePanel.Instance.Open(UWModernRunePanel.TabEnum.Runes);
-        }
+            UWModernBags.OpenRunes(pOItem);
         else
-        {
             mOBags.OpenBags.Toggle(pOItem);
-        }
 
         return true;
     }
@@ -311,7 +305,7 @@ internal sealed class UWModernBagClicks
     /// False when there is none.</summary>
     internal bool TryLookAt(Vector2 pOPointer)
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
         UWObject lOItem = null;
 
         if (lOInventory != null && UWModernBagPages.PanelSlotAt(pOPointer, out UWArmorItemMap.BodySlot leSlot))
@@ -336,7 +330,7 @@ internal sealed class UWModernBagClicks
     /// </summary>
     internal bool TryUseAt(Vector2 pOPointer)
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         if (lOInventory == null || lOInventory.CursorItem != null || mOBags.Drag.IsUsing)
             return false;
@@ -363,13 +357,13 @@ internal sealed class UWModernBagClicks
         {
             if (lOItem.ID != UWObjectMechanics.RuneBagId)
                 mOBags.OpenBags.Toggle(lOItem);
-            else if (UWModernRunePanel.Instance != null && !UWModernBagTrade.IsTalking)
-                UWModernRunePanel.Instance.Open(UWModernRunePanel.TabEnum.Runes);
+            else if (!UWModernBagTrade.IsConversing)
+                UWModernBags.OpenRunes(lOItem);
 
             return true;
         }
 
-        if (UWModernBagTrade.IsTalking)
+        if (UWModernBagTrade.IsConversing)
             return true;
 
         bool lbWearable = UWModernBagDrag.TryGetEquipSlot(lOItem, lOInventory, out UWArmorItemMap.BodySlot leTarget);
@@ -382,14 +376,18 @@ internal sealed class UWModernBagClicks
             return true;
         }
 
-        UWCarriedItemUse.Use(UWScene.ItemDrag, lOItem, UWCarriedItemUse.Context.ModernBags);
+        if (UWModernUi.Session != null)
+            UWModernUi.Session.Inventory.Use(lOItem, UWCarriedItemUse.Context.ModernBags);
 
         return true;
     }
 
     internal void Look(UWObject pOItem)
     {
-        Interaction lOInteraction = mOBags.Interaction;
+        IUWModernInventory lOGame = UWModernUi.Session != null ? UWModernUi.Session.Inventory : null;
+
+        if (lOGame == null)
+            return;
 
         try
         {
@@ -397,7 +395,7 @@ internal sealed class UWModernBagClicks
             // hidden there), as the classic screen shows it.
             if (UWModernBagTrade.IsTalking)
             {
-                UWModernBagTrade.ShowTalkText(lOInteraction.DescribeInventoryItem(pOItem));
+                UWModernBagTrade.ShowTalkText(lOGame.Describe(pOItem));
                 return;
             }
         }
@@ -406,12 +404,12 @@ internal sealed class UWModernBagClicks
             return;
         }
 
-        if (lOInteraction.TryReadBook(pOItem, true))
+        if (lOGame.TryRead(pOItem, true))
             return;
 
         try
         {
-            lOInteraction.AddItemLookMessages(pOItem);
+            lOGame.SayLook(pOItem);
         }
         catch
         {

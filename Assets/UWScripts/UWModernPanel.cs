@@ -87,19 +87,30 @@ public class UWModernPanel : UWModernDockedPanel
 
     private const float SkillRowHeight = 6f;
 
-    /// <summary>Where the original draws the armour (UWPaperdollLayout), in MAIN.BYT
-    /// pixels, rows from the top; the body's place the freed figure brings itself.</summary>
-    private static readonly Vector2Int msHelmetAt = new Vector2Int(UWPaperdollLayout.HelmetX, UWPaperdollLayout.HelmetY);
+    /// <summary>
+    /// THE PAGE'S MEASURES ARE THE RUNNING GAME'S (UWPaperdollGeometry, UW2 plan part U4b step 2, 2026-11-23):
+    /// where the page lies on the game's screen, where the original draws the body and the armour, the six
+    /// places with a thing's own picture and which place a point belongs to. Until then the first game's
+    /// tables stood here directly.
+    /// </summary>
+    private static UWPaperdollGeometry fGeometry()
+    {
+        DataImport lOData = UWModernUi.Data;
 
-    private static readonly Vector2Int msGlovesAt = new Vector2Int(UWPaperdollLayout.GlovesX, UWPaperdollLayout.GlovesY);
+        return UWPaperdollGeometry.Of(lOData != null ? lOData.Textures : null);
+    }
 
-    private static readonly Vector2Int msLegsAt = new Vector2Int(UWPaperdollLayout.LegsX, UWPaperdollLayout.LegsY);
+    /// <summary>The page's place on the game's screen (rows from the top).</summary>
+    private static RectInt fPage(UWPaperdollGeometry pOGeometry)
+    {
+        return new RectInt(pOGeometry.Page.X, pOGeometry.Page.Y, pOGeometry.Page.Width, pOGeometry.Page.Height);
+    }
 
-    private static readonly Vector2Int msChestAt = new Vector2Int(UWPaperdollLayout.ChestX, UWPaperdollLayout.ChestY);
-
-    private static readonly Vector2Int msBootsAt = new Vector2Int(UWPaperdollLayout.BootsX, UWPaperdollLayout.BootsY);
-
-    private UWCharacter mOCharacter;
+    /// <summary>Where the original draws a piece of armour (UWPaperdollGeometry.Helmet to Boots).</summary>
+    private static Vector2Int fArmourAt(UWPaperdollGeometry pOGeometry, int piPiece)
+    {
+        return new Vector2Int(pOGeometry.ArmourX[piPiece], pOGeometry.ArmourY[piPiece]);
+    }
 
     private UWHelpWindow mOHelp;
 
@@ -185,8 +196,8 @@ public class UWModernPanel : UWModernDockedPanel
     /// <summary>The bedroll and the leather boots (OBJECTS.GR).</summary>
     private static readonly int[] miFootObjects = { 289, 41 };
 
-    /// <summary>On the page: the buttons' top row and their distance from the page's sides.</summary>
-    private const int FootButtonTop = 60;
+    // On the page: the buttons' top row is the game's (UWPaperdollGeometry.FootButtonTop), their distance from the
+    // page's sides below.
 
     /// <summary>Sleep sits two further right, off the page's frame (per user, 2026-10-04).</summary>
     private const int SleepExtraInset = 2;
@@ -225,8 +236,6 @@ public class UWModernPanel : UWModernDockedPanel
 
     private void Start()
     {
-        mOUi = GetComponent<UWGameUI>();
-        mOCharacter = GetComponent<UWCharacter>();
         mOHelp = GetComponent<UWHelpWindow>();
         mOScheme = GetComponentInParent<UWControlScheme>();
     }
@@ -261,12 +270,12 @@ public class UWModernPanel : UWModernDockedPanel
         // In a conversation as well, for the trade (UWModernConversation).
         // Not in Classic Wide: the frame's panel is the original's (UWModernClassicFrame).
         return UWModernUi.IsActive && UWModernUi.IsShowingOrTalking
-            && mOUi != null && mOUi.mOUWData != null && mOCharacter != null && !UWModernLayout.IsClassic;
+            && UWModernUi.Has(UWModernPartEnum.CharacterPanel) && UWModernUi.Data != null && !UWModernLayout.IsClassic;
     }
 
     private DataImport fData()
     {
-        return mOUi != null ? mOUi.mOUWData : null;
+        return UWModernUi.Data;
     }
 
     // ------------------------------------------------- For the bags and the help
@@ -353,12 +362,13 @@ public class UWModernPanel : UWModernDockedPanel
         if (!fIsPageOut() || !mOPageRect.Contains(pOPointer) || !mOViewRect.Contains(pOPointer))
             return false;
 
-        RectInt lOPage = UWModernHudArt.PaperdollPage;
-        int liX = UWModernHudArt.PageColumnToMain(Mathf.FloorToInt((pOPointer.x - mOPageRect.xMin) / miScale));
+        UWPaperdollGeometry lOGeometry = fGeometry();
+        RectInt lOPage = fPage(lOGeometry);
+        int liX = lOGeometry.ColumnToScreen(Mathf.FloorToInt((pOPointer.x - mOPageRect.xMin) / miScale));
         int liRow = lOPage.y + Mathf.FloorToInt((mOPageRect.yMax - pOPointer.y) / miScale);
 
-        // The table counts y from the bottom of the 320 x 200 screen.
-        UWArmorItemMap.BodySlot? leSlot = UWClickRules.BodySlotOf(UWClickRules.InventorySpotAt(liX, 199 - liRow));
+        // The game's own table of the inventory page (UWPaperdollGeometry.SlotAt).
+        UWArmorItemMap.BodySlot? leSlot = lOGeometry.SlotAt(liX, liRow);
 
         if (!leSlot.HasValue)
             return false;
@@ -446,7 +456,7 @@ public class UWModernPanel : UWModernDockedPanel
                 case UWHotkeyGate.MenuOpen: return UWModernUi.IsMenuOpen;
                 case UWHotkeyGate.KeysLocked: return UWControls.IsTextEntryActive;
                 case UWHotkeyGate.HelpKeys: return UWHelpWindow.BlocksGameKeys;
-                case UWHotkeyGate.MapVisible: return mOPanel.mOUi.Map.IsMapVisible;
+                case UWHotkeyGate.MapVisible: return UWModernUi.IsMapOpen;
                 case UWHotkeyGate.SetupPanel: return UWSetupMenu.HasOpenPanel;
                 default: return false;
             }
@@ -485,7 +495,7 @@ public class UWModernPanel : UWModernDockedPanel
             meTab = TabEnum.Character;
         }
 
-        if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive || UWHelpWindow.BlocksGameKeys || mOUi.Map.IsMapVisible)
+        if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive || UWHelpWindow.BlocksGameKeys || UWModernUi.IsMapOpen)
             return;
 
         UWControls lOControls = mOScheme.Controls;
@@ -536,13 +546,13 @@ public class UWModernPanel : UWModernDockedPanel
         for (int liFoot = 0; mbOpen && meTab == TabEnum.Character && liFoot < mOFootRects.Length; liFoot++)
         {
             if (!mOFootRects[liFoot].Contains(lOPointer) || !mOViewRect.Contains(lOPointer)
-                || (mOUi.mOInventory != null && mOUi.mOInventory.CursorItem != null))
+                || (UWModernUi.Inventory != null && UWModernUi.Inventory.CursorItem != null))
                 continue;
 
-            if (liFoot == 0 && UWGameActions.CanCamp)
-                mOUi.Actions.Camp();
-            else if (liFoot == 1 && mOUi.Runes != null)
-                mOUi.Actions.Track();
+            if (liFoot == 0 && UWModernUi.Session.World.CanCamp)
+                UWModernUi.Session.World.Camp();
+            else if (liFoot == 1 && UWModernUi.Session.Magic.IsReady)
+                UWModernUi.Session.World.Track();
 
             return;
         }
@@ -759,7 +769,7 @@ public class UWModernPanel : UWModernDockedPanel
     /// or without.</summary>
     private static int fCharacterRows(bool pbHead)
     {
-        return (pbHead ? HeadRows : 0) + PageTop + UWModernHudArt.PaperdollPage.height
+        return (pbHead ? HeadRows : 0) + PageTop + fGeometry().Page.Height
             + BelowPageRows + Mathf.CeilToInt(SkillRows * SkillRowHeight) + UWModernHudArt.LeatherBottom + 1;
     }
 
@@ -791,8 +801,7 @@ public class UWModernPanel : UWModernDockedPanel
     {
         float liScale = miScale;
         DataImport lOData = fData();
-        UWPlayerData lOPlayer = lOData.InitialPlayer;
-        UWCharacter lOCharacter = mOCharacter;
+        IUWModernArt lOArt = UWModernUi.Session.Art;
         int liFont = Mathf.Max(10, Mathf.RoundToInt(4f * liScale));
         int liSmall = Mathf.Max(9, Mathf.RoundToInt(3.4f * liScale));
         float lfInner = (piWidth - (2 * ContentPad)) * liScale;
@@ -800,7 +809,7 @@ public class UWModernPanel : UWModernDockedPanel
 
         // What the tab says: UWCharacterSheet, readable (title case, "level N", "a / b"; cleanup
         // 5.9, 2026-10-20).
-        UWCharacterSheet lOSheet = mOSheet.Bind(lOData.Strings, lOPlayer, lOCharacter.Vitals);
+        UWCharacterSheet lOSheet = UWModernUi.Session.Character.BindSheet(mOSheet);
 
         // Name, class and level - one line, the name on the left, the class on the right.
         string lsClassName = lOSheet.ClassName;
@@ -845,11 +854,12 @@ public class UWModernPanel : UWModernDockedPanel
         UWUiKit.SetRect(mOName.rectTransform, lfX, pfTop - ((NameTop + 9) * liScale), lfInner, 9 * liScale);
 
         // The page, centred - as wide as the backpack below it, which it docks onto.
-        RectInt lOPage = UWModernHudArt.PaperdollPage;
-        float lfPageLeft = pfLeft + (((piWidth - UWModernHudArt.PaperdollPageWidth) / 2) * liScale);
+        UWPaperdollGeometry lOGeometry = fGeometry();
+        RectInt lOPage = fPage(lOGeometry);
+        float lfPageLeft = pfLeft + (((piWidth - lOGeometry.PageWidth) / 2) * liScale);
         float lfPageTop = pfTop - (PageTop * liScale);
 
-        mOPageRect = new Rect(lfPageLeft, lfPageTop - (lOPage.height * liScale), UWModernHudArt.PaperdollPageWidth * liScale,
+        mOPageRect = new Rect(lfPageLeft, lfPageTop - (lOPage.height * liScale), lOGeometry.PageWidth * liScale,
             lOPage.height * liScale);
         mOPage.texture = mOPageArt.Texture;
         mOPage.enabled = true;
@@ -865,19 +875,24 @@ public class UWModernPanel : UWModernDockedPanel
             // Built anew when the body, the armour (UWPaperdollView.LookVersion) or the colour
             // help changed (per user 2026-10-19: the paperdoll did not follow the colour filter;
             // the key was the pieces alone, built as a string every frame).
-            UWArtStamp lOFigureStamp = UWVersionedTexture.Colours(lOCharacter.CharIndex, lOCharacter.Paperdoll.LookVersion);
+            UWArtStamp lOFigureStamp = UWVersionedTexture.Colours(lOArt.FigureBody, lOArt.FigureVersion);
 
             if (!mOFreeBody.IsCurrent(lOFigureStamp))
             {
                 UWTextures lOTextures = fData().Textures;
                 UWTexture[] lOPieces =
                 {
-                    lOCharacter.Paperdoll.HelmetSource, lOCharacter.Paperdoll.GlovesSource, lOCharacter.Paperdoll.LegsSource, lOCharacter.Paperdoll.ChestSource, lOCharacter.Paperdoll.BootsSource
+                    lOArt.FigureSource(UWModernFigurePiece.Helmet), lOArt.FigureSource(UWModernFigurePiece.Gloves), lOArt.FigureSource(UWModernFigurePiece.Legs),
+                    lOArt.FigureSource(UWModernFigurePiece.Chest), lOArt.FigureSource(UWModernFigurePiece.Boots)
                 };
 
-                mOFreeBody.Set(lOFigureStamp, UWModernHudArt.BuildFreeFigure(lOTextures, lOCharacter.CharIndex, lOPieces,
-                    new[] { msHelmetAt, msGlovesAt, msLegsAt + new Vector2Int(0, lOCharacter.Paperdoll.LegsDrop), msChestAt, msBootsAt }, mOUi.TextureFilterMode,
-                    out mOFreeBodyAt));
+                mOFreeBody.Set(lOFigureStamp, UWModernHudArt.BuildFreeFigure(lOTextures, lOArt.FigureBody, lOPieces,
+                    new[]
+                    {
+                        fArmourAt(lOGeometry, UWPaperdollGeometry.Helmet), fArmourAt(lOGeometry, UWPaperdollGeometry.Gloves),
+                        fArmourAt(lOGeometry, UWPaperdollGeometry.Legs) + new Vector2Int(0, lOArt.FigureLegsDrop),
+                        fArmourAt(lOGeometry, UWPaperdollGeometry.Chest), fArmourAt(lOGeometry, UWPaperdollGeometry.Boots)
+                    }, UWModernUi.Filter, out mOFreeBodyAt));
             }
 
             fPlaceOnPage(mOArmour[0], mOFreeBody.Texture, mOFreeBodyAt);
@@ -887,13 +902,13 @@ public class UWModernPanel : UWModernDockedPanel
         }
 
         // The things in the hands, on the shoulders and on the fingers.
-        UWInventory lOInventory = mOUi.mOInventory;
+        UWInventoryModel lOInventory = UWModernUi.Inventory;
 
-        mOView.Refresh(lOInventory != null ? lOInventory.Model : null, mOUi.mOUWData);
+        mOView.Refresh(lOInventory != null ? lOInventory : null, UWModernUi.Data);
 
-        for (int liSlot = 0; liSlot < UWPaperdollLayout.IconSlots.Length; liSlot++)
+        for (int liSlot = 0; liSlot < lOGeometry.IconSlots.Length; liSlot++)
         {
-            (UWArmorItemMap.BodySlot leSlot, float lfSlotX, float lfSlotY, float lfSize) = UWPaperdollLayout.IconSlots[liSlot];
+            (UWArmorItemMap.BodySlot leSlot, float lfSlotX, float lfSlotY, float lfSize) = lOGeometry.IconSlots[liSlot];
             UWObject lOItem = lOInventory != null ? lOInventory.GetEquipped(leSlot) : null;
             UWTexture lOSource = lOItem != null ? lOItem.Icon ?? lOItem.Texture : null;
             RawImage lOIcon = mOIcons[liSlot];
@@ -906,8 +921,8 @@ public class UWModernPanel : UWModernDockedPanel
             }
 
             Texture2D lOTexture = fGetIcon(lOSource);
-            float lfCentreX = lfSlotX + (lfSize * 0.5f) - lOPage.x + UWModernHudArt.PaperdollShift;
-            float lfCentreRow = lfSlotY + (lfSize * 0.5f) - lOPage.y - (lfSize < 16f ? UWPaperdollLayout.RingIconYOffset : 0f);
+            float lfCentreX = lfSlotX + (lfSize * 0.5f) - lOPage.x + lOGeometry.Shift;
+            float lfCentreRow = lfSlotY + (lfSize * 0.5f) - lOPage.y - (lfSize < 16f ? lOGeometry.RingIconYOffset : 0f);
 
             lOIcon.texture = lOTexture;
             lOIcon.enabled = true;
@@ -924,7 +939,7 @@ public class UWModernPanel : UWModernDockedPanel
 
             if (lOSlot.ShowsCount)
             {
-                float lfRight = lfSlotX + Mathf.Max(lfSize, 16f) - lOPage.x + UWModernHudArt.PaperdollShift;
+                float lfRight = lfSlotX + Mathf.Max(lfSize, 16f) - lOPage.x + lOGeometry.Shift;
                 float lfBottomRow = lfSlotY + Mathf.Max(lfSize, 16f) - lOPage.y;
 
                 lOCount.text = lOSlot.Count.ToString();
@@ -1001,7 +1016,8 @@ public class UWModernPanel : UWModernDockedPanel
     {
         float liScale = miScale;
         float lfSlot = UWModernHudArt.SlotSize * liScale;
-        float lfTop = mOPageRect.yMax - ((FootButtonTop + UWModernHudArt.SlotSize) * liScale);
+        float lfTop = mOPageRect.yMax - ((fGeometry().FootButtonTop + UWModernHudArt.SlotSize) * liScale);
+        IUWModernWorld lOWorld = UWModernUi.Session.World;
         Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
         int liHovered = -1;
 
@@ -1012,12 +1028,16 @@ public class UWModernPanel : UWModernDockedPanel
                 : mOPageRect.xMax - ((FootButtonInset + UWModernHudArt.SlotSize) * liScale);
             Rect lORect = new Rect(lfX, lfTop, lfSlot, lfSlot);
 
-            mOFootRects[liFoot] = lORect;
+            // A game that cannot camp or read tracks from here shows no button for it (the second game's tracking
+            // is not built, UW2 plan part U4b step 2).
+            bool lbOffered = liFoot == 0 ? lOWorld.OffersCamp : lOWorld.OffersTrack;
+
+            mOFootRects[liFoot] = lbOffered ? lORect : Rect.zero;
             // Only the picture (per user, 2026-10-04: neither the slot circle nor a ring suited the
             // page); the name shows under the pointer.
             mOFootSlots[liFoot].enabled = false;
 
-            UWTexture lOSource = fData().Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, miFootObjects[liFoot]);
+            UWTexture lOSource = lbOffered ? fData().Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, miFootObjects[liFoot]) : null;
             RawImage lOIcon = mOFootIcons[liFoot];
 
             lOIcon.enabled = lOSource != null;
@@ -1034,7 +1054,7 @@ public class UWModernPanel : UWModernDockedPanel
                     lOTexture.width * UWModernHudArt.PixelAspectX * liScale, lOTexture.height * liScale);
             }
 
-            if (UWModernPointer.IsFree && lORect.Contains(lOPointer) && mOViewRect.Contains(lOPointer))
+            if (lbOffered && UWModernPointer.IsFree && lORect.Contains(lOPointer) && mOViewRect.Contains(lOPointer))
                 liHovered = liFoot;
         }
 
@@ -1096,9 +1116,6 @@ public class UWModernPanel : UWModernDockedPanel
     /// </summary>
     private const float FigureWidthFactor = UWModernHudArt.PixelAspectX;
 
-    /// <summary>The figure's middle on MAIN.BYT (the body picture's, 260 + 36 / 2).</summary>
-    private const float FigureAxisX = 278f;
-
     /// <summary>A picture of the paperdoll's figure at its place in MAIN.BYT pixels, narrowed to the
     /// original's proportion (FigureWidthFactor); an empty slot's placeholder (1 x 1) is not
     /// shown.</summary>
@@ -1110,14 +1127,16 @@ public class UWModernPanel : UWModernDockedPanel
             return;
         }
 
-        RectInt lOPage = UWModernHudArt.PaperdollPage;
+        UWPaperdollGeometry lOGeometry = fGeometry();
+        RectInt lOPage = fPage(lOGeometry);
         float liScale = miScale;
 
         pOImage.texture = pOTexture;
         pOImage.enabled = true;
-        float lfLeft = FigureAxisX + ((pOAt.x - FigureAxisX) * FigureWidthFactor);
+        // Narrowed round the figure's middle (the body picture's, the game's own).
+        float lfLeft = lOGeometry.FigureAxisX + ((pOAt.x - lOGeometry.FigureAxisX) * FigureWidthFactor);
 
-        UWUiKit.SetRect(pOImage.rectTransform, mOPageRect.xMin + ((lfLeft - lOPage.x + UWModernHudArt.PaperdollShift) * liScale),
+        UWUiKit.SetRect(pOImage.rectTransform, mOPageRect.xMin + ((lfLeft - lOPage.x + lOGeometry.Shift) * liScale),
             mOPageRect.yMax - ((pOAt.y - lOPage.y + pOTexture.height) * liScale),
             pOTexture.width * liScale * FigureWidthFactor, pOTexture.height * liScale);
     }
@@ -1129,7 +1148,7 @@ public class UWModernPanel : UWModernDockedPanel
 
     private Texture2D fGetIcon(UWTexture pOSource)
     {
-        return UWIconCache.Texture(pOSource, mOUi.TextureFilterMode);
+        return UWIconCache.Texture(pOSource, UWModernUi.Filter);
     }
 
     private void fEnsureArt()
@@ -1142,7 +1161,7 @@ public class UWModernPanel : UWModernDockedPanel
         fDestroyTextures();
 
         UWTextures lOTextures = fData().Textures;
-        FilterMode leFilter = mOUi.TextureFilterMode;
+        FilterMode leFilter = UWModernUi.Filter;
 
         mOHandleTexture = UWModernHudArt.BuildPartLeatherTab(UWModernLayout.ElementEnum.CharacterPanel, lOTextures, HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter);
         mOPageArt.Set(lOStamp, UWModernHudArt.BuildPartPaperdollPage(UWModernLayout.ElementEnum.CharacterPanel, lOTextures, leFilter));
@@ -1233,8 +1252,8 @@ public class UWModernPanel : UWModernDockedPanel
         mOScrollBar = UWUiKit.CreateImage(mORoot, "Scroll bar", UWModernPalette.WithAlpha(UWModernPalette.Accent, 0.85f));
         mOScrollBar.enabled = false;
 
-        mOName = UWUiKit.CreateText(mOContent, "Name", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
-        mOClass = UWUiKit.CreateText(mOContent, "Class", TextAnchor.MiddleRight, UWModernPalette.Dim, mOUi);
+        mOName = UWUiKit.CreateText(mOContent, "Name", TextAnchor.MiddleLeft, UWModernPalette.Text, UWModernUi.TextUi);
+        mOClass = UWUiKit.CreateText(mOContent, "Class", TextAnchor.MiddleRight, UWModernPalette.Dim, UWModernUi.TextUi);
 
         mOPage = UWUiKit.CreateRawImage(mOContent, "Paperdoll page");
         UWPixelArtUI.Apply(mOPage);
@@ -1249,7 +1268,7 @@ public class UWModernPanel : UWModernDockedPanel
             UWIconPalette.ApplySmooth(mOFootIcons[liFoot]);
         }
 
-        mOFootTip = UWUiKit.CreateText(mORoot, "Foot button name", TextAnchor.LowerCenter, UWModernPalette.Text, mOUi);
+        mOFootTip = UWUiKit.CreateText(mORoot, "Foot button name", TextAnchor.LowerCenter, UWModernPalette.Text, UWModernUi.TextUi);
 
         mOArmour = new RawImage[6];
 
@@ -1275,7 +1294,7 @@ public class UWModernPanel : UWModernDockedPanel
         for (int liSlot = 0; liSlot < mOCounts.Length; liSlot++)
         {
             mOCounts[liSlot] = UWUiKit.CreateText(mOContent, "Count " + UWPaperdollLayout.IconSlots[liSlot].Slot, TextAnchor.LowerRight,
-                UWModernPalette.HudText, mOUi);
+                UWModernPalette.HudText, UWModernUi.TextUi);
             mOCounts[liSlot].enabled = false;
         }
 
@@ -1291,15 +1310,15 @@ public class UWModernPanel : UWModernDockedPanel
 
         for (int liStat = 0; liStat < lsStats.Length; liStat++)
         {
-            mOStatLabels[liStat] = UWUiKit.CreateText(mOContent, lsStats[liStat], TextAnchor.LowerLeft, UWModernPalette.Dim, mOUi);
+            mOStatLabels[liStat] = UWUiKit.CreateText(mOContent, lsStats[liStat], TextAnchor.LowerLeft, UWModernPalette.Dim, UWModernUi.TextUi);
             mOStatLabels[liStat].text = UWCharacterSheet.ValueLabel(liStat);
 
-            mOStatValues[liStat] = UWUiKit.CreateText(mOContent, lsStats[liStat] + " value", TextAnchor.UpperLeft, UWModernPalette.Text, mOUi);
+            mOStatValues[liStat] = UWUiKit.CreateText(mOContent, lsStats[liStat] + " value", TextAnchor.UpperLeft, UWModernPalette.Text, UWModernUi.TextUi);
         }
 
-        mOSkillsHeading = UWUiKit.CreateText(mOContent, "Skills", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
+        mOSkillsHeading = UWUiKit.CreateText(mOContent, "Skills", TextAnchor.MiddleLeft, UWModernPalette.Text, UWModernUi.TextUi);
         mOSkillsHeading.text = UWText.T("hud.panel.skills");
-        mOSkillPoints = UWUiKit.CreateText(mOContent, "Skill points", TextAnchor.MiddleRight, UWModernPalette.Dim, mOUi);
+        mOSkillPoints = UWUiKit.CreateText(mOContent, "Skill points", TextAnchor.MiddleRight, UWModernPalette.Dim, UWModernUi.TextUi);
 
         int liSkills = UWCharacterSheet.SkillEntries;
 
@@ -1308,8 +1327,8 @@ public class UWModernPanel : UWModernDockedPanel
 
         for (int liEntry = 0; liEntry < liSkills; liEntry++)
         {
-            mOSkillNames[liEntry] = UWUiKit.CreateText(mOContent, "Skill", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
-            mOSkillValues[liEntry] = UWUiKit.CreateText(mOContent, "Skill value", TextAnchor.MiddleRight, UWModernPalette.Text, mOUi);
+            mOSkillNames[liEntry] = UWUiKit.CreateText(mOContent, "Skill", TextAnchor.MiddleLeft, UWModernPalette.Text, UWModernUi.TextUi);
+            mOSkillValues[liEntry] = UWUiKit.CreateText(mOContent, "Skill value", TextAnchor.MiddleRight, UWModernPalette.Text, UWModernUi.TextUi);
         }
     }
 }

@@ -69,7 +69,8 @@ public sealed class UWHudMessageLog
     /// texts in Interaction (UWMessageLogModel.WrapForPaging).</summary>
     public System.Collections.Generic.List<string> WrapLogText(string psText)
     {
-        return UWMessageLogModel.WrapForPaging(fFont(), psText, fLogWidth());
+        // At the scroll shown (IUWUiScheme.ShownLogWidth): a narrowed modern scroll wraps more lines (2026-11-24).
+        return UWMessageLogModel.WrapForPaging(fFont(), psText, UWControlScheme.Ui.ShownLogWidth(fLogWidth()));
     }
 
     /// <summary>Original: message log in the lower frame box - one line per entry from

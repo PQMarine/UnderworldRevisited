@@ -81,6 +81,8 @@ public sealed class UWPaletteRenderPath : IUWRenderPath
 
     private Material mOModelMaterial;
 
+    private Material mOModelFrontMaterial;
+
     private Material mOPortcullisMaterial;
 
     private readonly List<MeshRenderer> mORenderers = new List<MeshRenderer>();
@@ -405,6 +407,10 @@ public sealed class UWPaletteRenderPath : IUWRenderPath
         if (lOLoader != null && pOMaterial == lOLoader.ModelSolidMaterial)
             return fGetPaletteModel(ref mOModelMaterial, "UW Model Faces (Palette)",
                 UnityEngine.Rendering.CullMode.Off, true);
+
+        if (lOLoader != null && pOMaterial == lOLoader.ModelSolidFrontMaterial)
+            return fGetPaletteModel(ref mOModelFrontMaterial, "UW Model Faces, front only (Palette)",
+                UnityEngine.Rendering.CullMode.Back, true);
 
         if (lOLoader != null && pOMaterial == lOLoader.PortcullisMaterial)
             return fGetPaletteModel(ref mOPortcullisMaterial, "UW Portcullis (Palette)",

@@ -67,7 +67,7 @@ internal sealed class UWModernOpenBags
     /// (Toggle).</summary>
     internal void OpenAll()
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         if (lOInventory == null)
             return;
@@ -81,7 +81,7 @@ internal sealed class UWModernOpenBags
         {
             lONew.Clear();
 
-            foreach (UWObject lOItem in lOInventory.Model.EnumerateAll())
+            foreach (UWObject lOItem in lOInventory.EnumerateAll())
             {
                 if (lOItem != null && lOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers
                     && lOItem.ID != UWObjectMechanics.RuneBagId && !mOOpenBags.Contains(lOItem) && !lONew.Contains(lOItem))
@@ -107,7 +107,7 @@ internal sealed class UWModernOpenBags
         if (mOBags.Inventory == null || miLoadCount != UWHelpNotes.LoadCount)
             return;
 
-        UWInventoryModel lOModel = mOBags.Inventory.Model;
+        UWInventoryModel lOModel = mOBags.Inventory;
         List<string> lOPaths = new List<string>();
         List<int> lONumbers = new List<int>();
         List<int> lOIds = new List<int>();
@@ -133,12 +133,12 @@ internal sealed class UWModernOpenBags
     /// only after its inventory has come in. They show when the bags open.</summary>
     internal void Resolve()
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         if (miLoadCount == UWHelpNotes.LoadCount || lOInventory == null)
             return;
 
-        UWInventoryModel lOModel = lOInventory.Model;
+        UWInventoryModel lOModel = lOInventory;
         string[] lsPaths = UWHelpNotes.OpenBagPaths ?? new string[0];
 
         if (lsPaths.Length > 0 && lOModel == mOResolvedModel && lOModel.LoadCount == miModelLoadCount)
@@ -191,10 +191,10 @@ internal sealed class UWModernOpenBags
         // (UWInventoryModel.TryOpenContainer: again on the open one closes it).
         if (UWModernBagPages.IsPageShown)
         {
-            UWInventory lOInventory = mOBags.Inventory;
+            UWInventoryModel lOInventory = mOBags.Inventory;
 
-            if (lOInventory != null && lOInventory.Model != null)
-                lOInventory.Model.TryOpenContainer(pOContainer);
+            if (lOInventory != null && lOInventory != null)
+                lOInventory.TryOpenContainer(pOContainer);
 
             return;
         }
@@ -224,6 +224,11 @@ internal sealed class UWModernOpenBags
         mOOpenedAt[pOContainer] = Time.unscaledTime;
 
         fReopenInner(pOContainer);
+
+        // What opening sets off in the game (IUWModernInventory.ContainerOpened): only here, where the player opens
+        // it - not for the bags a load opens again.
+        if (UWModernUi.Session != null)
+            UWModernUi.Session.Inventory.ContainerOpened(pOContainer);
     }
 
     /// <summary>The inner bags this bag closed with open again (mOClosedWith) - those still inside it, still
@@ -320,9 +325,9 @@ internal sealed class UWModernOpenBags
 
     private bool fIsCarried(UWObject pOItem)
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
-        return lOInventory != null && lOInventory.Model.IsCarried(pOItem);
+        return lOInventory != null && lOInventory.IsCarried(pOItem);
     }
 
     private static bool fIsInside(UWObject pOItem, UWObject pOContainer)

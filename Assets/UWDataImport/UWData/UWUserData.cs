@@ -118,6 +118,16 @@ namespace UWDataImport.UWData
 		/// chosen yet: Custom when an own layout exists, else Modern.</summary>
 		public int InterfacePreset = -1;
 
+		/// <summary>
+		/// THE LAYOUT PER GAME (UW2 plan part U4e step 3, decided per user 2026-11-23): the game the layout's settings above
+		/// and the preset belong to now (UWGame; 0, a file from before, is the first game's), and the other game's as a
+		/// settings record in JSON - only its layout entries and its preset are minded. UWUserSettings.UseLayoutOf swaps the
+		/// two when the other game starts.
+		/// </summary>
+		public int LayoutGame;
+
+		public string OtherGameLayout;
+
 		/// <summary>The Classic preset's frame at 4:3 in the screen's middle instead of widened to it
 		/// (UWModernClassicFrame.OffsetX; per user, 2026-11-05, from a forum post: a player set the
 		/// desktop to 4:3 for it). Chosen with the preset's "Wide" and "4:3" in the game menu; off,
@@ -178,6 +188,9 @@ namespace UWDataImport.UWData
 		public bool ModernRuneHollow;
 
 		public bool ModernRuneHollowOutline;
+
+		/// <summary>The active spells in the second game's hollow instead of a row (UWModernLayout.IsSpellHollowShown).</summary>
+		public bool ModernSpellHollow;
 
 		/// <summary>The original's rune tablet in the rune panel's place (UWModernLayout.IsRuneTabletShown).</summary>
 		public bool ModernRuneTablet;
@@ -312,13 +325,16 @@ namespace UWDataImport.UWData
 		/// default: the full screen resolution, as before.</summary>
 		public bool OriginalWorldResolution;
 
-		/// <summary>Walls, floors and ceilings scaled by xBR to 4x in Remastered (per user 2026-11-22: "xBR hat was. Sieht
-		/// aus wie gemalt."; named for what it is, in the effects window). Off: the original's pixels.</summary>
+		/// <summary>Retired 2026-11-25 (UWTextureLook): walls, floors and ceilings scaled by xBR (0.23.0). Kept for the file:
+		/// a file with it on and no TextureLook reads xBR.</summary>
 		public bool XbrTextures;
 
-		/// <summary>Creatures and things scaled by xBR to 4x with a hard edge in Remastered (per user 2026-11-22: "Harter Rand."),
-		/// from the next load on. Off: the original's pixels.</summary>
+		/// <summary>Retired 2026-11-25 (UWTextureLook): creatures, things and the weapon scaled by xBR (0.23.0), as XbrTextures.</summary>
 		public bool XbrSprites;
+
+		/// <summary>The textures' look in Remastered, UWTextureLookEnum as a number (per user 2026-11-25: one choice for
+		/// everything); -1 = not chosen yet, which reads from the two xBR switches above.</summary>
+		public int TextureLook = -1;
 
 		/// <summary>Its multiple of the original's resolution, 1 to 4 (UWWorldResolution.Factor).</summary>
 		public int OriginalWorldResolutionFactor = 1;

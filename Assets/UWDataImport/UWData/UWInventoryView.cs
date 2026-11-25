@@ -101,8 +101,10 @@ namespace UWDataImport.UWData
 		private UWTextures mOPictureTextures;
 
 		/// <summary>Reads the model; pOData gives the pictures, the player's capacity and the
-		/// masses. Nothing without a model.</summary>
-		public void Refresh(UWInventoryModel pOModel, DataImport pOData)
+		/// masses. Nothing without a model. piMaxLoad, when given, is the most the character carries
+		/// in tenths (the modern page asks its game's host, IUWModernCharacter.MaxLoad); without it the
+		/// first game's player data.</summary>
+		public void Refresh(UWInventoryModel pOModel, DataImport pOData, int piMaxLoad = -1)
 		{
 			UWObject lOOpen = pOModel != null ? pOModel.OpenContainer : null;
 
@@ -131,8 +133,10 @@ namespace UWDataImport.UWData
 			ShowsScrollUp = lOOpen != null && pOModel.CanIncreaseContainerScrollOffset;
 			ShowsScrollDown = lOOpen != null && pOModel.CanDecreaseContainerScrollOffset;
 
+			int liMax = piMaxLoad >= 0 ? piMaxLoad : pOData != null && pOData.InitialPlayer != null ? pOData.InitialPlayer.MaxWeight : 0;
+
 			RemainingStones = pOModel != null && pOData != null
-				? UWInventoryWeight.RemainingStones(pOData.InitialPlayer, pOModel.GetCarriedTenthStones(pOData.CommonObjectProperties))
+				? UWInventoryWeight.RemainingStones(liMax, pOModel.GetCarriedTenthStones(pOData.CommonObjectProperties))
 				: 0;
 		}
 

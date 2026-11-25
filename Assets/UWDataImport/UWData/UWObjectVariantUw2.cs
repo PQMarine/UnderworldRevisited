@@ -56,6 +56,30 @@ namespace UWDataImport.UWData
 
 		public int NothingToSeeString => 0xA6 + 2 + 1;
 
+		/// <summary>No talismans (per user 2026-11-22, SAVE2: an identified copper ring 0x37 - the first game's shield of
+		/// Valor - said "You see You put the instrument away.", our block 1 string 267 of the second game).</summary>
+		public bool HasTalismans => false;
+
+		/// <summary>CritterLook's goal for the kind by sequence (11).</summary>
+		private const int SequenceKindGoal = 11;
+
+		/// <summary>game_sprint 0x115, the first kind by sequence, in our numbering.</summary>
+		private const int FirstSequenceKind = 0x115 + 1;
+
+		/// <summary>OBJ_SEQ: byte 0x15, bits 0-5.</summary>
+		private const int SequenceMask = 0x3F;
+
+		/// <summary>CritterLook (uw2 LOOK.C): a nameless kind with goal 11 is named by its animation sequence (per user
+		/// 2026-11-22 on the original: the Void's eye is "an eyeball", ours said "You see .").</summary>
+		public int NamelessCreatureKindString(UWNpc pONpc)
+		{
+			if (pONpc == null || pONpc.NPCGoal != SequenceKindGoal || pONpc.RawNpcBytes == null
+				|| pONpc.RawNpcBytes.Length <= UWNpcRecordCodec.AnimationByte)
+				return -1;
+
+			return FirstSequenceKind + (pONpc.RawNpcBytes[UWNpcRecordCodec.AnimationByte] & SequenceMask);
+		}
+
 		public int DoorSpikedString => 0x91 + 1;
 
 		public int BonesLeadString => 0x1A + 1;

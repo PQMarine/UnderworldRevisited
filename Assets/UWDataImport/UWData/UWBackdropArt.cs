@@ -34,6 +34,11 @@ namespace UWDataImport.Presentation
 	/// Every value comes from the pixel's coordinates (UWNoise.Hash), so a back that grows shows
 	/// more of the same pattern; piVariant picks another part of it. First used for the compass
 	/// (UWModernCompass); meant for every part later, per user.
+	///
+	/// THE SECOND GAME'S (UW2 plan stage U6 step 2d, chosen per user 2026-11-24 from a sheet of candidates): its own
+	/// frame's colours and walls (UWClassicLayoutUw2.BackSources) - leather the scroll's brown rods, marble the ledge's,
+	/// stone the compass hollow's grey, bronze the compass's gold; the patterns T64.TR 209, 62, 88. The first game's
+	/// places on its frame read the second game's at random spots until then.
 	/// </summary>
 	public static class UWBackdropArt
 	{
@@ -170,6 +175,9 @@ namespace UWDataImport.Presentation
 
 		private static List<UWColor32> fRamp(UWTextures pOTextures, ColourEnum peColour)
 		{
+			if (pOTextures != null && pOTextures.Game == UWGame.Uw2)
+				return fRampUw2(pOTextures, peColour);
+
 			List<UWColor32> lOColours = new List<UWColor32>();
 
 			try
@@ -178,7 +186,7 @@ namespace UWDataImport.Presentation
 				{
 					case ColourEnum.Leather:
 					{
-						return UWLeatherBuilder.CloudColours(UWLeatherBuilder.Source(pOTextures));
+						return UWLeatherBuilder.CloudColours(UWLeatherBuilder.Source(pOTextures), UWLeatherBuilder.FrameOf(pOTextures));
 					}
 
 					case ColourEnum.Marble:
@@ -253,6 +261,57 @@ namespace UWDataImport.Presentation
 			return fReduce(lOColours);
 		}
 
+		/// <summary>The second game's shades from its own frame (UWClassicLayoutUw2.BackSources): the warm browns and golds
+		/// of the rods and the compass (the stone between them and the dark ground left out), the marble's greys and blues,
+		/// the hollow's plain greys.</summary>
+		private static List<UWColor32> fRampUw2(UWTextures pOTextures, ColourEnum peColour)
+		{
+			List<UWColor32> lOColours = new List<UWColor32>();
+
+			try
+			{
+				UWPicture lOMain = UWMainFrame.Picture(pOTextures);
+				UWRectInt lOSource = peColour == ColourEnum.Leather ? UWClassicLayoutUw2.BackSources.Leather
+					: peColour == ColourEnum.Marble ? UWClassicLayoutUw2.BackSources.Marble
+					: peColour == ColourEnum.Stone ? UWClassicLayoutUw2.BackSources.Stone
+					: UWClassicLayoutUw2.BackSources.Bronze;
+
+				for (int y = lOSource.Y; y < lOSource.Y + lOSource.Height; y++)
+				{
+					for (int x = lOSource.X; x < lOSource.X + lOSource.Width; x++)
+					{
+						UWColor32 lOColour = lOMain.Get(x, y);
+						bool lbKeep;
+
+						switch (peColour)
+						{
+							case ColourEnum.Marble:
+								lbKeep = lOColour.B + 10 >= lOColour.R;
+								break;
+
+							case ColourEnum.Stone:
+								lbKeep = lOColour.R >= 48 && lOColour.R <= 140 && Math.Abs(lOColour.R - lOColour.G) < 10
+									&& Math.Abs(lOColour.G - lOColour.B) < 12;
+								break;
+
+							default:
+								lbKeep = lOColour.R >= 90 && lOColour.R - lOColour.G > 30 && lOColour.R - lOColour.B >= 50;
+								break;
+						}
+
+						if (lOColour.A > 0 && lbKeep)
+							lOColours.Add(lOColour);
+					}
+				}
+			}
+			catch
+			{
+				return new List<UWColor32>();
+			}
+
+			return fReduce(lOColours);
+		}
+
 		/// <summary>The distinct colours sorted by brightness, RampShades of them picked evenly.</summary>
 		private static List<UWColor32> fReduce(List<UWColor32> pOColours)
 		{
@@ -289,7 +348,8 @@ namespace UWDataImport.Presentation
 		/// texture cannot be read (the clouds stand in then).</summary>
 		private static PatternTexture fPatternTexture(UWTextures pOTextures, PatternEnum pePattern)
 		{
-			int liWall = miPatternWalls[Math.Max(0, Math.Min(miPatternWalls.Length - 1, (int)pePattern))];
+			int[] liWalls = pOTextures != null && pOTextures.Game == UWGame.Uw2 ? UWClassicLayoutUw2.BackSources.PatternWalls : miPatternWalls;
+			int liWall = liWalls[Math.Max(0, Math.Min(liWalls.Length - 1, (int)pePattern))];
 
 			if (liWall < 0 || pOTextures == null)
 				return null;

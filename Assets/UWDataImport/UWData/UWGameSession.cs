@@ -126,7 +126,7 @@ namespace UWDataImport.UWData
 		public UWPlayerData Player { get; internal set; }
 
 		/// <summary>The second game's PLAYER.DAT as a loaded save holds it (UW2 plan phase 2 step 6), null
-		/// without one: its record's position is where the walk comes back to, and saving writes it back
+		/// without one: its record's position is where the session comes back to, and saving writes it back
 		/// with the new one (UWPlayerRecordUw2).</summary>
 		public UWPlayerFile PlayerFileUw2 { get; internal set; }
 

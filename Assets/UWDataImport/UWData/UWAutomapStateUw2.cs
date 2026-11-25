@@ -14,7 +14,7 @@ namespace UWDataImport.UWData
 	/// copied the link is 0x200, and using it again opens the map on the level it covers. Its map and notes lie
 	/// in the pages from level 0x47 + quality, which have no map block: 74 and 79 in the shipped file.
 	///
-	/// The state lives in the player's record, so it is saved with it. Without a record (the walk before its first
+	/// The state lives in the player's record, so it is saved with it. Without a record (the session before its first
 	/// save) the automap is on.
 	///
 	/// The other two that set the flag came with their rules: the Locate spell (combat/SPELLS2.C, UWExtraSpellRulesUw2)

@@ -21,6 +21,10 @@ using UWDataImport.UWData;
 ///     (Widened).
 ///   - The rest reads Extra: the frame's width (UWUiFit.FrameWidth, UWGameUI), the camera's area,
 ///     the original's point of a click (OriginalX).
+///   - THE GAME'S CUTS (UW2 plan stage U8 step 1, 2026-11-24): the frame attached says whose (UWClassicWideGeometry; the
+///     second game's classic screen, UWGameScreenUw2, since then) - the parts move by that game's bands. A part whose
+///     place belongs to another band than its own top-left pixel (the second game's active spells reach above their
+///     hollow) moves as the place named (PlacedAs).
 /// </summary>
 public static class UWClassicWide
 {
@@ -59,10 +63,17 @@ public static class UWClassicWide
 
     private static bool mbHooked;
 
-    /// <summary>The frame whose parts are moved.</summary>
-    public static void Attach(RectTransform pOFrame)
+    /// <summary>The attached frame's game's cuts (the first game's unless given).</summary>
+    private static UWClassicWideGeometry msOGeometry = UWClassicWideGeometry.Uw1;
+
+    /// <summary>Parts that move as another place of the original than their own (PlacedAs).</summary>
+    private static readonly Dictionary<RectTransform, Vector2Int> msPlacedAs = new Dictionary<RectTransform, Vector2Int>();
+
+    /// <summary>The frame whose parts are moved, and its game's cuts (the first game's unless given).</summary>
+    public static void Attach(RectTransform pOFrame, UWClassicWideGeometry pOGeometry = null)
     {
         msFrame = pOFrame;
+        msOGeometry = pOGeometry ?? UWClassicWideGeometry.Uw1;
 
         if (!mbHooked)
         {
@@ -76,6 +87,13 @@ public static class UWClassicWide
     {
         if (pORect != null)
             msInHole.Add(pORect);
+    }
+
+    /// <summary>A part that moves as the original's place piX/piRow, not as its own top-left pixel.</summary>
+    public static void PlacedAs(RectTransform pORect, int piX, int piRow)
+    {
+        if (pORect != null)
+            msPlacedAs[pORect] = new Vector2Int(piX, piRow);
     }
 
     /// <summary>A part as wide as the frame's middle: it grows by Extra.</summary>
@@ -162,11 +180,13 @@ public static class UWClassicWide
     /// <summary>
     /// An original column from a column of the widened frame at a row from the top: -1 in the
     /// columns put in (they belong to no area of the original's click table). The rule is
-    /// UWClassicGeometry.OriginalColumn's (cleanup 5.18, 2026-10-23), with this frame's Extra.
+    /// UWClassicGeometry.OriginalColumn's (cleanup 5.18, 2026-10-23), with this frame's Extra;
+    /// since UW2 plan stage U8 step 2 (2026-11-24) by the attached frame's game's cuts
+    /// (UWClassicWideGeometry.OriginalColumn).
     /// </summary>
     public static int OriginalX(int piX, int piRow)
     {
-        return UWClassicGeometry.OriginalColumn(piX, piRow, Extra);
+        return msOGeometry.OriginalColumn(piX, piRow, Extra);
     }
 
     /// <summary>Moves the frame's parts by their bands, the hole's by its middle, and widens the
@@ -191,7 +211,7 @@ public static class UWClassicWide
             {
                 if (msFrameSized.TryGetValue(lORect, out FrameNode lONode))
                 {
-                    float lfMove = liExtra > 0 ? UWHudArt.ClassicWideShiftX(lONode.Place.x, lONode.Place.y, liExtra) : 0f;
+                    float lfMove = liExtra > 0 ? msOGeometry.ShiftX(lONode.Place.x, lONode.Place.y, liExtra) : 0f;
                     Vector2 lOMin = new Vector2(lONode.BaseMin + lfMove, lORect.offsetMin.y);
                     Vector2 lOMax = new Vector2(lONode.BaseMax + lfMove - liExtra, lORect.offsetMax.y);
 
@@ -221,7 +241,8 @@ public static class UWClassicWide
 
             float lfShift = liExtra <= 0 ? 0f
                 : msInHole.Contains(lORect) ? liExtra / 2
-                : UWHudArt.ClassicWideShiftX(Mathf.FloorToInt(lOBase.x), Mathf.FloorToInt(-lOBase.y), liExtra);
+                : msPlacedAs.TryGetValue(lORect, out Vector2Int lOAs) ? msOGeometry.ShiftX(lOAs.x, lOAs.y, liExtra)
+                : msOGeometry.ShiftX(Mathf.FloorToInt(lOBase.x), Mathf.FloorToInt(-lOBase.y), liExtra);
             Vector2 lOShift = new Vector2(lfShift, 0f);
             Vector2 lONew = lOBase + lOShift;
             float lfWidth = msWidened.Contains(lORect) ? lfBaseWidth + liExtra : lfBaseWidth;

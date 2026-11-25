@@ -26,14 +26,25 @@ public static class UWModernClassicPlus
     public static bool IsActive => UWModernLayout.Preset == UWModernLayout.PresetEnum.ClassicPlus;
 
     /// <summary>The places, as the own layout keeps them (UWUserSettings.ModernLayout); the preset
-    /// table holds them since cleanup step 8.4 (UWLayoutPresets), the editor's start copies them.</summary>
-    public const string Layout = UWLayoutPresets.ClassicModularLayout;
+    /// table holds them since cleanup step 8.4 (UWLayoutPresets), the editor's start copies them. The running game's
+    /// (the second game's since UW2 plan stage U6 step 3).</summary>
+    public static string Layout => UWLayoutPresets.ClassicModularLayoutOf(Game);
+
+    /// <summary>The running game (the first without data).</summary>
+    public static UWGame Game => UWModernUi.Data != null && UWModernUi.Data.Textures != null ? UWModernUi.Data.Textures.Game : UWGame.Uw1;
+
+    /// <summary>The stats page's width, which the shelf leaves beside it: the game's PANELS.GR page.</summary>
+    public static int PageWidth => UWStatsPageGeometry.Of(UWModernUi.Data != null ? UWModernUi.Data.Textures : null).PageWidth;
 
     /// <summary>Lines of text the message scroll holds.</summary>
     public const int ScrollLines = UWLayoutPresets.ClassicModularScrollLines;
 
+    /// <summary>The columns the message scroll is wider than the game's original: the running game's (the second
+    /// game's narrowed, as the user laid it out).</summary>
+    public static int ScrollWidth => UWLayoutPresets.ClassicModularScrollWidthOf(Game);
+
     /// <summary>The stone shelf's width in its own pixels: the screen beside the stats panel.</summary>
-    public static int StoneShelfWidth => Mathf.Max(UWHudArt.StoneShelfMinWidth, UWModernStoneShelf.StoneShelfMaxWidth - UWTextures.PanelWidth);
+    public static int StoneShelfWidth => Mathf.Max(UWHudArt.StoneShelfMinWidth, UWModernStoneShelf.StoneShelfMaxWidth - PageWidth);
 
     /// <summary>The compass disc's outline: on in Classic Modular, else the own layout's choice.</summary>
     public static bool CompassOutline => IsActive || UWUserSettings.ModernCompassOutline;

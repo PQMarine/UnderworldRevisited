@@ -138,9 +138,9 @@ public static class UWModernHudArt
 
     /// <summary>The original's conversation parchment at a height (UWHudArt.BuildConversationParchment).</summary>
     public static Texture2D BuildConversationParchment(UWTextures pOTextures, int piRows, FilterMode peFilter, bool pbKnobRollers = false,
-        bool pbOutline = false)
+        bool pbOutline = false, int piWidth = -1)
     {
-        return fToTexture(UWHudArt.PadAndOutline(UWHudArt.BuildConversationParchment(pOTextures, piRows, pbKnobRollers), pbOutline), peFilter,
+        return fToTexture(UWHudArt.PadAndOutline(UWHudArt.BuildConversationParchment(pOTextures, piRows, pbKnobRollers, piWidth), pbOutline), peFilter,
             "UWModernHudArt conversation parchment " + piRows);
     }
 
@@ -277,7 +277,9 @@ public static class UWModernHudArt
 
         for (int liAt = 0; liAt < pOArmour.Length; liAt++)
         {
-            lOPictures.Add(pOArmour[liAt] != null ? UWPicture.From(pOArmour[liAt]) : null);
+            // The second game's armour pictures carry their clear colour as colour 0 (UWPaperdollBuilder.PieceUw2).
+            lOPictures.Add(pOArmour[liAt] == null ? null
+                : pOTextures.Game == UWGame.Uw2 ? UWPaperdollBuilder.PieceUw2(pOArmour[liAt]) : UWPicture.From(pOArmour[liAt]));
             lOAt.Add((pOAt[liAt].x, pOAt[liAt].y));
         }
 

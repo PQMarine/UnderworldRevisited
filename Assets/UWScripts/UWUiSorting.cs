@@ -62,6 +62,10 @@ public static class UWUiSorting
     /// <summary>The modern bags (UWModernBags).</summary>
     public const int ModernBags = 42;
 
+    /// <summary>The frame right of the second game's panel while it slides (UWModernClassicFrame): over the pages, which
+    /// it cuts at the panel's edge as the original's slide does.</summary>
+    public const int ClassicWideSlideCover = ModernParts + 1;
+
     /// <summary>The active spells' hover text (UWModernActiveSpells): over the Classic frame's dragons, which the
     /// icons lie under as in the original (per user 2026-11-14: the text lay behind the left dragon).</summary>
     public const int ModernSpellTip = 42;

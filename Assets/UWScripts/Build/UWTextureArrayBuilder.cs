@@ -57,7 +57,11 @@ namespace UnderworldRevisited.Build
         /// and floor scaled by xBR twice to 4x (UWXbrScaler). The shader reads the array by its 0..1 coordinate, so nothing
         /// else changes. Walls and floors only: the 256 palette colour slices, a third of the array at 4x, come from
         /// BuildSwatchColours since the same day (per user: "Ja, verkleinern").</param>
-        public static Texture2DArray Build(DataImport pOData, FilterMode peFilterMode = FilterMode.Point, int piScalePasses = 0)
+        /// <param name="pbSmoothEnlarge">THE TEXTURES' LOOK SMOOTH (per user 2026-11-25 with a picture: the floor stayed
+        /// pixelated while the wall was smooth): a texture smaller than a slice - the floors, 32 square - is brought to the
+        /// slice's size bilinear instead of by the nearest pixel, so the filter has no 2x2 blocks to keep.</param>
+        public static Texture2DArray Build(DataImport pOData, FilterMode peFilterMode = FilterMode.Point, int piScalePasses = 0,
+            bool pbSmoothEnlarge = false)
         {
             List<UWTexture> lOWalls = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.WALL);
             List<UWTexture> lOFloors = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.FLOOR);
@@ -75,10 +79,10 @@ namespace UnderworldRevisited.Build
             Color32[][] lOSlices = new Color32[liPaletteBase][];
 
             for (int i = 0; i < lOWalls.Count; i++)
-                lOSlices[i] = fGetPixels(lOWalls[i]);
+                lOSlices[i] = fGetPixels(lOWalls[i], pbSmoothEnlarge);
 
             for (int i = 0; i < lOFloors.Count; i++)
-                lOSlices[lOWalls.Count + i] = fGetPixels(lOFloors[i]);
+                lOSlices[lOWalls.Count + i] = fGetPixels(lOFloors[i], pbSmoothEnlarge);
 
             if (piScalePasses > 0)
                 System.Threading.Tasks.Parallel.For(0, liPaletteBase, i => lOSlices[i] = Scaled(lOSlices[i], piScalePasses));
@@ -420,7 +424,8 @@ namespace UnderworldRevisited.Build
         /// and lava floors; textures with just a few drops of the colour (the drain, for
         /// example) are included as well, because they rotate along in the original too.
         /// </summary>
-        public static List<AnimatedSlice> BuildAnimatedSlices(DataImport pOData, FilterMode peFilterMode, int piScalePasses = 0)
+        public static List<AnimatedSlice> BuildAnimatedSlices(DataImport pOData, FilterMode peFilterMode, int piScalePasses = 0,
+            bool pbSmoothEnlarge = false)
         {
             List<AnimatedSlice> lOResult = new List<AnimatedSlice>();
 
@@ -434,10 +439,11 @@ namespace UnderworldRevisited.Build
             List<Color32[]> lOPendingPixels = new List<Color32[]>();
 
             for (int i = 0; i < lOWalls.Count; i++)
-                fAddIfAnimated(lOWalls[i], i, peFilterMode, piScalePasses, lOResult, lOPending, lOPendingPixels);
+                fAddIfAnimated(lOWalls[i], i, peFilterMode, piScalePasses, pbSmoothEnlarge, lOResult, lOPending, lOPendingPixels);
 
             for (int i = 0; i < lOFloors.Count; i++)
-                fAddIfAnimated(lOFloors[i], lOWalls.Count + i, peFilterMode, piScalePasses, lOResult, lOPending, lOPendingPixels);
+                fAddIfAnimated(lOFloors[i], lOWalls.Count + i, peFilterMode, piScalePasses, pbSmoothEnlarge, lOResult, lOPending,
+                    lOPendingPixels);
 
             if (piScalePasses > 0)
                 System.Threading.Tasks.Parallel.For(0, lOPendingPixels.Count, i => lOPendingPixels[i] = Scaled(lOPendingPixels[i], piScalePasses));
@@ -451,7 +457,7 @@ namespace UnderworldRevisited.Build
             return lOResult;
         }
 
-        private static void fAddIfAnimated(UWTexture pOTexture, int piSlice, FilterMode peFilterMode, int piScalePasses,
+        private static void fAddIfAnimated(UWTexture pOTexture, int piSlice, FilterMode peFilterMode, int piScalePasses, bool pbSmoothEnlarge,
             List<AnimatedSlice> pOResult, List<Texture2D> pOPending, List<Color32[]> pOPendingPixels)
         {
             if (pOTexture == null || pOTexture.PaletteIndices == null)
@@ -491,7 +497,7 @@ namespace UnderworldRevisited.Build
                 lOState.filterMode = peFilterMode;
                 lOState.wrapMode = TextureWrapMode.Repeat;
                 pOPending.Add(lOState);
-                pOPendingPixels.Add(fGetRotatedPixels(pOTexture, lOPalette, liStep));
+                pOPendingPixels.Add(fGetRotatedPixels(pOTexture, lOPalette, liStep, pbSmoothEnlarge));
 
                 lOStates[liStep] = lOState;
             }
@@ -503,7 +509,7 @@ namespace UnderworldRevisited.Build
         /// Like fGetPixels, but the colour does not come from the baked texture; it is
         /// taken fresh from the palette via the rotated palette index.
         /// </summary>
-        private static Color32[] fGetRotatedPixels(UWTexture pOTexture, UWPalette pOPalette, int piStep)
+        private static Color32[] fGetRotatedPixels(UWTexture pOTexture, UWPalette pOPalette, int piStep, bool pbSmoothEnlarge = false)
         {
             Color32[] lOTarget = new Color32[SliceResolution * SliceResolution];
 
@@ -529,7 +535,67 @@ namespace UnderworldRevisited.Build
                 }
             }
 
+            if (pbSmoothEnlarge && (liWidth < SliceResolution || liHeight < SliceResolution))
+            {
+                UWColor32[] lOColours = new UWColor32[liWidth * liHeight];
+
+                for (int i = 0; i < lOColours.Length; i++)
+                {
+                    lOColours[i] = pOPalette.GetUWColor(UWPaletteRotation.GetSourceIndex(lyIndices[i], piStep));
+                    lOColours[i].A = 255;
+                }
+
+                return fEnlargedSmooth(lOColours, liWidth, liHeight);
+            }
+
             return lOTarget;
+        }
+
+        /// <summary>
+        /// A texture smaller than a slice brought to the slice's size BILINEAR (the textures' look Smooth, per user 2026-11-25):
+        /// each target texel's middle mapped into the source, the four source texels around it mixed, wrapping round as the
+        /// textures repeat; row 0 of the source at the top as fGetPixels flips it.
+        /// </summary>
+        private static Color32[] fEnlargedSmooth(UWColor32[] pOSource, int piWidth, int piHeight)
+        {
+            Color32[] lOTarget = new Color32[SliceResolution * SliceResolution];
+
+            for (int y = 0; y < SliceResolution; y++)
+            {
+                float lfY = (((SliceResolution - 1 - y) + 0.5f) * piHeight / SliceResolution) - 0.5f;
+                int liY0 = Mathf.FloorToInt(lfY);
+                float lfBy = lfY - liY0;
+                int liRow0 = ((liY0 % piHeight) + piHeight) % piHeight;
+                int liRow1 = (liRow0 + 1) % piHeight;
+
+                for (int x = 0; x < SliceResolution; x++)
+                {
+                    float lfX = ((x + 0.5f) * piWidth / SliceResolution) - 0.5f;
+                    int liX0 = Mathf.FloorToInt(lfX);
+                    float lfBx = lfX - liX0;
+                    int liCol0 = ((liX0 % piWidth) + piWidth) % piWidth;
+                    int liCol1 = (liCol0 + 1) % piWidth;
+
+                    UWColor32 l00 = pOSource[liRow0 * piWidth + liCol0];
+                    UWColor32 l10 = pOSource[liRow0 * piWidth + liCol1];
+                    UWColor32 l01 = pOSource[liRow1 * piWidth + liCol0];
+                    UWColor32 l11 = pOSource[liRow1 * piWidth + liCol1];
+
+                    lOTarget[y * SliceResolution + x] = new Color32(
+                        fMix(l00.R, l10.R, l01.R, l11.R, lfBx, lfBy), fMix(l00.G, l10.G, l01.G, l11.G, lfBx, lfBy),
+                        fMix(l00.B, l10.B, l01.B, l11.B, lfBx, lfBy), fMix(l00.A, l10.A, l01.A, l11.A, lfBx, lfBy));
+                }
+            }
+
+            return lOTarget;
+        }
+
+        private static byte fMix(byte py00, byte py10, byte py01, byte py11, float pfBx, float pfBy)
+        {
+            float lfTop = py00 + ((py10 - py00) * pfBx);
+            float lfBottom = py01 + ((py11 - py01) * pfBx);
+
+            return (byte)Mathf.Clamp(Mathf.RoundToInt(lfTop + ((lfBottom - lfTop) * pfBy)), 0, 255);
         }
 
         /// <summary>Solid-colour slice pixels for a palette index.</summary>
@@ -608,7 +674,7 @@ namespace UnderworldRevisited.Build
         /// array must have the same size. With point filtering this is visually
         /// identical to the original.
         /// </summary>
-        private static Color32[] fGetPixels(UWTexture pOTexture)
+        private static Color32[] fGetPixels(UWTexture pOTexture, bool pbSmoothEnlarge = false)
         {
             Color32[] lOTarget = new Color32[SliceResolution * SliceResolution];
 
@@ -631,6 +697,9 @@ namespace UnderworldRevisited.Build
 
             if (lOSource == null || liWidth <= 0 || liHeight <= 0 || lOSource.Length < liWidth * liHeight)
                 return lOTarget;
+
+            if (pbSmoothEnlarge && (liWidth < SliceResolution || liHeight < SliceResolution))
+                return fEnlargedSmooth(lOSource, liWidth, liHeight);
 
             for (int y = 0; y < SliceResolution; y++)
             {

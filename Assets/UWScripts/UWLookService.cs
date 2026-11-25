@@ -59,7 +59,11 @@ public sealed class UWLookService
             // picture instead of the description (reference look.cs -> gravestone.Use).
             if (!TryShowGravestone(pOTarget))
             {
-                mIHost.AddLookLine(fGetLookDescription(pOTarget));
+                // Null where the original's look prints nothing (UWItemDescriptions.LookSaysNothing).
+                string lsLook = fGetLookDescription(pOTarget);
+
+                if (lsLook != null)
+                    mIHost.AddLookLine(lsLook);
 
                 // SpecialLook (LOOK.C) after the look line: a closed door with its spike bit adds
                 // "The door is spiked." (string 0x83) - per user on the original, 2026-10-13, the
@@ -158,6 +162,10 @@ public sealed class UWLookService
         // Wall inscriptions already carry their finished wording (see UWEntityInfo).
         if (pOTarget.ShowDescriptionVerbatim)
             return pOTarget.Description;
+
+        // The force field: the original's look says nothing at all.
+        if (UWItemDescriptions.LookSaysNothing(pOTarget.ObjectData, fData()))
+            return null;
 
         // AN ITEM ON THE FLOOR is described like one in the backpack. This shows with
         // stacks: the original counts them in the world too ("13 arrows" instead of "an
@@ -364,7 +372,7 @@ public sealed class UWLookService
     /// it is that file's record list, otherwise the level's.</summary>
     private System.Collections.Generic.List<UWObject> fGetItemObjectList()
     {
-        if (UWWalkUw2.IsWalking && UWGameScreenUw2.Current != null)
+        if (UWGameStartUw2.IsRunning && UWGameScreenUw2.Current != null)
             return UWGameScreenUw2.Current.WorkspaceRecords;
 
         return UWItemDescriptions.ItemObjectList(fData(),

@@ -152,7 +152,7 @@ public static class UWWorldPicker
             if (lOHit.collider.isTrigger && lOEntity == null)
                 continue;
 
-            if (fIsPlayerBody(lOHit) || fMissesSpritePixels(pORay, lOHit))
+            if (fIsPlayerBody(lOHit) || fMissesSpritePixels(pORay, lOHit) || fCoveredByDeck(pORay, lOHit, lOEntity))
                 continue;
 
             float lfDistance = lOHit.distance;
@@ -377,6 +377,48 @@ public static class UWWorldPicker
         pfDistance = Vector3.Distance(pORay.origin, lOWorld);
 
         return ShapeEnum.Crossed;
+    }
+
+    /// <summary>
+    /// A SPRITE UNDER A BRIDGE'S DECK, SEEN FROM THE OTHER SIDE (per user 2026-11-22, UW1 level 6: from some five squares
+    /// away the label named the Wine of Compassion under its plate; the original shows nothing of it): the shaders' rule
+    /// (UWPainterUnderDeck) for the pick - covered where the ray meets the deck inside the sprite's tile, or where, at the
+    /// sprite's own depth, the ray is on the eye's side of the deck (the bottle's tip, a little above the plate).
+    /// </summary>
+    private static bool fCoveredByDeck(Ray pORay, RaycastHit pOHit, UWEntityInfo pOEntity)
+    {
+        if (pOEntity == null || pOEntity.IsModel || pOEntity.ObjectData == null || pOHit.collider == null)
+            return false;
+
+        Vector3 lOPivot = pOHit.collider.transform.position;
+
+        if (!UWOwnTile.TryGetDeck(lOPivot, out float lfDeck))
+            return false;
+
+        float lfEye = pORay.origin.y;
+
+        if ((lOPivot.y - lfDeck) * (lfEye - lfDeck) >= 0f)
+            return false;
+
+        Vector2Int lOTile = UWOwnTile.TileOf(lOPivot);
+        Camera lOCamera = Camera.main;
+        Vector3 lOAhead = lOCamera != null ? lOCamera.transform.forward : pORay.direction;
+        float lfRayAhead = Vector3.Dot(pORay.direction, lOAhead);
+
+        if (lfRayAhead > 1.0e-5f)
+        {
+            Vector3 lOAtSprite = pORay.origin + (pORay.direction * (Vector3.Dot(lOPivot - pORay.origin, lOAhead) / lfRayAhead));
+
+            if ((lOAtSprite.y - lfDeck) * (lfEye - lfDeck) > 0f && UWOwnTile.TileOf(lOAtSprite) == lOTile)
+                return true;
+        }
+
+        if (Mathf.Abs(pORay.direction.y) < 1.0e-5f)
+            return false;
+
+        float lfAlong = (lfDeck - lfEye) / pORay.direction.y;
+
+        return lfAlong > 0f && UWOwnTile.TileOf(pORay.origin + (pORay.direction * lfAlong)) == lOTile;
     }
 
     /// <summary>

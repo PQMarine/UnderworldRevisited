@@ -34,6 +34,17 @@ namespace UWDataImport.Presentation
 				{
 					msOPicture = UWPicture.From(lOMain);
 					msOSource = lOMain;
+
+					// THE SECOND GAME'S FRAME (BYT.ARK block 4) HAS NO CLEAR PIXEL: a whole screen. The colours come
+					// resolved by the first game's palette rule, whose transparency marker (no red, no green, some
+					// blue) catches the second game's near black (0, 0, 4) - the gargoyle's outline and eye sockets
+					// went clear (UW2 plan part U4d step 1, 2026-11-23; the armour's outline at U4b step 2 was the
+					// same rule). Every pixel opaque here.
+					if (pOTextures.Game == UWGame.Uw2)
+					{
+						for (int liAt = 0; liAt < msOPicture.Pixels.Length; liAt++)
+							msOPicture.Pixels[liAt].A = 255;
+					}
 				}
 
 				return msOPicture;

@@ -83,7 +83,7 @@ public class UWCritterDriver : MonoBehaviour
         UWGameSession.Current.Schedule.Advance(liTicks, lbWorldRuns);
 
         // check_victory, every frame of the original's main loop (since 2026-10-18); the first game's.
-        if (lbWorldRuns && !UWWalkUw2.IsWalking)
+        if (lbWorldRuns && !UWGameStartUw2.IsRunning)
         {
             if (mOLoader == null)
                 mOLoader = GetComponent<UWLevelLoader>();
@@ -140,8 +140,8 @@ public class UWCritterDriver : MonoBehaviour
     /// UWPlayerVitals.fApplyActiveSpells; the effect subclass is UWMiscSpellRules.SpeedEffectMinor).</summary>
     private static bool fPlayerHasSpeed()
     {
-        // The second game's player is its walk's vitals (UWVitalsUw2); UWCharacter stands idle there.
-        UWPlayerVitals lOVitals = UWWalkUw2.IsWalking
+        // The second game's player is its session's vitals (UWVitalsUw2); UWCharacter stands idle there.
+        UWPlayerVitals lOVitals = UWGameStartUw2.IsRunning
             ? (UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null)
             : (UWScene.Character != null ? UWScene.Character.Vitals : null);
 

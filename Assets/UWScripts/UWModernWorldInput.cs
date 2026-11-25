@@ -208,7 +208,7 @@ public sealed class UWModernWorldInput
 
         UWEntityInfo lOTarget = !Interaction.IsGeometryEntity(lOFront) ? lOFront : lOPickable;
 
-        if (Interaction.IsGeometryEntity(lOTarget) || lOTarget.ObjectData.ID == WallPanelObjectId || lOTarget.ObjectData.ID == WallPanelObjectId + 1)
+        if (Interaction.IsGeometryEntity(lOTarget) || IsWallPanel(lOTarget.ObjectData.ID))
             return null;
 
         pOPickableBehind = lOTarget == lOFront ? lOPickable : null;
@@ -416,8 +416,8 @@ public sealed class UWModernWorldInput
 
         int liObjectId = lOFrontmost.ObjectData != null ? lOFrontmost.ObjectData.ID : -1;
 
-        // A closed secret door gives no hint, as the wall it looks like (fHidesFromCrosshair).
-        if (fHidesFromCrosshair(liObjectId))
+        // A closed secret door gives no hint, as the wall it looks like (HidesFromCrosshair).
+        if (HidesFromCrosshair(liObjectId))
             return null;
 
         return UWClickRules.ThingAnswers(UWClickRules.TalkToThing(liObjectId, lOFrontmost.IsChainedPrincess))
@@ -431,9 +431,15 @@ public sealed class UWModernWorldInput
     /// skill check) and the label comes with every turn of the view. So neither names a closed secret door; the
     /// Look reveals it and a use opens it as in the original. An open one is a passage and keeps its name.
     /// </summary>
-    private static bool fHidesFromCrosshair(int piObjectId)
+    public static bool HidesFromCrosshair(int piObjectId)
     {
         return piObjectId == UWObjectIds.SecretDoor;
+    }
+
+    /// <summary>A wall panel (0x16E, 0x16F, "special tmap obj"), a piece of wall in both games: no name, no menu.</summary>
+    public static bool IsWallPanel(int piObjectId)
+    {
+        return piObjectId == WallPanelObjectId || piObjectId == WallPanelObjectId + 1;
     }
 
     /// <summary>
@@ -456,17 +462,37 @@ public sealed class UWModernWorldInput
 
         // A WALL PANEL (0x16E/0x16F, "special tmap obj") is a piece of wall - the look describes
         // its wall texture; it gets no name, as a wall gets none (per user, 2026-10-03).
-        if (lOTarget.ObjectData.ID == WallPanelObjectId || lOTarget.ObjectData.ID == WallPanelObjectId + 1)
+        if (IsWallPanel(lOTarget.ObjectData.ID))
             return null;
 
-        // Plural for a real stack only (UWStackRules.IsStack): until 2026-10-11 any quantity
-        // field above 1 chose the plural, so a special property named an enchanted piece as many.
-        UWObject lOObject = lOTarget.ObjectData;
-
-        if (fHidesFromCrosshair(lOObject.ID))
+        if (HidesFromCrosshair(lOTarget.ObjectData.ID))
             return null;
 
-        return UWText.ObjectName(fData(), lOObject.ID, UWStackRules.IsStack(lOObject), false, null);
+        return CrosshairName(fData(), lOTarget);
+    }
+
+    /// <summary>
+    /// THE NAME UNDER THE CROSSHAIR, for both games' hosts (IUWModernWorld.TargetName): the bare name of block 4,
+    /// plural for a real stack only (UWStackRules.IsStack: until 2026-10-11 any quantity field above 1 chose the plural,
+    /// so a special property named an enchanted piece as many); a bridge named after its floor by the very name the look
+    /// gives it (per user 2026-11-22: the trapdoor in SAVE2's shaft on UW2 level 49 said "Bridge" - the second game's
+    /// HUD had a label line of its own, and two tries changed only this one).
+    /// </summary>
+    public static string CrosshairName(UWDataImport.DataImport pOData, UWEntityInfo pOTarget)
+    {
+        if (pOData == null || pOTarget == null || pOTarget.ObjectData == null)
+            return null;
+
+        // A BRIDGE DISGUISED AS ITS FLOOR has no label, as a floor has none (UWItemDescriptions.BridgeLooksLikeItsFloor).
+        if (UWItemDescriptions.BridgeLooksLikeItsFloor(pOTarget.ObjectData, UWScene.LevelLoader != null ? UWScene.LevelLoader.CurrentLevel : null))
+            return null;
+
+        if (pOTarget.NamedByTexture && !string.IsNullOrEmpty(pOTarget.Description))
+            return UWGrammar.Of(pOData).ChunkLabel(pOTarget.Description);
+
+        UWObject lOObject = pOTarget.ObjectData;
+
+        return UWText.ObjectName(pOData, lOObject.ID, UWStackRules.IsStack(lOObject), false, null);
     }
 
     /// <summary>
@@ -487,7 +513,7 @@ public sealed class UWModernWorldInput
         mOInteraction.AimAtCrosshair(out UWEntityInfo lOFrontmost, out string _, out UWEntityInfo lOPickable);
 
         if (lOFrontmost == null || Interaction.IsGeometryEntity(lOFrontmost) || lOFrontmost.ObjectData == null
-            || fHidesFromCrosshair(lOFrontmost.ObjectData.ID))
+            || HidesFromCrosshair(lOFrontmost.ObjectData.ID))
             return false;
 
         UWDoor lODoor = lOFrontmost.GetComponentInParent<UWDoor>();

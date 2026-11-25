@@ -143,7 +143,7 @@ public sealed class UWCreatureWorld : ICreatureWorld
 
     /// <summary>The first game's character. The component stands in the second game's scene too, on the camera,
     /// with vitals of its own that nothing runs: a creature met those and heard nothing (per user's test, 2026-10-31).</summary>
-    private static UWCharacter fCharacter => UWWalkUw2.IsWalking ? null : UWScene.Character;
+    private static UWCharacter fCharacter => UWGameStartUw2.IsRunning ? null : UWScene.Character;
 
     /// <summary>The second game's player, once his vitals run.</summary>
     private static UWVitalsUw2 fPlayerUw2 => UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null ? UWVitalsUw2.Current : null;
@@ -192,7 +192,7 @@ public sealed class UWCreatureWorld : ICreatureWorld
 
         // The second game's fight command (G0 of the 2026-11-06 sweep: the idle Interaction always said no, so no
         // creature turned to an armed player, UWCritterBrain).
-        lOTarget.WeaponDrawn = UWWalkUw2.IsWalking ? UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight
+        lOTarget.WeaponDrawn = UWGameStartUw2.IsRunning ? UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight
             : lOInteraction != null && lOInteraction.IsCombatModeActive;
 
         return lOTarget;
@@ -696,17 +696,17 @@ public sealed class UWCreatureWorld : ICreatureWorld
 
     /// <summary>
     /// A CREATURE'S OWN TALK GOES TO ITS GAME'S CONVERSATION (per user 2026-11-14: Lord British's goal 10 never opened
-    /// a talk in the second game, and he stood at goal 12 afterwards). The second game's walk talks through
+    /// a talk in the second game, and he stood at goal 12 afterwards). The second game's session talks through
     /// UWGameScreenUw2.TalkTo, the first game's through the Interaction; until then both took the first game's, whose
-    /// talk does not show in the second game's walk.
+    /// talk does not show in the second game's session.
     /// </summary>
-    public bool CanTalk => UWWalkUw2.IsWalking
+    public bool CanTalk => UWGameStartUw2.IsRunning
         ? !UWConversationScreenUw2.IsOpen && UWGameScreenUw2.Current != null
         : !UWConversationController.IsAnyOpen && UWScene.Interaction != null;
 
     public void Talk(UWNpc pONpc)
     {
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             UWLevelLoader lOLoader = fLoader;
 

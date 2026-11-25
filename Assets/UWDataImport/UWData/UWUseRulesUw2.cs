@@ -4,7 +4,7 @@ namespace UWDataImport.UWData
 	/// USING THINGS IN THE SECOND GAME'S WORLD (UW2 plan G4 part A, 2026-11-13): the parts of UseRect (uw2
 	/// obj/USEITEMS.C) on the wall's things - the switches (minor 3, 0x170-0x17F) flip, the lever (0x161) and the switch
 	/// picture (0x162) step their flags through 0 to 7 - and UseObj's checkTrap with mode 4 after the use (OBJUSE.C).
-	/// Doors, the bed and the rest stay on the Unity side (UWWalkUw2View); the chest dumped out in the world (UseCont,
+	/// Doors, the bed and the rest stay on the Unity side (UWWorldViewUw2); the chest dumped out in the world (UseCont,
 	/// DumpTheBag) is not built yet.
 	/// </summary>
 	public static class UWUseRulesUw2

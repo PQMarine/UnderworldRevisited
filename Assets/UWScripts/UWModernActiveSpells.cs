@@ -1,12 +1,17 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UWDataImport;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 
 /// <summary>
 /// THE MODERN HUD'S ACTIVE SPELLS (SPELLS.GR through the palette shader, as on the classic shelf),
 /// a buff row at the top right (fPlaceSpells). Out of UWModernHud since cleanup 5.16
 /// (2026-10-22); the clicks on them are the HUD's routing (UWModernHudInput).
+///
+/// IN THE HOLLOW (UW2 plan stage U6 step 2c, UWModernLayout.IsSpellHollowShown): the second game's left hollow of its
+/// marble ledge as the element's picture, the spells at the frame's places in it (the first at the right), the
+/// hollow's outline as the rune hollow's.
 /// </summary>
 public class UWModernActiveSpells : UWModernPart
 {
@@ -28,8 +33,17 @@ public class UWModernActiveSpells : UWModernPart
     {
     }
 
+    /// <summary>The hollow behind the spells (IsSpellHollowShown), under the icons.</summary>
+    private RawImage mOHollow;
+
+    private readonly UWVersionedTexture mOHollowArt = new UWVersionedTexture();
+
     public override void Build(Transform pORoot)
     {
+        mOHollow = UWUiKit.CreateRawImage(pORoot, "Spell hollow", Vector2.zero, Vector2.zero);
+        UWPixelArtUI.Apply(mOHollow);
+        mOHollow.enabled = false;
+
         mOSpellIcons = new RawImage[UWPlayerVitals.MaxActiveSpells];
         mOSpellTextures = new Texture2D[UWPlayerVitals.MaxActiveSpells];
 
@@ -44,7 +58,7 @@ public class UWModernActiveSpells : UWModernPart
         lOTipSpace.anchorMax = Vector2.one;
         lOTipSpace.offsetMin = Vector2.zero;
         lOTipSpace.offsetMax = Vector2.zero;
-        mOSpellTip = UWUiKit.CreateText(lOTipSpace, "Spell hover", Vector2.zero, new Vector2(1f, 1f), TextAnchor.UpperRight, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
+        mOSpellTip = UWUiKit.CreateText(lOTipSpace, "Spell hover", Vector2.zero, new Vector2(1f, 1f), TextAnchor.UpperRight, UWModernPalette.HudText, mOSession.TextUi, UWUiKit.HudText);
     }
 
     /// <summary>A new scale builds the icons again.</summary>
@@ -60,14 +74,16 @@ public class UWModernActiveSpells : UWModernPart
         fPlaceSpells();
     }
 
-    /// <summary>The active spells top left, rebuilt when they change (ActiveSpellVersion), as the
-    /// classic shelf builds them (UWHudRunes).</summary>
+    /// <summary>The active spells, rebuilt when they change (IUWModernMagic.ActiveSpellVersion), from the
+    /// pictures the game's host names (the first game's as the classic shelf builds them, UWHudRunes).</summary>
     private void fUpdateSpells()
     {
-        if (miSpellVersion == mOCharacter.Vitals.ActiveSpellVersion)
+        IUWModernMagic lOMagic = mOSession.Magic;
+
+        if (miSpellVersion == lOMagic.ActiveSpellVersion)
             return;
 
-        miSpellVersion = mOCharacter.Vitals.ActiveSpellVersion;
+        miSpellVersion = lOMagic.ActiveSpellVersion;
 
         for (int liSlot = 0; liSlot < mOSpellIcons.Length; liSlot++)
         {
@@ -77,13 +93,12 @@ public class UWModernActiveSpells : UWModernPart
 
             UWTexture lOSource = null;
 
-            if (liSlot < mOCharacter.Vitals.ActiveSpells.Count)
+            if (liSlot < lOMagic.ActiveSpellCount)
             {
-                UWActiveSpellEffect lOSpell = mOCharacter.Vitals.ActiveSpells[liSlot];
-                int liIcon = UWRunicMagic.GetIconIndex(lOSpell.MajorClass, lOSpell.MinorClass);
+                int liIcon = lOMagic.ActiveSpellPicture(liSlot);
 
-                if (liIcon < UWRunicMagic.NoIcon)
-                    lOSource = mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.SPELLS, liIcon);
+                if (liIcon >= 0)
+                    lOSource = mOSession.Data.Textures.GetTextureByType(UWTexture.TextureTypes.SPELLS, liIcon);
             }
 
             if (lOSource == null)
@@ -93,7 +108,7 @@ public class UWModernActiveSpells : UWModernPart
             }
 
             UWIconPalette.ApplySmooth(lOImage);
-            mOSpellTextures[liSlot] = UWIconCache.Texture(lOSource, mOUi.TextureFilterMode);
+            mOSpellTextures[liSlot] = UWIconCache.Texture(lOSource, mOSession.Filter);
             lOImage.texture = mOSpellTextures[liSlot];
             lOImage.enabled = true;
         }
@@ -106,6 +121,11 @@ public class UWModernActiveSpells : UWModernPart
     /// </summary>
     private void fPlaceSpells()
     {
+        if (UWModernLayout.IsSpellHollowShown && fPlaceInHollow())
+            return;
+
+        mOHollow.enabled = false;
+
         float liScale = fScaleOf(UWModernLayout.ElementEnum.Spells);
         float lfMargin = 4f * miPixelScale;
         float lfRight = Screen.width - lfMargin;
@@ -175,15 +195,104 @@ public class UWModernActiveSpells : UWModernPart
         }
 
         // The hover text below the row, right-aligned to it.
-        string lsTip = HoveredSpell >= 0 && mOUi.Runes != null ? mOUi.Runes.ActiveSpellText(HoveredSpell) : string.Empty;
+        string lsTip = HoveredSpell >= 0 ? mOSession.Magic.ActiveSpellText(HoveredSpell) : string.Empty;
 
         mOSpellTip.enabled = !string.IsNullOrEmpty(lsTip);
         mOSpellTip.text = lsTip;
         mOSpellTip.fontSize = fFontOf(UWModernLayout.ElementEnum.Spells);
 
+        fPlaceTip(lfRight, lfTop, lfTop - (17f * liScale), 2f * liScale);
+    }
+
+    /// <summary>
+    /// The hover text right-aligned to the spells, below them - or above them where the screen has no room below (per user
+    /// at the test of 202, 2026-11-24: the hollow at the bottom of the screen showed its text under the screen's edge).
+    /// </summary>
+    private void fPlaceTip(float pfRight, float pfTop, float pfBottom, float pfGap)
+    {
         RectTransform lOTip = (RectTransform)mOSpellTip.transform;
-        lOTip.anchoredPosition = new Vector2(lfRight, lfTop - (19f * liScale));
-        lOTip.sizeDelta = new Vector2(600f, FontSize * 2f);
+        float lfHeight = FontSize * 2f;
+        bool lbAbove = pfBottom - pfGap - lfHeight < 0f;
+
+        mOSpellTip.alignment = lbAbove ? TextAnchor.LowerRight : TextAnchor.UpperRight;
+        lOTip.anchoredPosition = new Vector2(pfRight, lbAbove ? pfTop + pfGap + lfHeight : pfBottom - pfGap);
+        lOTip.sizeDelta = new Vector2(600f, lfHeight);
+    }
+
+    /// <summary>
+    /// The spells in the hollow: the hollow's picture as the element (by default where the row stands, at the top right),
+    /// each spell at its frame place in it; false without the picture (the row then).
+    /// </summary>
+    private bool fPlaceInHollow()
+    {
+        bool lbOutline = UWModernClassicPlus.RuneHollowOutline;
+        UWArtStamp lOStamp = UWVersionedTexture.Colours(lbOutline ? 1 : 0);
+
+        if (!mOHollowArt.IsCurrent(lOStamp))
+        {
+            UWPicture lOPicture = UWDataImport.Presentation.UWFrameCutBuilder.BuildSpellHollow(mOSession.Data.Textures, lbOutline);
+
+            mOHollowArt.Set(lOStamp, lOPicture != null ? UWTextureFactory.FromPicture(lOPicture, mOSession.Filter, "UWModernActiveSpells hollow") : null);
+        }
+
+        Texture2D lOHollow = mOHollowArt.Texture;
+
+        if (lOHollow == null)
+            return false;
+
+        int liPad = lbOutline ? 1 : 0;
+        float liScale = fScaleOf(UWModernLayout.ElementEnum.Spells);
+        float lfAspect = liScale * UWModernHudArt.PixelAspectX;
+        float lfMargin = 4f * miPixelScale;
+        float lfWidth = lOHollow.width * lfAspect;
+        float lfHeight = lOHollow.height * liScale;
+        float lfRight = Screen.width - lfMargin;
+        UWModernMinimap lOMap = UWModernMinimap.Instance;
+
+        if (lOMap != null && lOMap.ScreenRect.width > 0f)
+            lfRight = Mathf.Min(lfRight, lOMap.ScreenRect.xMin - lfMargin);
+
+        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Spells,
+            new Rect(lfRight - lfWidth, Screen.height - lfMargin - lfHeight, lfWidth, lfHeight));
+
+        UWModernLayout.Report(UWModernLayout.ElementEnum.Spells, lOPlaced);
+
+        mOHollow.texture = lOHollow;
+        mOHollow.enabled = true;
+        ((RectTransform)mOHollow.transform).anchoredPosition = lOPlaced.position;
+        ((RectTransform)mOHollow.transform).sizeDelta = lOPlaced.size;
+
+        for (int liSlot = 0; liSlot < mOSpellIcons.Length; liSlot++)
+        {
+            RawImage lOImage = mOSpellIcons[liSlot];
+            Texture2D lOTexture = mOSpellTextures[liSlot];
+
+            if (!lOImage.enabled || lOTexture == null || liSlot >= UWClassicLayoutUw2.Runes.SpellX.Length)
+            {
+                mOSpellRects[liSlot] = Rect.zero;
+                continue;
+            }
+
+            UWDataImport.Presentation.UWFrameCutBuilder.SpellHollowIcon(liSlot, out int liX, out int liY);
+
+            Rect lORect = new Rect(lOPlaced.x + ((liPad + liX) * lfAspect), lOPlaced.yMax - ((liPad + liY + lOTexture.height) * liScale),
+                lOTexture.width * lfAspect, lOTexture.height * liScale);
+
+            mOSpellRects[liSlot] = lORect;
+            ((RectTransform)lOImage.transform).anchoredPosition = lORect.position;
+            ((RectTransform)lOImage.transform).sizeDelta = lORect.size;
+        }
+
+        // The hover text below the hollow, right-aligned to it - above it at the screen's bottom.
+        string lsTip = HoveredSpell >= 0 ? mOSession.Magic.ActiveSpellText(HoveredSpell) : string.Empty;
+
+        mOSpellTip.enabled = !string.IsNullOrEmpty(lsTip);
+        mOSpellTip.text = lsTip;
+        mOSpellTip.fontSize = fFontOf(UWModernLayout.ElementEnum.Spells);
+
+        fPlaceTip(lOPlaced.xMax, lOPlaced.yMax, lOPlaced.y, 2f * liScale);
+
+        return true;
     }
 
     /// <summary>The active spell under a screen point, -1 for none.</summary>

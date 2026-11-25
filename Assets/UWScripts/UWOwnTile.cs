@@ -160,6 +160,36 @@ public static class UWOwnTile
             ApplyDoors();
     }
 
+    /// <summary>The tile a world point lies in, as the shaders count it (UWPainterTileOf).</summary>
+    public static Vector2Int TileOf(Vector3 pOWorld)
+    {
+        float lfSize = UWDataImport.UWData.UWWorldScale.TileSize;
+
+        return new Vector2Int(Mathf.FloorToInt((pOWorld.x + (lfSize * 0.5f)) / lfSize), Mathf.FloorToInt((pOWorld.z + (lfSize * 0.5f)) / lfSize));
+    }
+
+    /// <summary>The deck plane of a bridge in the tile of a world point (RegisterBridge, the plane a unit below the deck),
+    /// false without one - for UWWorldPicker, which must not take what the deck covers.</summary>
+    public static bool TryGetDeck(Vector3 pOWorld, out float pfPlaneY)
+    {
+        pfPlaneY = 0f;
+
+        int liSize = UWDataImport.UWData.UWWorldScale.TilesPerAxis;
+        Vector2Int lOTile = TileOf(pOWorld);
+
+        if (msDoorPixels == null || lOTile.x < 0 || lOTile.y < 0 || lOTile.x >= liSize || lOTile.y >= liSize)
+            return false;
+
+        Color lOPlane = msDoorPixels[(lOTile.y * liSize) + lOTile.x];
+
+        if (lOPlane.r < 0.5f || lOPlane.g < 1.5f)
+            return false;
+
+        pfPlaneY = lOPlane.b;
+
+        return true;
+    }
+
     /// <summary>The bridge of the tile is gone (the plate over the Wine of Compassion is removed
     /// by a delete trap when lifted): what lay under it is free again. Called by UWBridgePlane
     /// when the bridge's object is destroyed, only for the level it was registered in.</summary>

@@ -64,9 +64,34 @@ namespace UWDataImport.UWData
 			fImportImages();
 
 			if (peGame == UWGame.Uw2)
+				fMarkZeroClearUw2();
+
+			if (peGame == UWGame.Uw2)
 				fImportScreensUw2();
 			else
 				fImportBitmaps();
+		}
+
+		/// <summary>The second game's pictures whose own colour 0 is clear (UWTexture.ZeroIsClear): what
+		/// pic_to_screen draws over the screen - the objects, the spell icons and the armour.</summary>
+		private static readonly UWTexture.TextureTypes[] msZeroClearTypesUw2 =
+		{
+			UWTexture.TextureTypes.OBJECTS, UWTexture.TextureTypes.SPELLS, UWTexture.TextureTypes.ARMOR_F, UWTexture.TextureTypes.ARMOR_M
+		};
+
+		private void fMarkZeroClearUw2()
+		{
+			foreach (UWTexture.TextureTypes leType in msZeroClearTypesUw2)
+			{
+				if (mOImageFiles == null || !mOImageFiles.TryGetValue(leType, out List<UWTexture> lOPictures))
+					continue;
+
+				foreach (UWTexture lOPicture in lOPictures)
+				{
+					if (lOPicture != null)
+						lOPicture.ZeroIsClear = true;
+				}
+			}
 		}
 
 		/// <summary>The second game's wall and floor textures, T64.TR.</summary>

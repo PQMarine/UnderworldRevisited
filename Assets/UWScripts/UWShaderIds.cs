@@ -111,6 +111,10 @@ public static class UWShaderIds
 
     public static readonly int RemasterXfer = fGlobal("_UWRemasterXfer");
 
+    /// <summary>The textures' look's filter for the sprites, the pictures on walls, the models' faces and the weapon
+    /// (UWTextureLook.FilterEnum: 0 none, 1 smooth; UWSpriteFilter.hlsl), 0 outside Remastered.</summary>
+    public static readonly int SpriteFilter = fGlobal("_UWSpriteFilter");
+
     public static readonly int RemasterPalettes = fGlobal("_UWRemasterPalettes");
 
     public static readonly int RemasterLightEffect = fGlobal("_UWRemasterLightEffect");

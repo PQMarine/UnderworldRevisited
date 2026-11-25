@@ -531,6 +531,14 @@ namespace UWDataImport.UWData
 			return lONoun == null ? base.LiteralLabel(psText) : UWText.Capitalised(fNounPhrase(lONoun, null, UWGrammarCase.Nominative, true));
 		}
 
+		/// <summary>A wall or floor in the nominative without article ("Falltür"); one without the format by the English rule.</summary>
+		public override string ChunkLabel(string psText)
+		{
+			Noun lONoun = fParse(psText);
+
+			return lONoun == null ? base.ChunkLabel(psText) : fNounPhrase(lONoun, null, UWGrammarCase.Nominative, false);
+		}
+
 		/// <summary>identify_inv's name in the nominative: "ein magisches Schwert", "magisches Schwert",
 		/// "3 Dolche".</summary>
 		public override string IdentifyName(string psRaw, int piCount, bool pbMagical, bool pbCursed, bool pbArticle)

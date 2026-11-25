@@ -118,10 +118,9 @@ namespace UWDataImport.UWData
 			fAdd("hud.sheet.point_to_spend", "1 point to spend");
 			fAdd("hud.sheet.points_to_spend", "{0} points to spend");
 
-			// The walk through the second game (UW2 plan phase 3 step 1): its message scroll's own lines
+			// The session of the second game (UW2 plan phase 3 step 1): its message scroll's own lines
 			// until the game's rules say them.
-			fAdd("hud.walk.not_yet", "Not yet in the walk through Ultima Underworld II.");
-			fAdd("hud.walk.door_locked", "The door is locked.");
+			fAdd("hud.uw2.door_locked", "The door is locked.");
 
 			// The second game's statistics page: the level with its ordinal (STATS.C sp_hdr: ST, ND, RD,
 			// TH), and a flask's value after the game's "Your current vitality is" (flask_info).

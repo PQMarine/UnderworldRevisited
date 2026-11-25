@@ -156,7 +156,7 @@ internal sealed class UWModernBagSplit
     /// <summary>The thing lying where the box was opened now.</summary>
     private UWObject fSplitSource()
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         if (lOInventory == null)
             return null;
@@ -319,7 +319,7 @@ internal sealed class UWModernBagSplit
         Window lOWindow = mOSplitWindow;
         int liSlot = miSplitSlot;
         UWArmorItemMap.BodySlot leEquip = meSplitEquip;
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         End();
 
@@ -369,7 +369,7 @@ internal sealed class UWModernBagSplit
         UWArtStamp lOStamp = UWVersionedTexture.Colours();
 
         if (!mOSplitBackArt.IsCurrent(lOStamp))
-            mOSplitBack.texture = mOSplitBackArt.Set(lOStamp, UWModernHudArt.BuildLeather(mOBags.Data.Textures, SplitWidth, SplitHeight, mOBags.Ui.TextureFilterMode));
+            mOSplitBack.texture = mOSplitBackArt.Set(lOStamp, UWModernHudArt.BuildLeather(mOBags.Data.Textures, SplitWidth, SplitHeight, UWModernUi.Filter));
 
         // Over everything of the bags, the tooltip hidden.
         mOSplitRoot.SetAsLastSibling();
@@ -428,8 +428,6 @@ internal sealed class UWModernBagSplit
 
     private void fBuildSplit()
     {
-        UWGameUI lOUi = mOBags.Ui;
-
         mOSplitRoot = UWUiKit.CreateGroup(mOBags.View.Root, "Split stack");
 
         mOSplitBack = UWUiKit.CreateRawImage(mOSplitRoot, "Leather", true);
@@ -437,21 +435,21 @@ internal sealed class UWModernBagSplit
 
         mOSplitBox = UWUiKit.CreateImage(mOSplitRoot, "Number box", UWModernPalette.InputFill);
 
-        mOSplitNumber = UWUiKit.CreateText(mOSplitRoot, "Number", TextAnchor.MiddleCenter, UWModernPalette.HudText, lOUi);
+        mOSplitNumber = UWUiKit.CreateText(mOSplitRoot, "Number", TextAnchor.MiddleCenter, UWModernPalette.HudText, UWModernUi.TextUi);
         mOSplitNumber.color = UWModernPalette.Text;
         mOSplitNumber.supportRichText = true;
 
         mOSplitMinus = UWUiKit.CreateRawImage(mOSplitRoot, "Minus");
-        mOSplitMinusText = UWUiKit.CreateText(mOSplitRoot, "Minus text", TextAnchor.MiddleCenter, UWModernPalette.HudText, lOUi);
+        mOSplitMinusText = UWUiKit.CreateText(mOSplitRoot, "Minus text", TextAnchor.MiddleCenter, UWModernPalette.HudText, UWModernUi.TextUi);
         mOSplitMinusText.text = "−";
         mOSplitMinusText.color = UWModernPalette.LightText;
 
         mOSplitPlus = UWUiKit.CreateRawImage(mOSplitRoot, "Plus");
-        mOSplitPlusText = UWUiKit.CreateText(mOSplitRoot, "Plus text", TextAnchor.MiddleCenter, UWModernPalette.HudText, lOUi);
+        mOSplitPlusText = UWUiKit.CreateText(mOSplitRoot, "Plus text", TextAnchor.MiddleCenter, UWModernPalette.HudText, UWModernUi.TextUi);
         mOSplitPlusText.text = "+";
         mOSplitPlusText.color = UWModernPalette.LightText;
 
-        mOSplitOk = UWUiKit.CreateText(mOSplitRoot, "OK", TextAnchor.MiddleCenter, UWModernPalette.HudText, lOUi);
+        mOSplitOk = UWUiKit.CreateText(mOSplitRoot, "OK", TextAnchor.MiddleCenter, UWModernPalette.HudText, UWModernUi.TextUi);
         mOSplitOk.text = UWText.T("hud.split.ok");
     }
 

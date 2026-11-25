@@ -5,7 +5,7 @@ using UWDataImport.UWData;
 
 /// <summary>
 /// THE SECOND GAME'S SLEEP (UW2 plan phase 4; player_sleep, uw2 game/SKILLS.C:421): the night is UWSleepRules', the
-/// one the first game runs. This is its host on the walk's side: the three ways in (the sleep key and the pack's
+/// one the first game runs. This is its host on the session's side: the three ways in (the sleep key and the pack's
 /// bedroll, the bed in the world, passing out drunk), the numbers into the record at once, and the night's
 /// presentation. The view goes black on a canvas of its own over the view window, the scene's UWGameUI stands idle.
 /// The night's music comes from UWAudioService (phase 5 part A); the dreams are cutscenes of phase 5 part D, until then
@@ -178,7 +178,7 @@ public sealed class UWSleepUw2 : MonoBehaviour
         if (liDream < 0 || lOPlayer == null)
             return;
 
-        Debug.Log("[Walk] The night's dream " + liDream + " (cutscene " + (UWStoryRulesUw2.FirstDreamCutscene + liDream) + ").");
+        Debug.Log("[Session] The night's dream " + liDream + " (cutscene " + (UWStoryRulesUw2.FirstDreamCutscene + liDream) + ").");
         UWStoryRulesUw2.MarkDreamShown(pOFile, liDream);
 
         // The night's black lies over the cutscenes (UWUiSorting.NightUw2 above Intro): the dream takes its place, as
@@ -202,8 +202,8 @@ public sealed class UWSleepUw2 : MonoBehaviour
         UWVoidRulesUw2.GoVoid(pOFile, piLevel, lOSpot.Tile.X, lOSpot.Tile.Y, UWHeadings.DegreesToHeadingByte(pOWorld.Player.ViewYawDegrees),
             UWRandom.Next(UWOriginalRandom.Range), UWRandom.Next(UWOriginalRandom.Range), UWRandom.Next(UWOriginalRandom.Range),
             UWRandom.Next(UWOriginalRandom.Range), out int liX, out int liY);
-        Debug.Log("[Walk] The dream plant's night: into the Ethereal Void at " + liX + "/" + liY + ".");
-        lOLoader.WalkTeleport(new UWTeleportUw2.Target { Level = UWVoidRulesUw2.VoidLevel, TileX = liX, TileY = liY });
+        Debug.Log("[Session] The dream plant's night: into the Ethereal Void at " + liX + "/" + liY + ".");
+        lOLoader.Uw2Teleport(new UWTeleportUw2.Target { Level = UWVoidRulesUw2.VoidLevel, TileX = liX, TileY = liY });
     }
 
     /// <summary>
@@ -226,11 +226,11 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
         UWVoidRulesUw2.Wake(lOFile);
 
-        if (UWWalkUw2View.Current != null)
-            UWWalkUw2View.Current.DropCursorItem();
+        if (UWWorldViewUw2.Current != null)
+            UWWorldViewUw2.Current.DropCursorItem();
 
-        Debug.Log("[Walk] Awake from the Void: back to level " + liLevel + ", " + liX + "/" + liY + ".");
-        lOLoader.WalkTeleport(new UWTeleportUw2.Target { Level = liLevel, TileX = liX, TileY = liY, HasHeading = true, Heading = liHeading << 8 });
+        Debug.Log("[Session] Awake from the Void: back to level " + liLevel + ", " + liX + "/" + liY + ".");
+        lOLoader.Uw2Teleport(new UWTeleportUw2.Target { Level = liLevel, TileX = liX, TileY = liY, HasHeading = true, Heading = liHeading << 8 });
 
         // do_dreamret's set_new_music(10) (SKILLS.C:717), after the level's walking choice (UW2 plan phase 5 part B).
         UWAudioService.Uw2Request(UWMusicSelectorUw2.FollowTheme);
@@ -332,7 +332,7 @@ public sealed class UWSleepUw2 : MonoBehaviour
     /// the classic one.
     /// </summary>
     /// <summary>fill_FB: the second game's view in one palette colour for a moment - the night's flashes and, since 2026-11-17,
-    /// every FlashWindow of the walk (UWPresentation: a critical hit, the special-effect trap, the swim check, spells).</summary>
+    /// every FlashWindow of the session (UWPresentation: a critical hit, the special-effect trap, the swim check, spells).</summary>
     public void ShowFlash(DataImport pOData, int piPaletteIndex, float pfSeconds)
     {
         if (pfSeconds <= 0f || pOData == null || pOData.Palettes == null)
@@ -396,7 +396,7 @@ public sealed class UWSleepUw2 : MonoBehaviour
         return new NightPresentation(this, pOWorld.Presentation, pOWorld.Data);
     }
 
-    /// <summary>The night's lines go to the second game's scroll by its own block, the black to the walk's view; a
+    /// <summary>The night's lines go to the second game's scroll by its own block, the black to the session's view; a
     /// cutscene to the world's presentation; the first game's night theme is dropped, the second's comes from fSleep. The rest is the world's.</summary>
     private sealed class NightPresentation : IUWPresentation
     {
@@ -458,7 +458,7 @@ public sealed class UWSleepUw2 : MonoBehaviour
         /// <summary>
         /// A cutscene goes to the world's presentation (per user 2026-11-18: the Guardian's speech on level 26, a spell
         /// trap of class 14 behind an enter trigger, logged "NOT BUILT" while the original plays it). Every trap host of
-        /// the second game takes this presentation while the sleep component is there, which is the whole walk, so the
+        /// the second game takes this presentation while the sleep component is there, which is the whole session, so the
         /// "no cutscene yet" of before phase 5 part D swallowed them all.
         /// </summary>
         public bool PlayCutscene(int piCutscene)

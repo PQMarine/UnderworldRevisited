@@ -554,10 +554,10 @@ public sealed class UWHudPanel
             lORect.anchorMin = new Vector2(0f, 1f);
             lORect.anchorMax = new Vector2(0f, 1f);
             lORect.pivot = new Vector2(0f, 1f);
-            // The grid of the rune shelf, measured on the picture (UWRuneShelfModel.SlotLeft and
+            // The grid of the rune shelf, measured on the picture (UWRuneTabletGeometry.SlotLeft and
             // SlotTop): one pixel right and one down since 2026-09-26 (per user, against the
             // original).
-            lORect.anchoredPosition = new Vector2(UWRuneShelfModel.SlotLeft(liRune), -UWRuneShelfModel.SlotTop(liRune));
+            lORect.anchoredPosition = new Vector2(UWRuneTabletGeometry.Uw1.SlotLeft(liRune), -UWRuneTabletGeometry.Uw1.SlotTop(liRune));
             lORect.sizeDelta = new Vector2(lOSource.Width, lOSource.Height);
 
             RawImage lOImage = lOObject.GetComponent<RawImage>();

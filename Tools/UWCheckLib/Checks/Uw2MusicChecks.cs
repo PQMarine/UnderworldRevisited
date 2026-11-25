@@ -7,7 +7,7 @@ namespace UnderworldRevisited.Tools
 {
     /// <summary>
     /// THE SECOND GAME'S MUSIC (UWMusicSelectorUw2, UW2 plan phase 5 part A): the walking themes by world, the menu's
-    /// theme followed by 10, the walk's first theme, a level change within a world and into another, the armed theme,
+    /// theme followed by 10, the session's first theme, a level change within a world and into another, the armed theme,
     /// the victory theme holding off requests, the combat timeout and the eight seconds between combat themes; with
     /// the data, every theme's two pieces.
     /// </summary>
@@ -46,7 +46,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckUw2Music(CheckContext pOContext)
         {
-            Check.Group("UW2 music: walking themes by world, the menu, the walk, the armed and victory themes, combat");
+            Check.Group("UW2 music: walking themes by world, the menu, the session, the armed and victory themes, combat");
 
             // The worlds: (level - 1) / 8, nine; each its three walking themes.
             Check.Str("the worlds of levels 1, 8, 9, 17, 69, 80 (kept in the table) | world 0's and 8's walking themes",
@@ -72,7 +72,7 @@ namespace UnderworldRevisited.Tools
 
             Check.Str("the menu: theme 1 (a piece playing stays) | over: 10, and 10 again", lsMenu, "1 | 10 10");
 
-            // The walk on level 1: the world's first theme at once, over the menu's; a level within the world keeps it,
+            // The session on level 1: the world's first theme at once, over the menu's; a level within the world keeps it,
             // the next world (level 9) its first; the weapon drawn: 5; sheathed: one of the world's three.
             lOMusic = new UWMusicSelectorUw2(lOOut);
             lOMusic.LoadNewMusic(UWMusicSelectorUw2.MenuTheme);
@@ -90,10 +90,10 @@ namespace UnderworldRevisited.Tools
             lOMusic.ChangeMusicMaybe(false, true, 9, 4f);
             int liSheathed = lOMusic.CurrentTheme;
 
-            Check.Str("the walk: the world's first (10), kept on level 3, level 9's first (9), drawn 5 | sheathed: one of 9 10 15",
+            Check.Str("the session: the world's first (10), kept on level 3, level 9's first (9), drawn 5 | sheathed: one of 9 10 15",
                 lsWalk + " | " + (liSheathed == 9 || liSheathed == 10 || liSheathed == 15), "10 9 5 | True");
 
-            // A piece over in the walk: a walking theme repeats or another of the world; the weapon drawn after a walking
+            // A piece over in the session: a walking theme repeats or another of the world; the weapon drawn after a walking
             // theme: 5; the armed theme over, weapon still drawn: 5 again.
             lOOut.IsPlaying = false;
             lOMusic.ChangeMusicMaybe(true, true, 9, 5f);

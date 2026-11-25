@@ -59,7 +59,7 @@ namespace UWDataImport.UWData
 		/// open one stands 24 above the floor of its tile, almost every closed one exactly on it -
 		/// portcullises included (2026-09-11).
 		/// </summary>
-		private const int OpenDoorRaise = 24;
+		private const int OpenDoorRaise = UWDoorRules.OpenRaise;
 
 		/// <summary>Switches: the image with bit 8 set is the pressed one.</summary>
 		private const int PressedSwitchBit = 8;

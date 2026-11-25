@@ -55,7 +55,13 @@ namespace UWDataImport.UWData
 		/// 2026-09-01, see UWHudInventory.fRefreshWeight).</summary>
 		public static int RemainingStones(UWPlayerData pOPlayer, int piCarriedTenthStones)
 		{
-			return System.Math.Max(0, RemainingTenthStones(pOPlayer, piCarriedTenthStones)) / 10;
+			return RemainingStones(pOPlayer != null ? pOPlayer.MaxWeight : 0, piCarriedTenthStones);
+		}
+
+		/// <summary>The same from the most the character carries, in tenths (IUWModernCharacter.MaxLoad: either game).</summary>
+		public static int RemainingStones(int piMaxTenthStones, int piCarriedTenthStones)
+		{
+			return System.Math.Max(0, piMaxTenthStones - piCarriedTenthStones) / 10;
 		}
 
 		/// <summary>Tenths of stones as a readable number, e.g. "12.4".</summary>

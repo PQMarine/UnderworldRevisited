@@ -116,19 +116,93 @@ namespace UnderworldRevisited.Tools
                 + UWBlackrockGemLook.Colour(0, 0xFF, 5, 0x80).ToString("X2") + UWBlackrockGemLook.Colour(4, 0x09, 5, 0),
                 "0,1,2,3,12,13,14,15,16 | 4D 52 52 4D 52 4F 52 52 | 53565653 | 504C4F-1");
 
+            // THE MOONGATE (UWMoongateLook, do_rect's flag 0x80, per user 2026-11-22): its faces (record colour, Gouraud, the
+            // corner shades as read) in both games, and the colour of the Void's yellow gate (link 0x237) over 512 ticks of the
+            // clock, a face with record colour 2, and the volcano gate (link 0x2C0).
+            foreach (UW3DModelImport lOGame in new[] { lOUw2, lOUw1 })
+            {
+                if (lOGame == null)
+                    continue;
+
+                UW3DModel lOGate = lOGame.GetModel(UWMoongateLook.Model);
+                List<string> lsGateFaces = new List<string>();
+
+                foreach (UW3DModelFace lOFace in lOGate.Faces)
+                    lsGateFaces.Add(lOFace.ColorIndex + (lOFace.IsGouraud ? "g" : "f"));
+
+                List<string> lsShades = new List<string>();
+
+                foreach (KeyValuePair<int, byte> lOShade in lOGate.VertexDarkValues)
+                    lsShades.Add(lOShade.Value.ToString());
+
+                Check.Str("models: the moongate's faces and corner shades as read (" + (lOGame == lOUw2 ? "uw2" : "uw1") + ")",
+                    string.Join(",", lsGateFaces) + " | " + string.Join("", lsShades), "0g,0g,0g,0g | 555522220");
+            }
+
+            // THE FACES SEEN FROM ONE SIDE (UW3DModelLayering.FaceFronts, per user 2026-11-22: the inner sides of the Void's
+            // bridges are see-through in the original): the bridge's deck from above, its underside from below, its two side
+            // walls from outside, in both games; and how many of the chest's faces are one-sided.
+            foreach (UW3DModelImport lOGame in new[] { lOUw2, lOUw1 })
+            {
+                if (lOGame == null)
+                    continue;
+
+                List<string> lsFronts = new List<string>();
+
+                foreach (UWVector3? lOFront in UW3DModelLayering.FaceFronts(lOGame.GetModel(UW3DModelImport.ModelIndex.Bridge)))
+                    lsFronts.Add(lOFront.HasValue
+                        ? string.Format("{0:0},{1:0},{2:0}", lOFront.Value.X, lOFront.Value.Y, lOFront.Value.Z) : "both");
+
+                Check.Str("models: the bridge's faces seen from one side, X,Y,height (" + (lOGame == lOUw2 ? "uw2" : "uw1") + ")",
+                    string.Join(" ", lsFronts), "0,0,1 0,0,-1 1,0,0 -1,0,0");
+            }
+
+            List<string> lsGateColours = new List<string>();
+
+            for (int liTick = 0; liTick < 0x200; liTick += 0x40)
+                lsGateColours.Add(UWMoongateLook.Colour(0x237, 0, liTick).ToString("X2"));
+
+            Check.Str("models: the moongate's colour over the clock (link 0x237), record colour 2, the volcano gate",
+                string.Join(" ", lsGateColours) + " | " + UWMoongateLook.Colour(0x237, 2, 0x40).ToString("X2") + " | "
+                + UWMoongateLook.Colour(0x2C0, 0, 0).ToString("X2"),
+                "37 38 39 3A 3A 39 38 37 | 3A | C0");
+
             if (lOUw1 != null)
                 Check.Str("uw2 models: the first game's table through GetObjectModel - shrine, bench",
                     lOUw1.GetObjectModel(0x157) + " " + lOUw1.GetObjectModel(0x150),
                     UW3DModelImport.ModelIndex.Shrine + " " + UW3DModelImport.ModelIndex.Bench);
 
             // The original paints a back-face test's faces in program order (UW3DModelLayering, per user 2026-11-18, the
-            // chest's bands): the chest's faces laid on their tests' planes and layered - how many move and how far at most
-            // (in model units), in either game; the portcullis keeps its shape.
+            // chest's bands): only a face covering an earlier one moves (per user 2026-11-22: cracks in the boulders and the
+            // shrine) - how many move and how far at most (in model units): the chest in either game, the portcullis, the three
+            // boulders, the shrine, the table.
             if (lOUw1 != null)
-                Check.Str("models: the chest layered as the original paints it (moved faces, the farthest in units), both games; the portcullis untouched",
+                Check.Str("models: faces moved to paint over (count, farthest in units): chest uw1, uw2 | portcullis | boulders | shrine | table",
                     fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.Chest)) + " | " + fLayered(lOUw2.GetModel(UW3DModelImport.ModelIndex.Chest))
-                    + " | " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.Portcullis)),
-                    "33 3.64 | 33 3.64 | 0 0.00");
+                    + " | " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.Portcullis)) + " | "
+                    + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.SmallBoulder)) + ", " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.MediumBoulder))
+                    + ", " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.LargeBoulder)) + " | " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.Shrine))
+                    + " | " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.Table)),
+                    "19 1.14 | 19 1.14 | 0 0.00 | 0 0.00, 0 0.00, 0 0.00 | 0 0.00 | 0 0.00");
+
+            // THE T-JUNCTIONS (UW3DModelLayering.CloseTJunctions, run by the import): the shrine's loop and crossbar, the
+            // large boulder - the faces' corner counts after it, and a second run finds nothing more.
+            if (lOUw1 != null)
+            {
+                UW3DModel lOShrine = lOUw1.GetModel(UW3DModelImport.ModelIndex.Shrine);
+                UW3DModel lOLarge = lOUw1.GetModel(UW3DModelImport.ModelIndex.LargeBoulder);
+                int liShrineCorners = 0, liLargeCorners = 0;
+
+                foreach (UW3DModelFace lOFace in lOShrine.Faces)
+                    liShrineCorners += lOFace.VertexIndices.Count;
+
+                foreach (UW3DModelFace lOFace in lOLarge.Faces)
+                    liLargeCorners += lOFace.VertexIndices.Count;
+
+                Check.Str("models: corners after closing the T-junctions (shrine, large boulder), and a second run",
+                    liShrineCorners + " " + liLargeCorners + " | " + UW3DModelLayering.CloseTJunctions(lOShrine) + " " + UW3DModelLayering.CloseTJunctions(lOLarge),
+                    "261 181 | 0 0");
+            }
         }
 
         private static string fLayered(UW3DModel pOModel)

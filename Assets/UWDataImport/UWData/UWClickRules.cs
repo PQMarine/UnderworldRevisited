@@ -457,6 +457,54 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// THE SECOND GAME'S COMMAND BAR (get_iconreg_button, uw2 ui/ICONS.C:96-98; UW2 plan stage U7 step 2): which icon
+		/// a click at a frame column and a row from the top means - the column by 26, the row by 15 from the bar's top
+		/// (0 fight, 1 use, 2 get above, 3 talk, 4 look, 5 options below); -1 outside the bar's area. The classic screen
+		/// (UWGameScreenUw2) and Classic Wide ask it.
+		/// </summary>
+		public static int CommandIconAtUw2(float pfColumn, float pfRowFromTop)
+		{
+			if (pfColumn < UWClassicLayoutUw2.Commands.AreaLeft || pfColumn > UWClassicLayoutUw2.Commands.AreaRight
+				|| pfRowFromTop < UWClassicLayoutUw2.Commands.AreaTop)
+				return -1;
+
+			int liColumn = (int)(pfColumn - UWClassicLayoutUw2.Commands.AreaLeft) / UWClassicLayoutUw2.Commands.IconWidth;
+			int liRow = (int)(pfRowFromTop - UWClassicLayoutUw2.Commands.AreaTop) / UWClassicLayoutUw2.Commands.IconHeight;
+			int liIcon = (System.Math.Min(liRow, 1) * 3) + liColumn;
+
+			return liColumn >= 0 && liColumn < 3 && liIcon >= 0 && liIcon <= CommandIconsUw2 - 1 ? liIcon : -1;
+		}
+
+		/// <summary>The second game's command icons, fight first.</summary>
+		public const int CommandIconsUw2 = 6;
+
+		public const int FightIconUw2 = 0;
+
+		/// <summary>
+		/// THE SECOND GAME'S FLASK AREA (flask_info, uw2 ui/GAMESCR.C:105-121; UW2 plan stage U7 step 2): whether a click
+		/// at a column and a row from the bottom lies in it (UWClassicLayoutUw2.FlaskClicks).
+		/// </summary>
+		public static bool IsInFlasksUw2(int piColumn, int piRowFromBottom)
+		{
+			return piColumn >= UWClassicLayoutUw2.FlaskClicks.Left && piColumn <= UWClassicLayoutUw2.FlaskClicks.Right
+				&& piRowFromBottom >= UWClassicLayoutUw2.FlaskClicks.BottomY && piRowFromBottom <= UWClassicLayoutUw2.FlaskClicks.TopY;
+		}
+
+		/// <summary>What a click in the second game's flask area means, relative to its corner (its left column, its
+		/// bottom row): between the chain's columns the chain above its tenth row and nothing below; elsewhere up to the
+		/// thirtieth row the vitality left of ManaFrom and the mana right of it, and nothing above.</summary>
+		public static FlaskPart FlaskAtUw2(int piRelativeX, int piRelativeY)
+		{
+			if (piRelativeX > UWClassicLayoutUw2.FlaskClicks.ChainFrom && piRelativeX < UWClassicLayoutUw2.FlaskClicks.ChainTo)
+				return piRelativeY > UWClassicLayoutUw2.FlaskClicks.ChainAbove ? FlaskPart.Chain : FlaskPart.None;
+
+			if (piRelativeY > UWClassicLayoutUw2.FlaskClicks.InfoUpTo)
+				return FlaskPart.None;
+
+			return piRelativeX < UWClassicLayoutUw2.FlaskClicks.ManaFrom ? FlaskPart.Vitality : FlaskPart.Mana;
+		}
+
+		/// <summary>
 		/// Which active spell a click means (LookAtActiveSpell_ovr119_2C9): slot 2 - x / 16
 		/// inside the area, so the first spell is the icon on the right (x 84 to 99), the second
 		/// 68 to 83, the third 52 to 67; the last three columns give -1, which no spell answers.

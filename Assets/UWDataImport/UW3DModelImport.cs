@@ -857,6 +857,9 @@ namespace UWDataImport
                 lOModel.Faces.Add(lOFace);
             }
 
+            // Corners on another face's edge go into that edge (UW3DModelLayering.CloseTJunctions).
+            UWData.UW3DModelLayering.CloseTJunctions(lOModel);
+
             return lOModel;
         }
 

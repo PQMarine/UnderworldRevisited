@@ -179,15 +179,17 @@ public sealed class UWVictoryScreens
 
     private const int Uw2FontColour = 0x52;
 
-    private const int Uw2LevelString = 0x2CA;
+    /// <summary>game_stats' get_string(0x2CA) and on: block n >> 9 (1, the general strings), string n & 0x1FF (per user
+    /// 2026-11-23: the lines read "15 Paladin" and "11" - the full number as the index found nothing in block 1).</summary>
+    private const int Uw2LevelString = 0x2CA & 0x1FF;
 
-    private const int Uw2FreedString = 0x2CB;
+    private const int Uw2FreedString = 0x2CB & 0x1FF;
 
-    private const int Uw2AfterString = 0x2CC;
+    private const int Uw2AfterString = 0x2CC & 0x1FF;
 
-    private const int Uw2DaysString = 0x2CD;
+    private const int Uw2DaysString = 0x2CD & 0x1FF;
 
-    private const int Uw2CheatedString = 0x2CE;
+    private const int Uw2CheatedString = 0x2CE & 0x1FF;
 
     private const int Uw2CheatedColour = 0x1F;
 

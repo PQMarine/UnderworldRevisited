@@ -64,7 +64,7 @@ public sealed class UWHelpMapTab : UWHelpTab
     /// </summary>
     protected override void OnDrawKit(UWHelpKitFlow pOFlow)
     {
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             fDrawSecondGame(pOFlow);
 

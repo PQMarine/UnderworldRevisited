@@ -30,12 +30,10 @@ public static class UWLockUseUw2
         if (lOAttack == null || !IsKeyOrLockpick(pOItem))
             return false;
 
-        lOAttack.AddMessage(UWItemMessages.UseOnWhat(pOData, pOItem.ID));
-
         if (pOItem.ID == UWObjectMechanics.LockpickObjectId)
-            lOAttack.BeginUseOn(pOItem, (pOTarget, pOEntity, pbCarried) => fPick(pOItem, pOTarget, pOEntity, pbCarried, pOInventory));
+            lOAttack.AskUseOn(pOItem, pOData, (pOTarget, pOEntity, pbCarried) => fPick(pOItem, pOTarget, pOEntity, pbCarried, pOInventory));
         else
-            lOAttack.BeginUseOn(pOItem, (pOTarget, pOEntity, pbCarried) => fKey(pOItem, pOTarget, pOEntity, pbCarried));
+            lOAttack.AskUseOn(pOItem, pOData, (pOTarget, pOEntity, pbCarried) => fKey(pOItem, pOTarget, pOEntity, pbCarried));
 
         return true;
     }
@@ -112,6 +110,37 @@ public static class UWLockUseUw2
         }
 
         lOAttack.AddGeneralMessage(lOResult.MessageIndex);
+    }
+
+    /// <summary>
+    /// THE MODERN SCHEME'S AUTOMATIC KEY ON THIS GAME (UW2 plan part U4e step 2, 2026-11-23; the first game's UWWorldUse.
+    /// KeyAtHand): the key in the pack (in bags too) that fits a closed, locked door, by the first game's search
+    /// (UWObjectMechanics.FindMatchingKey: never the lockpick, no key for a lock 0); null for none.
+    /// </summary>
+    public static UWObject KeyAtHand(UWDoor pODoor, UWInventoryModel pOInventory, UWLevelLoader pOLoader)
+    {
+        if (pODoor == null || !pODoor.IsClosed || !pODoor.IsLocked || pOInventory == null || pOLoader == null || pOLoader.CurrentLevel == null)
+            return null;
+
+        return UWObjectMechanics.FindMatchingKey(pOInventory.Backpack, pODoor.LockId, pOLoader.CurrentLevel.Masterlist);
+    }
+
+    /// <summary>The automatic key used: the lock rule as UseKeyOn's (UWLockRules.ToggleWithKey, the unlock triggers), its
+    /// line left to the caller, which names the key. True when the door came unlocked.</summary>
+    public static bool UnlockDoorWithKey(UWObject pOKey, UWDoor pODoor)
+    {
+        if (pOKey == null || pODoor == null)
+            return false;
+
+        int liMessage = UWLockRules.ToggleWithKey(pODoor.LockState, null, null, !pODoor.IsClosed, pOKey);
+
+        if (liMessage != UWLockRules.FirstKeyMessage + (int)UWLockRules.Outcome.Unlocked)
+            return false;
+
+        if (pODoor.Data != null)
+            fUnlockTriggers(pODoor.Data);
+
+        return true;
     }
 
     /// <summary>checkLock's checkTrap(who, door, 0xB) on an unlock.</summary>

@@ -129,7 +129,7 @@ internal sealed class UWModernBagMenu
 
     internal void Open(UWObject pOItem, Window pOWindow, int piSlot, UWArmorItemMap.BodySlot peEquip, Vector2 pOAt)
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         mOMenuActions.Clear();
 
@@ -164,7 +164,7 @@ internal sealed class UWModernBagMenu
         mOMenuActions.Add(MenuActionEnum.Cancel);
 
         // In a conversation nothing is used, as in the original (the rune panel is hidden there too).
-        if (UWModernBagTrade.IsTalking)
+        if (UWModernBagTrade.IsConversing)
         {
             mOMenuActions.Remove(MenuActionEnum.Use);
             mOMenuActions.Remove(MenuActionEnum.OpenRunes);
@@ -232,7 +232,7 @@ internal sealed class UWModernBagMenu
     /// <summary>The thing lying where the menu was opened now.</summary>
     private UWObject fMenuSource()
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         if (lOInventory == null)
             return null;
@@ -318,13 +318,12 @@ internal sealed class UWModernBagMenu
         Vector2 lOAt = mOMenuAt;
         UWEntityInfo lOEntity = mOMenuEntity;
         UWEntityInfo lOPickable = mOMenuPickable;
-        UWInventory lOInventory = mOBags.Inventory;
-        UWItemDrag lODrag = UWScene.ItemDrag;
-        Interaction lOInteraction = mOBags.Interaction;
+        UWInventoryModel lOInventory = mOBags.Inventory;
+        IUWModernSession lOGame = UWModernUi.Session;
 
         Close();
 
-        if (lOInventory == null || lOInteraction == null)
+        if (lOInventory == null || lOGame == null)
             return;
 
         switch (peAction)
@@ -332,19 +331,18 @@ internal sealed class UWModernBagMenu
             case MenuActionEnum.Talk:
             case MenuActionEnum.WorldUse:
                 if (lOEntity != null)
-                    lOInteraction.ModernUseThing(lOEntity, lOPickable);
+                    lOGame.World.UseThing(lOEntity, lOPickable);
 
                 break;
 
             case MenuActionEnum.WorldLook:
                 if (lOEntity != null)
-                    lOInteraction.LookAtTarget(lOEntity, null);
+                    lOGame.World.LookAt(lOEntity);
 
                 break;
 
             case MenuActionEnum.WorldPickUp:
-                if (lOEntity != null && UWWorldPickup.Take(lOInteraction, lOEntity, UWWorldPickup.WholeStack,
-                    UWWorldPickup.Destination.Pointer))
+                if (lOEntity != null && lOGame.World.TakeToPointer(lOEntity))
                 {
                     if (!mOBags.IsOpen)
                         mOBags.Open();
@@ -355,7 +353,7 @@ internal sealed class UWModernBagMenu
                 break;
 
             case MenuActionEnum.Use:
-                UWCarriedItemUse.Use(lODrag, lOItem, UWCarriedItemUse.Context.ModernMenu);
+                lOGame.Inventory.Use(lOItem, UWCarriedItemUse.Context.ModernMenu);
                 break;
 
             case MenuActionEnum.Open:
@@ -364,9 +362,7 @@ internal sealed class UWModernBagMenu
                 break;
 
             case MenuActionEnum.OpenRunes:
-                if (UWModernRunePanel.Instance != null)
-                    UWModernRunePanel.Instance.Open(UWModernRunePanel.TabEnum.Runes);
-
+                UWModernBags.OpenRunes(lOItem);
                 break;
 
             case MenuActionEnum.Equip:
@@ -379,7 +375,7 @@ internal sealed class UWModernBagMenu
                 if (lOInventory.TryUnequipAnywhere(leEquip))
                     lOInventory.ApplyCarriedLight();
                 else
-                    lOInteraction.AddGeneralMessage(UWStringIds.NoPlaceToPutMessage);
+                    lOGame.Messages.SayGeneral(UWStringIds.NoPlaceToPutMessage);
 
                 break;
 
@@ -429,7 +425,7 @@ internal sealed class UWModernBagMenu
         UWArtStamp lOStamp = UWVersionedTexture.Colours(liHeight);
 
         if (!mOMenuBackArt.IsCurrent(lOStamp))
-            mOMenuBack.texture = mOMenuBackArt.Set(lOStamp, UWModernHudArt.BuildLeather(mOBags.Data.Textures, MenuWidth, liHeight, mOBags.Ui.TextureFilterMode));
+            mOMenuBack.texture = mOMenuBackArt.Set(lOStamp, UWModernHudArt.BuildLeather(mOBags.Data.Textures, MenuWidth, liHeight, UWModernUi.Filter));
 
         // Over everything of the bags, the tooltip hidden.
         mOMenuRoot.SetAsLastSibling();
@@ -446,7 +442,7 @@ internal sealed class UWModernBagMenu
 
         while (mOMenuTexts.Count < mOMenuActions.Count)
         {
-            Text lOText = UWUiKit.CreateText(mOMenuRoot, "Entry", TextAnchor.MiddleLeft, UWModernPalette.HudText, mOBags.Ui);
+            Text lOText = UWUiKit.CreateText(mOMenuRoot, "Entry", TextAnchor.MiddleLeft, UWModernPalette.HudText, UWModernUi.TextUi);
             mOMenuTexts.Add(lOText);
         }
 

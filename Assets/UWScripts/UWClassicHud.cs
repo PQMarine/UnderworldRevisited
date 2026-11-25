@@ -95,6 +95,9 @@ public sealed class UWClassicHud
     {
         mWeaponImage = UWUiKit.CreateFrameImage(fFrame(), "Weapon", wLeftOffset, -wTopOffset, 1f, 1f, Color.white);
 
+        // The textures' look (UWTextureLook): smooth or sharp bilinear in Remastered.
+        UWWeaponFilterUI.Apply(mWeaponImage);
+
         // The widened frame moves the parts (UWClassicWide); the weapon with the hole's middle.
         UWClassicWide.Attach(fFrame());
         UWClassicWide.InHole((RectTransform)mWeaponImage.transform);

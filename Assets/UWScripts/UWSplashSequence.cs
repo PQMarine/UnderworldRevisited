@@ -123,7 +123,7 @@ public sealed class UWSplashSequence
 
             // THE SECOND GAME'S OPENING ONCE A RUN (per user 2026-11-17: loading SAVE3 from its menu played the logos and
             // the title again over the world): the original shows them at program start only (main: titlescr), and the
-            // second game's walk starts and loads through a scene restart none of the first game's flags marks. Asked
+            // second game's session starts and loads through a scene restart none of the first game's flags marks. Asked
             // here, by the data loaded: at OnStart the game in the settings is not yet the one starting.
             if (fDataIsUw2())
             {
@@ -219,7 +219,7 @@ public sealed class UWSplashSequence
         // THE SECOND GAME'S INTRODUCTION WITHOUT A SAVE (real_start's do_intro_scene(1), MAINMENU.C:65): after the
         // title, cutscenes 0 and 1, before the menu (UW2 plan phase 5 part D). Part of the opening, as the first
         // game's intro is.
-        if (lbAtStartup && fIsUw2 && !UWMainMenu.AnyWalkSave)
+        if (lbAtStartup && fIsUw2 && !UWMainMenu.AnyUw2Save)
         {
             mOPlayer.PlayCutscene(IntroductionCutscene, () => mOPlayer.PlayCutscene(IntroductionSecondCutscene));
 
@@ -229,7 +229,7 @@ public sealed class UWSplashSequence
         // THE GAME MUST NOT FLASH UP between the title and the main menu (per user,
         // 2026-09-22). The menu only appears in its own Update, a frame later - so black goes up
         // right here, in the same frame the picture goes, and UWMainMenu.Show takes it down.
-        // Not for the second game: its walk menu stood up behind the opening already and takes no cover down (per user
+        // Not for the second game: its main menu stood up behind the opening already and takes no cover down (per user
         // 2026-11-17: after the title the screen stayed black).
         if (lbAtStartup && UWMainMenu.WillAutoShow && !fIsUw2)
             UWScreenUi.ShowLoadingCover();

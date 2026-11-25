@@ -182,8 +182,8 @@ namespace UWDataImport.UWData
 			ViewAngle.Format = UWSettingFormat.Degrees;
 			fText(ViewGamma, true);
 			ViewGamma.Format = UWSettingFormat.TwoDecimals;
-			fText(XbrTextures, true);
-			fText(XbrSprites, true);
+			fText(TextureLook, true);
+			fChoices(TextureLook, new[] { "pixels", "smooth", "xbr" });
 			fText(OriginalWorldResolution);
 			fText(OriginalWorldResolutionFactor);
 			OriginalWorldResolutionFactor.Format = UWSettingFormat.Factor;
@@ -305,6 +305,8 @@ namespace UWDataImport.UWData
 			fShown(ModernRuneHollow);
 			fText(ModernRuneHollowOutline);
 			fChoices(ModernRuneHollowOutline, msOffOn);
+			fText(ModernSpellHollow);
+			fChoices(ModernSpellHollow, new[] { "row", "hollow" });
 
 			fShown(ModernStoneShelf);
 			fText(ModernStoneShelfWidth);

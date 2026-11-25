@@ -7,7 +7,9 @@ namespace UWDataImport.Presentation
 	/// <summary>
 	/// CLASSIC WIDE: the original's frame pulled to a wider screen (MAIN.BYT, COMPASS.GR; cleanup
 	/// 9.11, 2026-10-25: a builder of its own, UWHudArt forwards to it). Build reads the pictures,
-	/// Compose works on the frame picture and the compass's disc picture given.
+	/// Compose works on the frame picture and the compass's disc picture given. The bands, cuts,
+	/// sources and hole are the game's (UWClassicWideGeometry; the second game's frame since UW2 plan
+	/// stage U7 step 1, 2026-11-24); the static members below are the first game's.
 	/// </summary>
 	public static class UWClassicWideBuilder
 	{
@@ -59,9 +61,7 @@ namespace UWDataImport.Presentation
 		/// between the cuts, piExtra further right of the second cut.</summary>
 		public static int ClassicWideShiftX(int piX, int piY, int piExtra)
 		{
-			int liBand = piY < ClassicWideTopRows ? 0 : piY < ClassicWideLedgeTop ? 1 : piY < ClassicWideScrollTop ? 2 : 3;
-
-			return piX < msClassicWideCuts[liBand, 0] ? 0 : piX < msClassicWideCuts[liBand, 1] ? piExtra / 2 : piExtra;
+			return UWClassicWideGeometry.Uw1.ShiftX(piX, piY, piExtra);
 		}
 
 		/// <summary>The bands' first rows (the top bar from row 0) and the view's hole
@@ -84,18 +84,13 @@ namespace UWDataImport.Presentation
 
 		public const int ClassicWideCameraBottom = UWClassicLayout.Frame.WindowHoleBottom;
 
-		/// <summary>The two cuts of each band (top bar, view, ledge, scroll): UWClassicLayout.ClassicWide.Cuts.</summary>
-		private static readonly int[,] msClassicWideCuts = UWClassicLayout.ClassicWide.Cuts;
-
 		/// <summary>The band of the view (rows TopRows to LedgeTop), the hole between its cuts.</summary>
 		private const int ViewBand = 1;
 
 		/// <summary>A band's first (0) or second (1) cut, by a row from the top.</summary>
 		public static int ClassicWideCut(int piRow, int piWhich)
 		{
-			int liBand = piRow < ClassicWideTopRows ? 0 : piRow < ClassicWideLedgeTop ? 1 : piRow < ClassicWideScrollTop ? 2 : 3;
-
-			return msClassicWideCuts[liBand, piWhich];
+			return UWClassicWideGeometry.Uw1.Cut(piRow, piWhich);
 		}
 
 		/// <summary>The seed of the grown columns' sequence, one for all bands (UWSeededRandom).</summary>
@@ -103,15 +98,17 @@ namespace UWDataImport.Presentation
 
 		public static ClassicWideFrame Build(UWTextures pOTextures, int piExtra)
 		{
-			UWTexture lOCompassDisc = pOTextures.GetTextureByType(UWTexture.TextureTypes.COMPASS, 0);
+			UWClassicWideGeometry lOGeometry = UWClassicWideGeometry.Of(pOTextures);
+			UWTexture lOCompassDisc = lOGeometry.CoversBakedNeedle ? pOTextures.GetTextureByType(UWTexture.TextureTypes.COMPASS, 0) : null;
 
-			return Compose(UWMainFrame.Picture(pOTextures), lOCompassDisc != null ? UWPicture.From(lOCompassDisc) : null, piExtra);
+			return Compose(UWMainFrame.Picture(pOTextures), lOCompassDisc != null ? UWPicture.From(lOCompassDisc) : null, piExtra, lOGeometry);
 		}
 
 		/// <summary>The widened frame from the frame picture and the compass's disc picture
-		/// (COMPASS.GR 0; null: the baked needle stays).</summary>
-		public static ClassicWideFrame Compose(UWPicture pOMain, UWPicture pOCompassDisc, int piExtra)
+		/// (COMPASS.GR 0; null: the baked needle stays), cut as the game's geometry says (the first game's when none).</summary>
+		public static ClassicWideFrame Compose(UWPicture pOMain, UWPicture pOCompassDisc, int piExtra, UWClassicWideGeometry pOGeometry = null)
 		{
+			UWClassicWideGeometry lOGeometry = pOGeometry ?? UWClassicWideGeometry.Uw1;
 			UWPicture lOMain = pOMain;
 			int liExtra = Math.Max(0, piExtra);
 			int liLeft = liExtra / 2;
@@ -119,15 +116,15 @@ namespace UWDataImport.Presentation
 			int liHeight = lOMain.Height;
 			UWPicture lOOut = new UWPicture(liWidth, liHeight);
 			UWMask lOKnown = new UWMask(liWidth, liHeight);
-			int[] liBandTops = { 0, ClassicWideTopRows, ClassicWideLedgeTop, ClassicWideScrollTop, liHeight };
+			int[] liBandTops = { 0, lOGeometry.TopRows, lOGeometry.LedgeTop, lOGeometry.ScrollTop, liHeight };
 			UWSeededRandom lORandom = new UWSeededRandom(ClassicWideSeed);
 
 			for (int liBand = 0; liBand < 4; liBand++)
 			{
 				int liY0 = liBandTops[liBand];
 				int liY1 = liBandTops[liBand + 1];
-				int liCutLeft = msClassicWideCuts[liBand, 0];
-				int liCutRight = msClassicWideCuts[liBand, 1];
+				int[] liCuts = lOGeometry.Cuts[liBand];
+				int liCutCount = liCuts.Length;
 
 				for (int y = liY0; y < liY1; y++)
 				{
@@ -135,35 +132,48 @@ namespace UWDataImport.Presentation
 					// black dots in the view of Classic Wide): in rows 118 to 122 the one-pixel black rim steps in to
 					// x 53 and 222, onto the view band's cuts, and moved with the middle into the view - unseen until
 					// 2026-11-05, when the hole's flood still took every black pixel. Here a cut lying on an opaque
-					// pixel moves past it, row by row; the table (ClassicWideShiftX) stays as it is.
-					int liRowCutLeft = liCutLeft;
-					int liRowCutRight = liCutRight;
+					// pixel moves past it, row by row; the table (ClassicWideShiftX) stays as it is. The second game's
+					// frame: past a pixel that is not its window's black. The band's first and last cut.
+					int liRowCutLeft = liCuts[0];
+					int liRowCutRight = liCuts[liCutCount - 1];
 
 					if (liBand == ViewBand)
 					{
-						while (liRowCutLeft < liRowCutRight && lOMain.Get(liRowCutLeft, y).A != 0)
+						while (liRowCutLeft < liRowCutRight && !lOGeometry.IsHolePixel(lOMain.Get(liRowCutLeft, y)))
 							liRowCutLeft++;
 
-						while (liRowCutRight > liRowCutLeft && lOMain.Get(liRowCutRight - 1, y).A != 0)
+						while (liRowCutRight > liRowCutLeft && !lOGeometry.IsHolePixel(lOMain.Get(liRowCutRight - 1, y)))
 							liRowCutRight--;
 					}
 
 					for (int x = 0; x < lOMain.Width; x++)
 					{
-						int liTo = x + (x < liRowCutLeft ? 0 : x < liRowCutRight ? liLeft : liExtra);
+						int liPassed = 0;
+
+						while (liPassed < liCutCount
+							&& x >= (liPassed == 0 ? liRowCutLeft : liPassed == liCutCount - 1 ? liRowCutRight : liCuts[liPassed]))
+							liPassed++;
+
+						int liTo = x + UWClassicWideGeometry.Share(liExtra, liPassed, liCutCount);
 
 						lOOut.Set(liTo, y, lOMain.Get(x, y));
 						lOKnown[liTo, y] = true;
 					}
 				}
 
-				int[] liSources = UWMainFrame.ClassicWideSources[liBand];
+				int[] liSources = lOGeometry.Sources[liBand];
 
 				if (liSources.Length == 0)
 					continue;
 
-				fGrowClassicWideStrip(lOOut, lOKnown, lOMain, liCutLeft, liLeft, liY0, liY1, liSources, lORandom);
-				fGrowClassicWideStrip(lOOut, lOKnown, lOMain, liCutRight + liLeft, liExtra - liLeft, liY0, liY1, liSources, lORandom);
+				// At each cut its share, from the left (two cuts: half at the first, the rest at the second).
+				for (int liCut = 0; liCut < liCutCount; liCut++)
+				{
+					int liBefore = UWClassicWideGeometry.Share(liExtra, liCut, liCutCount);
+
+					fGrowClassicWideStrip(lOOut, lOKnown, lOMain, liCuts[liCut] + liBefore,
+						UWClassicWideGeometry.Share(liExtra, liCut + 1, liCutCount) - liBefore, liY0, liY1, liSources, lORandom);
+				}
 			}
 
 			// The compass without its needle: MAIN.BYT has the north needle baked in, which the
@@ -172,7 +182,7 @@ namespace UWDataImport.Presentation
 			// the baked needle").
 			if (pOCompassDisc != null)
 				lOOut.Overlay(pOCompassDisc,
-					UWClassicLayout.Compass.Left + ClassicWideShiftX(UWClassicLayout.Compass.Left, UWClassicLayout.Compass.Top, liExtra),
+					UWClassicLayout.Compass.Left + lOGeometry.ShiftX(UWClassicLayout.Compass.Left, UWClassicLayout.Compass.Top, liExtra),
 					UWClassicLayout.Compass.Top);
 
 			// The hole: MAIN.BYT's transparent pixels reached from the view's middle, within the
@@ -182,11 +192,13 @@ namespace UWDataImport.Presentation
 			// black rim (x 51 and 224, rows 18 and 131) and a few outline pixels at the vines and the
 			// ledge, so the view showed through there, unlike the original's frame at 4:3 (per user's
 			// screenshots, the modern Classic preset at 4:3 beside the classic screen).
-			UWRectInt lOHole = new UWRectInt(ClassicWideHole.X, ClassicWideHole.Y, ClassicWideHole.Width + liExtra, ClassicWideHole.Height);
+			// The second game's frame has no clear pixel: there the flood runs over its window's black (the columns put
+			// in are unset, black as well), the gargoyle's teeth over the view's first rows staying.
+			UWRectInt lOHole = new UWRectInt(lOGeometry.Hole.X, lOGeometry.Hole.Y, lOGeometry.Hole.Width + liExtra, lOGeometry.Hole.Height);
 			int liStart = ((lOHole.Y + (lOHole.Height / 2)) * liWidth) + lOHole.X + (lOHole.Width / 2);
 			UWMask lOHoleMask = UWMask.Flood(liWidth, liHeight, new[] { liStart }, (piX, piY) =>
-				piX >= ClassicWideCameraLeft && piX < ClassicWideCameraRight + liExtra && piY >= ClassicWideCameraTop && piY < ClassicWideCameraBottom
-				&& lOOut.Get(piX, piY).A == 0);
+				piX >= lOGeometry.CameraLeft && piX < lOGeometry.CameraRight + liExtra && piY >= lOGeometry.CameraTop && piY < lOGeometry.CameraBottom
+				&& lOGeometry.IsHolePixel(lOOut.Get(piX, piY)));
 
 			UWPixelOps.Clear(lOOut, lOHoleMask);
 			UWPixelOps.MakeOpaque(lOOut, lOHoleMask);

@@ -4,7 +4,7 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// THE SECOND GAME'S SCHEDULES IN PLAY (UW2 plan G6 part 1, 2026-11-16): the sixteen blocks of SCD.ARK held by the
-	/// session (UWSessionWorld.Schedules) while the walk runs, where the original loads and saves one block at a time
+	/// session (UWSessionWorld.Schedules) while the session runs, where the original loads and saves one block at a time
 	/// (uw2 event/SCHEDULE.C Sched_Load, Sched_Save), and the queue of rows a teleport could not do, which do_migrations
 	/// adds to block 0 (up to 16). Written back whole with a save (UWSaveCodec.SaveUw2). The rules are
 	/// UWScheduleRulesUw2's.

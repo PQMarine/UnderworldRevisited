@@ -24,8 +24,6 @@ public class UWModernHudInput
 
     private readonly UWModernStatsPage mOStats;
 
-    private UWGameUI mOUi => mOHud.Ui;
-
     private UWControlScheme mOScheme => mOHud.Scheme;
 
     /// <summary>Whether the button held on the compass disc's arrows was pressed there.</summary>
@@ -64,12 +62,18 @@ public class UWModernHudInput
     /// <summary>The pointer free over an active spell: the left button names it in the messages,
     /// the right button ends it (as one takes a buff away in an MMO; the classic page has the two
     /// the other way round).</summary>
+    /// <summary>The running game's rune page stands (IUWModernMagic.IsReady; UWGameUI.Runes until stage U3 part B).</summary>
+    private static bool fRunesReady()
+    {
+        return UWModernUi.Session != null && UWModernUi.Session.Magic.IsReady;
+    }
+
     private void fUpdateSpellClicks()
     {
         mOSpells.HoveredSpell = -1;
         mOHeading.IsHovered = false;
 
-        if (!UWModernUi.HudTakesPointer(mOHud, out Vector2 lOAt, out UWControls lOControls) || mOUi.Runes == null
+        if (!UWModernUi.HudTakesPointer(mOHud, out Vector2 lOAt, out UWControls lOControls) || !fRunesReady()
             || UWModernPointer.PanelsHeld)
             return;
 
@@ -82,7 +86,7 @@ public class UWModernHudInput
 
         if ((mOHeading.IsHovered || lbOnCompass) && lOControls.Player.CursorDrag.WasPressedThisFrame())
         {
-            mOUi.Actions.ReportStatus();
+            UWModernUi.Session.Character.ReportStatus();
             return;
         }
 
@@ -94,9 +98,9 @@ public class UWModernHudInput
         mOSpells.HoveredSpell = liSlot;
 
         if (lOControls.Player.CursorDrag.WasPressedThisFrame())
-            mOUi.Runes.DescribeActiveSpell(liSlot);
+            UWModernUi.Session.Magic.DescribeActiveSpell(liSlot);
         else if (lOControls.Player.Interact.WasPressedThisFrame())
-            mOUi.Runes.CancelActiveSpell(liSlot);
+            UWModernUi.Session.Magic.CancelActiveSpell(liSlot);
     }
 
     /// <summary>A left click anywhere in the hollow casts what lies in it, as on the frame
@@ -105,11 +109,11 @@ public class UWModernHudInput
     private void fUpdateRuneHollowClicks()
     {
         if (!UWModernUi.HudTakesPointer(mOHud, out Vector2 lOAt, out UWControls lOControls) || mORuneHollow.ScreenRect.width <= 0f
-            || mOUi.Runes == null || UWRoamingSight.IsAnyRunning)
+            || !fRunesReady() || UWRoamingSight.IsAnyRunning)
             return;
 
         if (lOControls.Player.CursorDrag.WasPressedThisFrame() && mORuneHollow.ScreenRect.Contains(lOAt))
-            mOUi.Actions.CastShelf();
+            UWModernUi.Session.Magic.CastShelf();
     }
 
     /// <summary>

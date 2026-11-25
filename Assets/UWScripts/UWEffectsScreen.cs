@@ -44,7 +44,8 @@ public sealed class UWEffectsScreen
         Steps,
         Tonemapping,
         GrimeTone,
-        LightTone
+        LightTone,
+        TextureLook
     }
 
     private class Row
@@ -126,14 +127,12 @@ public sealed class UWEffectsScreen
         // 0 to 100 % ("more does not look good"), in Remastered and Palette colours alike (the same shader).
         fAddRow("effects.ice_relief", KindEnum.Slider, 0f, 1f,
             v => UWUserSettings.IceRelief, (v, f) => UWUserSettings.IceRelief = f);
-        // THE xBR TEXTURE SCALING (per user 2026-11-22, here from the Graphics window the same day: "Effekte-Fenster"): the
-        // viewer's own like the light, kept apart from the presets and from ALL ON / OFF; at once (UWLevelLoader.ApplyXbrTextures).
-        // Remastered only: the palette path draws from the index array, which it leaves alone.
-        fAddRow("effects.xbr_textures", KindEnum.Toggle, 0f, 1f, v => UWUserSettings.XbrTextures ? 1f : 0f, (v, f) => fSetXbrTextures(f >= 0.5f));
-        mORows[mORows.Count - 1].RemasteredOnly = true;
-        // THE SPRITES' xBR (per user 2026-11-22, the hard edge): creatures and things, from the next load on
-        // (UWLevelLoader.fSpriteScalePasses); kept apart from the presets and ALL ON / OFF as the textures' row.
-        fAddRow("effects.xbr_sprites", KindEnum.Toggle, 0f, 1f, v => UWUserSettings.XbrSprites ? 1f : 0f, (v, f) => UWUserSettings.XbrSprites = f >= 0.5f);
+        // THE TEXTURES' LOOK (per user 2026-11-25, in place of 2026-11-22's two xBR switches: "Alle vier", "Entweder alles oder
+        // garnichts"): one row of choices for walls, things, creatures and the weapon alike (UWTextureLook); the viewer's own
+        // like the light, kept apart from the presets and from ALL ON / OFF; at once (UWLevelLoader.ApplyTextureLook), the xBR
+        // of things and creatures from the next load on. Remastered only: the palette path draws the original's pixels.
+        fAddRow("effects.textures", KindEnum.TextureLook, 0f, UWTextureLook.Last,
+            v => (float)UWUserSettings.TextureLook, (v, f) => fSetTextureLook(Mathf.RoundToInt(f)));
         mORows[mORows.Count - 1].RemasteredOnly = true;
         fAddRow("effects.light_colour", KindEnum.LightTone, 0f, UWLightColour.ToneWhite,
             v => UWUserSettings.LightTone, (v, f) => UWUserSettings.LightTone = Mathf.RoundToInt(f));
@@ -143,12 +142,12 @@ public sealed class UWEffectsScreen
         miPageLanguage = UWText.LanguageVersion;
     }
 
-    private static void fSetXbrTextures(bool pbOn)
+    private static void fSetTextureLook(int piLook)
     {
-        UWUserSettings.XbrTextures = pbOn;
+        UWUserSettings.TextureLook = UWTextureLook.Of(piLook);
 
         if (UWScene.LevelLoader != null)
-            UWScene.LevelLoader.ApplyXbrTextures();
+            UWScene.LevelLoader.ApplyTextureLook();
     }
 
     private void fAddRow(string psLabelId, KindEnum peKind, float pfMin, float pfMax,
@@ -218,6 +217,7 @@ public sealed class UWEffectsScreen
                 case KindEnum.Tonemapping:
                 case KindEnum.GrimeTone:
                 case KindEnum.LightTone:
+                case KindEnum.TextureLook:
                     lOPageRow.Kind = UWSetupRow.KindEnum.ChoiceRow;
                     lOPageRow.ChoiceColumns = ChoiceColumns;
                     lOPageRow.Choices = new string[(int)lORow.Max + 1];
@@ -269,6 +269,9 @@ public sealed class UWEffectsScreen
             case KindEnum.LightTone:
                 return fLightToneName(Mathf.RoundToInt(pfValue));
 
+            case KindEnum.TextureLook:
+                return fTextureLookName(Mathf.RoundToInt(pfValue));
+
             case KindEnum.Steps:
                 return msWhole(pfValue);
 
@@ -298,6 +301,16 @@ public sealed class UWEffectsScreen
         }
     }
 
+    private static string fTextureLookName(int piValue)
+    {
+        switch (UWTextureLook.Of(piValue))
+        {
+            case UWTextureLookEnum.Smooth: return UWText.T("effects.textures.smooth");
+            case UWTextureLookEnum.Xbr: return UWText.T("effects.textures.xbr");
+            default: return UWText.T("effects.textures.pixels");
+        }
+    }
+
     private static string fTonemappingName(int piValue)
     {
         switch (piValue)
@@ -320,7 +333,7 @@ public sealed class UWEffectsScreen
 
             if (!float.IsNaN(lfOwn))
                 lORow.Set(pOValues, lfOwn);
-            else if (lORow.Kind != KindEnum.GrimeTone && lORow.Kind != KindEnum.LightTone)
+            else if (lORow.Kind != KindEnum.GrimeTone && lORow.Kind != KindEnum.LightTone && lORow.Kind != KindEnum.TextureLook)
                 lORow.Set(pOValues, lORow.Get(lOPreset));
         }
     }

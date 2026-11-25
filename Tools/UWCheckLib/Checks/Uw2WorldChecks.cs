@@ -324,7 +324,7 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>
-        /// WHAT THE WALK SHOWS (phase 2 step 3): the level light (DL.DAT: level 1's byte 14 is a minimum
+        /// WHAT THE SESSION SHOWS (phase 2 step 3): the level light (DL.DAT: level 1's byte 14 is a minimum
         /// of 4 where the tile's light bit is clear, none where it is set - load_dl, change_GrSq), the
         /// unlit levels 65 to 72 but 68 (process_grid), the door pictures after the 64 textures, and every
         /// creature of level 1 with a picture in its stored sequence from the front, found in its pages.
@@ -333,11 +333,11 @@ namespace UnderworldRevisited.Tools
         {
             UWDarknessUw2 lODark = new UWDarknessUw2(File.ReadAllBytes(Path.Combine(pOData.DataPath, UWDarknessUw2.FileName)));
 
-            Check.Str("walk: level 1's light (bit clear, bit set), and level 2's (its byte, its two tiles)",
+            Check.Str("session: level 1's light (bit clear, bit set), and level 2's (its byte, its two tiles)",
                 lODark.TileMinimum(0, false) + " " + lODark.TileMinimum(0, true) + " / " + lODark.Raw(1) + ": "
                 + lODark.TileMinimum(1, false) + " " + lODark.TileMinimum(1, true),
                 "4 -1 / " + lODark.Raw(1) + ": " + fExpectedTileMinimum(lODark.Raw(1), false) + " " + fExpectedTileMinimum(lODark.Raw(1), true));
-            Check.Str("walk: the unlit levels among 64, 65, 68, 72, 73",
+            Check.Str("session: the unlit levels among 64, 65, 68, 72, 73",
                 UWDarknessUw2.IsUnlitLevel(64) + " " + UWDarknessUw2.IsUnlitLevel(65) + " " + UWDarknessUw2.IsUnlitLevel(68) + " "
                 + UWDarknessUw2.IsUnlitLevel(72) + " " + UWDarknessUw2.IsUnlitLevel(73), "False True False True False");
 
@@ -348,10 +348,10 @@ namespace UnderworldRevisited.Tools
             for (int liDoor = 0; lbDoors && liDoor < UWTextureMapUw2.DoorCount; liDoor++)
                 lbDoors &= lOFirst.TextureInfos[UWTextureMapUw2.TextureCount + liDoor] == lOMap.Doors[liDoor];
 
-            Check.Bool("walk: level 1's table holds its 64 textures and then its six door pictures", lbDoors, true);
+            Check.Bool("session: level 1's table holds its 64 textures and then its six door pictures", lbDoors, true);
 
-            // The translucent colours (the walk's third test: pink shadows). Asked inside a session of
-            // the second game, as the walk asks them; the first game's answers before and after.
+            // The translucent colours (the session's third test: pink shadows). Asked inside a session of
+            // the second game, as the session asks them; the first game's answers before and after.
             bool lbUw1Before = UWTransparencyTables.TryGetFadeTable(0xFD, out _);
             UWGameSession lOKept = UWGameSession.Current;
             UWGameSession.MakeCurrent(new UWGameSession(pOData, 1));
@@ -406,12 +406,12 @@ namespace UnderworldRevisited.Tools
             lOFirst.MarkTileVisited(UWGameProfileUw2.NewGameTileX, UWGameProfileUw2.NewGameTileY, UWLevel.MapDisplayDoor | UWLevel.MapDisplayLava);
             int liWritten = lOFirst.AutomapTiles[UWGameProfileUw2.NewGameTileX + (UWGameProfileUw2.NewGameTileY * UWWorldScale.TilesPerAxis)];
 
-            Check.Str("walk: the automap byte of a door over lava on an open tile, UW2's order (and UW1's Compose), ice as UW2's terrain 3",
+            Check.Str("session: the automap byte of a door over lava on an open tile, UW2's order (and UW1's Compose), ice as UW2's terrain 3",
                 liWritten.ToString("X2") + " " + UWAutomapCode.Compose(1, UWAutomapCode.KindDoor, 2, UWGame.Uw1).ToString("X2") + " "
                 + UWAutomapCode.Compose(1, 0, 3, UWGame.Uw2).ToString("X2") + " " + UWAutomapCode.Terrain(liWritten, UWGame.Uw2) + "/" + UWAutomapCode.Kind(liWritten, UWGame.Uw2),
                 "91 61 C1 2/1");
 
-            Check.Str("walk: XFER.DAT's five tables; 0xFD is table 4 (the shadow), 0xF8 and 0xFE none; no first-game lava or water; the first game's 0xFD none",
+            Check.Str("session: XFER.DAT's five tables; 0xFD is table 4 (the shadow), 0xF8 and 0xFE none; no first-game lava or water; the first game's 0xFD none",
                 pOData.TransparencyTables.IsLoaded + " " + lbShadow + " " + (int)leShadow + " " + lbBelow + " " + lbAbove + " " + lbLava + " " + lbUw1Before,
                 "True True 4 False False False False");
 
@@ -442,7 +442,7 @@ namespace UnderworldRevisited.Tools
                 }
             }
 
-            Check.Str("walk: level 1's creatures, those with a front picture in their stored sequence, pictures not in their pages",
+            Check.Str("session: level 1's creatures, those with a front picture in their stored sequence, pictures not in their pages",
                 liCreatures + " " + liShown + " " + string.Join(" ", lsMissing), liCreatures + " " + liCreatures + " ");
         }
 
@@ -514,10 +514,10 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>
-        /// THE CHARACTER ON THE SCREEN (phase 3 step 2): a DOS save's record and workspace as the walk's
+        /// THE CHARACTER ON THE SCREEN (phase 3 step 2): a DOS save's record and workspace as the session's
         /// screen reads them (UWPlayerRecordUw2) - name, class, body, sex and hand, the attributes, vitality
         /// and mana with their maxima, the level, the weight left in stones, poison, and the objects of the
-        /// nineteen Inventory[] slots by id (the walk's paperdoll, belt and backpack). Pinned per save as
+        /// nineteen Inventory[] slots by id (the session's paperdoll, belt and backpack). Pinned per save as
         /// read on 2026-10-29; a save the user writes anew changes them.
         /// </summary>
         private static void fCheckUw2Character(UWGameData pOData, string psSave)
@@ -729,7 +729,7 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>
-        /// THE WALK'S SAVE (step 6): a world loaded (from DATA or a DOS save) and saved unchanged into a
+        /// THE SESSION'S SAVE (step 6): a world loaded (from DATA or a DOS save) and saved unchanged into a
         /// scratch folder with the position its PLAYER.DAT holds - every level block, overlays and timers
         /// included, must decode as it did, every automap and every page's notes too, PLAYER.DAT must come
         /// back byte for byte (a DOS save's) or as a walker named Avatar on the start tile (DATA's), and the

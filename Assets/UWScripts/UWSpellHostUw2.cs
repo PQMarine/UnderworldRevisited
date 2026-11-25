@@ -4,7 +4,7 @@ using UWDataImport.UWData;
 
 /// <summary>
 /// THE PLAYER'S CAST ON THE SECOND GAME (UW2 plan phase 4, list item 3): what the spell rules ask of the caster,
-/// from UWVitalsUw2 and the walk, where UWCharacter and Interaction stand idle. Built per cast by the game screen.
+/// from UWVitalsUw2 and the session, where UWCharacter and Interaction stand idle. Built per cast by the game screen.
 /// The spells that wait for a click come with their classes; what the second game's own spells ask beyond the
 /// shared host is IUWSpellHostUw2 (stage 2 part A).
 /// </summary>
@@ -111,14 +111,14 @@ public sealed class UWSpellHostUw2 : IUWSpellHost, IUWSpellHostUw2
             UWGameScreenUw2.Current.ShowRuneState();
     }
 
-    /// <summary>The missile waits for its aim on the walk's attack host (UWAttackUw2.BeginSpellMissile).</summary>
+    /// <summary>The missile waits for its aim on the session's attack host (UWAttackUw2.BeginSpellMissile).</summary>
     public void BeginProjectileSpell(int piProjectileId, int piDamage, int piSpeed, int piManaCost)
     {
         if (UWAttackUw2.Current != null)
             UWAttackUw2.Current.BeginSpellMissile(piProjectileId, piDamage, piSpeed, piManaCost);
     }
 
-    /// <summary>nail_1area: the spell waits on the walk's attack host for its clicked target (UWAttackUw2.BeginSpellTarget),
+    /// <summary>nail_1area: the spell waits on the session's attack host for its clicked target (UWAttackUw2.BeginSpellTarget),
     /// with this host to cast it and its mana held.</summary>
     public void BeginTargetSpell(int piMajorClass, int piMinorClass, int piManaCost = 0)
     {
@@ -173,7 +173,7 @@ public sealed class UWSpellHostUw2 : IUWSpellHost, IUWSpellHostUw2
     public void MovePlayer(int piLevel, UWTilePos pOTile)
     {
         if (mOLoader != null)
-            mOLoader.WalkTeleport(new UWTeleportUw2.Target { Level = piLevel, TileX = pOTile.X, TileY = pOTile.Y }, true);
+            mOLoader.Uw2Teleport(new UWTeleportUw2.Target { Level = piLevel, TileX = pOTile.X, TileY = pOTile.Y }, true);
     }
 
     /// <summary>FreePlayerInv and the weight (the model's ClearAll sets the running load to 0), clearobj (the

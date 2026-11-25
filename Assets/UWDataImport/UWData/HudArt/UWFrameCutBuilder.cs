@@ -72,12 +72,60 @@ namespace UWDataImport.Presentation
 		/// </summary>
 		public static UWPicture BuildRuneHollow(UWTextures pOTextures, bool pbOutline)
 		{
-			return ComposeRuneHollow(UWMainFrame.Picture(pOTextures), pbOutline);
+			return ComposeRuneHollow(UWMainFrame.Picture(pOTextures), pbOutline, RuneHollowOf(pOTextures));
 		}
 
 		public static UWPicture ComposeRuneHollow(UWPicture pOMain, bool pbOutline)
 		{
-			UWPicture lOHollow = pOMain.Crop(msRuneHollow);
+			return ComposeRuneHollow(pOMain, pbOutline, msRuneHollow);
+		}
+
+		/// <summary>The hollow's rectangle on the data's game's frame: the second game's is the right recess of its
+		/// marble ledge (UWClassicLayoutUw2.RuneHollow; UW2 plan stage U6 step 1), cut the same way.</summary>
+		public static UWRectInt RuneHollowOf(UWTextures pOTextures)
+		{
+			return pOTextures != null && pOTextures.Game == UWGame.Uw2 ? UWClassicLayoutUw2.RuneHollow.Place : msRuneHollow;
+		}
+
+		/// <summary>
+		/// THE ACTIVE SPELLS' HOLLOW (the second game's; UW2 plan stage U6 step 2c): the left hollow of its marble ledge
+		/// (UWClassicLayoutUw2.SpellHollow), cut as the rune hollow - opaque, the optional outline. Without the ledge's rim
+		/// above it (per user at the test of 204, 2026-11-24, as the rune hollow; the first cut took the rim along for the
+		/// spells' tops): the spells reach a little above it, as they reach into the rim on the frame.
+		/// </summary>
+		public static UWPicture BuildSpellHollow(UWTextures pOTextures, bool pbOutline)
+		{
+			return ComposeRuneHollow(UWMainFrame.Picture(pOTextures), pbOutline, UWClassicLayoutUw2.SpellHollow.Place);
+		}
+
+		/// <summary>Where an active spell's picture lies in the spells' hollow (the frame's spell_x at 0x37; the first spell
+		/// at the right), its top-left corner - its top above the hollow's (negative), as on the frame.</summary>
+		public static void SpellHollowIcon(int piSlot, out int piX, out int piY)
+		{
+			piX = UWClassicLayoutUw2.Runes.SpellX[piSlot] - UWClassicLayoutUw2.SpellHollow.Left;
+			piY = (UWClassicLayout.Screen.Height - 1 - UWClassicLayoutUw2.Runes.SpellY) - UWClassicLayoutUw2.SpellHollow.Top;
+		}
+
+		/// <summary>Where the first prepared rune lies in the data's game's hollow, and the step to the next.</summary>
+		public static void RuneHollowRunes(UWTextures pOTextures, out int piX, out int piY, out int piPitch)
+		{
+			if (pOTextures != null && pOTextures.Game == UWGame.Uw2)
+			{
+				piX = UWClassicLayoutUw2.RuneHollow.RuneLeft - UWClassicLayoutUw2.RuneHollow.Left;
+				piY = UWClassicLayoutUw2.RuneHollow.RuneTop - UWClassicLayoutUw2.RuneHollow.Top;
+				piPitch = UWClassicLayoutUw2.RuneHollow.RunePitch;
+
+				return;
+			}
+
+			piX = RuneHollowRuneX;
+			piY = RuneHollowRuneY;
+			piPitch = RuneHollowPitch;
+		}
+
+		public static UWPicture ComposeRuneHollow(UWPicture pOMain, bool pbOutline, UWRectInt pOPlace)
+		{
+			UWPicture lOHollow = pOMain.Crop(pOPlace);
 
 			UWPixelOps.MakeOpaque(lOHollow);
 

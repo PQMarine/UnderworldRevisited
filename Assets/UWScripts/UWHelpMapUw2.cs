@@ -44,10 +44,11 @@ public sealed class UWHelpMapUw2
         return UWAutomapScreenUw2.HasMap(piLevel);
     }
 
-    /// <summary>The picture and the notes of level piLevel (1-based) anew; false without them.</summary>
-    public bool Build(DataImport pOData, int piLevel)
+    /// <summary>The picture and the notes of level piLevel (1-based) anew; false without them. pbPlayerMark: the map's
+    /// arrow where the character stands (the modern minimap draws its own, UWAutomapPicturesUw2).</summary>
+    public bool Build(DataImport pOData, int piLevel, bool pbPlayerMark = true)
     {
-        byte[] lyScreen = UWMapScreenUw2.ComposeScreen(pOData, piLevel, out Vector2 lOPlayer);
+        byte[] lyScreen = UWMapScreenUw2.ComposeScreen(pOData, piLevel, out Vector2 lOPlayer, pbPlayerMark);
 
         if (lyScreen == null)
             return false;

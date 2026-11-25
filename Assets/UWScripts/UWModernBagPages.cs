@@ -166,10 +166,10 @@ internal sealed class UWModernBagPages
 
     /// <summary>Whether a container is open: in a bag window, or with the original's page in its
     /// slots (the model's one open container).</summary>
-    internal bool IsBagOpen(UWObject pOContainer, UWInventory pOInventory)
+    internal bool IsBagOpen(UWObject pOContainer, UWInventoryModel pOInventory)
     {
         if (IsPageShown)
-            return pOInventory != null && pOInventory.Model != null && pOInventory.Model.OpenContainer == pOContainer;
+            return pOInventory != null && pOInventory != null && pOInventory.OpenContainer == pOContainer;
 
         return mOBags.OpenBags.Bags.Contains(pOContainer);
     }
@@ -179,8 +179,8 @@ internal sealed class UWModernBagPages
     internal Window PageWindow()
     {
         Window lOWindow = GetWindow(0);
-        UWInventory lOInventory = mOBags.Inventory;
-        UWInventoryModel lOModel = lOInventory != null ? lOInventory.Model : null;
+        UWInventoryModel lOInventory = mOBags.Inventory;
+        UWInventoryModel lOModel = lOInventory;
 
         lOWindow.Container = lOModel != null ? lOModel.OpenContainer : null;
         lOWindow.FirstIndex = lOModel != null && lOModel.OpenContainer != null ? lOModel.ContainerScrollOffset : 0;
@@ -196,10 +196,10 @@ internal sealed class UWModernBagPages
     /// True when the press was theirs. The meaning of the spots, the step and the "one level up"
     /// are UWInventoryView's, shared with the classic frame (cleanup step 5.8, 2026-10-20).
     /// </summary>
-    internal bool PageControls(Vector2 pOPointer, UWInventory pOInventory)
+    internal bool PageControls(Vector2 pOPointer, UWInventoryModel pOInventory)
     {
         UWModernInventoryPage lOPage = UWModernInventoryPage.Instance;
-        UWInventoryModel lOModel = pOInventory.Model;
+        UWInventoryModel lOModel = pOInventory;
 
         if (!IsPageShown || lOModel == null || lOModel.OpenContainer == null)
             return false;
@@ -228,8 +228,8 @@ internal sealed class UWModernBagPages
 
         if (leOutcome == UWInventoryView.PutOutcomeEnum.NoPlace)
         {
-            if (mOBags.Interaction != null)
-                mOBags.Interaction.AddGeneralMessage(UWInventoryView.NoPlaceMessage);
+            if (UWModernUi.Session != null)
+                UWModernUi.Session.Messages.SayGeneral(UWInventoryView.NoPlaceMessage);
         }
         else if (leOutcome != UWInventoryView.PutOutcomeEnum.Placed)
             mOBags.Drag.ReportRejection(pOInventory);
@@ -241,7 +241,7 @@ internal sealed class UWModernBagPages
 
     internal UWObject GetItem(Window pOWindow, int piSlot)
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         if (pOWindow.Container == null)
             return piSlot >= 0 && piSlot < lOInventory.Backpack.Length ? lOInventory.Backpack[piSlot] : null;
@@ -330,7 +330,7 @@ internal sealed class UWModernBagPages
     /// pointer; with a thing there a click on the window puts it in.</summary>
     internal bool FindCloseBadge(Vector2 pOPointer, out Window pOWindow)
     {
-        UWInventory lOInventory = mOBags.Inventory;
+        UWInventoryModel lOInventory = mOBags.Inventory;
 
         if (lOInventory != null && lOInventory.CursorItem == null)
         {
@@ -398,7 +398,7 @@ internal sealed class UWModernBagPages
         if (!pOWindow.BackArt.IsCurrent(lOBackStamp))
         {
             pOWindow.Back.texture = pOWindow.BackArt.Set(lOBackStamp,
-                UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Bags, mOBags.Data.Textures, liWidth, liHeight, mOBags.Ui.TextureFilterMode));
+                UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Bags, mOBags.Data.Textures, liWidth, liHeight, UWModernUi.Filter));
         }
 
         int liTitleSize = Mathf.Max(10, Mathf.RoundToInt(4.5f * liScale));
@@ -624,7 +624,7 @@ internal sealed class UWModernBagPages
             return;
         }
 
-        Texture2D lOIcon = UWIconCache.Texture(lOSource, mOBags.Ui.TextureFilterMode);
+        Texture2D lOIcon = UWIconCache.Texture(lOSource, UWModernUi.Filter);
 
         pOSlot.Icon.texture = lOIcon;
         pOSlot.Icon.enabled = true;
@@ -671,17 +671,15 @@ internal sealed class UWModernBagPages
         while (mOWindows.Count <= piIndex)
         {
             Window lOWindow = new Window();
-            UWGameUI lOUi = mOBags.Ui;
-
             lOWindow.Root = UWUiKit.CreateGroup(mOBags.View.Root, "Bag " + mOWindows.Count);
 
             lOWindow.Back = UWUiKit.CreateRawImage(lOWindow.Root, "Leather", true);
             UWPixelArtUI.Apply(lOWindow.Back);
             UWUiKit.Stretch(lOWindow.Back.rectTransform);
 
-            lOWindow.Title = UWUiKit.CreateText(lOWindow.Root, "Title", TextAnchor.MiddleLeft, UWModernPalette.HudText, lOUi);
+            lOWindow.Title = UWUiKit.CreateText(lOWindow.Root, "Title", TextAnchor.MiddleLeft, UWModernPalette.HudText, UWModernUi.TextUi);
             lOWindow.Title.color = UWModernPalette.Text;
-            lOWindow.Weight = UWUiKit.CreateText(lOWindow.Root, "Weight", TextAnchor.MiddleRight, UWModernPalette.HudText, lOUi);
+            lOWindow.Weight = UWUiKit.CreateText(lOWindow.Root, "Weight", TextAnchor.MiddleRight, UWModernPalette.HudText, UWModernUi.TextUi);
             lOWindow.Weight.color = new Color(0.90f, 0.84f, 0.69f);
 
             lOWindow.ScrollUp = UWUiKit.CreateRawImage(lOWindow.Root, "Scroll up");
@@ -689,7 +687,7 @@ internal sealed class UWModernBagPages
             lOWindow.ScrollDown.uvRect = new Rect(0f, 1f, 1f, -1f);
 
             lOWindow.Badge = UWUiKit.CreateRawImage(lOWindow.Root, "Badge");
-            lOWindow.BadgeText = UWUiKit.CreateText(lOWindow.Root, "Badge number", TextAnchor.MiddleCenter, UWModernPalette.HudText, lOUi);
+            lOWindow.BadgeText = UWUiKit.CreateText(lOWindow.Root, "Badge number", TextAnchor.MiddleCenter, UWModernPalette.HudText, UWModernUi.TextUi);
             // The number in the disc's middle by its ink, whatever the font (UWCentredGlyph).
             lOWindow.BadgeText.gameObject.AddComponent<UWCentredGlyph>();
             lOWindow.BadgeText.color = UWModernPalette.LightText;
@@ -718,20 +716,18 @@ internal sealed class UWModernBagPages
     private Slot fCreateSlot(RectTransform pOParent)
     {
         Slot lOSlot = new Slot();
-        UWGameUI lOUi = mOBags.Ui;
-
         lOSlot.Circle = UWUiKit.CreateRawImage(pOParent, "Slot", true);
         UWPixelArtUI.Apply(lOSlot.Circle);
 
         lOSlot.Icon = UWUiKit.CreateRawImage(lOSlot.Circle.rectTransform, "Icon");
         UWIconPalette.ApplySmooth(lOSlot.Icon);
 
-        lOSlot.Count = UWUiKit.CreateText(lOSlot.Circle.rectTransform, "Count", TextAnchor.LowerRight, UWModernPalette.HudText, lOUi);
+        lOSlot.Count = UWUiKit.CreateText(lOSlot.Circle.rectTransform, "Count", TextAnchor.LowerRight, UWModernPalette.HudText, UWModernUi.TextUi);
         lOSlot.Count.color = Color.white;
 
         lOSlot.Ring = UWUiKit.CreateRawImage(lOSlot.Circle.rectTransform, "Ring");
         lOSlot.Badge = UWUiKit.CreateRawImage(lOSlot.Circle.rectTransform, "Badge");
-        lOSlot.BadgeText = UWUiKit.CreateText(lOSlot.Circle.rectTransform, "Badge number", TextAnchor.MiddleCenter, UWModernPalette.HudText, lOUi);
+        lOSlot.BadgeText = UWUiKit.CreateText(lOSlot.Circle.rectTransform, "Badge number", TextAnchor.MiddleCenter, UWModernPalette.HudText, UWModernUi.TextUi);
         lOSlot.BadgeText.gameObject.AddComponent<UWCentredGlyph>();
         lOSlot.BadgeText.color = UWModernPalette.LightText;
 

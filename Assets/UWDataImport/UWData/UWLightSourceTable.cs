@@ -124,7 +124,7 @@ namespace UWDataImport.UWData
 			return lORuleSet != null ? fWithRules(piIndex, lORuleSet.Lights.Sources) : msRows[piIndex];
 		}
 
-		/// <summary>The light source of an id. A session without a rule set - the second game's walk
+		/// <summary>The light source of an id. A session without a rule set - the second game's session
 		/// (UW2 plan phase 2 step 3; its sources come with its rules) - has none: until then this asked
 		/// the missing rules every frame and threw (the second test, 2026-10-29).</summary>
 		public static bool TryGet(int piId, out Row pORow)

@@ -144,13 +144,16 @@ namespace UWDataImport.UWData
 			mOSession = null;
 		}
 
-		/// <summary>The layout editor's preview: fixed lines and answers, no session, no trade.</summary>
+		/// <summary>The layout editor's preview: fixed lines and answers, no session, no trade - every line out at once (the
+		/// second game's history shows LinesRevealed, which stayed 0 here: the preview's text was missing, per user, UW2 plan
+		/// stage U7 step 3b).</summary>
 		public static UWConversationView Preview(IReadOnlyList<UWConversationSession.Line> pOLines, IReadOnlyList<string> pOChoices,
 			string psPartnerName, string psPlayerName, UWTexture.TextureTypes pePartnerType, int piPartnerIndex, int piPlayerIndex)
 		{
 			return new UWConversationView
 			{
 				mOLines = pOLines ?? new UWConversationSession.Line[0],
+				LinesRevealed = pOLines != null ? pOLines.Count : 0,
 				mOChoices = pOChoices ?? new string[0],
 				msPreviewPartnerName = psPartnerName ?? string.Empty,
 				PlayerName = psPlayerName ?? string.Empty,

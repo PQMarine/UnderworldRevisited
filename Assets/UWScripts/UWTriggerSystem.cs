@@ -229,7 +229,7 @@ public static class UWTriggerSystem
     {
         // The second game's use triggers of a thing destroyed in the world (damage_object's checkTrap kind 4): UseTrigger
         // with the use mode, as by the player (G3 part H4).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             return UseTriggerUw2(pOSwitchObject, pOTrigger, UWTrapRulesUw2.UseMode, pOLevelLoader);
 
         return UWTrapRules.FireTraps(pOTrigger, pOSwitchObject, new UWTrapHost(pOLevelLoader, pOInteraction));
@@ -244,13 +244,13 @@ public static class UWTriggerSystem
     /// </summary>
     private static bool fSecondGameWaits()
     {
-        if (!UWWalkUw2.IsWalking)
+        if (!UWGameStartUw2.IsRunning)
             return false;
 
         if (!msbSecondGameSaid)
         {
             msbSecondGameSaid = true;
-            Debug.Log("[Walk] A trigger of the second game: its traps are not built yet (phase 4 G3).");
+            Debug.Log("[Session] A trigger of the second game: its traps are not built yet (phase 4 G3).");
         }
 
         return true;
@@ -272,7 +272,7 @@ public static class UWTriggerSystem
     public static bool FireTrapInTile(UWObject pOTrap, int piTileX, int piTileY, UWLevelLoader pOLevelLoader)
     {
         // The second game's DoWanderingMonsters: a mobile template, its own create rules, silent (G3 part H5).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             return UWTrapRulesUw2.FireWanderingTrap(pOTrap, piTileX, piTileY, new UWTrapHost(pOLevelLoader, (Interaction)null));
 
         return UWTrapRules.FireTrapInTile(pOTrap, piTileX, piTileY, new UWTrapHost(pOLevelLoader, null));
@@ -310,8 +310,8 @@ public static class UWTriggerSystem
         UWCharacter lOCharacter = UWScene.Character;
         UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
 
-        // The second game's player is the walk's: his tile from the world (UWCharacter stands idle there).
-        if (UWWalkUw2.IsWalking)
+        // The second game's player is the session's: his tile from the world (UWCharacter stands idle there).
+        if (UWGameStartUw2.IsRunning)
             return lOWorld == null ? 0 : UWRespawnRules.Run(pOLevelLoader.CurrentLevel, lOWorld.Player.FloorSpot.Tile, pbAnyDistance,
                 (pOTrap, piTileX, piTileY) => FireTrapInTile(pOTrap, piTileX, piTileY, pOLevelLoader));
 
@@ -737,7 +737,7 @@ public static class UWTriggerSystem
         {
             // The second game casts on its own magic with the trap as the caster (UWTrapRulesUw2.fFireSpell decided
             // that the class does something).
-            if (UWWalkUw2.IsWalking)
+            if (UWGameStartUw2.IsRunning)
                 return fFireSpellTrapUw2(pOTrap, piTileX, piTileY, piMajorClass, piMinorClass);
 
             // The move trigger only knows the Interaction if it finds it on the touching collider.
@@ -888,7 +888,7 @@ public static class UWTriggerSystem
             return fAngerRace(piOwner, lOPlayer.Tile, piTilesBack, piTilesForward, lOPlayer.EighthsX, lOPlayer.EighthsY,
                 UWCritterRules.GetTheftSightZ(lOPlayer.ZPos, fGetHeight(UWObjectMechanics.AdventurerObjectId, mOLoader)),
                 mOLoader, mOInteraction != null ? fSayTo(mOInteraction) : (mOWorld != null ? new System.Action<string>(mOWorld.Presentation.AddMessage) : null),
-                UWWalkUw2.IsWalking);
+                UWGameStartUw2.IsRunning);
         }
 
         public IUWScheduleHost Schedules => UWScheduleHostUw2.ForTraps(mOLoader);
@@ -917,10 +917,10 @@ public static class UWTriggerSystem
 
         public bool TalkTo(UWObject pONpcData)
         {
-            // The second game's walk talks through its own screen (as UWCreatureWorld.Talk): the first game's
+            // The second game's session talks through its own screen (as UWCreatureWorld.Talk): the first game's
             // Interaction is not there, and a trap's talk never opened (per user, 2026-11-17, test 68.2: the pit fighter
             // did not speak when the player ran from the fight).
-            if (UWWalkUw2.IsWalking)
+            if (UWGameStartUw2.IsRunning)
             {
                 if (pONpcData == null || UWGameScreenUw2.Current == null || UWConversationScreenUw2.IsOpen || mOLoader == null
                     || !mOLoader.TryGetEntity(pONpcData, out UWEntityInfo lOEntity))
@@ -985,7 +985,7 @@ public static class UWTriggerSystem
 
         // THE SECOND GAME'S TRAP ARROW SOUNDS (trap_fire, uw2 MISSILE.C:262: play_effect_on_mobile_src(0xA, missile)); the
         // first game's is silent.
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             UWAudioService.PlayEffectAt(TrapArrowSoundUw2, UWViewpoint.SubTileToWorld(piTileX, piTileY, pOTrap));
 
         // The start point belongs in the log too: on short flight paths you otherwise see too

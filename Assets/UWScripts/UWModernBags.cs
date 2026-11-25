@@ -78,12 +78,6 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
     /// <summary>Whether the bag windows are open.</summary>
     public bool IsOpen => mbOpen;
 
-    private UWGameUI mOUi;
-
-    private UWInventory mOInventory;
-
-    private Interaction mOInteraction;
-
     private UWControlScheme mOScheme;
 
     private bool mbOpen;
@@ -115,11 +109,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
     internal UWModernBagTrade Trade { get; private set; }
 
     /// <summary>The scene's UI, interaction and control scheme, found in Start - for the pieces.</summary>
-    internal UWGameUI Ui => mOUi;
-
-    internal Interaction Interaction => mOInteraction;
-
-    internal UWInventory Inventory => fInventory();
+    internal UWInventoryModel Inventory => fInventory();
 
     internal DataImport Data => fData();
 
@@ -147,8 +137,6 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
 
     private void Start()
     {
-        mOUi = GetComponent<UWGameUI>();
-        mOInteraction = GetComponent<Interaction>();
         mOScheme = GetComponentInParent<UWControlScheme>();
     }
 
@@ -160,29 +148,23 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         Menu.Release();
     }
 
-    private UWInventory fInventory()
+    /// <summary>The running game's inventory model, through the session (stage U2 of the modern interface on
+    /// interfaces, 2026-11-23; the scene's UWInventory component until then).</summary>
+    private static UWInventoryModel fInventory()
     {
-        if (mOInventory == null)
-        {
-            mOInventory = GetComponent<UWInventory>();
-
-            if (mOInventory == null && Camera.main != null)
-                mOInventory = Camera.main.GetComponent<UWInventory>();
-        }
-
-        return mOInventory;
+        return UWModernUi.Inventory;
     }
 
     private DataImport fData()
     {
-        return mOUi != null ? mOUi.mOUWData : null;
+        return UWModernUi.Data;
     }
 
     /// <summary>Shown where the modern HUD is shown (not in a conversation, a screen menu or a
     /// cutscene).</summary>
     private bool fIsShown()
     {
-        return UWModernUi.IsActive && UWModernUi.IsShowingOrTalking
+        return UWModernUi.IsActive && UWModernUi.IsShowingOrTalking && UWModernUi.Has(UWModernPartEnum.Bags)
             && fData() != null && fInventory() != null;
     }
 
@@ -194,7 +176,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
     /// </summary>
     internal bool SplitTakesPad => fIsShown() && !UWModernQuestion.IsBlocking && Split.IsOpen
         && !(UWModernUi.IsMenuOpen || !UWModernPointer.IsFree || mOScheme == null || mOScheme.Controls == null
-            || (mOUi != null && mOUi.Map.IsMapVisible));
+            || UWModernUi.IsMapOpen);
 
     /// <summary>The left edge of the bag windows shown, in screen pixels (the screen's width
     /// when none) - the modern conversation keeps left of them.</summary>
@@ -291,8 +273,8 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
 
         if (!Drag.ReturnCursorItem())
         {
-            if (mOInteraction != null)
-                mOInteraction.AddGeneralMessage(UWStringIds.NoPlaceToPutMessage);
+            if (UWModernUi.Session != null)
+                UWModernUi.Session.Messages.SayGeneral(UWStringIds.NoPlaceToPutMessage);
 
             return false;
         }
@@ -322,9 +304,9 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
             if (!IsOpen)
                 return false;
 
-            UWInventory lOInventory = fInventory();
+            UWInventoryModel lOInventory = fInventory();
 
-            return OpenBags.Bags.Count > 0 || (lOInventory != null && lOInventory.Model != null && lOInventory.CursorItem != null);
+            return OpenBags.Bags.Count > 0 || (lOInventory != null && lOInventory != null && lOInventory.CursorItem != null);
         }
     }
 
@@ -350,7 +332,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
     /// </summary>
     private bool fShutBackpackTakesClick()
     {
-        UWInventory lOInventory = fInventory();
+        UWInventoryModel lOInventory = fInventory();
 
         return !UWModernPointer.PanelsHeld && (lOInventory == null || lOInventory.CursorItem == null)
             && Clicks.IsOverBackpack(UWPointer.Position);
@@ -383,7 +365,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         // The split box has the keys and the clicks while it is open (UWModernBagSplit).
         if (Split.IsOpen)
         {
-            if (UWModernUi.IsMenuOpen || !UWModernPointer.IsFree || mOScheme.Controls == null || (mOUi != null && mOUi.Map.IsMapVisible))
+            if (UWModernUi.IsMenuOpen || !UWModernPointer.IsFree || mOScheme.Controls == null || UWModernUi.IsMapOpen)
                 Split.End();
             else
                 Split.Update(mOScheme.Controls);
@@ -394,7 +376,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         // The context menu likewise (UWModernBagMenu).
         if (Menu.IsOpen)
         {
-            if (UWModernUi.IsMenuOpen || !UWModernPointer.IsFree || mOScheme.Controls == null || (mOUi != null && mOUi.Map.IsMapVisible))
+            if (UWModernUi.IsMenuOpen || !UWModernPointer.IsFree || mOScheme.Controls == null || UWModernUi.IsMapOpen)
                 Menu.Close();
             else
                 Menu.Update(mOScheme.Controls);
@@ -402,7 +384,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
             return;
         }
 
-        if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive || (mOUi != null && mOUi.Map.IsMapVisible))
+        if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive || UWModernUi.IsMapOpen)
             return;
 
         UWControls lOControls = mOScheme.Controls;
@@ -415,7 +397,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         // IN A CONVERSATION THE PANEL STAYS (per user, 2026-10-08: the d-pad's down, which steps the
         // answers there, closed it) - the conversation opened it on its Character tab for the trade
         // (UWModernConversation.fBegin); neither the pad nor C toggles it meanwhile.
-        bool lbTalking = UWConversationController.IsAnyOpen;
+        bool lbTalking = UWModernUi.IsConversationOpen;
 
         // The gamepad's panel button has its own tap and hold (fUpdatePadPanelKey); C acts on the press.
         if (!lbTalking)
@@ -464,7 +446,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
             return;
 
         Vector2 lOPointer = UWPointer.Position;
-        UWInventory lOInventory = fInventory();
+        UWInventoryModel lOInventory = fInventory();
 
         float lfWheel = UWPointer.Scroll.y;
 
@@ -512,7 +494,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
 
         View.Layout();
 
-        UWInventory lOInventory = fInventory();
+        UWInventoryModel lOInventory = fInventory();
 
         View.UpdateHover();
         Drag.LayoutPointerItem(lOInventory);
@@ -590,6 +572,21 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
     {
         return fIsShown() && (Pages.FindWindow(pOPointer, out UWModernBagPages.Window _) || (IsSplitting && Split.ScreenRect.Contains(pOPointer))
             || (IsMenuOpen && Menu.ScreenRect.Contains(pOPointer)));
+    }
+
+    /// <summary>
+    /// THE RUNE BAG'S WINDOW: the rune panel on its Runes tab - or, on a game that does not run the rune panel (the
+    /// second game until part U4c of the UW2 plan), the game's own use of the bag, which shows its runes.
+    /// </summary>
+    internal static void OpenRunes(UWObject pORuneBag)
+    {
+        if (UWModernUi.Has(UWModernPartEnum.RunePanel))
+        {
+            if (UWModernRunePanel.Instance != null)
+                UWModernRunePanel.Instance.Open(UWModernRunePanel.TabEnum.Runes);
+        }
+        else if (UWModernUi.Session != null && pORuneBag != null)
+            UWModernUi.Session.Inventory.Use(pORuneBag, UWCarriedItemUse.Context.ModernBags);
     }
 
     /// <summary>The open bags into UWHelpNotes for saving (UWModernOpenBags.Capture).</summary>

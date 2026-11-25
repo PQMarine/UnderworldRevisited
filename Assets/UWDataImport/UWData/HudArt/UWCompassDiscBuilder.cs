@@ -39,6 +39,9 @@ namespace UWDataImport.Presentation
 		/// </summary>
 		public static UWPicture Build(UWTextures pOTextures, bool pbOutline)
 		{
+			if (pOTextures != null && pOTextures.Game == UWGame.Uw2)
+				return BuildUw2(pOTextures, pbOutline);
+
 			UWTexture lOStone = pOTextures.GetTextureByType(UWTexture.TextureTypes.COMPASS, 0);
 
 			return Compose(UWMainFrame.Picture(pOTextures), lOStone != null ? UWPicture.From(lOStone) : null, pbOutline);
@@ -217,6 +220,150 @@ namespace UWDataImport.Presentation
 			}
 
 			return -1;
+		}
+
+		// ------------------------------------------------- The second game's recess and compass (UW2 plan stage U6 step 1)
+
+		/// <summary>The room round the second game's disc for its outline, a pixel each way.</summary>
+		public const int Uw2DiscPad = 1;
+
+		/// <summary>
+		/// THE SECOND GAME'S DISC: the middle recess of the marble ledge (UWClassicLayoutUw2.CompassRecess) cut from the
+		/// frame by its mask (UWHudMasks.CompassRecessUw2), every pixel opaque (the frame's near black is no clear colour
+		/// there, UWMainFrame.Picture), with its cross, gem and needle baked in - the compass's whole picture covers them
+		/// (UWCompassGeometry.IsFreedOnDisc false). A pixel of room each way; pbOutline: black there, as the first game's.
+		/// </summary>
+		public static UWPicture BuildUw2(UWTextures pOTextures, bool pbOutline)
+		{
+			return ComposeUw2(UWMainFrame.Picture(pOTextures), pbOutline);
+		}
+
+		public static UWPicture ComposeUw2(UWPicture pOMain, bool pbOutline)
+		{
+			UWMaskText lOMask = UWHudMasks.CompassRecessUw2;
+			UWPicture lORecess = pOMain.Crop(lOMask.Place);
+
+			UWPixelOps.MakeOpaque(lORecess);
+			UWPixelOps.Clear(lORecess, lOMask.Where('.'));
+
+			UWPicture lOOut = UWPixelOps.Pad(lORecess, Uw2DiscPad, Uw2DiscPad, Uw2DiscPad, Uw2DiscPad);
+
+			if (!pbOutline)
+				return lOOut;
+
+			UWPicture lOShape = UWPixelOps.Copy(lOOut);
+
+			UWPixelOps.Outline(lOOut, (piX, piY) => lOShape.Get(piX, piY).A == 0,
+				(piX, piY) => piX >= 0 && piY >= 0 && piX < lOShape.Width && piY < lOShape.Height && lOShape.Get(piX, piY).A != 0, UWPixelOps.Black);
+
+			return lOOut;
+		}
+
+		/// <summary>The second game's compass pictures: the four faces (COMPASS.GR 0 to 3, by step & 3) and the sixteen
+		/// needles (4 to 19, by step).</summary>
+		private const int Uw2Faces = 4;
+
+		/// <summary>Where a second-game compass picture lies on the screen (rows from the top): the face at 0x5E/0x33,
+		/// a needle at nedl_x + 0x78, nedl_y + 0x2B (UWClassicLayoutUw2.Compass, as UWGameScreenUw2.fUpdateCompass).</summary>
+		private static void fUw2PictureAt(int piPicture, out int piX, out int piY)
+		{
+			if (piPicture < Uw2Faces)
+			{
+				piX = UWClassicLayoutUw2.Compass.Left;
+				piY = UWClassicLayoutUw2.Compass.Top;
+
+				return;
+			}
+
+			int liStep = piPicture - UWClassicLayoutUw2.Compass.FirstNeedle;
+
+			piX = UWClassicLayoutUw2.Compass.NeedleBaseX + UWClassicLayoutUw2.Compass.NeedleX[liStep];
+			piY = UWClassicLayout.Screen.Height - 1 - (UWClassicLayoutUw2.Compass.NeedleBaseY + UWClassicLayoutUw2.Compass.NeedleY[liStep]);
+		}
+
+		private static UWTexture fUw2Picture(UWTextures pOTextures, int piPicture)
+		{
+			try
+			{
+				UWTexture lOPicture = pOTextures != null ? pOTextures.GetTextureByType(UWTexture.TextureTypes.COMPASS, piPicture) : null;
+
+				return lOPicture != null && lOPicture.Width > 0 && lOPicture.Height > 0 ? lOPicture : null;
+			}
+			catch
+			{
+				return null;
+			}
+		}
+
+		/// <summary>The box all four faces and sixteen needles take together on the screen, so every step's picture has
+		/// one size and place (as the first game's UWHudCompass.BuildComposite); empty without the pictures.</summary>
+		public static UWRectInt Uw2CompassBox(UWTextures pOTextures)
+		{
+			int liLeft = int.MaxValue, liTop = int.MaxValue, liRight = int.MinValue, liBottom = int.MinValue;
+
+			for (int liPicture = 0; liPicture < UWClassicLayoutUw2.Compass.FirstNeedle + UWClassicLayoutUw2.Compass.NeedleX.Length; liPicture++)
+			{
+				UWTexture lOPicture = fUw2Picture(pOTextures, liPicture);
+
+				if (lOPicture == null)
+					return new UWRectInt(UWClassicLayoutUw2.Compass.Left, UWClassicLayoutUw2.Compass.Top, 0, 0);
+
+				fUw2PictureAt(liPicture, out int liX, out int liY);
+				liLeft = Math.Min(liLeft, liX);
+				liTop = Math.Min(liTop, liY);
+				liRight = Math.Max(liRight, liX + lOPicture.Width);
+				liBottom = Math.Max(liBottom, liY + lOPicture.Height);
+			}
+
+			return new UWRectInt(liLeft, liTop, liRight - liLeft, liBottom - liTop);
+		}
+
+		/// <summary>
+		/// THE SECOND GAME'S COMPASS OF A STEP over the box of all its pictures (Uw2CompassBox): the face of step & 3 and
+		/// the step's needle, both opaque as the classic screen draws them; pbFreed: the cross and the needle's tip alone,
+		/// by the first game's rules (CompassCrossMask, CompassTipKeeps) on the pictures' opaque colours. Null without the
+		/// pictures.
+		/// </summary>
+		public static UWPicture ComposeUw2Compass(UWTextures pOTextures, int piStep, bool pbFreed)
+		{
+			UWRectInt lOBox = Uw2CompassBox(pOTextures);
+
+			if (lOBox.Width <= 0 || lOBox.Height <= 0)
+				return null;
+
+			int liNeedles = UWClassicLayoutUw2.Compass.NeedleX.Length;
+			int liStep = ((piStep % liNeedles) + liNeedles) % liNeedles;
+			UWPicture lOOut = new UWPicture(lOBox.Width, lOBox.Height);
+
+			foreach (int liPicture in new[] { liStep & (Uw2Faces - 1), UWClassicLayoutUw2.Compass.FirstNeedle + liStep })
+			{
+				UWPicture lOPicture = UWPicture.FromOpaque(fUw2Picture(pOTextures, liPicture));
+				bool[] lbKeep = null;
+
+				if (pbFreed)
+				{
+					if (liPicture < Uw2Faces)
+						lbKeep = CompassCrossMask(lOPicture.Pixels, lOPicture.Width, lOPicture.Height);
+					else
+					{
+						lbKeep = new bool[lOPicture.Pixels.Length];
+
+						for (int liAt = 0; liAt < lbKeep.Length; liAt++)
+							lbKeep[liAt] = CompassTipKeeps(lOPicture.Pixels[liAt]);
+					}
+
+					for (int liAt = 0; liAt < lbKeep.Length; liAt++)
+					{
+						if (!lbKeep[liAt])
+							lOPicture.Pixels[liAt] = UWPixelOps.Transparent;
+					}
+				}
+
+				fUw2PictureAt(liPicture, out int liX, out int liY);
+				lOOut.Overlay(lOPicture, liX - lOBox.X, liY - lOBox.Y);
+			}
+
+			return lOOut;
 		}
 
 		// ------------------------------------------------- The compass's cross, freed (COMPASS.GR)

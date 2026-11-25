@@ -35,7 +35,7 @@ namespace UnderworldRevisited.Tools
         {
             "ModernLayout", "ModernBacks", "ModernUiPercent", "ModernCompass", "ModernCompassDisc", "ModernCompassOutline",
             "ModernScroll", "ModernScrollLines", "ModernScrollWidth", "ModernMessageLines", "ModernMessageFade", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
-            "ModernRuneHollow", "ModernRuneHollowOutline", "ModernRuneTablet", "ModernStatsPanel", "ModernCharacterPage",
+            "ModernRuneHollow", "ModernRuneHollowOutline", "ModernSpellHollow", "ModernRuneTablet", "ModernStatsPanel", "ModernCharacterPage",
             "ModernConversationOriginal", "ModernConversationNoOutline", "ConversationTextPercent", "MinimapHidden", "MinimapTurns",
             "ActionBarHidden" // InterfaceFont left the layout on 2026-11-19 (the Interface window sets it)
         };
@@ -248,6 +248,23 @@ namespace UnderworldRevisited.Tools
             lOPreset.InterfacePreset = 2;
             Check.Int("settings: a chosen preset reads as it is", UWUserSettingsTable.InterfacePreset.Read(lOPreset), 2);
 
+            // THE TEXTURES' LOOK (2026-11-25): -1 reads from 0.23.0's two xBR switches, a chosen look as it is.
+            UWUserData lOLook = new UWUserData();
+
+            Check.Int("settings: textures -1 without xBR reads Pixels", UWUserSettingsTable.TextureLook.Read(lOLook), (int)UWTextureLookEnum.Pixels);
+            lOLook.XbrSprites = true;
+            Check.Int("settings: textures -1 with the sprites' xBR reads xBR", UWUserSettingsTable.TextureLook.Read(lOLook), (int)UWTextureLookEnum.Xbr);
+            lOLook.XbrSprites = false;
+            lOLook.XbrTextures = true;
+            Check.Int("settings: textures -1 with the walls' xBR reads xBR", UWUserSettingsTable.TextureLook.Read(lOLook), (int)UWTextureLookEnum.Xbr);
+            lOLook.TextureLook = (int)UWTextureLookEnum.Smooth;
+            Check.Int("settings: a chosen texture look reads as it is", UWUserSettingsTable.TextureLook.Read(lOLook), (int)UWTextureLookEnum.Smooth);
+            Check.Str("textures: the looks' xBR and filter",
+                UWTextureLook.ScalesByXbr(UWTextureLookEnum.Smooth) + " " + UWTextureLook.ScalesByXbr(UWTextureLookEnum.Xbr) + " "
+                + UWTextureLook.Filter(UWTextureLookEnum.Xbr) + " " + UWTextureLook.Filter(UWTextureLookEnum.Smooth) + " "
+                + UWTextureLook.Of(9),
+                "False True None Smooth Pixels");
+
             Check.Int("settings: control scheme -1 (not chosen) reads as it is", UWUserSettingsTable.ControlScheme.Read(new UWUserData()), -1);
             Check.Int("settings: display mode -1 (not chosen) reads as it is", UWUserSettingsTable.DisplayMode.Read(new UWUserData()), -1);
 
@@ -438,6 +455,9 @@ namespace UnderworldRevisited.Tools
 
                 case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.IceGrip:
                     return ((UWIceGripEnum)lOInt.Read(pOData)).ToString();
+
+                case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.TextureLook:
+                    return UWTextureLook.Of(lOInt.Read(pOData)).ToString();
 
                 case UWIntSettingDef lOInt when lOInt.Normalize == UWSettingNormalize.InRangeOrFallback:
                     return ((UWHeadBobRules.ModeEnum)lOInt.Read(pOData)).ToString();

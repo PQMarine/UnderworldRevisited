@@ -485,6 +485,7 @@ namespace UWDataImport.UWData
 					lOSection.Add("Tile", fF("{0}, {1}", pOLook.TileX, pOLook.TileY));
 					lOSection.Add("Height", fF("{0}", pOLook.Height));
 					lOSection.Add("Heading", fF("{0}", pOLook.Heading));
+					lOSection.Add("Flags", fF("{0}", pOLook.Flags));
 					lOSection.Add("Description", pOLook.Description);
 					break;
 

@@ -232,13 +232,23 @@ namespace UWDataImport.Presentation
 
 		public static readonly UWRectInt ConversationParchment = UWConversationArtBuilder.ConversationParchment;
 
+		/// <summary>The conversation's top: the game's (the second game's from its screen 2 since UW2 plan stage U7 step 3b).</summary>
 		public static UWPicture BuildConversationHeader(UWTextures pOTextures)
 		{
-			return UWConversationArtBuilder.BuildHeader(pOTextures);
+			return pOTextures != null && pOTextures.Game == UWGame.Uw2
+				? UWConversationArtBuilder.BuildHeaderUw2(pOTextures)
+				: UWConversationArtBuilder.BuildHeader(pOTextures);
 		}
 
-		public static UWPicture BuildConversationParchment(UWTextures pOTextures, int piRows, bool pbKnobRollers = false)
+		/// <summary>The history's parchment, or with pbKnobRollers the answers' piece: the game's (the second game's answers
+		/// are its scroll the block's width, UWConversationLook).</summary>
+		public static UWPicture BuildConversationParchment(UWTextures pOTextures, int piRows, bool pbKnobRollers = false, int piWidth = -1)
 		{
+			if (pOTextures != null && pOTextures.Game == UWGame.Uw2)
+				return pbKnobRollers
+					? UWConversationArtBuilder.BuildAnswersUw2(pOTextures, piWidth > 0 ? piWidth : UWConversationLook.Uw2.Width, piRows)
+					: UWConversationArtBuilder.BuildParchmentUw2(pOTextures, piRows);
+
 			return UWConversationArtBuilder.BuildParchment(pOTextures, piRows, pbKnobRollers);
 		}
 

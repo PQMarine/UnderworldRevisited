@@ -7,9 +7,32 @@ namespace UWDataImport.Presentation
 	/// THE SLOT CIRCLE and the freed slot ring (MAIN.BYT; cleanup 9.11, 2026-10-25: a builder of its
 	/// own, UWHudArt forwards to it). Build reads MAIN.BYT, Compose works on the frame picture
 	/// given.
+	///
+	/// THE SECOND GAME'S CIRCLE (UW2 plan, the modern interface's part U4b, 2026-11-23): a ring engraved in
+	/// marble, dark at the top left and light at the bottom right, 16 pixels across. It is cut from the
+	/// inventory page itself (PANELS.GR 0, the left shoulder's circle, which stands alone - the pack's eight
+	/// are joined by ornaments), in a box of the first game's 17 so the windows' measures hold.
 	/// </summary>
 	public static class UWSlotBuilder
 	{
+		/// <summary>The left shoulder's circle on the second game's inventory page: the ring at x 8 to 23 and
+		/// y 5 to 20, a pixel of marble left of it and above it.</summary>
+		[UWClassicLayout.Measured("UW2 PANELS.GR 0")]
+		public static readonly UWRectInt Uw2Circle = new UWRectInt(7, 4, 17, 17);
+
+		private const int Uw2Page = 0;
+
+		private static bool fIsUw2(UWTextures pOTextures)
+		{
+			return pOTextures != null && pOTextures.Game == UWGame.Uw2;
+		}
+
+		/// <summary>The second game's inventory page as a picture.</summary>
+		private static UWPicture fUw2Page(UWTextures pOTextures)
+		{
+			return UWPicture.From(pOTextures.GetTextureByType(UWTexture.TextureTypes.PANELS, Uw2Page));
+		}
+
 		// ------------------------------------------------- The slot circle (MAIN.BYT)
 
 		/// <summary>The slot circle's size (UWMainFrame.SlotCircle).</summary>
@@ -19,12 +42,18 @@ namespace UWDataImport.Presentation
 		/// leather shows there.</summary>
 		public static UWPicture BuildCircle(UWTextures pOTextures)
 		{
-			return ComposeCircle(UWMainFrame.Picture(pOTextures));
+			return fIsUw2(pOTextures) ? ComposeCircle(fUw2Page(pOTextures), Uw2Circle) : ComposeCircle(UWMainFrame.Picture(pOTextures));
 		}
 
 		public static UWPicture ComposeCircle(UWPicture pOMain)
 		{
-			UWPicture lOCircle = pOMain.Crop(UWMainFrame.SlotCircle);
+			return ComposeCircle(pOMain, UWMainFrame.SlotCircle);
+		}
+
+		/// <summary>The circle at pOPlace of the picture given.</summary>
+		public static UWPicture ComposeCircle(UWPicture pOMain, UWRectInt pOPlace)
+		{
+			UWPicture lOCircle = pOMain.Crop(pOPlace);
 			float lfCentre = (SlotSize - 1) * 0.5f;
 
 			for (int y = 0; y < lOCircle.Height; y++)
@@ -54,12 +83,21 @@ namespace UWDataImport.Presentation
 		/// </summary>
 		public static UWPicture BuildRing(UWTextures pOTextures, List<UWColor32> pOCarve = null)
 		{
-			return ComposeRing(UWMainFrame.Picture(pOTextures), pOCarve);
+			return fIsUw2(pOTextures)
+				? ComposeRing(fUw2Page(pOTextures), Uw2Circle, UWHudTuning.Slot.RingDarkLumaUw2, UWHudTuning.Slot.RingLightLumaUw2, pOCarve)
+				: ComposeRing(UWMainFrame.Picture(pOTextures), pOCarve);
 		}
 
 		public static UWPicture ComposeRing(UWPicture pOMain, List<UWColor32> pOCarve = null)
 		{
-			UWPicture lOCircle = ComposeCircle(pOMain);
+			return ComposeRing(pOMain, UWMainFrame.SlotCircle, UWHudTuning.Slot.RingDarkLuma, UWHudTuning.Slot.RingLightLuma, pOCarve);
+		}
+
+		/// <summary>The ring of the circle at pOPlace: its pixels are those at or under pfDarkLuma and at or over
+		/// pfLightLuma.</summary>
+		public static UWPicture ComposeRing(UWPicture pOMain, UWRectInt pOPlace, float pfDarkLuma, float pfLightLuma, List<UWColor32> pOCarve = null)
+		{
+			UWPicture lOCircle = ComposeCircle(pOMain, pOPlace);
 			float lfCentre = (SlotSize - 1) * 0.5f;
 
 			for (int y = 0; y < lOCircle.Height; y++)
@@ -72,12 +110,12 @@ namespace UWDataImport.Presentation
 					float lfLuma = UWPixelRules.Luma(lOPixel);
 					float lfSquare = (lfX * lfX) + (lfY * lfY);
 					bool lbInner = lfSquare < UWHudTuning.Slot.RingInnerRadius * UWHudTuning.Slot.RingInnerRadius;
-					bool lbRing = lOPixel.A > 0 && !lbInner && (lfLuma <= UWHudTuning.Slot.RingDarkLuma || lfLuma >= UWHudTuning.Slot.RingLightLuma);
+					bool lbRing = lOPixel.A > 0 && !lbInner && (lfLuma <= pfDarkLuma || lfLuma >= pfLightLuma);
 
 					if (!lbRing)
 						lOCircle.Set(x, y, lbInner ? UWHudTuning.Slot.Hollow : UWPixelOps.Transparent);
 					else if (pOCarve != null && pOCarve.Count > 0)
-						lOCircle.Set(x, y, lfLuma <= UWHudTuning.Slot.RingDarkLuma ? pOCarve[0] : pOCarve[pOCarve.Count - 1]);
+						lOCircle.Set(x, y, lfLuma <= pfDarkLuma ? pOCarve[0] : pOCarve[pOCarve.Count - 1]);
 				}
 			}
 

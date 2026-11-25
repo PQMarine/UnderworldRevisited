@@ -220,7 +220,7 @@ public class UWDoor : MonoBehaviour, IUWDoor
         // THE SECOND GAME'S DOOR TRIGGERS (OpenDoor, CloseDoor, changeDoor - uw2 obj/USEITEMS.C; G3 part H4): opening sets
         // off the door's chain with mode 8, closing with 9, by whoever moved it; a door turned round in its swing does so
         // by its new way, as by nobody.
-        if (UWWalkUw2.IsWalking && Data != null)
+        if (UWGameStartUw2.IsRunning && Data != null)
         {
             int liMode = lbWasHeadingClosed ? UWTrapRulesUw2.OpenMode : UWTrapRulesUw2.CloseMode;
 
@@ -237,7 +237,7 @@ public class UWDoor : MonoBehaviour, IUWDoor
         UWDoorRules.ClearSpike(lOData);
 
         // The second game's door triggers ran above (mode 8 and 9).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             return;
 
         UWTriggerSystem.TryFireOpenTrigger(lOData, UWScene.LevelLoader, UWScene.Interaction, peOpener);

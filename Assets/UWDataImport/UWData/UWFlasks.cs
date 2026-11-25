@@ -71,10 +71,10 @@ namespace UWDataImport.UWData
 		/// otherwise only told apart by its colour, which is exactly the case a red-green
 		/// deficiency cannot see (per user, 2026-09-17). Index 1 is the black of the interface.
 		/// </summary>
-		private const byte HatchColour = 1;
+		public const byte HatchColour = 1;
 
 		/// <summary>Every third diagonal of the liquid is darkened.</summary>
-		private const int HatchSpacing = 3;
+		public const int HatchSpacing = 3;
 
 		/// <summary>The bubbling pictures of a colour follow right behind its thirteen fill
 		/// pictures (of which only twelve are drawn, see FillLevels).</summary>

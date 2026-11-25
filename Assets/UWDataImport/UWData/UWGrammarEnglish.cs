@@ -342,6 +342,25 @@ namespace UWDataImport.UWData
 			return UWText.Capitalised(psText);
 		}
 
+		/// <summary>The articles block 10 starts its names with ("a trapdoor", "an ankh"; "outer space" has none).</summary>
+		private static readonly string[] ChunkArticles = { "a ", "an ", "some " };
+
+		public virtual string ChunkLabel(string psText)
+		{
+			string lsName = UWObjectDescriptionFormatter.FormatItemName(psText ?? string.Empty, false);
+
+			foreach (string lsArticle in ChunkArticles)
+			{
+				if (lsName.Length > lsArticle.Length && lsName.StartsWith(lsArticle, System.StringComparison.OrdinalIgnoreCase))
+				{
+					lsName = lsName.Substring(lsArticle.Length);
+					break;
+				}
+			}
+
+			return lsName;
+		}
+
 		// ------------------------------------------------- What a frame's select chooses by (wave 4)
 
 		/// <summary>English names have no gender: a select takes its "other".</summary>

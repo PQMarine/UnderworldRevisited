@@ -5,7 +5,7 @@ using UWDataImport.UWData;
 
 /// <summary>
 /// THE MODERN HUD'S MESSAGES (out of UWModernHud, cleanup 5.16, 2026-10-22): above the flasks the
-/// last messages, as many as the box has lines (Interaction.ModernMessageCount), colour codes
+/// last messages (IUWModernMessages), as many as the box has lines (UWMessageLog.ModernShownCount), colour codes
 /// turned into colours, [MORE] while the game waits for a page - or the original's scroll in
 /// their place (UWModernScroll), which draws and places itself. The box's dark back gives way to
 /// the part's generated back where one is chosen (UWModernPartBacks).
@@ -49,7 +49,7 @@ public class UWModernMessageBox : UWModernPart
     {
         mOMessageBack = UWUiKit.CreateImage(pORoot, "Message back", new Vector2(0f, 0f), new Vector2(0f, 0f),
             new Color(0.05f, 0.05f, 0.06f, BackAlpha));
-        mOMessages = UWUiKit.CreateText(pORoot, "Messages", new Vector2(0f, 0f), new Vector2(0f, 0f), TextAnchor.LowerLeft, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
+        mOMessages = UWUiKit.CreateText(pORoot, "Messages", new Vector2(0f, 0f), new Vector2(0f, 0f), TextAnchor.LowerLeft, UWModernPalette.HudText, mOSession.TextUi, UWUiKit.HudText);
     }
 
     /// <summary>The box's size and place at the UI's scale, and where the left column starts.</summary>
@@ -64,7 +64,7 @@ public class UWModernMessageBox : UWModernPart
         mOMessages.fontSize = liFontSize;
 
         float lfMessageWidth = Mathf.Min(Screen.width * 0.45f, liFontSize * 36f);
-        float lfMessageHeight = liFontSize * 1.35f * Interaction.ModernMessageCount + (2f * lfMargin);
+        float lfMessageHeight = liFontSize * 1.35f * UWMessageLog.ModernShownCount + (2f * lfMargin);
         float lfFlaskRow = ((UWModernVitals.ShelfMargin + 42) * liScale) + (liFontSize * 1.5f) + lfMargin;
 
         mfLeftColumnBottom = lfFlaskRow;
@@ -94,7 +94,7 @@ public class UWModernMessageBox : UWModernPart
         float lfMargin = 6f * miPixelScale * lfScale;
         int liFontSize = Mathf.Max(9, Mathf.RoundToInt(FontSize * lfScale));
         float lfWidth = Mathf.Min(Screen.width * 0.45f, liFontSize * 36f);
-        float lfHeight = (liFontSize * 1.35f * Interaction.ModernMessageCount) + (2f * lfMargin);
+        float lfHeight = (liFontSize * 1.35f * UWMessageLog.ModernShownCount) + (2f * lfMargin);
 
         // As tall as its text needs at least - long lines wrap, and the font's lines are taller
         // than 1.35 of its size (per user, 2026-10-04: the text stood out over the box's top).
@@ -130,7 +130,7 @@ public class UWModernMessageBox : UWModernPart
     }
 
     /// <summary>
-    /// The last messages, as many as the box has lines (Interaction.ModernMessageCount). THE FADE (GitHub
+    /// The last messages, as many as the box has lines (UWMessageLog.ModernShownCount). THE FADE (GitHub
     /// issue 18, 2026-11-07; the layout editor's "Fade out", UWUserSettings.ModernMessageFade): each line fades
     /// out that many seconds after it was written (UWMessageLogModel.LineAlpha), a gone line leaves the box,
     /// and the dark back fades with the newest. Nothing fades while the game waits for a page or while the
@@ -145,7 +145,7 @@ public class UWModernMessageBox : UWModernPart
         {
             mOMessages.enabled = false;
             mOMessageBack.enabled = false;
-            mOScroll.Update(mOInteraction, miPixelScale, new Vector2(6f * miPixelScale, mfLeftColumnBottom));
+            mOScroll.Update(mOSession.Messages, miPixelScale, new Vector2(6f * miPixelScale, mfLeftColumnBottom));
             return;
         }
 
@@ -154,18 +154,19 @@ public class UWModernMessageBox : UWModernPart
 
         mOMessages.enabled = true;
 
-        System.Collections.Generic.IReadOnlyList<string> lOLines = mOInteraction.ActiveStrings;
-        System.Collections.Generic.IReadOnlyList<float> lOTimes = mOInteraction.ActiveStringTimes;
+        IUWModernMessages lOSaid = mOSession.Messages;
+        System.Collections.Generic.IReadOnlyList<string> lOLines = lOSaid.Lines;
+        System.Collections.Generic.IReadOnlyList<float> lOTimes = lOSaid.LineTimes;
         System.Text.StringBuilder lOText = new System.Text.StringBuilder();
         int liColour = 0;
-        int liFade = mOInteraction.IsWaitingForPage || UWModernLayout.IsEditing ? 0 : UWUserSettings.ModernMessageFade;
-        int liPrompt = mOInteraction.PromptLineIndex;
+        int liFade = lOSaid.IsWaitingForPage || UWModernLayout.IsEditing ? 0 : UWUserSettings.ModernMessageFade;
+        int liPrompt = lOSaid.PromptLine;
         float lfNow = Time.unscaledTime;
         float lfNewest = 0f;
         bool lbAny = false;
 
         // The list keeps more for the tall scroll; the box shows the newest of its lines.
-        int liFirst = lOLines != null ? Mathf.Max(0, lOLines.Count - Interaction.ModernMessageCount) : 0;
+        int liFirst = lOLines != null ? Mathf.Max(0, lOLines.Count - UWMessageLog.ModernShownCount) : 0;
 
         for (int liAt = liFirst; lOLines != null && liAt < lOLines.Count; liAt++)
         {
@@ -189,10 +190,10 @@ public class UWModernMessageBox : UWModernPart
 
         // The input box at the one rate of both schemes (decision 17, 2026-10-20; until then the
         // first half of every second).
-        if (mOInteraction.ShowsPromptTextCursor && UWMessageLogModel.IsCursorOn(Time.unscaledTime))
+        if (lOSaid.ShowsPromptCursor && UWMessageLogModel.IsCursorOn(Time.unscaledTime))
             lOText.Append('_');
 
-        if (mOInteraction.IsWaitingForPage)
+        if (lOSaid.IsWaitingForPage)
             lOText.Append("  ").Append(UWMessageLogModel.MoreMarkerText);
 
         mOMessages.text = lOText.ToString();
@@ -258,10 +259,18 @@ public class UWModernMessageBox : UWModernPart
 
     private bool fOpenColour(System.Text.StringBuilder pOText, int piColour, float pfAlpha)
     {
-        if (piColour <= 0 || mOUi == null || mOUi.mOUWData == null || mOUi.mOUWData.Palettes == null)
+        DataImport lOData = mOSession != null ? mOSession.Data : null;
+
+        if (piColour <= 0 || lOData == null || lOData.Palettes == null)
             return false;
 
-        Color32 lOColour = fReadable(UWScreenUi.GetColour(mOUi.mOUWData.Palettes, 0, UWMessageLogModel.ColourIndices[piColour]));
+        // The running game's log colours (the second game's own since UW2 plan stage U6 step 2b).
+        int[] liIndices = UWMessageLogModel.ColourIndicesOf(lOData.Textures != null ? lOData.Textures.Game : UWGame.Uw1);
+
+        if (piColour >= liIndices.Length)
+            return false;
+
+        Color32 lOColour = fReadable(UWScreenUi.GetColour(lOData.Palettes, 0, liIndices[piColour]));
 
         if (pfAlpha < 1f)
         {

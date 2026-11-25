@@ -81,9 +81,9 @@ public class UWPlayerTerrain : MonoBehaviour
 
     private void Update()
     {
-        // The second game's walk has the automap of this class only: water, lava, the swim counter and the view's
+        // The second game's session has the automap of this class only: water, lava, the swim counter and the view's
         // sinking are its motion's and its rules' (phase 4).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             fUpdateTerrainUw2();
             fUpdateAutomap();
@@ -218,7 +218,7 @@ public class UWPlayerTerrain : MonoBehaviour
     /// </summary>
     private void fUpdateRenderBand()
     {
-        if (mOLevelLoader.UWDataImporter == null || (!mOLevelLoader.HasWorld && !UWWalkUw2.IsWalking))
+        if (mOLevelLoader.UWDataImporter == null || (!mOLevelLoader.HasWorld && !UWGameStartUw2.IsRunning))
             return;
 
         // The position is the player's (PositionCameraAtObject_seg034_2F89_B99 takes the player
@@ -281,7 +281,7 @@ public class UWPlayerTerrain : MonoBehaviour
         UWAutomapStateUw2.EnterTile(lOFile, lOLevel.AutomapTiles[lOAt.Index]);
 
         if (lbNewLevel || lbWasOn != UWAutomapStateUw2.IsOn(lOFile))
-            Debug.Log(string.Format("[Walk] Automap {0} on level {1}, tile {2}/{3}, its byte 0x{4:X2}.", UWAutomapStateUw2.IsOn(lOFile) ? "on" : "off",
+            Debug.Log(string.Format("[Session] Automap {0} on level {1}, tile {2}/{3}, its byte 0x{4:X2}.", UWAutomapStateUw2.IsOn(lOFile) ? "on" : "off",
                 lOLevel.LevelNumber, lOAt.X, lOAt.Y, lOLevel.AutomapTiles[lOAt.Index]));
     }
 
@@ -322,7 +322,7 @@ public class UWPlayerTerrain : MonoBehaviour
     /// <summary>Awards the exploration experience of one evaluation - see UWExplorationRules.</summary>
     private void fAwardExplorationExperience(int piCounter)
     {
-        UWPlayerVitals lOVitals = UWWalkUw2.IsWalking ? (UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null)
+        UWPlayerVitals lOVitals = UWGameStartUw2.IsRunning ? (UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null)
             : mOPlayer != null ? mOPlayer.Vitals : null;
 
         if (lOVitals == null)
@@ -580,9 +580,9 @@ public class UWPlayerTerrain : MonoBehaviour
     /// <summary>
     /// THE SECOND GAME'S VIEW BOB (per user, 2026-11-06: no bobbing in the air under Levitate and Fly): the same
     /// two as the first game's (uw2 motion/PLAYMOVE.C move_player's bobEffect while walking, parse_effect's
-    /// |16 - tsteps / 8| * 3 under motion_state 8), the only part of this class's view the second game's walk runs
+    /// |16 - tsteps / 8| * 3 under motion_state 8), the only part of this class's view the second game's session runs
     /// so far - its water, lava and swim view are phase 4 (Update). Added to the camera's height as a change from
-    /// the last frame, so the eye the walk set stays as it is.
+    /// the last frame, so the eye the session set stays as it is.
     /// </summary>
     private void fUpdateViewBobUw2()
     {
@@ -710,7 +710,7 @@ public class UWPlayerTerrain : MonoBehaviour
             {
                 UWPlayerRecordUw2.SetXClock(pOFile, UWPlayerRecordUw2.DjinnClock, UWPlayerRecordUw2.DjinnMudBakedStage);
                 // To the second game's scroll (per user 2026-11-14, test 38.7: the world's own presentation is the first
-                // game's message channel, which the second game's walk does not have, so the line went nowhere).
+                // game's message channel, which the second game's session does not have, so the line went nowhere).
                 IUWPresentation lOScroll = UWSleepUw2.Current != null ? UWSleepUw2.Current.ScrollPresentation(lOWorld) : lOWorld.Presentation;
 
                 lOScroll.AddGeneralMessage(UWPlayerRecordUw2.MudBakesString);
@@ -939,7 +939,7 @@ public class UWPlayerTerrain : MonoBehaviour
     /// </summary>
     public void RunSwimCheck()
     {
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             fRunSwimCheckUw2();
 
@@ -1015,7 +1015,7 @@ public class UWPlayerTerrain : MonoBehaviour
     /// <summary>N plus N rolls from zero to the range minus one, as DiceRoll in UW.EXE.</summary>
     private int fGetSwimSkill()
     {
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             return UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null
                 ? UWVitalsUw2.Current.Vitals.GetSkill(UWPlayerData.Skill.Swimming) : 0;
 

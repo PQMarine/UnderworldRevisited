@@ -102,7 +102,7 @@ namespace UWDataImport.UWData
 			int liCentre = mOWorld.Session.Rules.Story.Volcano.Centre;
 
 			// Link 0x2C0 as in UW.EXE (EndGameFunctions: word 3 = ... | 0xB000, quantity bit set) -
-			// for the moongate that is the colour, see UWObjectSpawner.fGetModelFaceColor. Without it
+			// for the moongate that is the colour, see UWMoongateLook. Without it
 			// the gate stayed pink (per user, 2026-09-14).
 			// Obj_AddEnd (SKILLS.C): at the tail of the tile's list (2026-10-18).
 			mOWorld.SpawnNewObject(UWObjectMechanics.MoongateObjectId, new UWTilePos(liCentre, liCentre), MoongateLink,

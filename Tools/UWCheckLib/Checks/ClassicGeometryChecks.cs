@@ -112,6 +112,71 @@ namespace UnderworldRevisited.Tools
             fExpectInt("wide: the last column is the original's last", lOWide.OriginalColumn(419, 60), 319);
             fExpectInt("wide: the top bar's cuts (78, 198) differ from the view's", lOWide.OriginalColumn(78, 5), -1);
             fExpectInt("wide: the top bar's column 77 stays", lOWide.OriginalColumn(77, 5), 77);
+
+            // THE WAY BACK PER GAME (UW2 plan stage U8 step 2): the second game's view band (16, 224) and its ledge's four
+            // cuts (13, 75, 165, 226, a quarter each).
+            UWClassicWideGeometry lOUw2 = UWClassicWideGeometry.Uw2;
+
+            fExpectInt("wide uw2: left of the view's cut stays", lOUw2.OriginalColumn(15, 60, 100), 15);
+            fExpectInt("wide uw2: the view's left insert belongs to no area", lOUw2.OriginalColumn(16, 60, 100), -1);
+            fExpectInt("wide uw2: the view maps back by half", lOUw2.OriginalColumn(66, 60, 100), 16);
+            fExpectInt("wide uw2: the view's right insert belongs to no area", lOUw2.OriginalColumn(323, 60, 100), -1);
+            fExpectInt("wide uw2: the right block maps back by all", lOUw2.OriginalColumn(324, 60, 100), 224);
+            fExpectInt("wide uw2: the ledge's first insert", lOUw2.OriginalColumn(37, 150, 100), -1);
+            fExpectInt("wide uw2: the spells' hollow by a quarter", lOUw2.OriginalColumn(38, 150, 100), 13);
+            fExpectInt("wide uw2: the compass recess by half", lOUw2.OriginalColumn(125, 150, 100), 75);
+            fExpectInt("wide uw2: the rune hollow by three quarters", lOUw2.OriginalColumn(240, 150, 100), 165);
+            fExpectInt("wide uw2: the ledge's last insert", lOUw2.OriginalColumn(325, 150, 100), -1);
+            fExpectInt("wide uw2: the ledge's right end by all", lOUw2.OriginalColumn(326, 150, 100), 226);
+
+            // Both games, every band, several widths: every original column comes back from where ShiftX puts it, and
+            // exactly the columns put in belong to no area.
+            int liRoundTrips = 0;
+
+            foreach (UWClassicWideGeometry lOGame in new[] { UWClassicWideGeometry.Uw1, UWClassicWideGeometry.Uw2 })
+            {
+                foreach (int liRow in new[] { 5, 60, lOGame.LedgeTop + 2, lOGame.ScrollTop + 5 })
+                {
+                    foreach (int liExtra in new[] { 1, 3, 57, 100, 213 })
+                    {
+                        bool lbBack = true;
+                        int liNone = 0;
+
+                        for (int liColumn = 0; liColumn < UWClassicLayout.Screen.Width; liColumn++)
+                            lbBack &= lOGame.OriginalColumn(liColumn + lOGame.ShiftX(liColumn, liRow, liExtra), liRow, liExtra) == liColumn;
+
+                        for (int liWide = 0; liWide < UWClassicLayout.Screen.Width + liExtra; liWide++)
+                            liNone += lOGame.OriginalColumn(liWide, liRow, liExtra) < 0 ? 1 : 0;
+
+                        liRoundTrips += lbBack && liNone == liExtra ? 1 : 0;
+                    }
+                }
+            }
+
+            fExpectInt("wide: both games' columns come back, the inserted ones to none (2 games x 4 bands x 5 widths)", liRoundTrips, 40);
+
+            // The first game's rule as it was before the geometry took it (two cuts, half at the first).
+            bool lbAsBefore = true;
+
+            foreach (int liRow in new[] { 5, 60, UWClassicLayout.ClassicWide.LedgeTop + 2, UWClassicLayout.ClassicWide.ScrollTop + 5 })
+            {
+                foreach (int liExtra in new[] { 1, 57, 100 })
+                {
+                    int liLeft = liExtra / 2;
+                    int liCutLeft = UWDataImport.Presentation.UWHudArt.ClassicWideCut(liRow, 0);
+                    int liCutRight = UWDataImport.Presentation.UWHudArt.ClassicWideCut(liRow, 1);
+
+                    for (int liWide = 0; liWide < UWClassicLayout.Screen.Width + liExtra; liWide++)
+                    {
+                        int liOld = liWide < liCutLeft ? liWide : liWide < liCutLeft + liLeft ? -1 : liWide < liCutRight + liLeft ? liWide - liLeft
+                            : liWide < liCutRight + liExtra ? -1 : liWide - liExtra;
+
+                        lbAsBefore &= UWClassicGeometry.OriginalColumn(liWide, liRow, liExtra) == liOld;
+                    }
+                }
+            }
+
+            fExpectBool("wide uw1: the way back as before the geometry took it", lbAsBefore, true);
             fExpectBool("wide: a click into the inserted columns is no point of the original",
                 lOWide.TryGetOriginalPoint(60.5f, 199 - 60 + 0.5f, out liX, out liY), false);
             fExpectBool("wide: a click right of the insert maps back",

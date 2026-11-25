@@ -334,12 +334,15 @@ half4 UWShadeLookup(float pfIndex, float pfLevel)
 // dither.
 half4 UWShadeAtLevel(float pfIndex, float pfDistanceLevel, float pfExtraLevel, float2 pOScreenPosition)
 {
-    // FULL BRIGHT: level zero, i.e. the pure palette colours. Distance, vertex darkness
-    // and dithering all drop out together - dithering only happens between two levels anyway.
-    if (_UWFullBright > 0.5)
+    // FULL BRIGHT (an unlit level such as the Void, or the debug brightness): the light drops out, the distance
+    // with it. A model's own shades stay (the extra level: Gouraud corners, a flat face's shade) - the original's
+    // do_rect sets the light register to locsqmod * lighton, 0 there, and the face's shades still add on top (per
+    // user 2026-11-22: the Void's moongates are dark at the corners and light in the middle, dithered; ours were
+    // one flat colour). Without such shades it is level zero, the pure palette colours.
+    if (_UWFullBright > 0.5 && pfExtraLevel <= 0.0)
         return UWShadeLookup(pfIndex, 0.0);
 
-    float lfLevel = min(pfDistanceLevel, UWLightCap) + pfExtraLevel;
+    float lfLevel = (_UWFullBright > 0.5 ? 0.0 : min(pfDistanceLevel, UWLightCap)) + pfExtraLevel;
 
     if (_UWDither > 0.5)
     {

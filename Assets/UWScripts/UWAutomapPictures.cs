@@ -9,9 +9,10 @@ using UWDataImport.UWData;
 /// serves the classic map (UWHudMap, also the modern scheme's big map), the help window's map tab
 /// and the modern minimap - those two asked the classic map class for these pictures until then
 /// (UWHudMap.BuildMinimapTiles, GetMinimapParchment, GetMinimapNotes, TryGetMinimapPlayerPixel).
-/// Owned by UWGameUI (AutomapPictures).
+/// Owned by UWGameUI (AutomapPictures). The first game's answer to the minimap (IUWMinimapPictures, UW2 plan part U4d
+/// step 3), the second game's is UWAutomapPicturesUw2.
 /// </summary>
-public sealed class UWAutomapPictures
+public sealed class UWAutomapPictures : IUWMinimapPictures
 {
     private readonly UWGameUI mOUi;
 
@@ -36,6 +37,9 @@ public sealed class UWAutomapPictures
 
     /// <summary>How large one tile is, in map screen pixels.</summary>
     internal const int TilePixels = UWAutomapView.TileSize;
+
+    /// <summary>The tiles' block on the map screen (IUWMinimapPictures).</summary>
+    public Rect TilesRect => new Rect(TilesTopLeft.x, TilesTopLeft.y, TilesSize, TilesSize);
 
     private UWLevelLoader mOLevelLoader;
 
@@ -75,7 +79,7 @@ public sealed class UWAutomapPictures
     /// texture of this kind (the map's own stays untouched). pbPlayerMark: the original's cross
     /// where the character stands - the modern minimap leaves it out, its arrow says it (per user,
     /// 2026-10-04).</summary>
-    internal Texture2D BuildTiles(bool pbPlayerMark = true)
+    public Texture2D BuildTiles(bool pbPlayerMark = true)
     {
         if (!fEnsureLevelLoader())
             return null;
@@ -100,7 +104,7 @@ public sealed class UWAutomapPictures
 
     /// <summary>The blank map (BLNKMAP.GR, 320x200) as a texture of its own, for the help
     /// window's map tab and the modern minimap.</summary>
-    internal Texture2D GetParchment()
+    public Texture2D GetParchment()
     {
         if (mOParchment != null || mOUi.mOUWData == null)
             return mOParchment;
@@ -119,7 +123,7 @@ public sealed class UWAutomapPictures
 
     /// <summary>One note of the map as the help window and the minimap draw it: the rendered text
     /// and its top-left corner on the 320x200 map screen.</summary>
-    internal struct Note
+    public struct Note
     {
         public Texture2D Texture;
         public Vector2 TopLeft;
@@ -137,7 +141,7 @@ public sealed class UWAutomapPictures
     /// <summary>The notes of the level the character stands on, rendered as on the map (small
     /// font, dark brown), laid out by UWMapNotesModel. Only rebuilt when a note changed. Read-only -
     /// notes are written and erased on the real map alone (per user, 2026-09-26).</summary>
-    internal List<Note> GetNotes()
+    public List<Note> GetNotes()
     {
         if (!fEnsureLevelLoader() || mOUi.mOUWData == null)
             return mONotes;
@@ -187,7 +191,7 @@ public sealed class UWAutomapPictures
 
     /// <summary>The middle of the character's tile on the 320x200 map screen (top-left
     /// origin), or false when there is no level.</summary>
-    internal bool TryGetPlayerPixel(out Vector2 pOPixel)
+    public bool TryGetPlayerPixel(out Vector2 pOPixel)
     {
         pOPixel = Vector2.zero;
 

@@ -1206,6 +1206,10 @@ namespace UnderworldRevisited.Tools
 
             public int NothingToSeeString => 0;
 
+            public int NamelessCreatureKindString(UWNpc pONpc) => -1;
+
+            public bool HasTalismans => true;
+
             public int DoorSpikedString => 0;
 
             public int BonesLeadString => 0;

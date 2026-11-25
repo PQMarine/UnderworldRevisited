@@ -99,8 +99,8 @@ public class UWModernPartBacks : UWModernPart
 
             if (!mOPartBackTextures[liAt].IsCurrent(lOBackStamp))
             {
-                lOImage.texture = mOPartBackTextures[liAt].Set(lOBackStamp, UWModernHudArt.BuildBackdrop(mOUi.mOUWData.Textures, liWidth, liHeight,
-                    lOBack, mOUi.TextureFilterMode, liAt + 1));
+                lOImage.texture = mOPartBackTextures[liAt].Set(lOBackStamp, UWModernHudArt.BuildBackdrop(UWModernUi.Data.Textures, liWidth, liHeight,
+                    lOBack, UWModernUi.Filter, liAt + 1));
             }
 
             RectTransform lOTransform = (RectTransform)lOImage.transform;

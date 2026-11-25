@@ -807,7 +807,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
         // THE SECOND GAME (do_objhit, uw2 OBJPHYS.C:179): every trigger class (0x1A0-0x1BF) is handed UseTrigger with
         // mode 0, so the hidden move trigger 0x1B0 too, and its own setter test decides (a thing needs id bit 9).
-        bool lbSecondGame = UWWalkUw2.IsWalking;
+        bool lbSecondGame = UWGameStartUw2.IsRunning;
 
         if (lOTrigger == null || (lbSecondGame
                 ? !UWTrapRulesUw2.IsTrigger(lOTrigger.ID) || UWTrapRulesUw2.ModeOf(lOTrigger.ID) != UWTrapRulesUw2.MoveMode
@@ -866,7 +866,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     /// </summary>
     private void fQueueRune(int piOtherIndex, int piMoverIndex)
     {
-        if (!UWWalkUw2.IsWalking || !IsStaticIndex(piOtherIndex))
+        if (!UWGameStartUw2.IsRunning || !IsStaticIndex(piOtherIndex))
             return;
 
         UWObject lORune = StaticObjectAt(piOtherIndex);
@@ -925,7 +925,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     {
         fFireRunes();
 
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             fFollowPlatesUw2();
             fTickTimersUw2();
@@ -958,7 +958,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
             mOOtherTriggerPacer.MarkFired(lOAt.Trigger, lOAt.Mover, llNow);
 
             // The second game's chain on its own rules (G3 part H1).
-            if (UWWalkUw2.IsWalking)
+            if (UWGameStartUw2.IsRunning)
             {
                 UWTriggerSystem.TryFireMoveTriggerUw2(lOAt.Trigger, mOLoader, lOCritter, lOAt.IsCreature ? 0 : lOAt.Mover);
 
@@ -1103,7 +1103,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     /// <summary>The move triggers the player's motion met since the last call (TriggerMove),
     /// each fired once - unless it fired in the same clock unit (UWTriggerPacer). A level change
     /// by one of them drops the rest.</summary>
-    /// <summary>The walk's move triggers on the second game's rules (UWTrapRulesUw2, G3 part H1, 2026-11-13; teleports
+    /// <summary>The session's move triggers on the second game's rules (UWTrapRulesUw2, G3 part H1, 2026-11-13; teleports
     /// alone until then), as the pacer allows. A teleport is carried out after the blink, so the rest of the batch runs
     /// on this level, as the original's chain does before its main loop moves the player.</summary>
     private void fFireWalkTriggers()
@@ -1133,9 +1133,9 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         if (mOPendingPlayerTriggers.Count == 0 || mOLoader == null)
             return;
 
-        // The second game's walk runs its move triggers on its own rules (G3 part H1; its teleports alone since phase 2
+        // The second game's session runs its move triggers on its own rules (G3 part H1; its teleports alone since phase 2
         // step 5).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
         {
             fFireWalkTriggers();
 
@@ -1323,7 +1323,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     private static bool fIsOwnSatellite(UWProjectileFlight pOFlight, int piOtherIndex)
     {
         if (pOFlight == null || pOFlight.Record == null || pOFlight.Record.ItemId != UWSatelliteRulesUw2.ItemId
-            || !UWWalkUw2.IsWalking || pOFlight.Record.Owner != piOtherIndex)
+            || !UWGameStartUw2.IsRunning || pOFlight.Record.Owner != piOtherIndex)
             return false;
 
         pOFlight.Record.CollidedWithMobile = false;
@@ -1455,7 +1455,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         mOLoader.PlaceRestingObject(lOObject, pORecord.TileX, pORecord.TileY, UWWorldEdit.Arrival.Landed);
 
         // The second game: a thing coming to rest on a square is an arrival there (set_phys_data's enter, then the plates).
-        if (UWWalkUw2.IsWalking)
+        if (UWGameStartUw2.IsRunning)
             UWTriggerSystem.CheckPlatesUw2(pORecord.TileX, pORecord.TileY, pORecord.ZPos, UWTrapRulesUw2.EnterMode, mOLoader, UWTrapRules.Setter.Thing);
     }
 

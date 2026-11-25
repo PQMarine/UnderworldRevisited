@@ -29,6 +29,7 @@ namespace UnderworldRevisited.Tools
             {
                 { "ModernLayout", string.Empty }, { "ModernCompass", false }, { "ModernCompassDisc", false }, { "ModernScroll", false },
                 { "ModernGemApart", false }, { "ModernFlasksApart", false }, { "ModernStoneShelf", false }, { "ModernRuneHollow", false },
+                { "ModernSpellHollow", false },
                 { "ModernRuneTablet", false }, { "ModernStatsPanel", false }, { "ModernCharacterPage", false },
                 { "ModernConversationOriginal", false }, { "MinimapHidden", false }, { "ActionBarHidden", false }, { "ModernMessageLines", 0 }
             });
@@ -39,16 +40,34 @@ namespace UnderworldRevisited.Tools
             {
                 { "ModernLayout", UWLayoutPresets.ClassicModularLayout }, { "ModernCompass", true }, { "ModernCompassDisc", true },
                 { "ModernScroll", true }, { "ModernGemApart", true }, { "ModernFlasksApart", true }, { "ModernStoneShelf", true },
-                { "ModernRuneHollow", true }, { "ModernRuneTablet", true }, { "ModernStatsPanel", true }, { "ModernCharacterPage", true },
+                { "ModernRuneHollow", true }, { "ModernSpellHollow", true }, { "ModernRuneTablet", true }, { "ModernStatsPanel", true },
+                { "ModernCharacterPage", true },
                 { "ModernConversationOriginal", true }, { "MinimapHidden", true }, { "ActionBarHidden", true }, { "ModernMessageLines", 0 },
-                { "ModernScrollLines", 5 }, { "ModernCompassOutline", true }, { "ModernRuneHollowOutline", true },
+                { "ModernScrollLines", 5 }, { "ModernScrollWidth", 0 }, { "ModernCompassOutline", true }, { "ModernRuneHollowOutline", true },
                 { "ModernConversationNoOutline", false }, { "ModernBacks", string.Empty }
             });
+
+            // THE SECOND GAME'S PLACES (UW2 plan stage U6 step 3): Classic Modular writes the game's own; the rest as the first.
+            UWUserData lOSecond = new UWUserData();
+
+            UWLayoutPresets.Apply(UWLayoutStart.ClassicModular, lOSecond, UWGame.Uw2);
+            Check.Bool("presets: Classic Modular writes the second game's places there, the rest as the first game's",
+                lOSecond.ModernLayout == UWLayoutPresets.ClassicModularLayoutUw2 && lOSecond.ModernSpellHollow && lOSecond.ModernCompass
+                && lOSecond.ModernScrollWidth == UWLayoutPresets.ClassicModularScrollWidthUw2 && !lOSecond.ModernGemApart
+                && UWLayoutPresets.ClassicModularLayoutOf(UWGame.Uw1) == UWLayoutPresets.ClassicModularLayout, true);
 
             // The places as the user laid them out and took them over (2026-10-11), pinned.
             Check.Str("presets: Classic Modular's places", UWLayoutPresets.ClassicModularLayout,
                 "2:0.5:1:0:-4:100;3:0.5:0:-57.3:40:100;4:0:0:0:6:80;10:0.5:0:-0.12:5.9:100;11:0.5:0:45.42:5.73:100;12:0:0:0:0:100;"
                 + "14:1:0:-100.3:5.7:100;15:1:0:-75.4:6:100;16:1:0:-127.6:5.7:100;17:0:0.5:-3.3:-35:100;18:1:0:0:0:100;19:1:0.5:-0.13:36:100;");
+
+            // The second game's scroll, narrowed as the user laid it out (2026-11-24), pinned.
+            Check.Int("presets: Classic Modular's scroll width on the second game", UWLayoutPresets.ClassicModularScrollWidthUw2, -48);
+
+            // The second game's, as the user laid them out and took them over (2026-11-24), pinned.
+            Check.Str("presets: Classic Modular's places on the second game", UWLayoutPresets.ClassicModularLayoutUw2,
+                "2:0.5:1:0:-4:100;3:0.5:0:-66.8:1.5:100;4:0:0:0:0:100;10:0.5:0:0.11:-5.79:100;11:0.5:0:45.42:5.73:100;12:0:0:0:0:100;"
+                + "14:1:0:-93.75:0.25:100;15:1:0:-67.41:-1.19:100;16:0.5:0:66.54:0.5:100;17:0:0.5:0:-31.99:100;18:1:0:0:0:100;19:1:0.5:6.77:39.83:100;");
         }
 
         /// <summary>Applies the preset over markers in every field and compares every setting - twice,

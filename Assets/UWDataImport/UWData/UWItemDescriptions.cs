@@ -199,6 +199,83 @@ namespace UWDataImport.UWData
 			return UWGrammar.Of(pOData).OwnerPart(UWText.General(pOData, FirstOwnerNameMessage + liRace));
 		}
 
+		/// <summary>The decal class 0x160-0x16F (CLASS_DECAL).</summary>
+		private const int DecalClass = 0x16;
+
+		/// <summary>
+		/// A LOOK THAT SAYS NOTHING (per user 2026-11-22, the force field 0x16D on UW2 level 69 drawn as a floating eye: ours
+		/// said "You see ."): LookAt (both games' obj/LOOK.C) prints the look sentence only for a COMOBJ-lookable thing; a
+		/// decal without the bit goes to RectLook, which knows its classes 4 (bridge), 5 (gravestone), 6 (plaque), 14 and 15
+		/// (the texture behind it) and prints nothing for any other - the force field, class 13, in both games. SpecialLook
+		/// adds nothing for it either.
+		/// </summary>
+		public static bool LookSaysNothing(UWObject pOObject, DataImport pOData)
+		{
+			if (pOObject == null || (pOObject.ID >> 4) != DecalClass || pOData == null || pOData.CommonObjectProperties == null
+				|| !pOData.CommonObjectProperties.TryGet(pOObject.ID, out UWCommonObjectProperties.Entry lOEntry)
+				|| lOEntry.HasLookDescription)
+				return false;
+
+			switch (pOObject.ID & 0xF)
+			{
+				case 4:
+				case 5:
+				case 6:
+				case 14:
+				case 15:
+					return false;
+
+				default:
+					return true;
+			}
+		}
+
+		/// <summary>The highest texture description in our block 10 numbering; the floors are counted down from it.</summary>
+		private const int LastTextureDescription = 511;
+
+		/// <summary>From these flags on a bridge carries a floor texture of the level's map (UWObjectAppearance).</summary>
+		private const int BridgeFloorFlags = 2;
+
+		/// <summary>
+		/// A BRIDGE NAMED AFTER ITS FLOOR: RectLook case 4 (both games' obj/LOOK.C) names a bridge with flags of 2 and up
+		/// by its floor texture through look_nothing (UW2 0x1FE minus the map entry flags - 2, UW1 the same by its floor
+		/// list) and says "You see a bridge." only below. The block 10 string in our numbering, -1 for the plain bridge.
+		/// Per user on the original: the plate over the Wine of Compassion is "a marble floor" (UW1, 2026-09-29), the plank
+		/// in SAVE2's shaft on UW2 level 49 "a trapdoor" (2026-11-22; ours said "a bridge" - the second game's single
+		/// T64.TR list marks every texture as a wall, and the test asked for a floor). The texture the bridge wears is that
+		/// map entry (UWObjectAppearance.Apply); without a level's map it keeps its object picture and the plain name.
+		/// </summary>
+		public static int BridgeTextureDescription(UWObject pOObject)
+		{
+			if (pOObject == null || pOObject.ID != UWObjectIds.Bridge || pOObject.Flags < BridgeFloorFlags || pOObject.Texture == null)
+				return -1;
+
+			UWTexture.TextureTypes leType = pOObject.Texture.TextureType;
+
+			if (leType != UWTexture.TextureTypes.FLOOR && leType != UWTexture.TextureTypes.WALL)
+				return -1;
+
+			return LastTextureDescription - pOObject.Texture.Index;
+		}
+
+		/// <summary>
+		/// A BRIDGE DISGUISED AS ITS FLOOR (per user 2026-11-22: the plate over the Wine of Compassion, UW1 level 6 27/50,
+		/// wears floor 12 on a square with floor 12, and the modern crosshair's label "marble floor" gave it away while the
+		/// floor beside it has no label): a bridge named after its floor (BridgeTextureDescription) whose texture is the
+		/// floor of its own square. The crosshair names it as little as a floor or a closed secret door; the look still
+		/// says "a marble floor", as in the original. A bridge in a texture of its own keeps its label (the second game's
+		/// trapdoor, 167 on floor 188).
+		/// </summary>
+		public static bool BridgeLooksLikeItsFloor(UWObject pOObject, UWLevel pOLevel)
+		{
+			if (pOLevel == null || BridgeTextureDescription(pOObject) < 0)
+				return false;
+
+			UWTile lOTile = pOLevel.GetTile(pOObject.TileX, pOObject.TileY);
+
+			return lOTile != null && lOTile.TextureFloor == pOObject.Texture.Index;
+		}
+
 		/// <summary>
 		/// THE LOOK AT A THING THAT IS NO ITEM: fixed scenery, a door with its condition word before
 		/// the name ("You see a badly damaged door."), the moving door - each with its owner (the
@@ -246,6 +323,13 @@ namespace UWDataImport.UWData
 			int liWho = pONpc.NPCwhoami;
 			string lsKind = fNonEmpty(psRaw);
 			string lsAttitude = null;
+
+			// A NAMELESS KIND (the second game's Void creatures): named by the game's own rule, if it has one.
+			int liKindString = lsKind == null && UWGameSession.Current != null && UWGameSession.Current.Game != null
+				? UWGameSession.Current.Game.Objects.NamelessCreatureKindString(pONpc) : -1;
+
+			if (liKindString >= 0)
+				lsKind = fNonEmpty(UWText.Block(pOData, 1, liKindString, null));
 			string lsName = null;
 
 			if (liWho < VoidCreatureWhoami || liWho == NoAttitudeExceptWhoami)

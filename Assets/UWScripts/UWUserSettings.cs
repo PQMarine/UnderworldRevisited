@@ -186,6 +186,8 @@ public static class UWUserSettings
 
     public static bool ModernRuneHollow { get => Defs.ModernRuneHollow.Read(fGet()); set => Defs.ModernRuneHollow.Write(fGet(), value); }
 
+    public static bool ModernSpellHollow { get => Defs.ModernSpellHollow.Read(fGet()); set => Defs.ModernSpellHollow.Write(fGet(), value); }
+
     public static bool ModernRuneHollowOutline { get => Defs.ModernRuneHollowOutline.Read(fGet()); set => Defs.ModernRuneHollowOutline.Write(fGet(), value); }
 
     public static bool ModernRuneTablet { get => Defs.ModernRuneTablet.Read(fGet()); set => Defs.ModernRuneTablet.Write(fGet(), value); }
@@ -202,6 +204,12 @@ public static class UWUserSettings
 
     /// <summary>The interface preset; -1 in the file reads as Custom or Modern (the table's entry).</summary>
     public static int InterfacePreset { get => Defs.InterfacePreset.Read(fGet()); set => Defs.InterfacePreset.Write(fGet(), value); }
+
+    /// <summary>Whose the layout's settings and the preset are now, and the other game's (UseLayoutOf; the layout per game,
+    /// UW2 plan part U4e step 3).</summary>
+    public static int LayoutGame { get => Defs.LayoutGame.Read(fGet()); set => Defs.LayoutGame.Write(fGet(), value); }
+
+    public static string OtherGameLayout { get => Defs.OtherGameLayout.Read(fGet()); set => Defs.OtherGameLayout.Write(fGet(), value); }
 
     public static bool ClassicWide4By3 { get => Defs.ClassicWide4By3.Read(fGet()); set => Defs.ClassicWide4By3.Write(fGet(), value); }
 
@@ -321,11 +329,24 @@ public static class UWUserSettings
     /// through UWWorldResolution.</summary>
     public static bool OriginalWorldResolution { get => Defs.OriginalWorldResolution.Read(fGet()); set => Defs.OriginalWorldResolution.Write(fGet(), value); }
 
-    /// <summary>Walls, floors and ceilings scaled by xBR in Remastered (UWUserData.XbrTextures, UWLevelLoader.ApplyXbrTextures).</summary>
+    /// <summary>Retired 2026-11-25 (TextureLook took their place, which reads them while not chosen); kept for the file.</summary>
     public static bool XbrTextures { get => Defs.XbrTextures.Read(fGet()); set => Defs.XbrTextures.Write(fGet(), value); }
 
-    /// <summary>Creatures and things scaled by xBR in Remastered from the next load on (UWUserData.XbrSprites, UWSpriteXbr).</summary>
     public static bool XbrSprites { get => Defs.XbrSprites.Read(fGet()); set => Defs.XbrSprites.Write(fGet(), value); }
+
+    /// <summary>The textures' look in Remastered (UWUserData.TextureLook, UWTextureLook): the walls' array at once
+    /// (UWLevelLoader.ApplyTextureLook), the sprites' and the weapon's filter at once (UWRemasterRenderPath), their xBR from
+    /// the next load on. Writing it retires the two xBR switches of 0.23.0.</summary>
+    public static UWTextureLookEnum TextureLook
+    {
+        get => UWTextureLook.Of(Defs.TextureLook.Read(fGet()));
+        set
+        {
+            Defs.TextureLook.Write(fGet(), (int)value);
+            Defs.XbrTextures.Write(fGet(), false);
+            Defs.XbrSprites.Write(fGet(), false);
+        }
+    }
 
     /// <summary>The palette renderer's ambient occlusion in shade steps, 0 = off - see UWPaletteEffects.</summary>
     public static float PaletteAmbientOcclusion { get => Defs.PaletteAmbientOcclusion.Read(fGet()); set => Defs.PaletteAmbientOcclusion.Write(fGet(), value); }
@@ -511,6 +532,69 @@ public static class UWUserSettings
             msLayoutDefs = Defs.InStore(UWSettingStore.Layout);
 
         return msLayoutDefs;
+    }
+
+    /// <summary>The settings kept per game: the layout's (the table's Layout entries) and the preset.</summary>
+    private static UWSettingDef[] msPerGameDefs;
+
+    private static UWSettingDef[] fPerGameDefs()
+    {
+        if (msPerGameDefs == null)
+        {
+            List<UWSettingDef> lODefs = new List<UWSettingDef>(fLayoutDefs());
+
+            lODefs.Add(Defs.InterfacePreset);
+            msPerGameDefs = lODefs.ToArray();
+        }
+
+        return msPerGameDefs;
+    }
+
+    /// <summary>
+    /// THE RUNNING GAME'S LAYOUT (UW2 plan part U4e step 3, decided per user 2026-11-23: the own layout and the preset per
+    /// game, each game keeping its interface): the layout's settings and the preset in the file are always the running
+    /// game's; the other game's wait in UWUserData.OtherGameLayout. When another game's session takes the modern windows
+    /// (UWModernUi.Session), the two swap and the file is written. A game that has none yet starts from the defaults. Not
+    /// while the layout editor holds the file.
+    /// </summary>
+    public static void UseLayoutOf(UWGame peGame)
+    {
+        UWUserData lOData = fGet();
+        UWGame leHolds = lOData.LayoutGame == 0 ? UWGame.Uw1 : (UWGame)lOData.LayoutGame;
+
+        if (leHolds == peGame || SaveSuspended)
+            return;
+
+        UWUserData lOOther = null;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(lOData.OtherGameLayout))
+                lOOther = JsonUtility.FromJson<UWUserData>(lOData.OtherGameLayout);
+        }
+        catch (Exception lOError)
+        {
+            Debug.LogWarning("[Settings] The other game's layout could not be read, it starts from the defaults: " + lOError.Message);
+        }
+
+        if (lOOther == null)
+            lOOther = new UWUserData();
+
+        foreach (UWSettingDef lODef in fPerGameDefs())
+        {
+            object lOMine = lODef.RawOf(lOData);
+
+            lODef.SetRaw(lOData, lODef.RawOf(lOOther));
+            lODef.SetRaw(lOOther, lOMine);
+        }
+
+        lOOther.OtherGameLayout = null;
+        lOOther.LayoutGame = (int)leHolds;
+        lOData.OtherGameLayout = JsonUtility.ToJson(lOOther);
+        lOData.LayoutGame = (int)peGame;
+
+        UWModernLayout.Reload();
+        Save();
     }
 
     public static LayoutSnapshot TakeLayoutSnapshot()
