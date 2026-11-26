@@ -1,0 +1,1186 @@
+# Underworld Revisited's own texts in Greek (Ελληνικά): id TAB text, \n a line break.
+# The game's own texts (STRINGS.PAK) are not here: that pack is el.strings.tsv beside this file.
+# System voice: εσύ. grammar.* and msg.* frames join pieces of the game's strings.
+# Font: NotoSans-Regular.ttf (Greek), then Segoe UI / Tahoma. Classic pixel fonts lack Greek.
+# Character names, map notes and save titles stay Latin-1: Greek letters are refused there.
+setting.GogInstallPath	Φάκελος παιχνιδιού
+setting.GogInstallPathUw2	Φάκελος του Ultima Underworld II
+setting.ControlScheme	Σχήμα
+setting.ControlScheme.choice.original	Πρωτότυπο
+setting.ControlScheme.choice.modern	Σύγχρονο
+setting.ShowOpeningSequence	Λογότυπα και εισαγωγή στην εκκίνηση
+setting.CutsceneSubtitles	Υπότιτλοι στις σκηνές
+setting.CutsceneSubtitles.hint	Το πρωτότυπο δείχνει το κείμενο μιας σκηνής μόνο εκεί που δεν το λέει η ηχογράφηση. Ενεργό το δείχνει και μαζί με τις ηχογραφήσεις· Αυτόματο το κάνει όταν η γλώσσα μεταφράζει τα κείμενα της σκηνής.
+setting.CutsceneSubtitles.choice.auto	Αυτόματο
+setting.CutsceneSubtitles.choice.off	Ανενεργό
+setting.CutsceneSubtitles.choice.on	Ενεργό
+setting.RunInBackground	Να τρέχει στο παρασκήνιο
+setting.CheckForUpdates	Έλεγχος για νέες εκδόσεις
+setting.CheckForUpdates.hint	Το πολύ μία φορά τη μέρα το κύριο μενού ρωτάει το GitHub για την πιο νέα έκδοση και την αναφέρει δίπλα στην τρέχουσα, με σύνδεσμο στη σελίδα της. Στέλνεται μόνο αυτό το αίτημα, τίποτα δεν κατεβαίνει.
+setting.ManualAttributes	Επιλογή χαρακτηριστικών στη δημιουργία
+setting.FixOriginalBugs	Διόρθωση σφαλμάτων του πρωτοτύπου
+setting.FixOriginalBugs.hint	Διορθώνει σφάλματα του πρωτοτύπου που μπορούν να σου κοστίσουν το παιχνίδι: τα δώρα του Goldthirst, η Judy που πέφτει στη λάβα, το αντικείμενο που αφήνει πίσω ένας πολύ βαρύς σωρός στην αποθήκευση, το κόλλημα στους τοίχους στον πάγο με Levitate ή Fly. Ανενεργό τα παίζει όπως το πρωτότυπο. Ισχύει στο επόμενο άνοιγμα ή φόρτωμα. Τα απαριθμεί το Docs/DEVIATIONS.md.
+setting.KnowledgeShowAll	Όλα τα μάντρα και τα ξόρκια στη βοήθεια
+setting.KnowledgeShowAll.hint	Ανενεργό, οι καρτέλες Μάντρα και Ξόρκια της βοήθειας δείχνουν όσα ονομάζει το εγχειρίδιο και όσα έχει μάθει ο χαρακτήρας σου στο παιχνίδι, από βιβλία, επιγραφές, συζητήσεις ή ψάλλοντας και ρίχνοντας. Ενεργό τα δείχνει όλα μαζί.
+setting.LizardWords	Λέξεις σαυρανθρώπων
+setting.LizardWords.hint	Στις συζητήσεις των σαυρανθρώπων η σημασία μιας λέξης σε αγκύλες πίσω της. Ανενεργό δείχνει τις λέξεις όπως το πρωτότυπο. Μαθημένες το κάνει για τις λέξεις που σου έδειξε ο Murgo με νοήματα και τις παραθέτει στη βοήθεια, καρτέλα Μάντρα. Όλες το κάνει για κάθε λέξη.
+setting.LizardWords.choice.off	Ανενεργό
+setting.LizardWords.choice.learned	Μαθημένες
+setting.LizardWords.choice.all	Όλες
+setting.SkillRaises	Αύξηση δεξιοτήτων
+setting.SkillRaises.hint	Το μάντρα μιας δεξιότητας σε ιερό την ανεβάζει κατά ένα έως έξι σημεία, ανάλογα με το κυβερνών χαρακτηριστικό, εν μέρει στην τύχη. Ανενεργό ρίχνει ξανά κάθε φορά, όπως το πρωτότυπο. Μέγιστη δίνει πάντα όσο επιτρέπει το χαρακτηριστικό. Σταθερή ρίχνει μία φορά για κάθε ψαλμωδία, οπότε το ξαναφόρτωμα φέρνει το ίδιο αποτέλεσμα. Οι δάσκαλοι (UW2) δουλεύουν το ίδιο.
+setting.SkillRaises.choice.off	Ανενεργό
+setting.SkillRaises.choice.highest	Μέγιστη
+setting.SkillRaises.choice.fixed	Σταθερή
+setting.IceGrip	Πιάσιμο στον πάγο
+setting.IceGrip.hint	Στο Ultima Underworld II γλιστράς στον πάγο και δεν στρίβεις με ταχύτητα, όπως στο πρωτότυπο. Μισό αφήνει τον πάγο να ακολουθεί το τιμόνι με καθυστέρηση: συνεχίζεις περίπου δύο δευτερόλεπτα και ακόμα αναπηδάς στους τοίχους. Πλήρες κάνει τον επίπεδο πάγο να πιάνει σαν χώμα, χωρίς γλίστρημα και χωρίς αναπήδηση. Οι παγωμένες ράμπες σε σπρώχνουν πάντα όπως στο πρωτότυπο, γιατί μπορεί να το θέλει κάποιος γρίφος. Για κάθε τρόπο κίνησης, αμέσως.
+setting.PassPeaceful	Πέρασμα μέσα από ειρηνικούς
+setting.PassPeaceful.hint	Στο κάστρο του Ultima Underworld II περνάς μέσα από όσους δεν είναι εχθρικοί, αντί να περιμένεις να παραμερίσουν. Όποιος γίνει εχθρικός σου κόβει πάλι τον δρόμο, και μπορείς ακόμα να χτυπήσεις τον καθένα. Ανενεργό: όπως στο πρωτότυπο.
+setting.IceGrip.choice.off	Ανενεργό
+setting.IceGrip.choice.half	Μισό
+setting.IceGrip.choice.full	Πλήρες
+setting.RemoveExploits	Αφαίρεση εκμεταλλεύσεων του πρωτοτύπου
+setting.RemoveExploits.hint	Αφαιρεί ακίνδυνες εκμεταλλεύσεις του πρωτοτύπου: τα συντρίμμια ενός σπασμένου φίλτρου ή περγαμηνής που ρίχνουν το ξόρκι τους για πάντα. Ανενεργό τα κρατά όπως στο πρωτότυπο. Ισχύει στο επόμενο άνοιγμα ή φόρτωμα. Τα απαριθμεί το Docs/DEVIATIONS.md.
+setting.Language	Γλώσσα
+setting.Language.hint	Ισχύει αμέσως· οι γραμμές που είναι ήδη στην περγαμηνή μηνυμάτων μένουν όπως γράφτηκαν. Μια γλώσσα είναι δύο αρχεία στον φάκελο Languages δίπλα στο παιχνίδι: xx.tsv για τα κείμενα του Underworld Revisited, xx.strings.tsv για τα του παιχνιδιού· ό,τι λείπει μένει αγγλικά.
+setting.Language.name	Ελληνικά
+setting.Game	Παιχνίδι
+setting.Game.hint	Ποιο από τα παιχνίδια της εγκατάστασης τρέχει· η αλλαγή το ξεκινά από το κύριο μενού του, και μόνο το κύριο μενού την προσφέρει. Το Ultima Underworld II είναι σε beta: ολόκληρο το παιχνίδι παίζεται, αναφορές διαφορών από το πρωτότυπο είναι ευπρόσδεκτες.
+setting.SaveFolder	Αποθηκεύσεις
+setting.SaveFolder.hint	Πού βρίσκονται οι αποθηκεύσεις της εγκατάστασης GOG, Steam ή EA app, και για τα δύο παιχνίδια. Αυτόματο παίρνει τον φάκελο από τον οποίο έπαιξε τελευταία το πρωτότυπο (το αντίγραφο εργασίας SAVE0), και χωρίς έναν το cloud_saves όταν το DOSBox του GOG τον προσαρτά. Στο cloud_saves μια θέση άδεια εκεί δείχνει από κάτω την αποθήκευση της εγκατάστασης, όπως την δείχνει το DOSBox, και κάθε αποθήκευση πάει στο cloud_saves. Ένα δικό σου DOSBox μπορεί να γράφει στον φάκελο της εγκατάστασης.
+setting.SaveFolder.choice.automatic	Αυτόματο
+setting.SaveFolder.choice.cloudsaves	cloud_saves
+setting.SaveFolder.choice.installation	Φάκελος εγκατάστασης
+setting.Game.choice.uw1	Ultima Underworld
+setting.Game.choice.uw2	Ultima Underworld II
+setting.ColourMode	Βοήθεια χρωμάτων
+setting.ColourMode.choice.off	Ανενεργό
+setting.ColourMode.choice.red	Κόκκινο (πρωτανοπία)
+setting.ColourMode.choice.green	Πράσινο (δευτερανοπία)
+setting.ColourMode.choice.blue	Μπλε (τριτανοπία)
+setting.ColourStrength	Ένταση
+setting.ColourBrightness	Φωτεινότητα
+setting.ColourContrast	Αντίθεση
+setting.MarkPoison	Ρίγες στη φιάλη ζωής όταν είσαι δηλητηριασμένος
+setting.MarkPoison.hint	Η φιάλη είναι κόκκινη κανονικά και πράσινη όταν είσαι δηλητηριασμένος — το μοναδικό ζεύγος που δεν ξεχωρίζει μια κόκκινη-πράσινη αχρωματοψία.
+setting.WindowTheme	Θέμα παραθύρων
+setting.WindowTheme.hint	Η όψη αυτών των παραθύρων: Απλό όπως πριν, ή Πέτρα στα χρώματα του εικονιδίου του παιχνιδιού.
+setting.WindowTheme.choice.plain	Απλό
+setting.WindowTheme.choice.stone	Πέτρα
+setting.WindowBackground	Φόντο
+setting.WindowBackground.choice.gradient	Διαβάθμιση
+setting.WindowBackground.choice.clouds	Σύννεφα
+setting.EasyMovementInterval	Διάστημα εύκολης κίνησης
+setting.MouseLookSpeed	Ταχύτητα ματιάς με ποντίκι (σύγχρονο)
+setting.MouseInvertY	Αντιστροφή πάνω-κάτω (σύγχρονο)
+setting.PointerSpeed	Ταχύτητα δείκτη
+setting.PointerSpeed.hint	Στο παιχνίδι το ποντίκι κινεί τον δικό του δείκτη: στο 100 % ένα βήμα του ποντικιού είναι ένα εικονοστοιχείο στην οθόνη, χωρίς επιτάχυνση. Τα μενού χρησιμοποιούν τον δείκτη του συστήματος.
+setting.WalkSlowToggle	Το αργό περπάτημα ανάβει και σβήνει αντί να κρατιέται (σύγχρονο)
+setting.AutoKey	Αυτόματη χρήση κλειδιών (σύγχρονο)
+setting.ModernFont	Κείμενα παιχνιδιού σε σύγχρονη γραμματοσειρά (πλήκτρο F)
+setting.ModernFont.hint	Η περγαμηνή, οι συζητήσεις και τα άλλα κείμενα του παιχνιδιού σε σύγχρονη γραμματοσειρά πιο ευανάγνωστη, αντί της πρωτότυπης. Το πλήκτρο F την αλλάζει και μέσα στο παιχνίδι.
+setting.ModernPointerHold	Κράτα το δεξί κουμπί για να κοιτάς γύρω (σύγχρονο)
+setting.ModernPointerHold.hint	Ανενεργό, το δεξί κουμπί αλλάζει ανάμεσα στο κοίταγμα γύρω και σε ελεύθερο δείκτη. Ενεργό, ο δείκτης είναι ελεύθερος και η θέα στρίβει μόνο όσο κρατάς το δεξί κουμπί. Το κουμπί του δεξιού μοχλού του χειριστηρίου αλλάζει πάντα, όπως με αυτή την επιλογή ανενεργή.
+setting.AutoKey.hint	Ενεργό, η χρήση μιας κλειδωμένης πόρτας την ανοίγει με το σωστό κλειδί από τα σακίδια, και το στόχαστρο δείχνει το κλειδί δίπλα στην πόρτα. Ανενεργό, βάζεις εσύ το κλειδί στην πόρτα, όπως στο πρωτότυπο.
+setting.FreeOpensCharacter	Πίνακας χαρακτήρα
+setting.FreeOpensCharacter.hint	Τα παράθυρα που διαλέγεις εδώ είναι εκεί αμέσως, χωρίς να γλιστρήσουν μέσα, όσο ο δείκτης είναι ελεύθερος, και κλείνουν πάλι όταν κλειδωθεί. Τα σακίδια ανοίγουν με τα δοχεία που είχες ανοιχτά τελευταία. Ένα παράθυρο που άνοιξες μόνος σου μένει ανοιχτό, και το πλήκτρο του το γλιστράει μέσα όπως πριν.
+setting.FreeOpensRunes	Πίνακας ρούνων
+setting.FreeOpensBags	Σακίδια
+setting.DebugKeys	Πλήκτρα αποσφαλμάτωσης
+setting.DebugKeys.hint	Πλήκτρα για δοκιμές: noclip, τα πλήκτρα επιπέδου, η οθόνη αποσφαλμάτωσης και τα εργαλεία της. Όταν είναι ενεργά, ένα πλήκτρο αποσφαλμάτωσης που χρησιμοποιείται ήδη από πάνω μένει κενό.
+setting.GamepadButtonStyle	Ονόματα κουμπιών
+setting.GamepadButtonStyle.choice.xbox	Xbox
+setting.GamepadButtonStyle.choice.playstation	PlayStation
+setting.GamepadButtonStyle.choice.nintendo	Nintendo
+setting.GamepadButtonStyle.choice.steamdeck	Steam Deck
+setting.StickLookSpeed	Ταχύτητα ματιάς με μοχλό
+setting.GamepadSwapSticks	Ανταλλαγή μοχλών (αριστερόχειρες)
+setting.StickInvertY	Αντιστροφή πάνω-κάτω
+setting.GamepadButtonHints	Υποδείξεις κουμπιών στο παιχνίδι (στόχαστρο, μπάρα ενεργειών)
+setting.LeftStickDeadzone	Νεκρή ζώνη αριστερού μοχλού
+setting.RightStickDeadzone	Νεκρή ζώνη δεξιού μοχλού
+setting.DisplayMode	Λειτουργία
+setting.DisplayMode.choice.window	Παράθυρο
+setting.DisplayMode.choice.borderless	Πλήρης οθόνη χωρίς πλαίσιο
+setting.MusicEnabled	Μουσική
+setting.MusicVolume	Ένταση μουσικής
+setting.SoundEnabled	Ηχητικά εφέ
+setting.SoundVolume	Ένταση ήχου
+setting.MusicDevice	Η μουσική παίζεται από
+setting.MusicDevice.hint	General MIDI: η μουσική MT-32 του παιχνιδιού σε soundfont κομμένο από το FluidR3 GM (Frank Wen, MIT), τα όργανά του ταιριασμένα στα του MT-32 κατ' όνομα — κοντά, όχι ο ήχος του πρωτοτύπου. MT-32: η ίδια μουσική στην εξομοίωση Munt του Roland MT-32, όπως γράφτηκε το παιχνίδι. Τα ROM ανήκουν στη Roland και δεν έρχονται με το παιχνίδι· βάλε τα δικά σου control και PCM ROM στον φάκελο από κάτω.
+setting.MusicDevice.choice.adlib	AdLib
+setting.MusicDevice.choice.gm	General MIDI
+setting.MusicDevice.choice.mt32	MT-32
+setting.MusicRecordings	Μουσική από ηχογραφήσεις
+setting.MusicRecordings.hint	Δικές σου ηχογραφήσεις της μουσικής, ένα αρχείο ανά κομμάτι στον φάκελο από κάτω (UW1/Music), παίζουν αντί της συσκευής από πάνω. Ονόμασε το καθένα με τον αριθμό του κομματιού του παιχνιδιού: 01.ogg η εισαγωγή, 02 έως 04 τα επίπεδα, 05 έως 07 μάχη, 10 Armed, 11 Victory, 12 Death, 13 Fleeing, 15 Maps and Legends (Ogg Vorbis ή WAV). Κομμάτι χωρίς ηχογράφηση παίζει στη συσκευή.
+setting.MusicRecordings.hint.uw2	Δικές σου ηχογραφήσεις της μουσικής, ένα αρχείο ανά κομμάτι στον φάκελο από κάτω (UW2/Music), παίζουν αντί της συσκευής από πάνω. Ονόμασε το καθένα με τον αριθμό του κομματιού του παιχνιδιού: 01.ogg το κύριο μενού, 02 έως 04 μάχη, 05 Armed, 06 Victory, 07 Death, 10 έως 17 τα θέματα περπατήματος των κόσμων· οι σκηνές χρησιμοποιούν άλλους αριθμούς (Ogg Vorbis ή WAV). Κομμάτι χωρίς ηχογράφηση παίζει στη συσκευή.
+setting.ClassicWidescreen	Κλασική οθόνη σε πλατύ λόγο
+setting.ViewAngle	Θέα
+setting.ViewGamma	Γάμμα
+setting.ViewGamma.hint	Ανεβάζει τους σκοτεινούς τόνους της τρισδιάστατης θέας, και στις δύο λειτουργίες· το περιβάλλον κρατά τα χρώματά του. 1.00 είναι η εικόνα όπως ζωγραφίζεται.
+setting.TextureLook	Υφές
+setting.TextureLook.hint	Πώς ζωγραφίζονται οι εικόνες του κόσμου στο Remastered — τοίχοι, δάπεδα, ταβάνια, πράγματα, πλάσματα και το όπλο: τα εικονοστοιχεία του πρωτοτύπου, λεία (φιλτραρισμένα bilinear, όπως η έκδοση του 2012) ή xBR (μεγέθυνση στο τετραπλάσιο με τον scaler pixel art). Τα περιγράμματα μένουν σκληρά. Το xBR σε πράγματα και πλάσματα από το επόμενο φόρτωμα.
+setting.TextureLook.choice.pixels	Εικονοστοιχεία
+setting.TextureLook.choice.smooth	Λεία
+setting.TextureLook.choice.xbr	xBR
+setting.OriginalWorldResolution	Κόσμος στην ανάλυση του πρωτοτύπου
+setting.OriginalWorldResolutionFactor	Συντελεστής ανάλυσης
+setting.PaletteAmbientOcclusion	Περιβαλλοντική απόφραξη
+setting.PaletteAmbientOcclusion.hint	Οι γωνίες, οι αρμοί και το δάπεδο κατά μήκος των τοίχων σκουραίνουν.
+setting.PaletteGrime	Βρομιά κατά μήκος των τοίχων
+setting.PaletteGrime.hint	Η βρομιά εκεί που τοίχος ή σκαλοπάτι συναντά το δάπεδο κρύβει την σκληρή άκρη, στο χρώμα της παλέτας πιο κοντά στον τόνο. Η βρομιά δουλεύει και στο Remastered.
+setting.PaletteGrimeTone	Χρώμα βρομιάς
+setting.PaletteGrimeTone.choice.none	Χωρίς χρώμα
+setting.PaletteGrimeTone.choice.dirt	Χώμα
+setting.PaletteGrimeTone.choice.moss	Βρύα
+setting.PaletteGrimeTone.choice.soot	Καπνιά
+setting.AmbientLight	Περιβαλλοντικό φως
+setting.AmbientLight.hint	Πόσο φωτεινός είναι ο κόσμος χωρίς δικό σου φως, στο Remastered και Palette colours. 100 % όπως παραδόθηκε, 0 % σκοτεινός όπως στο πρωτότυπο.
+setting.IceRelief	Ανάγλυφο πάγου (UW2)
+setting.IceRelief.hint	Πόσο βαθύ είναι το ανάγλυφο του πάγου του δεύτερου παιχνιδιού στο Remastered και Palette colours, σε σχέση με το ανάγλυφο των τοίχων. 100 % όπως οι τοίχοι, 0 % λείο.
+setting.LightTone	Χρώμα φωτός
+setting.LightTone.hint	Το χρώμα δαυλών, φανάριών, φωτιών και ξορκιών στο Remastered. Το Palette colours κρατά τα χρώματα του πρωτοτύπου.
+setting.LightTone.choice.warm	Θερμό
+setting.LightTone.choice.cool	Πιο ψυχρό
+setting.LightTone.choice.white	Λευκό
+setting.PaletteDepth	Βάθος
+setting.PaletteDepth.hint	Οι πέτρες ξεχωρίζουν από τους αρμούς τους και μετατοπίζονται απέναντί τους καθώς κινείσαι, με τη σκιά τους.
+setting.PaletteCavity	Κοιλότητες
+setting.PaletteCavity.hint	Οι αρμοί και οι εσοχές σκουραίνουν.
+setting.PaletteDitherCell	Κόκκος διαβάθμισης
+setting.PaletteDitherCell.hint	Το μέγεθος του καρό ανάμεσα σε δύο αποχρώσεις, σε εικονοστοιχεία της εικόνας. Πρωτότυπο είναι ένα εικονοστοιχείο της οθόνης 320x200.
+setting.PaletteDitherCell.original	Πρωτότυπο
+setting.PaletteGroundShadows	Σκιές εδάφους
+setting.PaletteGroundShadows.hint	Μια σκοτεινή κηλίδα κάτω από πλάσματα και πράγματα, ώστε να πατάνε στο έδαφος.
+setting.PaletteGlow	Λάμψη — λάβα και φλόγες κρατούν το πλήρες χρώμα τους, και στο σκοτάδι
+setting.PaletteLightSources	Πηγές φωτός
+setting.PaletteLightSources.hint	Δαυλοί, κεριά, φανάρια, φωτιές, λάβα, φωτεινές πέτρες, μανιτάρια και σφαίρες φωτίζουν τριγύρω με τον πίνακα φωτός του πρωτοτύπου, οι τοίχοι ρίχνουν σκιές, η φωτιά τρεμοπαίζει. Το πρωτότυπο φωτίζει μόνο από εσένα, οπότε εδώ φαίνονται φωτισμένα μέρη πέρα από το φως σου, μέχρι την πιο μακρινή απόσταση σχεδίασης.
+setting.MotionSmoothing	Κίνηση
+setting.MotionSmoothing.hint	Πρωτότυπο: υπολογίζει όπως το πρωτότυπο, μαζί με τις στρογγυλοποιήσεις του. Λεία: οι ίδιοι κανόνες χωρίς τις στρογγυλοποιήσεις. Η λεία κίνηση είναι ίδια σε κάθε ρυθμό καρέ και μπορεί να είναι πιο εύκολη στο στομάχι. Σύγχρονη: γλιστράς στους τοίχους και στις γωνίες, η θέα μένει εκεί που κοιτάς, πλάγια και πίσω σχεδόν όσο γρήγορα όσο μπροστά. Τα άλματα, τα σκαλοπάτια και τα περβάζια μένουν όπως στο πρωτότυπο.
+setting.MotionSmoothing.choice.original	Πρωτότυπο
+setting.MotionSmoothing.choice.smooth	Λεία
+setting.MotionSmoothing.choice.modern	Σύγχρονη
+setting.SmoothRampTicks	Απόκριση
+setting.SmoothRampTicks.hint	Πόσο χρόνο παίρνει να ξεκινήσεις και να σταματήσεις στη Λεία. 0,6 δ είναι το πρωτότυπο σε αργό PC, 0,3 δ στο PC που αντιπροσωπεύει το DOSBox στα 30000 cycles. Πιο σύντομο νιώθει πιο άμεσο. Το Πρωτότυπο χρησιμοποιεί τον δικό του ρυθμό καρέ γι' αυτό.
+setting.SmoothRampTicks.choice.16	0,6 δ
+setting.SmoothRampTicks.choice.8	0,3 δ
+setting.SmoothRampTicks.choice.4	0,15 δ
+setting.SmoothRampTicks.choice.0	Αμέσως
+setting.ModernRampTicks	Απόκριση
+setting.ModernRampTicks.hint	Πόσο χρόνο παίρνει να ξεκινήσεις και να σταματήσεις στη Σύγχρονη, τιμή δική της δίπλα στη Λεία.
+setting.ModernRampTicks.choice.16	0,6 δ
+setting.ModernRampTicks.choice.8	0,3 δ
+setting.ModernRampTicks.choice.4	0,15 δ
+setting.ModernRampTicks.choice.0	Αμέσως
+setting.MotionViewStepped	Εικόνα
+setting.MotionViewStepped.hint	Μόνο για Πρωτότυπο. Ομαλή: η εικόνα κινείται λίγο με κάθε ανανέωση οθόνης. Βηματική: η εικόνα κινείται μόνο όταν έχει υπολογίσει το παιχνίδι, όπως σε παλιό PC. Η Λεία είναι πάντα ομαλή.
+setting.MotionViewStepped.choice.even	Ομαλή
+setting.MotionViewStepped.choice.stepped	Βηματική
+setting.OriginalFrameTicks	Καρές πρωτοτύπου
+setting.OriginalFrameTicks.hint	Πόσες φορές το δευτερόλεπτο υπολογίζει η λειτουργία Πρωτότυπο. Περισσότερο δεν είναι πιο γρήγορο. Το πρωτότυπο στρογγυλοποιεί προς τα κάτω μετά από κάθε υπολογισμό, οπότε με 64 κινείσαι λίγο πιο αργά όταν κολυμπάς ή περπατάς πίσω, και φτάνεις την πλήρη ταχύτητα νωρίτερα. Με 16 το αντίστροφο. 32 είναι όπως το πρωτότυπο στο DOSBox στα 30000 cycles. Η Λεία δεν χρησιμοποιεί αυτή τη ρύθμιση.
+setting.OriginalFrameTicks.choice.64	64
+setting.OriginalFrameTicks.choice.32	32
+setting.OriginalFrameTicks.choice.21	21
+setting.OriginalFrameTicks.choice.16	16
+setting.HeadBobMode	Κούνημα κεφαλιού
+setting.HeadBobMode.choice.off	Ανενεργό
+setting.HeadBobMode.choice.original	Πρωτότυπο
+setting.HeadBobMode.choice.smooth	Λείο
+setting.HeadBobStrength	Ένταση
+setting.WeaponJitterMode	Όπλο
+setting.WeaponJitterMode.choice.off	Ανενεργό
+setting.WeaponJitterMode.choice.original	Πρωτότυπο
+setting.WeaponJitterMode.choice.smooth	Λείο
+setting.WeaponJitterStrength	Ένταση
+setting.SwimViewMode	Κολύμβηση
+setting.SwimViewMode.choice.off	Ανενεργό
+setting.SwimViewMode.choice.original	Πρωτότυπο
+setting.SwimViewMode.choice.smooth	Λείο
+setting.SwimViewStrength	Ένταση
+setting.ModernUiPercent	Μέγεθος διεπαφής
+setting.InterfaceFont	Γραμματοσειρά σύγχρονης διεπαφής
+setting.InterfaceFont.hint	Τα παράθυρα και τα μέρη του σύγχρονου σχήματος στη σύγχρονη γραμματοσειρά ή στην πρωτότυπη. Στο προκαθορισμένο Classic Wide αποφασίζει ο διακόπτης από πάνω, όπως στην κλασική οθόνη.
+setting.InterfaceFont.choice.modern	Σύγχρονη
+setting.InterfaceFont.choice.original	Πρωτότυπη
+setting.MinimapHidden	Εμφάνιση
+setting.MinimapHidden.choice.on	Ναι
+setting.MinimapHidden.choice.off	Όχι
+setting.ActionBarHidden	Εμφάνιση
+setting.ActionBarHidden.choice.on	Ναι
+setting.ActionBarHidden.choice.off	Όχι
+setting.MinimapTurns	Βορράς
+setting.MinimapTurns.choice.up	Πάνω
+setting.MinimapTurns.choice.turns	Γυρίζει
+setting.ModernCompass	Εμφάνιση
+setting.ModernCompass.choice.on	Ναι
+setting.ModernCompass.choice.off	Όχι
+setting.ModernCompassDisc	Όψη
+setting.ModernCompassDisc.choice.cross	Σταυρός
+setting.ModernCompassDisc.choice.disc	Δίσκος
+setting.ModernCompassOutline	Περίγραμμα
+setting.ModernCompassOutline.choice.off	Όχι
+setting.ModernCompassOutline.choice.on	Ναι
+setting.ModernGemApart	Πολύτιμος λίθος δύναμης
+setting.ModernGemApart.choice.shelf	Ράφι
+setting.ModernGemApart.choice.apart	Ξεχωριστά
+setting.ModernGemApart.choice.compass	Στην πυξίδα
+setting.ModernFlasksApart	Φιάλες
+setting.ModernFlasksApart.choice.shelf	Ράφι
+setting.ModernFlasksApart.choice.apart	Ξεχωριστά
+setting.ModernConversationOriginal	Όψη
+setting.ModernConversationOriginal.choice.modern	Σύγχρονη
+setting.ModernConversationOriginal.choice.original	Πρωτότυπη
+setting.ModernConversationNoOutline	Περίγραμμα
+setting.ModernConversationNoOutline.choice.on	Ναι
+setting.ModernConversationNoOutline.choice.off	Όχι
+setting.ConversationTextPercent	Κείμενο
+setting.ModernCharacterPage	Εμφάνιση
+setting.ModernCharacterPage.choice.on	Ναι
+setting.ModernCharacterPage.choice.off	Όχι
+setting.ModernStatsPanel	Εμφάνιση
+setting.ModernStatsPanel.choice.on	Ναι
+setting.ModernStatsPanel.choice.off	Όχι
+setting.ModernRuneTablet	Εμφάνιση
+setting.ModernRuneTablet.choice.on	Ναι
+setting.ModernRuneTablet.choice.off	Όχι
+setting.ModernRuneHollow	Εμφάνιση
+setting.ModernRuneHollow.choice.on	Ναι
+setting.ModernRuneHollow.choice.off	Όχι
+setting.ModernRuneHollowOutline	Περίγραμμα
+setting.ModernRuneHollowOutline.choice.off	Όχι
+setting.ModernRuneHollowOutline.choice.on	Ναι
+setting.ModernSpellHollow	Όψη
+setting.ModernSpellHollow.choice.row	Σειρά
+setting.ModernSpellHollow.choice.hollow	Κοίλωμα
+setting.ModernStoneShelf	Εμφάνιση
+setting.ModernStoneShelf.choice.on	Ναι
+setting.ModernStoneShelf.choice.off	Όχι
+setting.ModernStoneShelfWidth	Πλάτος
+setting.ModernScroll	Στυλ
+setting.ModernScroll.choice.modern	Σύγχρονο
+setting.ModernScroll.choice.scroll	Περγαμηνή
+setting.ModernScrollLines	Γραμμές
+setting.ModernScrollWidth	Πλάτος
+setting.ModernMessageLines	Γραμμές
+setting.ModernMessageFade	Σβήσιμο
+layout.preset.custom	Προσαρμοσμένο
+layout.preset.modern	Σύγχρονο
+layout.preset.classicmodular	Κλασικό αρθρωτό
+setup.bar.game	Παιχνίδι
+setup.bar.motion	Κίνηση
+setup.bar.graphics	Γραφικά
+setup.bar.display	Οθόνη
+setup.bar.controls	Χειριστήρια
+setup.bar.sound	Ήχος
+setup.bar.colours	Χρώματα
+setup.done	Έτοιμο
+setup.format.steps_off	Ανενεργό
+setup.format.steps	{0} βήματα
+setup.game.title	Παιχνίδι
+setup.bar.gameplay	Παιχνίδι
+setup.bar.interface	Διεπαφή
+setup.interface.title	Διεπαφή
+setup.interface.intro	Πώς φαίνεται και συμπεριφέρεται η διεπαφή, και στα δύο σχήματα. Πού στέκονται τα πράγματα στην οθόνη το ορίζει ο επεξεργαστής διάταξης (σύγχρονο σχήμα, μενού παιχνιδιού).
+setup.interface.texts	Κείμενα
+setup.interface.modern	Σύγχρονο σχήμα
+setup.interface.freeopens	Ο ελεύθερος δείκτης ανοίγει:
+setup.interface.windows	Παράθυρα
+setup.bar.mods	Mods
+setup.gameplay.title	Παιχνίδι
+setup.gameplay.intro	Αυτές οι επιλογές αλλάζουν πώς παίζεται το παιχνίδι. Ανενεργό είναι πάντα όπως στο πρωτότυπο.
+setup.gameplay.original	Όπως το πρωτότυπο
+setup.gameplay.aids	Βοηθήματα
+setup.game.installation	Εγκατάσταση
+setup.game.other_folder	Άλλος φάκελος...
+setup.game.store.gog	GOG
+setup.game.store.steam	Steam
+setup.game.store.ea	EA app
+setup.game.store.other	Δικός φάκελος
+setup.game.saves	Αποθηκεύσεις: {0}
+setup.game.saves_overlay	Αποθηκεύσεις: {0}, θέση άδεια εκεί από {1} από κάτω, όπως στο DOSBox
+setup.game.saves_none	Αποθηκεύσεις: δεν βρέθηκε φάκελος
+setup.game.quit	Έξοδος
+setup.motion.title	Κίνηση
+setup.motion.hint	Πώς κινείσαι. Το παιχνίδι χρησιμοποιεί τον κώδικα κίνησης του πρωτοτύπου. Εδώ διαλέγεις πόσο συχνά υπολογίζει και πώς ακολουθεί η εικόνα.
+setup.motion.bob.hint	Το κούνημα της θέας και του όπλου στο περπάτημα, και το λίκνισμα της θέας στο κολύμπι: όπως το πρωτότυπο, λειασμένο με δική σου ένταση, ή ανενεργό αν σε ενοχλεί.
+setup.graphics.title	Γραφικά
+setup.graphics.mode	Λειτουργία
+setup.graphics.mode.palette	Παλέτα
+setup.graphics.mode.colours	Χρώματα παλέτας
+setup.graphics.mode.remastered	Remastered
+setup.graphics.mode.hint	Παλέτα: η εικόνα του πρωτοτύπου. Χρώματα παλέτας: αληθινό φως και σκιές, ζωγραφισμένα στα χρώματα του πρωτοτύπου. Remastered: η σύγχρονη όψη.
+setup.graphics.effects	Εφέ
+setup.graphics.effects.open	Εφέ...
+setup.graphics.view_original	Πρωτότυπο
+setup.graphics.view_orig	Πρωτ.
+setup.graphics.factor_locked	Το 4x θέλει παράθυρο ύψους 1600 εικονοστοιχείων
+setup.display.title	Οθόνη
+setup.display.hint.editor	Στον επεξεργαστή η θέα Παιχνίδι αποφασίζει το μέγεθος — η επιλογή κρατιέται και ισχύει στο χτισμένο παιχνίδι.
+setup.display.hint	Ισχύει αμέσως και κρατιέται για την επόμενη εκκίνηση.
+setup.display.resolution	Ανάλυση
+setup.display.desktop	(επιφάνεια εργασίας)
+setup.controls.tab.keyboard	Πληκτρολόγιο και ποντίκι
+setup.controls.tab.gamepad	Χειριστήριο
+setup.controls.keyboard.hint	Κάνε κλικ σε μια εγγραφή για να την αλλάξεις, μετά πάτα το νέο πλήκτρο ή κουμπί ποντικιού. Escape κρατά το παλιό. Η ίδια η κίνηση του δείκτη είναι σταθερή, και οι πίνακες της διεπαφής χρησιμοποιούν πάντα τα φυσικά κουμπιά του ποντικιού. Το χειριστήριο έχει δική του καρτέλα.
+setup.controls.press_key	Πάτα ένα πλήκτρο ή κουμπί...
+setup.controls.conflict_key	Αυτό το πλήκτρο χρησιμοποιείται και για «{0}».
+setup.controls.back_to_default	Επαναφορά προεπιλογών
+setup.controls.debug_cleared	Αφέθηκαν κενά, τα πλήκτρα τους χρησιμοποιούνται από πάνω: {0}
+setup.controls.gamepad.hint	Κάνε κλικ σε μια εγγραφή για να την αλλάξεις, μετά πάτα το νέο κουμπί στο χειριστήριο. Escape στο πληκτρολόγιο κρατά το παλιό. Ο ένας μοχλός περπατά, ο άλλος κοιτάζει (στο κλασικό σχήμα στρίβει και γέρνει) — άλλαξέ τους από κάτω.
+setup.gamepad.press_button	Πάτα ένα κουμπί...
+setup.gamepad.conflict_button	Αυτό το κουμπί χρησιμοποιείται και για «{0}».
+setup.gamepad.no_pad	χωρίς χειριστήριο
+setup.gamepad.stick_now	τώρα {0} %
+setup.sound.title	Ήχος
+setup.sound.hint	Ο ήχος έρχεται από την εξομοιωμένη κάρτα AdLib, όπως το 1992· η μουσική μπορεί επίσης να παίξει την έκδοση MT-32 σε General MIDI. Το πρωτότυπο ήξερε μόνο ανοιχτό και κλειστό, και οι ίδιοι δύο διακόπτες κάθονται στον πίνακα επιλογών στο παιχνίδι· οι εντάσεις είναι δικές μας. Οι δύο διακόπτες ανήκουν στην αποθήκευση, όπως στο πρωτότυπο — μια αποθήκευση που φορτώνεται εδώ φέρνει την κατάσταση με την οποία σώθηκε, οι εντάσεις μένουν.
+setup.sound.mt32_roms	ROM MT-32: {0}
+setup.sound.mt32_problem	MT-32: {0}
+setup.sound.mt32_no_roms	κανένα ROM MT-32 ή CM-32L σε αυτόν τον φάκελο
+setup.sound.mt32_missing	η εξομοίωση MT-32 λείπει σε αυτό το σύστημα ({0})
+setup.sound.open_folder	Άνοιγμα φακέλου
+setup.mods.title	Mods
+setup.mods.title_overridden	Mods (-mods)
+setup.mods.folder	Φάκελος: {0}
+setup.mods.none	Δεν υπάρχουν ακόμα mods. Ένα mod είναι φάκελος, zip ή .uwmod του επεξεργαστή στον φάκελο Mods — το κουμπί από κάτω τον ανοίγει.
+setup.mods.up	Πάνω
+setup.mods.down	Κάτω
+setup.mods.next_start	Οι αλλαγές ισχύουν στο επόμενο άνοιγμα ή φόρτωμα. Η σειρά και οι διακόπτες κρατιούνται στο Mods/order.json.
+setup.mods.version	έκδοση {0}
+setup.mods.kind_uwmod	mod επεξεργαστή (.uwmod)
+setup.mods.by	Από {0}
+setup.mods.licence	Άδεια: {0}
+setup.mods.state_loaded	Φορτωμένο
+setup.mods.state_off	Δεν φορτώθηκε: απενεργοποιημένο
+setup.mods.state_refused	Δεν φορτώθηκε: {0}
+msg.mods.save_differs	Αυτή η αποθήκευση έγινε με άλλα mods.
+msg.mods.save_missing	Δεν ισχύουν τώρα: {0}
+msg.mods.save_new	Νέα από τότε: {0}
+setup.mods.conflict	Δεν φορτώθηκε: αλλάζει τα ίδια αρχεία με το {0} ({1}), που έρχεται πρώτο. Απενεργοποίησε το ένα, ή μετακίνησε αυτό από πάνω του για να φορτωθεί αυτό.
+setup.mods.no_readme	Αυτό το mod δεν έχει περιγραφή.
+setup.mods.write_failed	Το order.json δεν μπόρεσε να γραφτεί: {0}
+setup.mods.other_game	Δεν φορτώθηκε: μόνο για {0}
+setup.mods.where	Στα Mods: {0}
+setup.mods.fix_no_manifest	Ένα zip χρειάζεται το mod.json στην κορυφή ή στον έναν επάνω φάκελό του. Ένας απλός φάκελος χωρίς mod.json παίρνεται ως φάκελος mods και ψάχνεται ένα επίπεδο βαθύτερα.
+setup.mods.fix_bad_manifest	Το mod.json δεν διαβάζεται — η γραμμή από πάνω λέει πού. Έλεγξε τα κόμματα, τα εισαγωγικά και τις αγκύλες.
+setup.mods.fix_no_id	Το mod.json χρειάζεται ένα id από πεζά γράμματα, ψηφία, - και ., το ίδιο σε κάθε έκδοση — κατά συνήθεια yourname.mod-name.
+setup.mods.fix_bad_zip	Το zip δεν ανοίγει: μπορεί να είναι χαλασμένο ή να μην είναι zip. Κατέβασέ το ή πακετάρισέ το ξανά, ή βάλε τον ξεπακεταρισμένο φάκελο.
+setup.game.open_log	Καταγραφή
+setup.game.open_mods	Mods
+setup.game.open_userdata	UserData
+setup.game.portable	Φορητό: δεδομένα στο UserData δίπλα στο παιχνίδι
+setup.game.portable_problem	Φορητό: το UserData δίπλα στο παιχνίδι δεν γράφεται ({0})
+setup.game.user_folder	Ρυθμίσεις στον φάκελο χρήστη
+setup.game.make_portable	Κάνε το φορητό
+setup.game.portable_restart	Έγινε φορητό — επανεκκίνησε το παιχνίδι για να το χρησιμοποιήσει
+setup.game.portable_failed	Δεν έγινε φορητό: {0}
+setup.sound.recordings	Ηχογραφήσεις: {0} κομμάτια
+setup.sound.recordings_none	Ηχογραφήσεις: καμία σε αυτόν τον φάκελο
+setup.colours.title	Χρώματα
+setup.colours.hint	Ξεχωρίζει τα χρώματα που δυσκολεύεσαι να πεις, για όλο το παιχνίδι. Είναι η συνηθισμένη daltonisation: ό,τι χάνει το μάτι μπαίνει πίσω στα κανάλια που βλέπει.
+setup.colours.flask.health	Ζωή
+setup.colours.flask.poisoned	Δηλητήριο
+setup.colours.flask.mana	Μάνα
+setup.palette.title	Εφέ παλέτας
+setup.palette.drag	σύρε εδώ για μετακίνηση
+setup.palette.hint	Δικά μας εφέ για την παλέτα του πρωτοτύπου (λειτουργία Παλέτα). Κάνουν μια επιφάνεια μόνο πιο ανοιχτή ή πιο σκούρα στα βήματα απόχρωσης του πρωτοτύπου, οπότε κάθε εικονοστοιχείο κρατά χρώμα παλέτας — αλλά ανεβασμένα παίρνουν γρήγορα την όψη του πρωτοτύπου. 0 είναι ανενεργό.
+setup.palette.hint.not_low	Δικά μας εφέ για την παλέτα του πρωτοτύπου — φαίνονται μόνο στη λειτουργία Παλέτα, που δεν είναι διαλεγμένη αυτή τη στιγμή. 0 είναι ανενεργό.
+setup.palette.preset	Προκαθορισμένο
+setup.palette.preset.off	Ανενεργό
+setup.palette.preset.subtle	Διακριτικό
+setup.palette.preset.full	Πλήρες
+setup.palette.preset.own	Δικό σου
+setup.folder.title	Φάκελος παιχνιδιού
+setup.folder.hint	Διάλεξε τον φάκελο της εγκατάστασης GOG, Steam ή EA app του Ultima Underworld — αυτόν που περιέχει το game.gog (GOG) ή το game.bin (Steam, στον φάκελο DATA του EA app).
+setup.folder.hint2	Διάλεξε τον φάκελο της εγκατάστασης GOG, Steam ή EA app του Ultima Underworld II αν βρίσκεται χωριστά από του πρώτου παιχνιδιού — αυτόν που περιέχει game.gog ή game.bin. Χρησιμοποιούνται οι αποθηκεύσεις εκείνης της εγκατάστασης.
+setup.folder.found	Βρέθηκε:  {0}
+setup.folder.drives	Δίσκοι:
+setup.folder.home	Αρχική
+setup.folder.up	Πάνω
+setup.folder.none_found	Δεν βρέθηκε εγκατάσταση GOG, Steam ή EA app στους συνηθισμένους φακέλους. Παρακαλώ διάλεξέ την.
+setup.folder.unreadable	Αυτός ο φάκελος δεν διαβάζεται: {0}
+setup.folder.usable	Βρέθηκε {0} — αυτός ο φάκελος μπορεί να χρησιμοποιηθεί.
+setup.folder.no_image	Δεν υπάρχει {0} σε αυτόν τον φάκελο.
+setup.folder.choose	Διάλεξε τον δίσκο και τον φάκελο της εγκατάστασης GOG, Steam ή EA app.
+setup.folder.preparing	Προετοιμασία δεδομένων παιχνιδιού...
+setup.folder.no_data	Τα δεδομένα του παιχνιδιού δεν μπόρεσαν να διαβαστούν από αυτόν τον φάκελο.
+setup.folder.use	Χρήση αυτού του φακέλου
+setup.folder.cancel	Άκυρο
+keys.scheme.classic	{0} (κλασικό)
+keys.scheme.modern	{0} (σύγχρονο)
+keys.walk_forward	Περπάτημα μπροστά
+keys.walk_backward	Περπάτημα πίσω
+keys.left	Αριστερά (σύγχρονο: πλάγια)
+keys.right	Δεξιά (σύγχρονο: πλάγια)
+keys.turn_left	Στροφή αριστερά
+keys.turn_right	Στροφή δεξιά
+keys.strafe_left	Πλάγια αριστερά
+keys.strafe_right	Πλάγια δεξιά
+keys.jump	Άλμα
+keys.jump_second	Άλμα (δεύτερο πλήκτρο)
+keys.walk_slowly	Αργό περπάτημα
+keys.easy_movement	Εύκολη κίνηση με {0} X
+keys.sink	Βύθιση στο πέταγμα
+keys.rise	Ανύψωση στο πέταγμα
+keys.look_down	Κοίταγμα κάτω
+keys.look_straight	Κοίταγμα ίσια
+keys.look_up	Κοίταγμα πάνω
+keys.character_panel	Πίνακας χαρακτήρα
+keys.bags	Σακίδια
+keys.look	Κοίταγμα
+keys.runes	Ρούνοι και ξόρκια
+keys.hide_ui	Απόκρυψη διεπαφής
+keys.use	Χρήση, ομιλία, σήκωμα
+keys.ready	Τράβηγμα ή θήκη του όπλου
+keys.slot	Θέση μπάρας ενεργειών {0}
+keys.switch_scheme	Αλλαγή σχήματος χειρισμού (με Shift)
+keys.cursor_drag	Περπάτημα, σύρσιμο, επίθεση
+keys.interact	Κοίταγμα και χρήση
+keys.map	Άνοιγμα χάρτη
+keys.font	Αλλαγή γραμματοσειράς
+keys.help	Άνοιγμα βοήθειας (όχι με Alt)
+keys.options	Επιλογές
+keys.talk	Λειτουργία ομιλίας
+keys.get	Λειτουργία συλλογής
+keys.look_mode	Λειτουργία ματιάς
+keys.fight	Μάχη (τράβηγμα όπλου)
+keys.use_mode	Λειτουργία χρήσης
+keys.panel	Γύρισμα πίνακα
+keys.cast	Ρίξιμο των ρούνων στο ράφι
+keys.track	Ιχνηλασία (αναζήτηση πλασμάτων κοντά)
+keys.camp	Κατάλυμα
+keys.debug.display	Οθόνη αποσφαλμάτωσης (με Shift)
+keys.debug.jump	Άλμα σε επίπεδο και πλακίδιο (με Shift)
+keys.debug.spells	Κατάλογος ξορκιών (με Shift)
+keys.debug.noclip	Noclip
+keys.debug.deeper	Ένα επίπεδο πιο βαθιά (στο noclip)
+keys.debug.up	Ένα επίπεδο πίσω πάνω (στο noclip)
+keys.debug.bright	Πλήρες φως
+keys.debug.cast	Το πιο κοντινό πλάσμα ρίχνει (με Shift)
+keys.debug.renderer	Τιμές renderer σε αρχείο (με Shift)
+pad.binding.use	Χρήση (κρατημένο: απευθείας)
+pad.binding.look	Κοίταγμα
+pad.binding.back	Κλείσιμο όσων είναι ανοιχτά
+pad.binding.jump	Άλμα
+pad.binding.character_panel	Πίνακας χαρακτήρα (κρατημένο: κάθε σακίδιο)
+pad.binding.attack	Τράβηγμα όπλου και χτύπημα
+pad.binding.ready	Τράβηγμα ή θήκη του όπλου
+pad.binding.cast	Ρίξιμο ρούνων (κρατημένο: πίνακας ρούνων)
+pad.binding.slot_previous	Μπάρα ενεργειών: προηγούμενη θέση
+pad.binding.slot_next	Μπάρα ενεργειών: επόμενη θέση
+pad.binding.slot_use	Μπάρα ενεργειών: χρήση θέσης
+pad.binding.map	Άνοιγμα χάρτη (απλό πάτημα)
+pad.binding.sink	Βύθιση στο πέταγμα
+pad.binding.rise	Ανύψωση στο πέταγμα
+pad.binding.menu	Μενού (απλό πάτημα)
+pad.binding.hide_ui	Απόκρυψη διεπαφής (κρατημένο)
+pad.binding.help	Βοήθεια (κρατημένο)
+pad.binding.pointer	Δείκτης στον μοχλό, ενεργός ή όχι
+pad.binding.click	Δείκτης: κλικ (κρατημένο: σύρσιμο)
+pad.binding.click_second	Δείκτης: κλικ, δεύτερο κουμπί
+pad.binding.context	Δείκτης: δεξί κουμπί
+pad.binding.context_second	Δείκτης: δεξί κουμπί, δεύτερο κουμπί
+pad.button.menu	Μενού
+pad.button.view	Θέα
+pad.button.cross	Σταυρός
+pad.button.circle	Κύκλος
+pad.button.square	Τετράγωνο
+pad.button.triangle	Τρίγωνο
+pad.button.options	Επιλογές
+pad.button.share	Κοινοποίηση
+pad.button.left_stick	Αρ. μοχλός
+pad.button.right_stick	Δεξ. μοχλός
+pad.button.dpad_up	Σταυρός πάνω
+pad.button.dpad_down	Σταυρός κάτω
+pad.button.dpad_left	Σταυρός αριστερά
+pad.button.dpad_right	Σταυρός δεξιά
+pad.hint.count	πλήθος
+pad.hint.take	πάρε
+pad.hint.cancel	άκυρο
+pad.hint.step	βήμα
+pad.hint.choose	διάλεξε
+pad.hint.pointer	δείκτης
+pad.hint.cast	ρίξε
+pad.hint.look	κοίτα
+pad.hint.close	κλείσε
+pad.hint.take_put	πάρε / βάλε
+pad.hint.menu	μενού
+help.tab.stats	Στατιστικά
+help.tab.map	Χάρτης
+help.tab.notes	Σημειώσεις
+help.tab.spells	Ξόρκια
+help.tab.mantras	Μάντρα
+help.tab.manual	Εγχειρίδιο
+help.tab.controls	Χειριστήρια
+help.stats.title	Στατιστικά
+help.stats.no_character	Δεν έχει φορτωθεί χαρακτήρας.
+help.stats.attributes	Χαρακτηριστικά
+help.stats.can_carry	Μπορεί ακόμα να σηκώσει
+help.stats.stones	{0} λίθοι
+help.stats.skills	Δεξιότητες
+help.stats.hide_hidden	Απόκρυψη κρυφών τιμών
+help.stats.show_hidden	Εμφάνιση κρυφών τιμών
+help.stats.hidden_intro	Το παιχνίδι τα κρατά, αλλά τα δείχνει μόνο ως λέξεις ή καθόλου.
+help.stats.food	Τροφή
+help.stats.food_note	255 είναι χορτάτος· η γραμμή κατάστασης αλλάζει κάθε 30.
+help.stats.fatigue	Κόπωση
+help.stats.fatigue_note	0 είναι ξεκούραστος· η γραμμή κατάστασης αλλάζει κάθε 23.
+help.stats.poison	Δηλητήριο
+help.stats.hallucination	Ψευδαίσθηση
+help.stats.hallucination.scrambled	μπερδεμένες υφές
+help.stats.hallucination.palette	παλέτα {0}
+help.stats.hallucination.light_table	σκοτεινός πίνακας φωτός
+help.stats.hallucination_note	Ένα μανιτάρι προσθέτει ένα, το φίλτρο βάζει τρία· ένα φεύγει κάθε 21 δευτερόλεπτα.
+help.stats.skill_points	Αδιάθετοι πόντοι δεξιοτήτων
+help.stats.skill_points_note	Ένα μάντρα σε ιερό τους ξοδεύει. Ένας ακόμα κάθε {0} εμπειρία και κάθε επίπεδο.
+help.stats.skill_points_note_uw2	Ένας δάσκαλος τους ξοδεύει στη συζήτηση. Ένας ακόμα κάθε {0} εμπειρία και κάθε επίπεδο.
+help.stats.experience	Ακριβής εμπειρία
+help.stats.next_level	Επόμενο επίπεδο
+help.stats.next_level_none	κανένα, αυτό είναι το υψηλότερο
+help.stats.next_level_capped	κανένα, όχι επίπεδα πέρα από {0} εμπειρία
+help.stats.next_level_at	Επόμενο επίπεδο στα
+help.stats.next_level_value	{0} (μένουν {1})
+help.stats.load	Φορτίο
+help.stats.load_value	{0} από {1} λίθους
+help.stats.worn_magic	Φορεμένη μαγεία
+help.stats.no_inventory	Χωρίς απογραφή.
+help.stats.curse	Κατάρα
+help.stats.when_striking	{0} (στο χτύπημα)
+help.stats.not_in_effect	{0} (δεν ισχύει εδώ)
+help.stats.nothing_enchanted	Τίποτα φορεμένο δεν είναι μαγεμένο.
+help.stats.together	Μαζί, χωρίς ριγμένα ξόρκια:
+help.stats.protection	Προστασία
+help.stats.protection_value	κεφάλι {0}, σώμα {1}, χέρια {2}, πόδια {3}
+help.stats.resistance	Αντοχή
+help.stats.light	Φως
+help.stats.movement	Κίνηση
+help.stats.stealth	Αθόρυβη κίνηση
+help.stats.immunity	Ανοσία
+help.stats.regeneration	Αναγέννηση
+help.stats.curse_value	{0} ζάρια των οκτώ, πού και πού
+help.stats.maze	Πλοήγηση λαβυρίνθου
+help.stats.maze_value	δείχνει τον δρόμο στον λαβύρινθο του Tybal
+help.stats.dragon_boots	Μπότες από δέρμα δράκου
+help.stats.dragon_boots_value	κανένα κακό από τη λάβα
+help.stats.slot.weapon_hand	Χέρι όπλου
+help.stats.slot.shield_hand	Χέρι ασπίδας
+help.stats.slot.left_ring	Αριστερό δαχτυλίδι
+help.stats.slot.right_ring	Δεξί δαχτυλίδι
+help.stats.slot.helmet	Κράνος
+help.stats.slot.chest	Στήθος
+help.stats.slot.gloves	Γάντια
+help.stats.slot.legs	Πόδια
+help.stats.slot.boots	Μπότες
+help.map.title	Χάρτης
+help.map.no_level	Δεν έχει φορτωθεί επίπεδο.
+help.map.no_map	Δεν κουβαλάς χάρτη. Ξανασήκωσέ τον για να τον δεις εδώ.
+help.map.no_map_uw2	Αυτό το επίπεδο δεν έχει χάρτη.
+help.map.level	Επίπεδο {0}. Ο τροχός μεγεθύνει· οι σημειώσεις γράφονται πάνω στον ίδιο τον χάρτη.
+help.notes.intro	Οι δικές σου σημειώσεις, μαζί με την αποθήκευση.
+help.spells.title	Ξόρκια
+help.spells.intro	Βάλε τους ρούνους στο ράφι από το σακουλάκι ρούνων, μετά κάνε κλικ στο ράφι για να ρίξεις. Ένα ξόρκι κοστίζει τρία μάνα ανά κύκλο, και το επίπεδό σου μισό (στρογγυλεμένο πάνω) πρέπει να φτάνει τον κύκλο του. Κάνε κλικ σε ένα ξόρκι εδώ για να βάλει τους ρούνους του στο κοίλωμα· οι γκρίζοι ρούνοι δεν είναι ακόμα στο σακουλάκι σου.
+help.spells.hide_more	Απόκρυψη ξορκιών που δεν ονομάζει το εγχειρίδιο
+help.spells.show_more	Εμφάνιση ξορκιών που δεν ονομάζει το εγχειρίδιο
+help.spells.circle	Κύκλος {0}  -  {1} μάνα
+help.spells.in_hollow	(στο κοίλωμα)
+help.spells.note.0	Φωτίζει τριγύρω για λίγο.
+help.spells.note.1	Προστατεύει από χτυπήματα σαν πλήρης πανοπλία, για λίγο.
+help.spells.note.2	Ρίχνει μαγικό βέλος σε έναν στόχο.
+help.spells.note.3	Υλίζει ένα γεύμα.
+help.spells.note.4	Πνίγει τα βήματά σου για λίγο, ώστε τα πλάσματα να σε προσέχουν λιγότερο.
+help.spells.note.7	Σε αφήνει να κατεβαίνεις απαλά για λίγο.
+help.spells.note.8	Γιατρεύει ελαφρά τραύματα.
+help.spells.note.9	Σου λέει για πλάσματα κοντά που δεν βλέπεις.
+help.spells.note.10	Μπορεί να κάνει έναν εχθρό να χάσει το θάρρος και να φύγει.
+help.spells.note.11	Βάζει φυλαχτό που σου λέει όταν κάτι το ταράζει.
+help.spells.note.12	Κινείσαι πιο γρήγορα από τους εχθρούς, για λίγο.
+help.spells.note.13	Σε κάνει πιο δύσκολο να σε δουν για λίγο.
+help.spells.note.14	Σε αφήνει να βλέπεις στο σκοτάδι, για λίγο.
+help.spells.note.15	Εκσφενδονίζει κεραυνό σε έναν στόχο.
+help.spells.note.16	Καρφώνει μια πόρτα κλειστή.
+help.spells.note.19	Γιατρεύει σοβαρά τραύματα.
+help.spells.note.20	Σε σηκώνει ίσια στον αέρα για λίγο.
+help.spells.note.21	Δηλητηριάζει έναν εχθρό.
+help.spells.note.22	Δίνει κάποια προστασία από φωτιά για λίγο.
+help.spells.note.23	Αφοπλίζει μια παγίδα που στοχεύεις.
+help.spells.note.24	Εκσφενδονίζει μπάλα φωτιάς σε έναν στόχο.
+help.spells.note.26	Σου λέει τι μαγεία κρατά ένα αντικείμενο.
+help.spells.note.27	Σε κάνει άτρωτο στα βλήματα, για λίγο.
+help.spells.note.28	Ξεκλειδώνει κλειδωμένη πόρτα ή σεντούκι.
+help.spells.note.29	Γιατρεύει το δηλητήριο.
+help.spells.note.30	Σε γιατρεύει εντελώς.
+help.spells.note.32	Σε πάει αμέσως στην σεληνόπετρά σου.
+help.spells.note.33	Κρατά έναν εχθρό στη θέση του.
+help.spells.note.34	Φωτεινό φως για πολλή ώρα.
+help.spells.note.35	Σε αφήνει να πάρεις και να χρησιμοποιήσεις ένα μόνο αντικείμενο από μακριά, για λίγο.
+help.spells.note.36	Σε αφήνει να πετάξεις για λίγο, μετά να γλιστρήσεις στο έδαφος.
+help.spells.note.37	Γυρίζει ένα πλάσμα να πολεμά στο πλευρό σου.
+help.spells.note.39	Σε κάνει σχεδόν αόρατο, για λίγο.
+help.spells.note.40	Κάνει τους εχθρούς γύρω σου να παραπατούν σαν μεθυσμένοι.
+help.spells.note.41	Αποκαλύπτει κρυμμένα αντικείμενα και μυστικά περάσματα γύρω σου.
+help.spells.note.42	Σε σκληραίνει πολύ απέναντι στη ζημιά, για λίγο.
+help.spells.note.43	Κάνει τη γη να τρέμει και τους βράχους να σπάνε.
+help.spells.note.44	Σε αφήνει να δεις τον κόσμο από πάνω, για λίγο.
+help.spells.note.45	Βρέχει φλεγόμενα βλήματα στην περιοχή.
+help.spells.note.46	Σταματά τον χρόνο για όλους εκτός από εσένα, για λίγο.
+help.mantras.title	Μάντρα
+help.mantras.intro	Μίλα σε ένα ιερό με άγχ και πληκτρολόγησε ένα μάντρα. Ανεβάζει τις δεξιότητές σου μόνο όταν έχεις κερδίσει έναν πόντο δεξιότητας.
+help.mantras.group	{0} ({1})
+help.mantras.note.combat	Βελτιώνει μερικές από τις δεξιότητες μάχης σου.
+help.mantras.note.magic	Βελτιώνει μερικές από τις δεξιότητες μαγείας σου.
+help.mantras.note.other	Βελτιώνει μερικές από τις άλλες δεξιότητές σου.
+help.mantras.note.cup_of_wonder	Σου λέει πού βρίσκεται το Κύπελλο του Θαύματος.
+help.mantras.note.key_of_truth	Σου δίνει το Κλειδί της Αλήθειας.
+help.knowledge.insahn	Μια λέξη συναρμολογημένη από όνειρα.
+help.knowledge.fanlo	Ο Gurstang έψαχνε κάτι.
+help.mantras.hide_more	Απόκρυψη μάντρα που δεν ονομάζει το εγχειρίδιο
+help.mantras.show_more	Εμφάνιση μάντρα που δεν ονομάζει το εγχειρίδιο
+help.mantras.single	Μία δεξιότητα η καθεμιά, ανεβασμένη πολύ
+help.mantras.quests	Αποστολές
+help.knowledge.learned	Μαθημένα στο παιχνίδι
+help.knowledge.none_yet	Τίποτα ακόμα.
+help.tab.teachers	Δάσκαλοι
+help.teachers.title	Δάσκαλοι
+help.teachers.intro	Οι δάσκαλοι γυμνάζουν τις δεξιότητές σου. Ένα μάθημα κοστίζει έναν πόντο δεξιότητας, και κάποιοι δάσκαλοι θέλουν κάτι από εσένα πρώτα.
+help.teachers.points	Πόντοι δεξιοτήτων για ξόδεμα: {0}
+help.teachers.met	Συνάντηση στο {0}.
+help.teachers.place	{0}, επίπεδο {1}
+help.teachers.level	επίπεδο {0}
+help.teachers.unknown_place	άγνωστος τόπος
+help.teachers.not_met	Δεν έχεις συναντήσει ακόμα.
+help.teachers.unknown	Κάποιος
+help.teachers.to_find	Δάσκαλοι που μένει να συναντήσεις: {0}
+help.world.0	Βρεταννία
+help.world.1	ο Πύργος των Φυλακών
+help.world.2	το Φρούριο Killorn
+help.world.3	τα Παγωμένα Σπήλαια
+help.world.4	ο Talorus
+help.world.5	η Ακαδημία Scintillus
+help.world.6	ο Τάφος του Praecor Loth
+help.world.7	οι Λάκκοι της Σφαγής
+help.world.8	το Αιθέριο Κενό
+help.knowledge.to_find	Μένει να βρεις: {0}
+help.knowledge.from_book	Από βιβλίο ή περγαμηνή.
+help.knowledge.from_writing	Από επιγραφή.
+help.knowledge.from_talk	Από συζήτηση.
+help.knowledge.from_named	Το είπε {0}.
+help.knowledge.from_door	Το είπε ένας λαμπρός μάγος που τυχαίνει να είναι πόρτα.
+help.knowledge.from_chant	Ψάλθηκε σε ιερό.
+help.knowledge.from_cast	Βρέθηκε ρίχνοντάς το.
+help.mantras.pieces	Φάνηκαν στα οράματα του θυμιάματος.
+help.lizard.title	Λέξεις σαυρανθρώπων
+help.lizard.learned_from	Με νοήματα από τον Murgo.
+help.lizard.none_yet	Καμία ακόμα.
+help.spells.half	Ξέρεις αυτό το ξόρκι, αλλά όχι ακόμα όλους τους ρούνους του.
+help.manual.title	Εγχειρίδιο
+help.manual.cannot_show	Το εγχειρίδιο δεν μπορεί να εμφανιστεί.
+help.manual.not_found	Το εγχειρίδιο δεν βρέθηκε. Η έκδοση GOG το φέρνει ως {0} στον φάκελο του game.gog, η έκδοση Steam στον φάκελο Extras.
+help.manual.not_opened	Το εγχειρίδιο δεν άνοιξε: {0}
+help.manual.unavailable	Η εμφάνιση του εγχειριδίου δεν είναι διαθέσιμη ακόμα σε αυτό το σύστημα.
+help.manual.page	Σελίδα {0} από {1}
+help.manual.pages	Σελίδες {0} και {1} από {2}
+help.manual.click_to_read	Κάνε κλικ στη σελίδα για να τη διαβάσεις μεγάλη.
+help.manual.reading_keys	Τα βελάκια ή ο τροχός γυρίζουν τις σελίδες, Esc ή κλικ στη σελίδα την κλείνει
+help.manual.doc.manual	Εγχειρίδιο
+help.manual.doc.reference	Κάρτα αναφοράς
+help.manual.doc.map	Χάρτης
+help.manual.doc.memoirs	Απομνημονεύματα του Cabirus
+help.manual.doc.passage	Ασφαλής Δίοδος
+help.manual.doc.cluebook	Βιβλίο υποδείξεων
+help.manual.spoiler	Το βιβλίο υποδείξεων έχει τις λύσεις των γρίφων και των αποστολών. Να ανοίξει;
+help.manual.spoiler_open	Άνοιγμα βιβλίου υποδείξεων
+help.manual.spoiler_cancel	Όχι τώρα
+help.controls.key.left_stick	Αριστερός μοχλός
+help.controls.key.right_stick	Δεξιός μοχλός
+help.controls.key.dpad	Σταυρός κατεύθυνσης
+help.controls.key.left_button	Αριστερό κουμπί
+help.controls.key.right_button	Δεξί κουμπί
+help.controls.key.left_shift	Αριστερό Shift
+help.controls.key.left_alt	Αριστερό Alt
+help.controls.key.left_ctrl	Αριστερό Ctrl
+help.controls.key.space	Διάστημα
+help.controls.key.mouse	Ποντίκι
+help.controls.key.escape	Escape
+help.controls.key.shift_plus	Shift + {0}
+help.controls.pad.title	Χειριστήριο
+help.controls.pad.intro	Αλλάζουν στον διάλογο Χειριστήρια της γραμμής μενού, καρτέλα Χειριστήριο — και τα ονόματα των κουμπιών.
+help.controls.pad.walk	Περπάτημα και βήμα πλάγια.
+help.controls.pad.look_around	Κοίταγμα γύρω.
+help.controls.pad.use	Χρήση όσων στοχεύεις· κρατημένο: χρήση απευθείας.
+help.controls.pad.look	Κοίταγμά του.
+help.controls.pad.jump	Άλμα.
+help.controls.pad.back	Κλείσιμο όσων είναι ανοιχτά.
+help.controls.pad.attack	Τράβηγμα όπλου· κρατημένο: φόρτιση, άφησε για χτύπημα.
+help.controls.pad.ready	Θήκη του όπλου.
+help.controls.pad.cast	Ρίξιμο των ρούνων στο κοίλωμα· κρατημένο: ο πίνακας ρούνων.
+help.controls.pad.slot_pick	Επιλογή θέσης της μπάρας ενεργειών.
+help.controls.pad.slot_use	Χρήση της θέσης.
+help.controls.pad.character_panel	Ο πίνακας χαρακτήρα· κρατημένο: κάθε σακίδιο.
+help.controls.pad.sink_rise	Βύθιση και ανύψωση στο πέταγμα.
+help.controls.pad.map	Ο χάρτης· κρατημένο: αυτή η βοήθεια.
+help.controls.pad.menu	Το μενού παιχνιδιού· κρατημένο: απόκρυψη διεπαφής, πάλι για εμφάνιση.
+help.controls.pad.pointer	Ελευθέρωση του δείκτη (στο σακίδιο) ή κλείδωμά του πάλι.
+help.controls.pad.right_button	Το δεξί κουμπί του ποντικιού.
+help.controls.pad_pointer.title	Χειριστήριο: ο ελεύθερος δείκτης
+help.controls.pad_pointer.intro	Με τον δείκτη ελεύθερο το χειριστήριο είναι το ποντίκι. Κάτω από παράθυρο που κρατά το παιχνίδι — μενού, συζήτηση, χάρτης — ο δείκτης είναι ελεύθερος από μόνος του.
+help.controls.pad_pointer.move	Μετακίνηση του δείκτη.
+help.controls.pad_pointer.click	Το αριστερό κουμπί του ποντικιού· κρατημένο: σύρσιμο.
+help.controls.pad_pointer.scroll	Πάνω από παράθυρο: κύλιση. Σε μενού: η επόμενη εγγραφή.
+help.controls.pad_pointer.dpad	Σε μενού: η επόμενη εγγραφή.
+help.controls.classic_pad.intro	Τα κουμπιά του χειριστηρίου είναι τα κουμπιά του ποντικιού, εκεί που είναι ο δείκτης. Αλλάζουν στον διάλογο Χειριστήρια της γραμμής μενού, καρτέλα Χειριστήριο.
+help.controls.classic_pad.walk	Περπάτημα· σπρωγμένος καλά πλάγια: βήμα πλάγια.
+help.controls.classic_pad.turn	Στροφή· πάνω και κάτω γέρνουν τη θέα ένα βήμα.
+help.controls.classic_pad.left_button	Το αριστερό κουμπί του ποντικιού.
+help.controls.classic_pad.pointer	Ο μοχλός κινεί τον δείκτη αντί γι' αυτό, ή στρίβει πάλι.
+help.controls.classic_pad.scroll	Με τον δείκτη στον μοχλό, πάνω από το πλαίσιο: κύλιση.
+help.controls.modern.title	Σύγχρονα χειριστήρια
+help.controls.modern.pointer.title	Ο δείκτης
+help.controls.modern.pointer.intro	Το ποντίκι είτε στρίβει τη θέα (δείκτης κλειδωμένος, στόχαστρο στη μέση) είτε κινεί ελεύθερο δείκτη πάνω από τα παράθυρα και τον κόσμο. Μόνο το δεξί κουμπί αλλάζει ανάμεσα στα δύο.
+help.controls.modern.pointer.right	Ελευθέρωσε τον δείκτη, ή κλείδωσέ τον πάλι για να κοιτάς γύρω. Το μενού παιχνιδιού έχει τον αντίστροφο τρόπο ως επιλογή: ο δείκτης μένει ελεύθερος και η θέα στρίβει όσο κρατιέται το κουμπί.
+help.controls.modern.pointer.locked	Κλειδωμένος
+help.controls.modern.pointer.locked_text	Το στόχαστρο στοχεύει: τα {0}, {1} και το αριστερό κουμπί δρουν σε ό,τι είναι από κάτω.
+help.controls.modern.pointer.free	Ελεύθερος
+help.controls.modern.pointer.free_text	Τα παράθυρα παίρνουν τα κλικ· τα {0} και {1} δρουν σε ό,τι είναι κάτω από τον δείκτη, στον κόσμο όπως στα σακίδια, στον πίνακα χαρακτήρα και στη μπάρα ενεργειών (το κράτημα του {0} δεν κάνει τίποτα πάνω από παράθυρο).
+help.controls.modern.moving.title	Κίνηση
+help.controls.modern.moving.walk	Περπάτημα μπροστά και πίσω, βήμα πλάγια.
+help.controls.modern.moving.walk_slow	Κρατημένο: αργό περπάτημα αντί για τρέξιμο. Ο διάλογος Χειριστήρια μπορεί να το κάνει διακόπτη.
+help.controls.modern.moving.easy	Εύκολη κίνηση: ένα βήμα μπροστά ή πίσω, ή στροφή 45 μοιρών· κρατημένο, επαναλαμβάνεται. Το X βηματίζει μπροστά χωρίς να πέσεις από περβάζι.
+help.controls.modern.moving.mouse	Στροφή και κοίταγμα πάνω-κάτω (δείκτης κλειδωμένος).
+help.controls.modern.moving.jump	Άλμα.
+help.controls.modern.moving.hover	Στο πέταγμα ή στη μετεώριση: ανύψωση και βύθιση.
+help.controls.modern.acting.title	Δράση
+help.controls.modern.acting.tap	{0} (απλό πάτημα)
+help.controls.modern.acting.tap_text	Το συνηθισμένο για ό,τι στοχεύεις: σήκωμά του, ομιλία, άνοιγμα πόρτας, τράβηγμα μοχλού, χρήση.
+help.controls.modern.acting.hold	{0} (κράτημα)
+help.controls.modern.acting.hold_text	Χρήση απευθείας, ακόμα και όσων θα μπορούσαν να σηκωθούν — ένα σακί αδειάζει αντί να παρθεί.
+help.controls.modern.acting.look	Κοίταγμά του.
+help.controls.modern.acting.free_pointer	{0} (ελεύθερος δείκτης)
+help.controls.modern.acting.free_pointer_text	Σε πράγμα στον κόσμο: το μενού του — Μίλα, Χρήση, Κοίτα, Σήκωσε. Κρατημένο και συρμένο: πάρε το στον δείκτη.
+help.controls.modern.combat.title	Μάχη
+help.controls.modern.combat.ready	Τράβηξε ή βάλε στη θήκη το όπλο στο χέρι σου.
+help.controls.modern.combat.held	{0} (κρατημένο)
+help.controls.modern.combat.held_text	Φόρτισε το όπλο· άφησε για χτύπημα. Ο πολύτιμος λίθος δείχνει τη φόρτιση.
+help.controls.modern.combat.strike	Το χτύπημα
+help.controls.modern.combat.strike_text	Δείκτης κλειδωμένος: κοίτα πάνω για χτύπημα από ψηλά, κάτω για ώθηση, ίσια μπροστά για σπαθιά. Δείκτης ελεύθερος: το πάνω τρίτο της οθόνης χτυπά από ψηλά, το κάτω ωθεί, η μέση σπαθίζει.
+help.controls.modern.combat.bow	Τόξο, σφεντόνα
+help.controls.modern.combat.bow_text	Φόρτισε όπως από πάνω· ο κόκκινος κύκλος στόχου δείχνει πότε η φόρτιση φτάνει. Η βολή πετάει στον ελεύθερο δείκτη, αλλιώς στο στόχαστρο.
+help.controls.modern.magic.title	Μαγεία
+help.controls.modern.magic.runes	Ο πίνακας ρούνων. Η λαβή του στην αριστερή άκρη τον ανοίγει επίσης, και η καρφίτσα τον κρατά έξω.
+help.controls.modern.magic.runes_tab	Καρτέλα ρούνων
+help.controls.modern.magic.runes_tab_text	Κλικ σε ρούνο τον βάζει στο κοίλωμα (ο τέταρτος διώχνει τον πρώτο), δεξί κλικ για να τον κοιτάξεις, η λωρίδα κάτω από το κοίλωμα το καθαρίζει. Κλικ στο κοίλωμα για ρίξιμο, ή σύρσιμό του στη μπάρα ενεργειών.
+help.controls.modern.magic.spells_tab	Καρτέλα ξορκιών
+help.controls.modern.magic.spells_tab_text	Κάθε ξόρκι ανά κύκλο, γκρίζο ό,τι δεν μπορείς να ρίξεις τώρα. Κλικ σε ένα βάζει τους ρούνους του, σύρσιμό του στη μπάρα ενεργειών.
+help.controls.modern.magic.targets	Στόχοι
+help.controls.modern.magic.targets_text	Ξόρκι που θέλει στόχο πετάει αμέσως στο στόχαστρο με τον δείκτη κλειδωμένο. Με τον δείκτη ελεύθερο ο δρομέας στόχου περιμένει αριστερό κλικ· Escape αφήνει το ξόρκι.
+help.controls.modern.magic.active	Ενεργά ξόρκια
+help.controls.modern.magic.active_text	Πάνω δεξιά. Αριστερό κλικ: τι κάνει· δεξί κλικ: τέλος.
+help.controls.modern.bags.title	Τα σακίδια και ο χαρακτήρας
+help.controls.modern.bags.bags	Άνοιγμα ή κλείσιμο των σακιδίων. Το σακίδιο πλάτης φαίνεται πάντα κάτω δεξιά.
+help.controls.modern.bags.panel	Ο πίνακας χαρακτήρα: το χαρτονάνθρωπος, τα χαρακτηριστικά και οι δεξιότητες. Η καρφίτσα τον κρατά έξω.
+help.controls.modern.bags.left	Πάρε ένα πράγμα και άφησέ το — σύρε το, ή κλικ και κλικ. Σε δοχείο μπαίνει μέσα· έξω από τα παράθυρα πέφτει (χαμηλά στην οθόνη) ή πετιέται (πιο ψηλά).
+help.controls.modern.bags.split	Σπάσιμο σωρού.
+help.controls.modern.bags.right	Το μενού ενός πράγματος: Χρήση, Εξοπλισμός, Κοίτα, Σήκωσε, Σπάσιμο. Ένα δοχείο ανοίγει ή κλείνει αμέσως (Shift για το μενού του). Ό,τι χρησιμοποιείται σε κάτι άλλο — κλειδί, φιάλη λαδιού — περιμένει μετά αριστερό κλικ στον στόχο του.
+help.controls.modern.bags.head	Το κεφάλι
+help.controls.modern.bags.head_text	Φαγητό και ποτό αφημένα στο κεφάλι του χαρτονάνθρωπου τρώγονται.
+help.controls.modern.bags.action_bar	Η μπάρα ενεργειών. Άφησε ένα πράγμα ή σύρε ένα ξόρκι σε μια θέση· το πλήκτρο ή ένα κλικ το χρησιμοποιεί, ένα όπλο πάει στο χέρι σου. Σύρε μια θέση έξω από τη μπάρα για να την αδειάσεις.
+help.controls.modern.bags.sleep_track	Ύπνος, Ιχνηλασία
+help.controls.modern.bags.sleep_track_text	Το στρώμα και οι μπότες δίπλα στα πόδια του χαρτονάνθρωπου — ή {0} και {1}.
+help.controls.modern.conversation.title	Συζήτηση
+help.controls.modern.conversation.answer	Διάλεξε απάντηση — ή κάνε κλικ της. Ο τροχός του ποντικιού κυλά τη συζήτηση.
+help.controls.modern.conversation.trading	Εμπόριο
+help.controls.modern.conversation.trading_text	Σύρε τα πράγματά σου από τα σακίδια στο «Η προσφορά σου». Αριστερό κλικ σε θέση εμπορίου την σημειώνει για τη συμφωνία (χρυσό δαχτυλίδι), δεξί κλικ την κοιτάζει· σύρε την προσφορά σου πίσω έξω όταν αλλάξεις γνώμη.
+help.controls.modern.rest.title	Χάρτης, μενού και τα υπόλοιπα
+help.controls.modern.rest.map	Ο μεγάλος χάρτης, με τον χάρτη στο σακίδιο. Ο μικρός χάρτης πάνω δεξιά: + και - ή ο τροχός τον μεγεθύνουν, ένα κλικ ανοίγει τον μεγάλο.
+help.controls.modern.rest.help	Αυτή η βοήθεια, στον πίνακα χαρακτήρα.
+help.controls.modern.rest.escape	Κλείνει ό,τι είναι ανοιχτό — ξόρκι που περιμένει, σακίδια, πίνακες — μετά το μενού παιχνιδιού (και το {0}).
+help.controls.modern.rest.save_keys	Δεξί Ctrl + S / R
+help.controls.modern.rest.save	Αποθήκευση, φόρτωση.
+help.controls.modern.rest.scheme	Αλλαγή στα κλασικά χειριστήρια.
+help.controls.modern.rest.hide_ui	Απόκρυψη διεπαφής και όπλου για καθαρή θέα, και εμφάνισή τους πάλι. Παράθυρο, μενού ή συζήτηση τα φέρνει πίσω. Όχι στο Classic Wide.
+help.controls.classic.title	Κλασικά χειριστήρια
+help.controls.classic.mouse.title	Το ποντίκι
+help.controls.classic.mouse.intro	Τα χειριστήρια του πρωτοτύπου: ο δείκτης μένει ελεύθερος, η θέα βρίσκεται στο πλαίσιο.
+help.controls.classic.mouse.left	Στη θέα: περπάτημα προς τον δείκτη, κρατημένο. Στο πλαίσιο: τα εικονίδια, οι ρούνοι, η πυξίδα, και το πάρσιμο και άφημα πραγμάτων.
+help.controls.classic.mouse.right	Κάνε ό,τι λέει το αναμμένο εικονίδιο — κοίταγμα από προεπιλογή· ομιλία, συλλογή, χρήση μετά το εικονίδιό του. Με το όπλο τραβηγμένο: κρατημένο για φόρτιση, άφησε για χτύπημα· το τρίτο της θέας όπου είναι ο δείκτης διαλέγει το χτύπημα.
+help.controls.classic.mouse.scheme	Αλλαγή στα σύγχρονα χειριστήρια.
+help.controls.classic.keys.title	Πλήκτρα
+help.controls.classic.keys.intro	Αλλάζουν στα Χειριστήρια στη γραμμή μενού στην πάνω άκρη.
+editor.title	Επεξεργασία διάταξης
+editor.hint	Κάνε κλικ σε ένα μέρος για τις ρυθμίσεις του. Σύρε το για μετακίνηση, τροχός για μέγεθος, δεξί κλικ για επαναφορά. Σύρε αυτόν τον τίτλο για να μετακινήσεις το παράθυρο.
+editor.preset	Προκαθορισμένο
+editor.panels_out	Πίνακες έξω
+editor.dialog	Διάλογος
+editor.snap	Προσκόλληση
+editor.reset_all	Επαναφορά όλων
+editor.done	Έτοιμο
+editor.no_selection	Κανένα μέρος επιλεγμένο
+editor.ask.title	Αποθήκευση της διάταξης;
+editor.ask.text	Η διάταξη άλλαξε. Να αποθηκευτεί ως δική σου διάταξη, ή να απορριφθούν οι αλλαγές;
+editor.ask.save	Αποθήκευση
+editor.ask.discard	Απόρριψη
+editor.ask.back	Πίσω
+editor.overview_hint	Κάνε κλικ σε ένα μέρος για τις ρυθμίσεις του.
+editor.show	Εμφάνιση
+editor.size	Μέγεθος
+editor.stands	Στέκεται
+editor.stands.apart	Ξεχωριστά
+editor.stands.on_shelf	Στο ράφι
+editor.stands.in_compass	Στην πυξίδα
+editor.direction	Κατεύθυνση
+editor.direction.text	Κείμενο
+editor.direction.compass	Πυξίδα
+editor.compass.hollow	Κοίλωμα
+editor.window	Παράθυρο
+editor.window.dock	Προσάρτηση
+editor.window.docked	Προσαρτημένο
+editor.fade.never	Ποτέ
+editor.fade.seconds	{0} δ
+editor.back	Φόντο
+editor.back.default	Προεπιλογή
+editor.back.custom	Προσαρμοσμένο
+editor.back.none	Κανένα
+editor.back.oval	Οβάλ
+editor.back.rect	Ορθογώνιο
+editor.back.colour	Χρώμα
+editor.back.pattern	Μοτίβο
+editor.back.border	Περίγραμμα
+editor.back.border.on	Ναι
+editor.back.border.off	Όχι
+editor.reset_part	Επαναφορά μέρους
+editor.part.docked	{0} (προσαρτημένο)
+editor.part.action_bar	Μπάρα ενεργειών
+editor.part.minimap	Μικρός χάρτης
+editor.part.heading	Κατεύθυνση
+editor.part.active_spells	Ενεργά ξόρκια
+editor.part.messages	Μηνύματα
+editor.part.vitals	Ζωτικότητα και μάνα
+editor.part.bags	Σακίδια
+editor.part.character_panel	Πίνακας χαρακτήρα
+editor.part.rune_panel	Πίνακας ρούνων
+editor.part.conversation	Συζήτηση
+editor.part.compass	Πυξίδα
+editor.part.power_gem	Πολύτιμος λίθος δύναμης
+editor.part.stone_shelf	Πέτρινο ράφι
+editor.part.movement_arrows	Βέλη κίνησης
+editor.part.vitality_flask	Φιάλη ζωτικότητας
+editor.part.mana_flask	Φιάλη μάνας
+editor.part.rune_hollow	Κοίλωμα ρούνων
+editor.part.rune_tablet	Πινακίδα ρούνων
+editor.part.stats_panel	Πίνακας στατιστικών
+editor.part.character_page	Σελίδα χαρακτήρα
+menu.title	Μενού παιχνιδιού
+menu.work_in_progress	Beta
+menu.uw2_alpha_info	Beta\n- Κλασική διεπαφή: ελεγμένη\n- Κανόνες συγκριμένοι με το πρωτότυπο\n- Παιγμένο ως το τέλος\n- Σύγχρονη διεπαφή: όπως στο πρώτο παιχνίδι\n\nΑναφορές σφαλμάτων ευπρόσδεκτες.
+menu.update_available	Νέο: {0}
+menu.resume	Συνέχεια
+menu.save_game	Αποθήκευση
+menu.restore_game	Φόρτωση
+menu.edit_layout	Επεξεργασία διάταξης
+menu.preset.classic	Κλασικό
+menu.preset.wide	Πλατύ
+menu.preset.4by3	4:3
+menu.preset.classic_modular	Κλασικό αρθρωτό
+menu.preset.modern	Σύγχρονο
+menu.preset.customize	Προσαρμογή
+menu.quit	Έξοδος στο κύριο μενού
+menu.back	Πίσω
+menu.save_slot_title	Αποθήκευση {0}
+menu.save_name	Όνομα αποθήκευσης:
+menu.save	Αποθήκευση
+menu.cancel	Άκυρο
+menu.detail.title	Λεπτομέρεια
+menu.detail.low	Χαμηλή
+menu.detail.medium	Μεσαία
+menu.detail.high	Υψηλή
+menu.detail.custom	Προσαρμοσμένη
+hud.menu.use	Χρήση
+hud.menu.open	Άνοιγμα
+hud.menu.close	Κλείσιμο
+hud.menu.open_runes	Άνοιγμα
+hud.menu.equip	Εξοπλισμός
+hud.menu.take_off	Βγάλε
+hud.menu.look	Κοίτα
+hud.menu.pick_up	Σήκωσε
+hud.menu.split	Σπάσιμο
+hud.menu.cancel	Άκυρο
+hud.menu.talk	Μίλα
+hud.menu.world_use	Χρήση
+hud.menu.world_look	Κοίτα
+hud.menu.world_pick_up	Σήκωσε
+hud.runes.tab.runes	Ρούνοι
+hud.runes.tab.spells	Ξόρκια
+hud.runes.handle	Ρούνοι
+hud.runes.title	Σακουλάκι ρούνων
+hud.runes.owned	{0} από {1}
+hud.runes.circle	Κύκλος {0}  -  {1} μάνα
+hud.runes.above_circle	πάνω από τον κύκλο σου
+hud.runes.drag_or_cast	σύρε στη μπάρα, κλικ για ρίξιμο
+hud.runes.not_a_spell	Όχι ξόρκι
+hud.runes.try_cast	κλικ για δοκιμή ριξίματος
+hud.runes.none_chosen	Κανένας ρούνος διαλεγμένος
+hud.runes.click_runes	κλικ στους ρούνους στο ράφι
+hud.spells.title	Ξόρκια
+hud.spells.up_to_circle	έως κύκλο {0}
+hud.panel.tab.character	Χαρακτήρας
+hud.panel.tab.help	Βοήθεια
+hud.panel.handle	Χαρακτήρας
+hud.panel.skills	Δεξιότητες
+hud.panel.sleep	Ύπνος
+hud.panel.track	Ιχνηλασία
+hud.trade.partner_goods	Τα αγαθά του {0}
+hud.trade.goods	Αγαθά
+hud.trade.your_offer	Η προσφορά σου
+hud.minimap.level	Επίπεδο {0}
+hud.minimap.no_map	Χωρίς χάρτη
+hud.crosshair.pick_up	Σήκωσε
+hud.crosshair.talk	Μίλα
+hud.crosshair.use	Χρήση
+hud.crosshair.look	Κοίτα
+hud.foe.healthy	Υγιής
+hud.foe.wounded	Πληγωμένος
+hud.foe.critical	Κρίσιμος
+hud.heading.n	N
+hud.heading.nne	NNE
+hud.heading.ne	NE
+hud.heading.ene	ENE
+hud.heading.e	E
+hud.heading.ese	ESE
+hud.heading.se	SE
+hud.heading.sse	SSE
+hud.heading.s	S
+hud.heading.ssw	SSW
+hud.heading.sw	SW
+hud.heading.wsw	WSW
+hud.heading.w	W
+hud.heading.wnw	WNW
+hud.heading.nw	NW
+hud.heading.nnw	NNW
+hud.question.ok	OK
+hud.question.cancel	Άκυρο
+hud.split.ok	OK
+hud.bag.backpack	Σακίδιο
+hud.bag.weight	{0} λθ
+hud.bag.weight_of	{0} / {1} λθ
+hud.item.cursed	{0} ({0,select,f{καταραμένη}n{καταραμένο}other{καταραμένος}})
+hud.item.of	του {0}
+hud.item.no_charges	χωρίς πλήρεις φορτίσεις
+hud.item.one_charge	με 1 πλήρη φόρτιση
+hud.item.charges	με {0} πλήρεις φορτίσεις
+prompt.use_on_what	Να χρησιμοποιηθεί {0} σε τι;
+prompt.not_on_action_bar	Αυτό δεν μπαίνει στη μπάρα ενεργειών.
+prompt.choose_target	Διάλεξε τον στόχο με το αριστερό κουμπί.
+hud.sheet.strength	Δύναμη
+hud.sheet.dexterity	Επιδεξιότητα
+hud.sheet.intelligence	Ευφυΐα
+hud.sheet.vitality	Ζωτικότητα
+hud.sheet.mana	Μάνα
+hud.sheet.experience	Εμπειρία
+hud.sheet.class_level	{0}, επίπεδο {1}
+hud.sheet.level_class	Επίπεδο {0} {1}
+hud.sheet.point_to_spend	1 πόντος για ξόδεμα
+hud.sheet.points_to_spend	{0} πόντοι για ξόδεμα
+hud.uw2.door_locked	Η πόρτα είναι κλειδωμένη.
+hud.uw2.level_1	{0}ος
+hud.uw2.level_2	{0}ος
+hud.uw2.level_3	{0}ος
+hud.uw2.level_n	{0}ος
+hud.uw2.flask_value	{0} {1} από {2}
+hud.uw2.save_slot_1	I- {0}
+hud.uw2.save_slot_2	II- {0}
+hud.uw2.save_slot_3	III- {0}
+hud.uw2.save_slot_4	IV- {0}
+effects.title	Εφέ Remastered
+effects.title.colours	Εφέ χρωμάτων παλέτας
+effects.all	Όλα:
+effects.torch_and_fire_lights	Φώτα δαυλού και φωτιάς
+effects.torch_shadows	Σκιές δαυλού
+effects.shadow_brightness	Φωτεινότητα σκιάς
+effects.shadows_at_once	Σκιές αμέσως
+effects.lava_lights	Φώτα λάβας
+effects.light_brightness	Φωτεινότητα φωτός
+effects.relief	Ανάγλυφο
+effects.shine	Λάμψη
+effects.wall_depth	Βάθος τοίχου
+effects.relief_shadows	Σκιές αναγλύφου
+effects.dark_joints	Σκοτεινοί αρμοί
+effects.lava_glow	Λάμψη λάβας
+effects.bloom	Bloom
+effects.ambient_occlusion	Περιβαλλοντική απόφραξη
+effects.tonemapping	Tonemapping
+effects.sprite_glow	Λάμψη sprite
+effects.fire_flicker	Τρεμόπαιγμα φωτιάς
+effects.sparks	Σπίθες
+effects.smoke	Καπνός
+effects.dust	Σκόνη
+effects.ground_shadows	Σκιές εδάφους
+effects.grime_along_the_walls	Βρομιά κατά μήκος των τοίχων
+effects.grime_colour	Χρώμα βρομιάς
+effects.ambient_light	Περιβαλλοντικό φως
+effects.ice_relief	Ανάγλυφο πάγου (UW2)
+effects.textures	Υφές (xBR σε πράγματα: επόμενο φόρτωμα)
+effects.textures.pixels	Εικονοστοιχεία
+effects.textures.smooth	Λείες
+effects.textures.xbr	xBR
+effects.light_colour	Χρώμα φωτός
+effects.light.warm	Θερμό
+effects.light.cool	Πιο ψυχρό
+effects.light.white	Λευκό
+effects.on	Ενεργό
+effects.off	Ανενεργό
+effects.tonemapping.off	Ανενεργό
+effects.tonemapping.neutral	Ουδέτερο
+effects.tone.none	Χωρίς χρώμα
+effects.tone.dirt	Χώμα
+effects.tone.moss	Βρύα
+effects.tone.soot	Καπνιά
+grid.key.case	Aa
+grid.key.space	Διάστημα
+grid.key.delete	Διαγραφή
+grid.key.cancel	Άκυρο
+grid.key.done	Έτοιμο
+grid.hint.type	γράψε
+grid.hint.delete	διέγραψε
+grid.hint.space	διάστημα
+grid.hint.case	Aa
+grid.hint.done	έτοιμο
+grammar.look.you_see	Βλέπεις {0}.
+grammar.look.named	{0} ονόματι {1}
+grammar.look.owner	 που ανήκει{0}
+grammar.look.of	 (μαγεία: {0})
+grammar.look.charges.none	 χωρίς πλήρεις φορτίσεις
+grammar.look.charges.one	 με 1 πλήρη φόρτιση
+grammar.look.charges.many	 με {0} πλήρεις φορτίσεις
+grammar.word.magical	{0,select,m.acc{μαγικό}m.gen{μαγικού}f.gen{μαγικής}n.gen{μαγικού}f{μαγική}n{μαγικό}other{μαγικός}}
+grammar.word.cursed	{0,select,m.acc{καταραμένο}m.gen{καταραμένου}f.gen{καταραμένης}n.gen{καταραμένου}f{καταραμένη}n{καταραμένο}other{καταραμένος}}
+grammar.bones.adventurer	έναν τυχοδιώκτη
+grammar.rule.plural	auto
+grammar.rule.genders	m f n p
+grammar.rule.cases	nom gen acc
+grammar.rule.case.subject	nom
+grammar.rule.case.object	acc
+grammar.rule.case.place	acc
+grammar.rule.case.look	acc
+grammar.rule.capital	yes
+grammar.rule.letters	άέήίόύώϊϋΐΰΆΈΉΊΌΎΏς
+grammar.rule.alphabet	Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω
+grammar.rule.alphabet.lower	auto
+grammar.rule.font	NotoSans-Regular.ttf, os:Segoe UI, os:Tahoma
+grammar.rule.ime	no
+grammar.rule.classic.font	original
+grammar.rule.classic.bold	no
+grammar.rule.tags	none
+grammar.article.indefinite	{0,select,m.acc{έναν {0}}m.gen{ενός {0}}f.gen{μιας {0}}n.gen{ενός {0}}f{μια {0}}n{ένα {0}}other{ένας {0}}}
+grammar.article.definite	{0,select,m.acc{τον {0}}f.acc{την {0}}m.gen{του {0}}f.gen{της {0}}n.gen{του {0}}n.acc{το {0}}f{η {0}}n{το {0}}other{ο {0}}}
+grammar.article.your	{0,select,m.acc{τον {0} σου}f.acc{την {0} σου}m.gen{του {0} σου}f.gen{της {0} σου}n.gen{του {0} σου}n.acc{το {0} σου}f{η {0} σου}n{το {0} σου}other{ο {0} σου}}
+grammar.phrase.words	{0} {1}
+grammar.phrase.count	{0} {1}
+msg.item.cannot_use_on	{0} δεν πιάνει εκεί.
+msg.item.too_full	{0} δεν χωράει άλλο.
+msg.item.locked	{0} είναι κλειδωμέν{0,select,f{η}n{ο}other{ος}}.
+msg.door.unlocked_with	Ξεκλειδώνεις την πόρτα με {0}.
+msg.item.empty	{0} είναι άδει{0,select,f{α}n{ο}other{ος}}.
+msg.item.emptied	Αδειάζεις {0}.
+msg.item.unnamed	αντικείμενο
+msg.item.read	Διαβάζεις {0}...
+msg.item.read_unnamed	ΑΝΩΝΥΜΟ
+msg.item.taste	{0}{1}
+msg.item.no_ammunition	Δυστυχώς δεν έχεις {0}.
+msg.item.angered	{0}{1}
+msg.wear.damaged	{0} χάλασε.
+msg.wear.damaged_plural	{0} χάλασαν.
+msg.wear.destroyed	{0} καταστράφηκε.
+msg.wear.destroyed_plural	{0} καταστράφηκαν.
+msg.trap.disarmed	{0} στο {1} αφοπλίστηκε επιτυχώς.
+msg.trap.set_off	Οι άτσαλες απόπειρές σου πυροδότησαν {0}
+msg.trap.failed	Αδυναμία αφοπλισμού παγίδας.
+msg.repair.estimate	{0}{1}{2}{3}{4}
+msg.repair.result	{0}{1}.
+msg.level_up	{0}{1}
+msg.level_up.fallback	Έφτασες επίπεδο εμπειρίας 
+msg.shrine.prompt	Ψάλε το μάντρα: 
+msg.shrine.advanced_greatly	{0}{1}.
+msg.shrine.advanced	{0}{1}.
+msg.shrine.list_comma	, 
+msg.shrine.list_and	 και 
+msg.shrine.cup_and	 και 
+msg.shrine.cup_very_near	πολύ κοντά
+msg.shrine.cup_end	.
+msg.book.explodes	Το βιβλίο εκρήγνυται στο πρόσωπό σου!
+msg.spell.not_a_spell	Όχι ξόρκι
+msg.spell.rune_missing	Ένας ρούνος αυτού του ξορκιού δεν είναι στο σακουλάκι σου.
+msg.door.locked	Η πόρτα είναι κλειδωμένη
+msg.flask.out_of	 από 
+msg.save.list_heading	\\6     Περιγραφές αποθηκεύσεων
+msg.save.unused_slot	<ακόμα κενή>
+msg.count.question	Πόσα να μετακινηθούν; 
+msg.question.yes	Ναι
+msg.question.no	Όχι
+msg.creation.points_left	Πόντοι που μένουν: 
+msg.creation.done	Έτοιμο
+msg.scroll.more	[ΑΚΟΜΗ]
+picture.options.save_game	ΣΩΣΕ
+picture.options.restore_game	ΦΟΡΤΩΣΗ
+picture.options.music	ΜΟΥΣΙΚΗ
+picture.options.sound	ΗΧΟΣ
+picture.options.detail	ΛΕΠΤ.
+picture.options.return_to_game	ΠΙΣΩ
+picture.options.quit_game	ΕΞΟΔΟΣ
+picture.options.on	ΝΑΙ
+picture.options.off	ΟΧΙ
+picture.options.cancel	ΑΚΥΡΟ
+picture.options.done	ΕΤΟΙΜΟ
+picture.options.low	ΧΑΜΗΛΗ
+picture.options.medium	ΜΕΣΑΙΑ
+picture.options.high	ΥΨΗΛΗ
+picture.options.very_high	ΠΟΛΥ ΥΨ.
+picture.options.yes	ΝΑΙ
+picture.options.no	ΟΧΙ
+picture.options.save_title	ΑΠΟΘΗΚΕΥΣΗ:
+picture.options.restore_title	ΦΟΡΤΩΣΗ:
+picture.options.quit_title	ΕΞΟΔΟΣ:
+picture.options.are_you_sure	ΕΙΣΑΙ ΣΙΓΟΥΡΟΣ;
+picture.options.music_is_on	ΜΟΥΣΙΚΗ: ΝΑΙ
+picture.options.music_is_off	ΜΟΥΣΙΚΗ: ΟΧΙ
+picture.options.sound_is_on	ΗΧΟΣ: ΝΑΙ
+picture.options.sound_is_off	ΗΧΟΣ: ΟΧΙ
+picture.options.turn_music	ΜΟΥΣΙΚΗ:
+picture.options.turn_sound	ΗΧΟΣ:
+picture.options.detail_is_low	ΛΕΠΤ.: ΧΑΜΗΛΗ
+picture.options.detail_is_medium	ΛΕΠΤ.: ΜΕΣΑΙΑ
+picture.options.detail_is_high	ΛΕΠΤ.: ΥΨΗΛΗ
+picture.options.detail_is_very_high	ΛΕΠΤ.: ΠΟΛΥ ΥΨ.
+picture.options.set_new_level	ΝΕΟ ΕΠΙΠΕΔΟ:
+picture.stats.str	ΔΥΝ
+picture.stats.dex	ΕΠΙ
+picture.stats.int	ΕΥΦ
+picture.stats.vit	ΖΩΗ
+picture.stats.mana	ΜΑΝΑ
+picture.stats.exp	ΕΜΠ
+picture.map.level	Επίπ.
+picture.map.erase	ΔΙΑΓΡ.
+picture.map.close	ΚΛΕΙΣ.
+picture.menu.introduction	Εισαγωγή
+picture.menu.create_character	Δημιουργία χαρακτήρα
+picture.menu.acknowledgements	Ευχαριστίες
+picture.menu.journey_onward	Συνέχεια ταξιδιού
+lizard.sseth	ναι
+lizard.click	όχι
+lizard.sor_click	ξένος
+lizard.sstresh	βοήθεια
+lizard.sorr	εχθρός
+lizard.yeshor_click	φίλος
+lizard.zekka	φαγητό
+lizard.thesh	αρέσει
+lizard.click_iriass	Sir Cabirus
+lizard.thes_click	μισεί
+lizard.sorra	κλέβει
+lizard.yethe	σκοτώνει
+lizard.isili	εγώ
+lizard.tosa	εσύ
+lizard.urgo	Murgo
+lizard.thepa	σαυράνθρωποι
+lizard.bica	γεια, αντίο
+lizard.thit	χρειάζεται
+lizard.ossli	αρκετά
+lizard.eppa	επίσκεψη
+lizard.sel_a	δίνει
+lizard.kri_kla	ενεδρευτής
