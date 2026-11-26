@@ -347,8 +347,16 @@ Shader "UW/Dungeon"
                 // THE SECOND GAME'S ICE (UWHeightMap.IceTexturesUw2; per user 2026-11-22): its relief has a depth of its own,
                 // a factor on the walls' (_IceRelief, the viewer's setting) - on the parallax, the normal, the self shadow
                 // and the dark joints.
-                lfReliefScale = SAMPLE_TEXTURE2D_LOD(_IceSliceTable, sampler_IceSliceTable,
-                    float2((floor(IN.uv.z + 0.5) + 0.5) * _IceSliceTable_TexelSize.x, 0.5), 0).r > 0.5h ? _IceRelief : 1.0h;
+                half2 lOSliceKind = SAMPLE_TEXTURE2D_LOD(_IceSliceTable, sampler_IceSliceTable,
+                    float2((floor(IN.uv.z + 0.5) + 0.5) * _IceSliceTable_TexelSize.x, 0.5), 0).rg;
+
+                lfReliefScale = lOSliceKind.r > 0.5h ? _IceRelief : 1.0h;
+
+                // THE SECOND GAME'S LAVA (UWTextureArrayBuilder.BuildIceSliceTable, G; per user 2026-11-26): a slice of a
+                // texture TERRAIN.DAT calls lava glows as a whole, as the first game's lava colours do.
+                half lfLavaSlice = lOSliceKind.g > 0.5h ? 1.0h : 0.0h;
+
+                lfGlowHere = max(lfGlowHere, lfLavaSlice);
 
                 if (lfGlowHere < 0.5h)
                     lOUv = UWParallaxUv(IN.uv.xy, IN.uv.z, mul(lOFrame, viewDirWS), lfReliefScale);
@@ -404,8 +412,8 @@ Shader "UW/Dungeon"
                 float lfLookup = ((lfIndex * 255.0) + 0.5) / 256.0;
                 half4 surface = SAMPLE_TEXTURE2D(_MaterialLut, sampler_MaterialLut, float2(lfLookup, 0.5));
 
-                lfGloss = surface.r * 2.0h;
-                lfGlow = surface.g;
+                lfGloss = lfLavaSlice > 0.5h ? 0.4h : surface.r * 2.0h;
+                lfGlow = max(surface.g, lfLavaSlice);
 
                 // The normals come from the height map of the texture (UWTextureArrayBuilder.
                 // BuildNormals) and live in the same slice as the colour.

@@ -111,6 +111,13 @@ public class UWLetterGrid : MonoBehaviour
         if (UWCharacterCreationScreen.IsTypingName || UWCharacterCreationScreenUw2.IsTypingName)
             return true;
 
+        // THE SECOND GAME'S TEXT ENTRIES (2026-11-25, the gamepad on UW2): a map note, a typed answer, a save game's
+        // name in the classic options or the modern game menu. The grid types through the OS keys (UWOsKeys), which
+        // these read as typed keys. Until then only its character's name came up with the grid.
+        if (UWGameStartUw2.IsRunning)
+            return UWMapScreenUw2.IsWriting || UWConversationScreenUw2.IsTyping || UWModernGameMenu.IsTypingName
+                || (UWGameScreenUw2.Current != null && UWGameScreenUw2.Current.IsTypingSaveName);
+
         UWGameUI lOUi = UWScene.GameUi;
 
         return lOUi != null && lOUi.TextEntry.IsTypingText;

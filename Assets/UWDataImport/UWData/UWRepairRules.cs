@@ -8,13 +8,13 @@ namespace UWDataImport.UWData
 	public static class UWRepairRules
 	{
 		// String block 1, our numbering.
-		private const int RepairEstimatePrefix = 217;
+		internal const int RepairEstimatePrefix = 217;
 
-		private const int RepairEstimateInfix = 218;
+		internal const int RepairEstimateInfix = 218;
 
-		private const int RepairEstimateSuffix = 219;
+		internal const int RepairEstimateSuffix = 219;
 
-		private const int FirstRepairDifficultyWord = 220;
+		internal const int FirstRepairDifficultyWord = 220;
 
 		/// <summary>"You cannot repair that." - what the anvil says to an item without durability,
 		/// and to a destroyed item its fate spares. The five outcome lines sit around it in the
@@ -139,13 +139,13 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static int CannotRepairMessageOf(UWGame peGame) => peGame == UWGame.Uw2 ? Uw2CannotRepairMessage : CannotRepairMessage;
 
-		private const int Uw2RepairEstimatePrefix = 0xE7 + 1;
+		internal const int Uw2RepairEstimatePrefix = 0xE7 + 1;
 
-		private const int Uw2RepairEstimateInfix = 0xE8 + 1;
+		internal const int Uw2RepairEstimateInfix = 0xE8 + 1;
 
-		private const int Uw2RepairEstimateSuffix = 0xE9 + 1;
+		internal const int Uw2RepairEstimateSuffix = 0xE9 + 1;
 
-		private const int Uw2FirstRepairDifficultyWord = 0xEA + 1;
+		internal const int Uw2FirstRepairDifficultyWord = 0xEA + 1;
 
 		public const int Uw2CannotRepairMessage = 0x9C + 1;
 

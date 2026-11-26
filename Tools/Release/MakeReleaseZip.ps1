@@ -217,6 +217,14 @@ if (-not $KitOnly) {
 
     [System.IO.File]::WriteAllLines($RulesTemplate, [string[]]$RulesText, (New-Object System.Text.UTF8Encoding($false)))
 
+    # The second game's set at its own values (2026-11-25), with the note that not every key reaches it yet.
+    $RulesTemplateUw2 = Join-Path $Stage "Docs\rules-template-uw2.jsonc"
+    $RulesTextUw2 = & dotnet run --project $UWDump -c Release -- rules-template --game uw2 2>$null
+
+    if ($LASTEXITCODE -ne 0 -or -not $RulesTextUw2) { throw "uwdump rules-template --game uw2 failed." }
+
+    [System.IO.File]::WriteAllLines($RulesTemplateUw2, [string[]]$RulesTextUw2, (New-Object System.Text.UTF8Encoding($false)))
+
     # The port's own texts in other languages (Languages/<code>.tsv, read beside the executable by
     # UWLanguage), fresh from the project; the editor's build copies them too (UWLanguageBuildCopy).
     # Never a game-text pack (<code>.strings.tsv): that is the game's own text - see the check below.

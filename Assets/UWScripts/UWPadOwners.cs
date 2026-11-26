@@ -72,14 +72,17 @@ public static class UWPadOwners
 
         // The yes/no as the pad's pointer stands aside for it (UWGamepadPointer, PadPointerDrives);
         // the paging and the window picture as the back chain asks them (Interaction gets to them).
-        fSet(ref leStates, UWPadPressState.YesNo, lOInteraction != null && lOInteraction.IsAskingYesNo
+        // The second game's prompts too, its screen asks them (2026-11-25, the gamepad on UW2).
+        fSet(ref leStates, UWPadPressState.YesNo, ((lOInteraction != null && lOInteraction.IsAskingYesNo) || UWGameScreenUw2.IsAskingYesNo)
             && UWControlScheme.Ui.Policy.PadButtonsAnswerYesNo);
         fSet(ref leStates, UWPadPressState.Paging, (lOInteraction != null && lOInteraction.PagingTakesKeys)
             || UWGameScreenUw2.IsWaitingForPage || UWPageInput.ConsumedThisFrame);
         fSet(ref leStates, UWPadPressState.WindowPicture, lOInteraction != null && lOInteraction.PictureTakesKeys);
-        fSet(ref leStates, UWPadPressState.ConversationMore, lOConversation != null && lOConversation.MoreTakesPad);
-        fSet(ref leStates, UWPadPressState.ConversationEnd, lOConversation != null && lOConversation.EndTakesPad);
-        fSet(ref leStates, UWPadPressState.CountPrompt, lODrag != null && lODrag.IsAskingCount);
+        fSet(ref leStates, UWPadPressState.ConversationMore, (lOConversation != null && lOConversation.MoreTakesPad)
+            || (UWConversationScreenUw2.IsOpen && UWConversationScreenUw2.Current != null && UWConversationScreenUw2.Current.MoreTakesPad));
+        fSet(ref leStates, UWPadPressState.ConversationEnd, (lOConversation != null && lOConversation.EndTakesPad)
+            || (UWConversationScreenUw2.IsOpen && UWConversationScreenUw2.Current != null && UWConversationScreenUw2.Current.EndTakesPad));
+        fSet(ref leStates, UWPadPressState.CountPrompt, (lODrag != null && lODrag.IsAskingCount) || UWGameScreenUw2.IsAskingCount);
         fSet(ref leStates, UWPadPressState.BagSplit, lOBags != null && lOBags.SplitTakesPad);
 
         return leStates;

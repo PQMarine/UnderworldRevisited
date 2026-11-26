@@ -232,7 +232,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         bool lbClassic = UWControlScheme.Shared != null && UWControlScheme.Shared.Current != UWControlScheme.SchemeEnum.Modern;
         bool lbInView = lOClickMouse != null && (mOScreen == null || mOScreen.IsInView(UWPointer.Position));
         // A missile spell waiting for its aim has the right button (mous_in_3d's GameInputMode 3; UWAttackUw2).
-        bool lbRight = lbClassic && lbInView && !UWMouseButtons.IsBlocked && lOClickMouse.rightButton.wasPressedThisFrame
+        bool lbRight = lbClassic && lbInView && !UWMouseButtons.IsBlocked && UWPointer.Pressed(lOClickMouse.rightButton)
             && (UWAttackUw2.Current == null || !UWAttackUw2.Current.SpellTookClick);
 
         UWInventoryModel lOInventory = mOScreen != null ? mOScreen.Inventory : null;
@@ -677,7 +677,7 @@ public class UWWorldViewUw2 : MonoBehaviour
 
     private void fFollowLookPress(UnityEngine.InputSystem.Mouse pOMouse, UWInventoryModel pOInventory)
     {
-        if (pOMouse == null || !pOMouse.rightButton.isPressed)
+        if (pOMouse == null || !UWPointer.Held(pOMouse.rightButton))
         {
             mbLookPending = false;
 

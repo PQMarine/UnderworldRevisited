@@ -23,17 +23,22 @@ namespace UWDataImport.UWData
 			if (string.IsNullOrEmpty(psRawDescription))
 				return string.Empty;
 
-			string lsChosen = psRawDescription;
-			int liAmpersandIndex = lsChosen.IndexOf('&');
+			return fApplyArticle(fChosenForm(psRawDescription, pbPlural));
+		}
+
+		/// <summary>
+		/// fix_name_string's choice (UnderworldExhumed ui/GAMESTRN.C, both games): the singular before the "&amp;" or the
+		/// plural after it - and a plural of a name without "&amp;" is the whole string with an "s" (per user 2026-11-26 on
+		/// the second game's original: "You see 10 arrows.", ours said "10 arrow"; "an_arrow" has no plural form).
+		/// </summary>
+		private static string fChosenForm(string psRaw, bool pbPlural)
+		{
+			int liAmpersandIndex = psRaw.IndexOf('&');
 
 			if (liAmpersandIndex >= 0)
-			{
-				string lsSingular = lsChosen.Substring(0, liAmpersandIndex);
-				string lsPlural = lsChosen.Substring(liAmpersandIndex + 1);
-				lsChosen = pbPlural ? lsPlural : lsSingular;
-			}
+				return pbPlural ? psRaw.Substring(liAmpersandIndex + 1) : psRaw.Substring(0, liAmpersandIndex);
 
-			return fApplyArticle(lsChosen);
+			return pbPlural ? psRaw + "s" : psRaw;
 		}
 
 		/// <summary>
@@ -93,7 +98,11 @@ namespace UWDataImport.UWData
 		public static string FormatBareItemName(string psRawDescription, bool pbPlural = false)
 		{
 			string lsName = FormatItemName(psRawDescription, pbPlural);
-			int liSpaceIndex = psRawDescription == null ? -1 : psRawDescription.IndexOf('_');
+
+			// THE ARTICLE OF THE FORM CHOSEN (per user 2026-11-26: a stack of moldy bread under the crosshair read "Of bread"):
+			// a plural after the "&amp;" has no article, "loaves of bread" was cut at its first blank because the singular
+			// before it had a "_".
+			int liSpaceIndex = string.IsNullOrEmpty(psRawDescription) ? -1 : fChosenForm(psRawDescription, pbPlural).IndexOf('_');
 
 			if (liSpaceIndex < 0)
 				return lsName;

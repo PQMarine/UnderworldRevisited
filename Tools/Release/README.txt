@@ -1,11 +1,12 @@
 UNDERWORLD REVISITED
 ====================
 
-An open-source reimplementation of Ultima Underworld: The Stygian Abyss (1992) in Unity, built
-on the original game data.
+An open-source reimplementation of Ultima Underworld: The Stygian Abyss (1992) and Ultima
+Underworld II: Labyrinth of Worlds (1993) in Unity, built on the original game data. The first game
+is complete, the second is in beta.
 
 This package contains NO game data of Ultima Underworld - no graphics, sounds, texts, maps or
-executables of the original. Everything is read at runtime from your own copy.
+executables of the originals. Everything is read at runtime from your own copies.
 
 This project is not affiliated with or endorsed by the owners of the Ultima Underworld rights.
 Ultima and Ultima Underworld are trademarks of their respective owners. Underworld Revisited is
@@ -19,10 +20,11 @@ WHAT YOU NEED
   a graphics driver for Vulkan or OpenGL 4 (the Linux package, UR.x86_64; it is new and far
   less tested than the Windows one, reports are welcome). Nothing else needs to be installed:
   the package brings its own runtime.
-- ULTIMA UNDERWORLD I FROM GOG.COM, FROM STEAM OR FROM THE EA APP, installed. Steam and the
-  EA app sell the same game files as GOG. Only this version is
-  supported: some data is read directly from its UW.EXE, and other releases (original floppy,
-  CD, other stores) differ and will not work.
+- ULTIMA UNDERWORLD I FROM GOG.COM, FROM STEAM OR FROM THE EA APP, installed - and, to play it,
+  ULTIMA UNDERWORLD II from the same stores, which sell it on its own. Steam and the EA app sell
+  the same game files as GOG. Only these versions are supported: some data is read directly from
+  UW.EXE and UW2.EXE, and other releases (original floppy, CD, other stores) differ and will not
+  work.
 
 
 STARTING
@@ -56,8 +58,9 @@ STARTING
    every installation found with its store (GOG, Steam, EA app) and shows the save folder in use.
    A click takes another one, and "Other folder..." chooses a folder of your own.
 
-Save games are kept in the SAVE folders of your Ultima Underworld installation, as in the
-original, and are compatible with it.
+Save games are kept in the SAVE folders of your installations (UNDEROM1 for the first game,
+UNDEROM2 for the second), as in the originals, and are compatible with them. Ultima Underworld II
+is found the same way, in its own folders (Ultima Underworld 2, Ultima Underworld II).
 
 NEW VERSIONS: "Check for new versions" in the Game window, off by default, lets the main menu ask
 GitHub at most once a day for the newest release. A newer one is named above the version in the
@@ -82,15 +85,16 @@ EA APP: its launch options take no path, so it cannot start Underworld Revisited
 directly.
 
 
-ULTIMA UNDERWORLD II (AN EARLY PREVIEW)
----------------------------------------
+ULTIMA UNDERWORLD II (BETA)
+---------------------------
 
-With Ultima Underworld II installed as well (GOG.com, Steam and the EA app sell it on its own),
-the Game window in the menu bar on the main menu switches to it. It has its main menu, its character creation, Journey Onward with the DOS game's
-saves, and Britannia with its game screen, inventory, options and saves (they load in the DOS
-game), its map, its conversations and trading, the modern interface, its creatures and fights, the
-player's death, food and sleep, and a good part of its magic. Not yet: the rest of its spells,
-traps and more of its rules, music, and cutscenes. The switch back is in the same window.
+With Ultima Underworld II installed as well, the Game window in the menu bar on the main menu
+switches to it, and back. Every rule of the game, its music, sound and cutscenes are built; it has
+been played through and compared with the original, and its classic interface has been checked
+against the original area by area. It has its own classic screen, inventory, map and options, and
+the first game's modern interface drawn from its art, with the presets and the layout editor. Its
+saves load in the DOS game and the other way round. As a beta it may still hold faults the
+play-through did not meet: reports are welcome on the project's GitHub page.
 
 
 CONTROLS
@@ -183,7 +187,9 @@ moves there by itself -, for example
     { "magic.manaPerCircle": 2, "quirks.litTaperStaysLit": false }
 
 Docs/rules-template.jsonc lists every key with the original's value and a line on what it
-does. The file is read when a game starts or is loaded; a key the game does not know or a value
+does. For Ultima Underworld II the file goes into the folder UW2 instead, and
+Docs/rules-template-uw2.jsonc lists the keys at that game's values; much of the second game's
+rules is still code of its own, so not every key changes it yet. The file is read when a game starts or is loaded; a key the game does not know or a value
 out of range is reported in the debug display (Shift+F1, with the debug keys on) and skipped. Without the file the game
 plays as the original.
 

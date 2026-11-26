@@ -19,13 +19,20 @@ Every example word on this page is made up.
 
 ## Two files per language
 
-A language is a code (`fr`, `ru`, `zh-TW`) and up to two files in the folder **Languages** beside
+A language is a code (`fr`, `ru`, `zh-TW`) and up to three files in the folder **Languages** beside
 the game (beside the executable; in the Unity editor, the project folder):
 
 | File | What it holds |
 |---|---|
 | `Languages/<code>.tsv` | Underworld Revisited's own texts: menus, settings, help, the modern interface, and the frames the game's sentences are built in ("You see {0}."). About 870 texts. |
-| `Languages/<code>.strings.tsv` | The game's own texts from STRINGS.PAK: messages, object names, books, scrolls, conversations. About 7,100 strings. |
+| `Languages/<code>.strings.tsv` | The game's own texts from STRINGS.PAK: messages, object names, books, scrolls, conversations. About 7,100 strings in Ultima Underworld I. |
+| `Languages/UW2/<code>.strings.tsv` | The same for Ultima Underworld II. |
+
+**Two games.** `<code>.tsv` serves both games: the menus, settings, help and the modern interface are
+the same, and a text only one game uses stays unused in the other. The game's texts are each game's
+own: Ultima Underworld II reads `Languages/UW2/<code>.strings.tsv` (about 9,800 strings), the same
+format one folder down, and never the first game's pack. A language may translate either game or
+both.
 
 Either file may be missing, and any line may be missing: what a file does not hold stays English.
 Both are UTF-8 text with one entry per line and TAB between the columns, so a text editor or a
@@ -50,6 +57,7 @@ folder with `game.gog` or `game.bin`; without it uwdump looks in the usual place
 1. Underworld Revisited's texts: `uwdump text-template <code> --out Languages/<code>.tsv` (or copy
    `Languages/en.tsv`), then translate the texts and keep the ids.
 2. The game's texts: `uwdump strings-template <game> <code> --out Languages/<code>.strings.tsv`
+   (Ultima Underworld II: `uwdump strings-template --game uw2 <game> <code> --out Languages/UW2/<code>.strings.tsv`)
    makes a template from **your own** copy of the game (`--empty` writes the English as comments
    and leaves the texts empty).
 3. Check both with `validate-tsv`, `fit` and `looks` ([Checking a translation](#checking-a-translation))
@@ -240,7 +248,9 @@ de.strings.tsv:   1	145	Halb geflickt hast du {1}
 `{1}` in the piece is the frame's argument 1 (the thing). Which strings are pieces, of which frame,
 and what each argument is: `Assets/UWDataImport/UWData/UWTextFragments.cs`; `uwdump validate-tsv`
 names them too. Only these frames may leave an argument out, and then every piece of the frame
-must name it. Only the game's pieces are read for slots: a name or anything the player typed is
+must name it. Ultima Underworld II has the same pieces at other numbers (the anvil, the estimate,
+the taste, the theft and the level-up; it has no shrines), and the frames in `<code>.tsv` serve
+both games: a frame that leaves an argument out needs the pieces of both packs to name it. Only the game's pieces are read for slots: a name or anything the player typed is
 shown as it stands, braces and all.
 
 ### Select
@@ -450,13 +460,19 @@ puts it in force and shows what the classic and the modern fonts make of it.
 ```
 uwdump validate-tsv <path to the game> Languages/<code>.strings.tsv
 uwdump strings-checksums <path to the game> Languages/<code>.strings.tsv
+uwdump validate-tsv --game uw2 <path to the game> Languages/UW2/<code>.strings.tsv
 ```
 
 checks the game's texts against your own STRINGS.PAK: placeholders, codes and line breaks, the name
 format of the language, the slots, select and plural of the pieces (each `{n}` an argument of its
 frame, `other` present, categories the language has), and, with `<code>.tsv` beside the pack,
-that every piece names what its frame leaves out, plus the grammar header. Errors make a string
+that every piece names what its frame leaves out, plus the grammar header (for the second game's
+pack the `<code>.tsv` one folder up). Errors make a string
 wrong in the game; warnings are worth a look.
+
+`fit` and `looks` know the first game only so far; for the second, look at its pages in the game.
+`uwdump strings --game uw2 <path> <block> --strings Languages/UW2/<code>.strings.tsv` and `conv --game uw2`
+with the same `--strings` show its translated strings and conversations.
 
 `uwdump fit <path> --strings Languages/<code>.strings.tsv` measures the game's strings that the classic
 look draws into boxes of fixed width - character creation's questions, buttons, sex and class line,
@@ -474,8 +490,8 @@ file in `Languages`.
 
 ## Trying it in the game
 
-Put the files into `Languages` beside the game and choose the language in the **Language** row of
-the *Game* window. The row shows a language by its own name, `setting.Language.name` in its
+Put the files into `Languages` beside the game (the second game's pack into `Languages/UW2`) and
+choose the language in the **Language** row of the *Game* window; each game takes its own pack. The row shows a language by its own name, `setting.Language.name` in its
 `<code>.tsv` (`Deutsch`, written in the language itself), else by its code. The change takes effect at once: Underworld Revisited's texts and the game's strings switch,
 lines already in the message scroll stay as they were written. The command line `-language <code>`
 and the environment variable `UR_LANGUAGE` choose a language at startup. `-language pseudo` shows
@@ -485,7 +501,7 @@ that clip.
 ## Publishing
 
 `Languages/<code>.tsv`, Underworld Revisited's own texts, may come into this repository by pull request. The
-game's texts are not ours: a translated `<code>.strings.tsv` is a translation of Origin's text. It
-never comes into this repository. A translator who publishes one does so on their own
+game's texts are not ours: a translated `<code>.strings.tsv` (either game's) is a translation of
+Origin's text. It never comes into this repository. A translator who publishes one does so on their own
 responsibility. The same holds for pictures painted over the game's (`Languages/<code>/pictures`):
 they are Origin's art changed, published only by the translator, never here.

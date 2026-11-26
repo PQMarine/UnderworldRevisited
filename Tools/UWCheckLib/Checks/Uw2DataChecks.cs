@@ -69,6 +69,25 @@ namespace UnderworldRevisited.Tools
                 liStrings += lOBlock.Strings.Count;
 
             Check.Str("uw2: STRINGS.PAK's blocks and strings", lOStrings.Blocks.Count + " " + liStrings, "136 13319");
+
+            // THE SECOND GAME'S PIECES OF A FRAME (UWTextFragments, 2026-11-25, its game-text pack): the first and the
+            // last string of each use, and a string of one game is no piece in the other.
+            List<string> lsPieces = new List<string>();
+
+            foreach (UWTextFragments.Use lOUse in UWTextFragments.Uses)
+            {
+                if (lOUse.Game == UWGame.Uw2)
+                    lsPieces.Add(lOStrings.Blocks[lOUse.Block].Strings[lOUse.First].Trim() + (lOUse.Last != lOUse.First
+                        ? ".." + lOStrings.Blocks[lOUse.Block].Strings[lOUse.Last].Trim() : string.Empty));
+            }
+
+            Check.Str("uw2: the pieces of the frames (repair, level-up, taste, estimate, theft)", string.Join(" | ", lsPieces),
+                "You destroy the..You damage the | Your attempt has no effect on the..You fully repair the"
+                + " | Congratulations! You've reached experience level | tasted putrid...tasted great. | You think it will be | to repair the"
+                + " | Make an attempt? | trivial..very difficult | is angered by your action...notes your action.");
+            Check.Str("uw2: 1:141 a piece in the first game only, 1:155 in the second only",
+                (UWTextFragments.Find(1, 141) != null) + " " + (UWTextFragments.Find(1, 141, UWGame.Uw2) != null) + " "
+                + (UWTextFragments.Find(1, 155) != null) + " " + (UWTextFragments.Find(1, 155, UWGame.Uw2) != null), "True False False True");
             Check.Str("uw2: the first object names of block 4 (an object's name at its id + 1, as in the first game)",
                 string.Join("|", lOStrings.Blocks[4].Strings.GetRange(0, 4)), "|a_hand axe|a_battle axe|an_axe");
 

@@ -12,7 +12,10 @@ namespace UWDataImport.UWData
 
 		public int LongCycleTicks => UWPlayerTick.FiveMinuteTicks;
 
-		public int LevelUpString => 148;
+		/// <summary>"You have attained experience level " (block 1, our numbering).</summary>
+		public const int LevelUpMessage = 148;
+
+		public int LevelUpString => LevelUpMessage;
 
 		public int ExplorationWeight(int piDungeonLevel) => piDungeonLevel;
 

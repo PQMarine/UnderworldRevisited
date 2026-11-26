@@ -12,7 +12,9 @@ using UnityEngine.UI;
 /// material of UW/UIPaletteSwap, which paints each of its colours in the hallucination's palette;
 /// what appears meanwhile (a new line in the scroll, the icon on the pointer) is picked up by a
 /// scan four times a second. When the effect ends, every Graphic gets its material back. The
-/// icons on UW/IconPalette follow the colour table by themselves and are left alone.
+/// icons on UW/IconPalette follow the colour table by themselves and are left alone, and so do the
+/// modern interface's pictures of the original (the flasks, the power gem, the minimap; UW/PixelArtUI
+/// through UWPixelArtUI.ApplyOriginal and the global _UWUiHallucination, 2026-11-26).
 /// </summary>
 public static class UWUiPaletteSwap
 {
@@ -32,6 +34,10 @@ public static class UWUiPaletteSwap
     /// <summary>Called every frame by UWRenderPathHost, in both render paths.</summary>
     public static void Follow(bool pbActive)
     {
+        // The modern interface's pictures of the original (UW/PixelArtUI with _UWFromPalette, UWPixelArtUI.ApplyOriginal)
+        // follow by this switch in their shader; the swap below only takes the default UI material.
+        UWShaderGlobals.SetFloat(UWShaderIds.UiHallucination, pbActive ? 1f : 0f);
+
         if (!pbActive)
         {
             fRestore();

@@ -219,7 +219,8 @@ public sealed class UWPaletteRenderPath : IUWRenderPath
     /// TEXTURE ANIMATION: UWAnimatedTextures copies pre-baked water and lava images
     /// into the slices of the COLOUR array every frame. The palette path does not use this array
     /// at all - it rotates the whole palette via a single number in the shader. The copying
-    /// would be pure waste.
+    /// would be pure waste. The NORMAL array's water slices (the Palette effects' relief) still
+    /// move with it, so the animator stays on and only skips the colours.
     /// </summary>
     private void fSetSideEffects(bool pbPalette)
     {
@@ -233,8 +234,9 @@ public sealed class UWPaletteRenderPath : IUWRenderPath
 
         UWAnimatedTextures lOAnimator = mOHost.GetComponent<UWAnimatedTextures>();
 
+        // The colours stay still on this path, the water's relief moves on for the Palette effects (2026-11-26).
         if (lOAnimator != null)
-            lOAnimator.enabled = !pbPalette;
+            lOAnimator.CopiesColours = !pbPalette;
     }
 
     /// <summary>

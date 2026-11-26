@@ -36,8 +36,9 @@ top of `main`. So:
   see the section on publishing there.
 - **For the game itself, the original decides.** The rules of the game - combat, magic,
   creatures, traps, objects - and the classic control scheme are meant to behave exactly like
-  Ultima Underworld 1. A change there should say how the original behaves - observed in the
-  game, or read from its code - and where. The deliberate differences are listed in
+  the original games, Ultima Underworld I and II. A change there should say how the original
+  behaves - observed in the game, or read from its code - and where. The second game is in beta,
+  so comparisons of it with the original are especially welcome. The deliberate differences are listed in
   [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md); anything else that differs is a bug.
 - **The modern side is freer.** The modern control scheme, the interface presets, the
   Remastered mode, the palette effects and the options are this project's own additions and
@@ -54,8 +55,8 @@ A good report says:
 
 - what you did, what happened and what you expected;
 - whether the original game does it differently (if you can check);
-- the release you use (for example 0.10.0), the operating system and the control scheme
-  (classic or modern), and the language if it is not English;
+- the game (Ultima Underworld I or II), the release you use (for example 0.25.0), the operating
+  system and the control scheme (classic or modern), and the language if it is not English;
 - whether a `rules.json` is in use (it changes the game's numbers);
 - for a crash or a hang, the file `Player.log` (Windows:
   `%USERPROFILE%\AppData\LocalLow\Underworld Revisited\Underworld Revisited\`, Linux:
@@ -67,7 +68,8 @@ to you.
 ## Code
 
 - How to build the game and the tools is in [Docs/BUILDING.md](Docs/BUILDING.md). You need
-  your own copy of Ultima Underworld from GOG.com or Steam.
+  your own copy of Ultima Underworld I from GOG.com or Steam, and of Ultima Underworld II for
+  the second game.
 - Run the self-check before you send a change; it must pass:
   `dotnet run --project Tools/UWSelfCheck -- "<your GOG or Steam installation>"`. A rule that can be
   tested without Unity should get a case there.

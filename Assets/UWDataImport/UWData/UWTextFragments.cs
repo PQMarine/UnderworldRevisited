@@ -13,6 +13,10 @@ namespace UWDataImport.UWData
 	/// `uwdump validate-tsv` checks a fragment's slots against its frame and that a frame's left-out
 	/// argument is named by every fragment of it. A new call site that passes UWText.Fragment belongs
 	/// in this table (the self-check MessageFormat compares them).
+	///
+	/// PER GAME (2026-11-25, the second game's game-text pack): the same frames take the second game's
+	/// own lines, at other places of its block 1 - the anvil, the taste, the theft and the level-up (it
+	/// has no shrines). Each use names its game.
 	/// </summary>
 	public static class UWTextFragments
 	{
@@ -33,6 +37,9 @@ namespace UWDataImport.UWData
 
 			/// <summary>What the frame's arguments are, for the translator.</summary>
 			public string Arguments;
+
+			/// <summary>The game whose strings these are.</summary>
+			public UWGame Game = UWGame.Uw1;
 		}
 
 		/// <summary>Every use, by block and first index.</summary>
@@ -44,18 +51,43 @@ namespace UWDataImport.UWData
 				Arguments = "{0} this piece, {1} the thing (accusative)" },
 			new Use { Block = 1, First = UWRepairRules.CannotRepairMessage + 1, Last = UWRepairRules.CannotRepairMessage + 3, Frame = "msg.repair.result", Argument = 0,
 				Arguments = "{0} this piece, {1} the thing (accusative)" },
-			new Use { Block = 1, First = 148, Last = 148, Frame = "msg.level_up", Argument = 0, Arguments = "{0} this piece, {1} the level (a blank before one digit)" },
+			new Use { Block = 1, First = UWPlayerVariantUw1.LevelUpMessage, Last = UWPlayerVariantUw1.LevelUpMessage, Frame = "msg.level_up", Argument = 0, Arguments = "{0} this piece, {1} the level (a blank before one digit)" },
 			new Use { Block = 1, First = UWItemMessages.FirstTasteMessage, Last = UWItemMessages.FirstTasteMessage + 4, Frame = "msg.item.taste", Argument = 1,
 				Arguments = "{0} the food (nominative), {1} this piece" },
-			new Use { Block = 1, First = 217, Last = 217, Frame = "msg.repair.estimate", Argument = 0, Arguments = RepairEstimate },
-			new Use { Block = 1, First = 218, Last = 218, Frame = "msg.repair.estimate", Argument = 2, Arguments = RepairEstimate },
-			new Use { Block = 1, First = 219, Last = 219, Frame = "msg.repair.estimate", Argument = 4, Arguments = RepairEstimate },
-			new Use { Block = 1, First = 220, Last = 220 + UWRepairRules.DifficultyWordCount - 1, Frame = "msg.repair.estimate", Argument = 1, Arguments = RepairEstimate },
+			new Use { Block = 1, First = UWRepairRules.RepairEstimatePrefix, Last = UWRepairRules.RepairEstimatePrefix, Frame = "msg.repair.estimate", Argument = 0, Arguments = RepairEstimate },
+			new Use { Block = 1, First = UWRepairRules.RepairEstimateInfix, Last = UWRepairRules.RepairEstimateInfix, Frame = "msg.repair.estimate", Argument = 2, Arguments = RepairEstimate },
+			new Use { Block = 1, First = UWRepairRules.RepairEstimateSuffix, Last = UWRepairRules.RepairEstimateSuffix, Frame = "msg.repair.estimate", Argument = 4, Arguments = RepairEstimate },
+			new Use { Block = 1, First = UWRepairRules.FirstRepairDifficultyWord, Last = UWRepairRules.FirstRepairDifficultyWord + UWRepairRules.DifficultyWordCount - 1,
+				Frame = "msg.repair.estimate", Argument = 1, Arguments = RepairEstimate },
 			new Use { Block = 1, First = UWCritterRules.TheftMessageBase, Last = UWCritterRules.TheftMessageBase + 2, Frame = "msg.item.angered", Argument = 1,
-				Arguments = "{0} the creature with its indefinite article (nominative), {1} this piece" }
+				Arguments = Angered },
+
+			// The second game.
+			new Use { Game = UWGame.Uw2, Block = 1, First = UWRepairRules.Uw2CannotRepairMessage - 2, Last = UWRepairRules.Uw2CannotRepairMessage - 1,
+				Frame = "msg.repair.result", Argument = 0, Arguments = "{0} this piece, {1} the thing (accusative)" },
+			new Use { Game = UWGame.Uw2, Block = 1, First = UWRepairRules.Uw2CannotRepairMessage + 1, Last = UWRepairRules.Uw2CannotRepairMessage + 3,
+				Frame = "msg.repair.result", Argument = 0, Arguments = "{0} this piece, {1} the thing (accusative)" },
+			new Use { Game = UWGame.Uw2, Block = 1, First = UWPlayerVariantUw2.LevelUpMessage, Last = UWPlayerVariantUw2.LevelUpMessage, Frame = "msg.level_up", Argument = 0,
+				Arguments = "{0} this piece, {1} the level (a blank before one digit)" },
+			new Use { Game = UWGame.Uw2, Block = 1, First = UWFoodUw2.FirstTasteMessage, Last = UWFoodUw2.FirstTasteMessage + 4, Frame = "msg.item.taste", Argument = 1,
+				Arguments = "{0} the food (nominative), {1} this piece" },
+			new Use { Game = UWGame.Uw2, Block = 1, First = UWRepairRules.Uw2RepairEstimatePrefix, Last = UWRepairRules.Uw2RepairEstimatePrefix, Frame = "msg.repair.estimate",
+				Argument = 0, Arguments = Uw2RepairEstimate },
+			new Use { Game = UWGame.Uw2, Block = 1, First = UWRepairRules.Uw2RepairEstimateInfix, Last = UWRepairRules.Uw2RepairEstimateInfix, Frame = "msg.repair.estimate",
+				Argument = 2, Arguments = Uw2RepairEstimate },
+			new Use { Game = UWGame.Uw2, Block = 1, First = UWRepairRules.Uw2RepairEstimateSuffix, Last = UWRepairRules.Uw2RepairEstimateSuffix, Frame = "msg.repair.estimate",
+				Argument = 4, Arguments = Uw2RepairEstimate },
+			new Use { Game = UWGame.Uw2, Block = 1, First = UWRepairRules.Uw2FirstRepairDifficultyWord,
+				Last = UWRepairRules.Uw2FirstRepairDifficultyWord + UWRepairRules.DifficultyWordCount - 1, Frame = "msg.repair.estimate", Argument = 1, Arguments = Uw2RepairEstimate },
+			new Use { Game = UWGame.Uw2, Block = 1, First = UWCritterRules.Uw2TheftMessageBase, Last = UWCritterRules.Uw2TheftMessageBase + 2, Frame = "msg.item.angered",
+				Argument = 1, Arguments = Angered }
 		};
 
 		private const string RepairEstimate = "{0} 1:217, {1} the difficulty word 1:220-224, {2} 1:218, {3} the thing (accusative), {4} 1:219";
+
+		private const string Uw2RepairEstimate = "{0} 1:232, {1} the difficulty word 1:235-239, {2} 1:233, {3} the thing (accusative), {4} 1:234";
+
+		private const string Angered = "{0} the creature with its indefinite article (nominative), {1} this piece";
 
 		/// <summary>The port's words a grammar puts before or after a name (UWGrammarGeneric): their text
 		/// is a fragment with {0} the name, so a language may make them agree with it
@@ -68,19 +100,20 @@ namespace UWDataImport.UWData
 			return System.Array.IndexOf(WordIds, psId) >= 0;
 		}
 
-		/// <summary>The use of a string, or null when it is no piece of a frame.</summary>
-		public static Use Find(int piBlock, int piIndex)
+		/// <summary>The use of a string of a game, or null when it is no piece of a frame.</summary>
+		public static Use Find(int piBlock, int piIndex, UWGame peGame = UWGame.Uw1)
 		{
 			foreach (Use lOUse in Uses)
 			{
-				if (lOUse.Block == piBlock && piIndex >= lOUse.First && piIndex <= lOUse.Last)
+				if (lOUse.Game == peGame && lOUse.Block == piBlock && piIndex >= lOUse.First && piIndex <= lOUse.Last)
 					return lOUse;
 			}
 
 			return null;
 		}
 
-		/// <summary>Whether a frame takes game fragments among its arguments.</summary>
+		/// <summary>Whether a frame takes game fragments among its arguments (in either game: the port's
+		/// own texts serve both).</summary>
 		public static bool TakesFragments(string psFrame)
 		{
 			foreach (Use lOUse in Uses)
@@ -92,14 +125,14 @@ namespace UWDataImport.UWData
 			return false;
 		}
 
-		/// <summary>The uses of one frame, in the table's order.</summary>
-		public static List<Use> Of(string psFrame)
+		/// <summary>The uses of one frame in a game, in the table's order.</summary>
+		public static List<Use> Of(string psFrame, UWGame peGame = UWGame.Uw1)
 		{
 			List<Use> lOUses = new List<Use>();
 
 			foreach (Use lOUse in Uses)
 			{
-				if (lOUse.Frame == psFrame)
+				if (lOUse.Game == peGame && lOUse.Frame == psFrame)
 					lOUses.Add(lOUse);
 			}
 

@@ -1,6 +1,9 @@
 # Controls
 
-The full controls of [Underworld Revisited](../README.md).
+The full controls of [Underworld Revisited](../README.md), the same in both games: Ultima Underworld II's original
+has the first game's keys, and Underworld Revisited gives it the same. Two things work alike in both games here
+although the second game's original does them its own way - Roaming Sight on the keys, and moving things in the
+inventory, which it allows only with the right button ([Docs/DEVIATIONS.md](DEVIATIONS.md#interface-and-controls)).
 
 - [The original scheme](#the-original-scheme)
 - [The modern scheme](#the-modern-scheme)

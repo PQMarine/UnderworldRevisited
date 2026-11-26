@@ -190,7 +190,10 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
         int liX = Mathf.FloorToInt((lOAt.x - lOScreen.xMin) / lOScreen.width * UWScreenUi.ScreenWidth);
         int liY = Mathf.FloorToInt((lOAt.y - lOScreen.yMin) / lOScreen.height * UWScreenUi.ScreenHeight);
 
-        if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+        // ESCAPE, AND IN THE MODERN SCHEME START AND THE PAD'S B (2026-11-25, the gamepad on UW2): the first game's big map
+        // closes by the back chain's ModernMap row (UWHotkeys group 1); the classic map keeps Escape alone, as there.
+        if ((UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+            || (UWGameScreenUw2.IsModernScheme && UWBack.Takes(UWBackOwner.ModernMap)))
         {
             Close();
 

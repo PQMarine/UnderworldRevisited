@@ -116,7 +116,8 @@ namespace UWDataImport.UWData
 		/// article - "a loaf of bread" becomes "11 loaves of bread" - and the words go between the count
 		/// and the plural in the same order: LookAt (UnderworldExhumed obj/LOOK.C) writes the count, the
 		/// quality word, the modifiers, then the plural ("5 day old ears of corn", per user on the
-		/// original 2026-10-17). Without a plural form the article goes ("2 a dagger" would come out).
+		/// original 2026-10-17). Without a plural form the article goes ("2 a dagger" would come out) and the name takes
+		/// an "s", as fix_name_string does (per user 2026-11-26 on the original: "10 arrows").
 		/// </summary>
 		public virtual string ItemPhrase(string psRaw, int piCount, string psCondition, bool pbCursed, bool pbMagical)
 		{
@@ -138,7 +139,7 @@ namespace UWDataImport.UWData
 
 			string lsPlural = psRaw != null && psRaw.Contains("&")
 				? UWObjectDescriptionFormatter.FormatItemName(psRaw, true)
-				: UWObjectDescriptionFormatter.FormatBareItemName(psRaw, false);
+				: UWObjectDescriptionFormatter.FormatBareItemName(psRaw, true);
 
 			StringBuilder lOWords = new StringBuilder();
 

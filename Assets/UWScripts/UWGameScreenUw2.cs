@@ -272,6 +272,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>A line is being typed into the scroll's last line (a count, a save's name).</summary>
     internal bool IsTypingLine => miTypingSlot != 0 || mbCountLine;
 
+    /// <summary>A save game's name is being typed in the classic options (UWBack's ClassicSaveName).</summary>
+    internal bool IsTypingSaveName => miTypingSlot != 0;
+
     /// <summary>The classic screen lies over the view (the classic scheme, or the options panel in the modern one).</summary>
     internal bool IsClassicCovering => IsClassicShown;
 
@@ -2332,7 +2335,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         }
 
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-        bool lbHeld = lOMouse != null && (mbInventoryPressRight ? lOMouse.rightButton.isPressed : lOMouse.leftButton.isPressed);
+        bool lbHeld = lOMouse != null && (mbInventoryPressRight ? UWPointer.Held(lOMouse.rightButton) : UWPointer.Held(lOMouse.leftButton));
         UWObject lOItem = fDisplayItem(miInventoryPressHit);
 
         if (lbHeld && !UWDragDistance.Crossed(mOInventoryPressAt, UWPointer.Position))
@@ -2843,7 +2846,6 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// panel of this screen (save, restore, music, detail). The HUD is the first game's (UWModernHud).</summary>
     private void fModernKeys()
     {
-        UnityEngine.InputSystem.Keyboard lOKeys = UnityEngine.InputSystem.Keyboard.current;
         UWControls lOControls = UWControlScheme.SharedControls;
         // Not while the bags' split box has the keys either: its digits are the count's, not the action bar's.
         bool lbFree = !UWSetupMenu.IsCapturingInput && !UWSetupMenu.HasOpenPanel && !UWModernBags.IsSplitting;
@@ -2873,9 +2875,15 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         // ESCAPE as the first game's UI keys route it (UWGameUiKeys' CloseChain, then the menu): the first game's chain
         // of closing - a waiting spell lets go first (IUWModernWorld.CancelSpellAim), then the bags' use mode, the bags (a
         // thing on the pointer goes back), the character panel, the rune panel.
-        if (lOKeys != null && lbFree && lOKeys.escapeKey.wasPressedThisFrame && !UWModernBags.IsMenuOpen)
+        // THE KEYS AS THE FIRST GAME'S (2026-11-25, the gamepad on UW2): Escape, Start and the pad's B through the back chain
+        // (UWBack: ModernChain, then ModernMenu - the rows UWGameUiKeys routes on the first game); until then Escape alone,
+        // read here, so Start and B neither closed the chain nor opened the menu. The bags' menu takes its own press first.
+        bool lbChain = lbFree && UWBack.Takes(UWBackOwner.ModernChain);
+        bool lbMenu = lbFree && !lbChain && UWBack.Takes(UWBackOwner.ModernMenu);
+
+        if (lbChain || lbMenu)
         {
-            if (UWModernUi.CloseNext())
+            if (lbChain && UWModernUi.CloseNext())
             {
             }
             // At the chain's end the first game's game menu (part U4d step 4; this game's options panel until then). It
@@ -3165,12 +3173,14 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             UWVitalsUw2.Current.Vitals.ChangeExperience(liExperience, liLevelIndex + 1);
     }
 
-    /// <summary>True while the map lies open; the session's M key opens it and closes it.</summary>
+    /// <summary>True while the map lies open; the session's M key opens it and closes it. PERFORMED, not pressed
+    /// (2026-11-25, the gamepad on UW2), as the first game's rows take it (UWHotkeys): the pad's View tapped is the map,
+    /// held the help - on its press the map opened under the help.</summary>
     private bool fMapInput()
     {
         UWControls lOControls = UWControlScheme.SharedControls;
         bool lbKey = lOControls != null && !UWSetupMenu.IsCapturingInput && !UWMapScreenUw2.IsWriting
-            && !UWControls.IsShortcutModifierHeld && lOControls[UWAct.ToggleMap].WasPressedThisFrame();
+            && !UWControls.IsShortcutModifierHeld && lOControls[UWAct.ToggleMap].WasPerformedThisFrame();
 
         if (UWMapScreenUw2.IsOpen)
         {
@@ -4049,7 +4059,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
 
         if (UWAttackUw2.Current == null || !UWAttackUw2.Current.IsTargetSpellWaiting || lOMouse == null
-            || !(lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame) || IsInViewWindow(UWPointer.Position))
+            || !(UWPointer.Pressed(lOMouse.leftButton) || UWPointer.Pressed(lOMouse.rightButton)) || IsInViewWindow(UWPointer.Position))
             return false;
 
         // THE INVENTORY PAGE (mous_in_inv's case 2, part D2): a thing there takes the spell, the arrows page on and the
@@ -4078,7 +4088,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         fHoldSkillScroll(lOMouse);
 
-        if (lOMouse == null || !(lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame)
+        if (lOMouse == null || !(UWPointer.Pressed(lOMouse.leftButton) || UWPointer.Pressed(lOMouse.rightButton))
             || !TryGetOriginalPoint(UWPointer.Position, out float lfColumn, out float lfRow))
             return;
 
@@ -4119,7 +4129,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             && liY >= UWClassicLayoutUw2.Runes.CastBottomY && liY <= UWClassicLayoutUw2.Runes.CastTopY)
         {
             // Not while the view roams (try_cast returns while GameInputMode is set).
-            if (mOShownPlayer != null && !UWConversationScreenUw2.IsOpen && !lOMouse.rightButton.wasPressedThisFrame
+            if (mOShownPlayer != null && !UWConversationScreenUw2.IsOpen && !UWPointer.Pressed(lOMouse.rightButton)
                 && !UWRoamingSight.IsAnyRunning && !UWVitalsUw2.PlayerParalysed)
                 fCastShelf();
 
@@ -4131,7 +4141,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             && liY >= UWClassicLayoutUw2.Runes.CastBottomY && liY <= UWClassicLayoutUw2.Runes.CastTopY)
         {
             if (mOShownPlayer != null)
-                fClickActiveSpell(2 - ((liX - UWClassicLayoutUw2.Runes.ActiveLeft) >> 4), lOMouse.rightButton.wasPressedThisFrame);
+                fClickActiveSpell(2 - ((liX - UWClassicLayoutUw2.Runes.ActiveLeft) >> 4), UWPointer.Pressed(lOMouse.rightButton));
 
             return;
         }
@@ -4143,14 +4153,14 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         if (miPage == 0 && miSlideFrame == 0 && mOInventory != null)
         {
-            fClickInventory(liX, liY, lOMouse.rightButton.wasPressedThisFrame);
+            fClickInventory(liX, liY, UWPointer.Pressed(lOMouse.rightButton));
 
             return;
         }
 
         if (miPage == UWClassicLayoutUw2.Runes.PanelPage && miSlideFrame == 0)
         {
-            fClickRunes(liX, liY, lOMouse.rightButton.wasPressedThisFrame);
+            fClickRunes(liX, liY, UWPointer.Pressed(lOMouse.rightButton));
 
             return;
         }
@@ -4193,7 +4203,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (!mbSkillScrollHeld)
             return;
 
-        if (pOMouse == null || !(pOMouse.leftButton.isPressed || pOMouse.rightButton.isPressed))
+        if (pOMouse == null || !(UWPointer.Held(pOMouse.leftButton) || UWPointer.Held(pOMouse.rightButton)))
         {
             mbSkillScrollHeld = false;
 
@@ -4966,7 +4976,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
 
-        if (lOMouse == null || !lOMouse.leftButton.wasPressedThisFrame)
+        if (lOMouse == null || !UWPointer.Pressed(lOMouse.leftButton))
             return;
 
         if (!TryGetOriginalPoint(UWPointer.Position, out float lfColumn, out float lfRow))
@@ -5223,7 +5233,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
 
         if (lOMouse != null && !mbOptionsPress && !UWMouseButtons.IsBlocked
-            && (lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame || lOMouse.middleButton.wasPressedThisFrame))
+            && (UWPointer.Pressed(lOMouse.leftButton) || UWPointer.Pressed(lOMouse.rightButton) || lOMouse.middleButton.wasPressedThisFrame))
         {
             mbOptionsPress = true;
             miOptionsPressOld = mOOptions.Highlight;
@@ -5287,7 +5297,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         miOptionsPressAt = liButton;
 
-        bool lbHeld = pOMouse != null && (pOMouse.leftButton.isPressed || pOMouse.rightButton.isPressed || pOMouse.middleButton.isPressed);
+        bool lbHeld = pOMouse != null && (UWPointer.Held(pOMouse.leftButton) || UWPointer.Held(pOMouse.rightButton) || pOMouse.middleButton.isPressed);
 
         if (!lbHeld)
         {

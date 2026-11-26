@@ -497,9 +497,14 @@ public static class UWPointer
     /// for now so I see where I click"): while the second game runs without its own pointer - its main
     /// menu so far (UW2 plan phase 3 step 5) - the plain system arrow shows, free and always visible.
     /// The session's classic screen has the game's pointers since phase 3 step 1 (UWGameScreenUw2).
+    ///
+    /// NEVER WHILE A SESSION RUNS (per user 2026-11-26, the Linux test: in our options the second game showed the system
+    /// arrow, the first game its own pointer): the rule asked for the CLASSIC screen, and the modern scheme hides it, so
+    /// every frame that freed the pointer there (our options, the game menu) put the plain arrow in place of the cross
+    /// UWGameScreenUw2.fUpdatePointer sets - since stage U4 the modern scheme has the game's pointers too.
     /// </summary>
     private static bool fSystemArrow => UnderworldRevisited.UWSettings.Game != null && UnderworldRevisited.UWSettings.Game.Game == UWGame.Uw2
-        && !UWGameScreenUw2.IsClassicActive && !UWMenuPointerUw2.IsActive && !fCutscenePlaying;
+        && UWGameScreenUw2.Current == null && !UWMenuPointerUw2.IsActive && !fCutscenePlaying;
 
     /// <summary>A cutscene plays (UWIntroPlayer): it hides the pointer, and the arrow must not force it back (per user
     /// 2026-11-19: the system arrow stood over the second game's introduction).</summary>

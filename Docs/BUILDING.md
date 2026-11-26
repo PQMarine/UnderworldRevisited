@@ -12,8 +12,9 @@ layer and its tools.
 
 1. Clone the repository and open the folder with Unity 6000.6.8f1.
 2. Select `Assets/Resources/UWSettings.asset` and set **GogInstallPath** to your GOG or Steam
-   installation folder (the folder containing `game.gog` or `game.bin`), or to the image itself. Common
-   installation folders are found automatically when the field is empty.
+   installation folder of the first game (the folder containing `game.gog` or `game.bin`), or to the image
+   itself. Common installation folders are found automatically when the field is empty, those of the second
+   game too; *Game* in the main menu's menu bar switches between the two games.
 3. Open `Assets/UW.unity` and press Play, or build a player.
 
 Build the player from Unity's build window (`File > Build Profiles` in Unity 6), target
@@ -56,10 +57,11 @@ So a build made on one machine runs on another as long as the game is installed 
 them. To be sure your copy works, run the self-check (see Tools) before building.
 
 In the GOG and Steam releases the game data is not installed as separate files but kept in `game.gog` (Steam: `game.bin`), a
-CD image. On the first start the Ultima Underworld 1 files (`CRIT`, `CUTS`, `DATA`, `SOUND`,
-`UW.EXE`) are extracted from it once into a local cache folder; nothing is written to the
-installation. Built from source, the settings asset's **SavegameFolder** overrides where the
-save games go, and its **DataPath** can point to an already extracted `DATA` folder instead.
+CD image. On the first start of a game its files (`CRIT`, `CUTS`, `DATA`, `SOUND` and `UW.EXE` or
+`UW2.EXE`) are extracted from it once into a local cache folder, one per game; nothing is written to the
+installation. Built from source, the settings asset's **SavegameFolder** overrides where the first game's
+save games go, and its **DataPath** can point to an already extracted `DATA` folder of the first game
+instead.
 
 The native libraries the game loads come built in `Assets/Plugins`: PDFium for the manual and
 Munt's libmt32emu for the MT-32 music. libmt32emu is built unmodified from the source in
@@ -130,6 +132,9 @@ Data folder: C:\Users\...\Temp\UnderworldRevisited\UW1\DATA
   OK   sound      24 effects, 12 music pieces with 6690 notes
 ```
 
+When the image holds the second game as well, the self-check reads it from there too and runs its
+checks.
+
 The checks themselves live in `Tools/UWCheckLib` (`Checks/` one file per domain, `Fakes/` the
 hosts they run on, `Harness/` the runner). `--help` lists the options: `--only`, `--skip` and
 `--tag` select groups, `--list` shows them, `--quiet` prints only the failures, `--no-data` runs
@@ -155,6 +160,9 @@ dotnet run --project Tools/UWDump -- pictures <path> WEAPONS.GR --out <folder>
 dotnet run --project Tools/UWDump -- palette <path> all --out <folder>
 ```
 
+`--game uw2` reads the second game from the same image (its own cache): `info`, `strings`, `find`,
+`level`, `maprender`, `conv`, `pictures`, `palette` and `traps` so far.
+
 The path may be left out when the environment variable `UW_DATA` names the DATA folder, the
 GOG or Steam installation folder or the image (game.gog, game.bin), or when the game is in one of the common installation
 folders the game itself searches. What these commands write is the original game's content:
@@ -174,6 +182,8 @@ dotnet run --project Tools/UWSoundDump -- <DATA path> <output folder> mt32 <ROM 
 SoundFont 2 file down to the presets and key ranges the music plays, without changing a kept
 zone (the result renders bit for bit like the full file).
 
-`Tools/UWRuleIndex` and `Tools/UWOriginalCoverage` write the two indexes in `Docs`: where the
+`Tools/UWRuleIndex` and `Tools/UWOriginalCoverage` write the indexes in `Docs`: where the
 original is implemented ([RULES-INDEX.md](RULES-INDEX.md)), and which routines of `UW.EXE`
-have not been looked at ([ORIGINAL-COVERAGE.md](ORIGINAL-COVERAGE.md)).
+have not been looked at ([ORIGINAL-COVERAGE.md](ORIGINAL-COVERAGE.md)); with `--uw2` and Underworld
+Exhumed's `uw2/src`, the second game's interface routines and how each was judged
+([ORIGINAL-COVERAGE-UW2.md](ORIGINAL-COVERAGE-UW2.md)).

@@ -99,15 +99,40 @@ namespace UnderworldRevisited.Tools
 
         /// <summary>The commands that read the second game so far (phase 1 step 6): the format readers'
         /// survey, the strings, a level's map and objects, the maps as pictures, the conversations.</summary>
-        private static readonly List<string> msUw2Commands = new List<string> { "info", "strings", "find", "level", "maprender", "conv", "pictures", "palette", "traps" };
+        private static readonly List<string> msUw2Commands = new List<string> { "info", "strings", "find", "level", "maprender", "conv", "pictures", "palette", "traps",
+            "strings-template", "validate-tsv", "strings-checksums" };
 
         /// <summary>A command on the second game's data, without DataImport.</summary>
         private static int fRunUw2(string psName, DumpContext pOContext, List<string> pOArgs)
         {
             pOContext.Strings = new UWStrings(File.ReadAllBytes(Path.Combine(pOContext.DataPath, "STRINGS.PAK")));
 
+            // The second game's pack (Languages/UW2/<code>.strings.tsv) over its strings, as the game lays it
+            // (2026-11-25): strings, find and conv show the translation.
+            if (pOContext.StringsPath != null)
+            {
+                if (!File.Exists(pOContext.StringsPath))
+                {
+                    Console.Error.WriteLine("No game-text pack " + pOContext.StringsPath + ".");
+
+                    return 2;
+                }
+
+                Console.OutputEncoding = new System.Text.UTF8Encoding(false);
+                fLoadOwnTexts(pOContext.StringsPath);
+
+                UWGameTextPack lOPack = UWGameTextPack.Load(pOContext.StringsPath, pOContext.Strings);
+
+                if (lOPack != null)
+                    Console.Error.WriteLine("Game-text pack " + pOContext.StringsPath + ": " + lOPack.Applied + " strings, " + lOPack.Mismatched
+                        + " left English (their checksum names other English), " + lOPack.Problems.Count + " problems.");
+            }
+
             switch (psName)
             {
+                case "strings-template": return fStringsTemplate(pOContext, pOArgs);
+                case "validate-tsv": return fValidateTsv(pOContext, pOArgs);
+                case "strings-checksums": return fStringsChecksums(pOContext, pOArgs);
                 case "strings": return fPrintStrings(pOContext, pOArgs);
                 case "find": return fFindString(pOContext, pOArgs);
                 case "level": return fPrintLevelUw2(pOContext, pOArgs);

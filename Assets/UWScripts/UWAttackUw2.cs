@@ -664,7 +664,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
         Mouse lOMouse = UWMouseButtons.GameMouse;
 
-        if (lOMouse != null && lOMouse.rightButton.wasPressedThisFrame && pOScreen.IsInView(UWPointer.Position))
+        if (lOMouse != null && UWPointer.Pressed(lOMouse.rightButton) && pOScreen.IsInView(UWPointer.Position))
             FireSpellMissile();
     }
 
@@ -687,7 +687,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
         Mouse lOMouse = UWMouseButtons.GameMouse;
 
-        if (lOMouse != null && lOMouse.rightButton.wasPressedThisFrame && pOScreen.IsInView(UWPointer.Position))
+        if (lOMouse != null && UWPointer.Pressed(lOMouse.rightButton) && pOScreen.IsInView(UWPointer.Position))
             fApplyTargetAt(fSpellRay());
     }
 
@@ -943,7 +943,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         if (UWGameScreenUw2.IsModernScheme)
             return fModernAttack != null && UWMouseButtons.PressedFree(fModernAttack);
 
-        return UWMouseButtons.GameMouse != null && UWMouseButtons.GameMouse.rightButton.wasPressedThisFrame;
+        return UWMouseButtons.GameMouse != null && UWPointer.Pressed(UWMouseButtons.GameMouse.rightButton);
     }
 
     private static bool fPressed(UWGameScreenUw2 pOScreen)
@@ -956,7 +956,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
         Mouse lOMouse = UWMouseButtons.GameMouse;
 
-        return UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight && lOMouse != null && lOMouse.rightButton.wasPressedThisFrame
+        return UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight && lOMouse != null && UWPointer.Pressed(lOMouse.rightButton)
             && pOScreen.IsInView(UWPointer.Position);
     }
 
@@ -965,7 +965,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         if (UWGameScreenUw2.IsModernScheme)
             return fModernAttack != null && fModernAttack.IsPressed();
 
-        return Mouse.current != null && Mouse.current.rightButton.isPressed;
+        return Mouse.current != null && UWPointer.Held(Mouse.current.rightButton);
     }
 
     /// <summary>

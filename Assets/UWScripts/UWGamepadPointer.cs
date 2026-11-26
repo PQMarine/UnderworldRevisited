@@ -160,7 +160,8 @@ public class UWGamepadPointer : MonoBehaviour
         // (the system pointer locked until cleanup step 7.7B; in the game it is captured always since).
         Interaction lOInteraction = UWScene.Interaction;
         UWControlScheme lOScheme = UWScene.ControlScheme;
-        bool lbYesNoOnPad = lOInteraction != null && lOInteraction.IsAskingYesNo
+        // The second game's prompts as the first game's (2026-11-25, the gamepad on UW2): its screen asks them.
+        bool lbYesNoOnPad = ((lOInteraction != null && lOInteraction.IsAskingYesNo) || UWGameScreenUw2.IsAskingYesNo)
             && (lOScheme == null || UWControlScheme.Ui.Policy.PadButtonsAnswerYesNo);
 
         // THE MODERN SCHEME'S FREE POINTER IS THE PAD'S as well, however it was freed (per user,
@@ -168,7 +169,7 @@ public class UWGamepadPointer : MonoBehaviour
         bool lbModernFree = UWControlScheme.Ui.IsPointerUnlocked;
 
         return UWPressOwners.PadPointerDrives(UWPointer.IsLookLocked, UWLetterGrid.IsShown,
-            UWScene.ItemDrag != null && UWScene.ItemDrag.IsAskingCount, lbYesNoOnPad, IsOn, lbModernFree,
+            (UWScene.ItemDrag != null && UWScene.ItemDrag.IsAskingCount) || UWGameScreenUw2.IsAskingCount, lbYesNoOnPad, IsOn, lbModernFree,
             fIsHeldByWindow(lOScheme), out pbFree);
     }
 

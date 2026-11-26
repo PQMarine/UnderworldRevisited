@@ -295,6 +295,22 @@ namespace UnderworldRevisited.Tools
             Check.Int("rules file: the template sets every key", lOReport.Applied.Count, UWRules.Entries.Count);
             fExpectSameRules("rules file: the template leaves the original's values", UWRulesJson.Write(lORules, false), lsOriginal);
 
+            // The second game's template (uwdump rules-template --game uw2, 2026-11-25): valid too, its values
+            // the second game's set, and the keys whose value is not the first game's name that value. It is
+            // laid over the second game's set, as the game lays UW2/rules.json (a list keeps its length:
+            // story.unpushableNpcs is empty there, one entry in the first game's).
+            UWRules lOUw2 = UWRules.CreateOriginal(UWGameProfiles.Uw2);
+            string lsUw2Template = UWRulesJson.Write(lOUw2, true, UWGame.Uw2);
+
+            lORules = UWRules.CreateOriginal(UWGameProfiles.Uw2);
+            lOReport = UWRulesJson.Apply(lORules, lsUw2Template, "template uw2");
+            Check.Str("rules file: the second game's template reads cleanly and sets every key",
+                fReportText(lOReport) + lOReport.Applied.Count, UWRules.Entries.Count.ToString());
+            fExpectSameRules("rules file: the second game's template gives the second game's values", UWRulesJson.Write(lORules, false),
+                UWRulesJson.Write(lOUw2, false));
+            Check.Int("rules file: the second game's template names the first game's value where it differs",
+                lsUw2Template.Split(new[] { "(The first game: " }, StringSplitOptions.None).Length - 1, 8);
+
             // Malformed: nothing of it counts.
             lORules = UWRules.CreateOriginal();
             lOReport = UWRulesJson.Apply(lORules, "{\n  \"combat.player.easyAttackBonus\": 4,\n  \"combat.skillCheck.rollRange\" 41\n}");

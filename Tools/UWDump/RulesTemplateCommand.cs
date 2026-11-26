@@ -15,12 +15,13 @@ namespace UnderworldRevisited.Tools
         /// original's value, each with its one-line meaning as a comment above it - a valid
         /// rules.json as it stands (UWRulesJson reads the comments), generated from the defaults so
         /// it cannot drift from the code. A filter keeps the keys that contain it
-        /// (rules-template magic.).
+        /// (rules-template magic.). --game uw2 writes the second game's set (its profile's
+        /// CreateOriginalRules, 2026-11-25) with the note that not every key reaches it yet.
         /// </summary>
         private static int fPrintRulesTemplate(DumpContext pOContext, List<string> pOArgs)
         {
             string lsFilter = pOArgs.Count > 0 ? pOArgs[0] : null;
-            string lsTemplate = UWRulesJson.Write(UWRules.CreateOriginal(), true);
+            string lsTemplate = UWRulesJson.Write(UWRules.CreateOriginal(pOContext.Game), true, pOContext.Game.Game);
 
             if (lsFilter != null)
             {

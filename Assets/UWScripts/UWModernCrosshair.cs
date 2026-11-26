@@ -148,7 +148,7 @@ public class UWModernCrosshair : UWModernPart
         mOTarget.text = lbCross ? mOSession.World.TargetName ?? string.Empty : string.Empty;
         fUpdateLockIcon(lbCross && mOTarget.text.Length > 0, lOOffset);
 
-        fUpdatePadPrompt(lbCross && !UWModernPointer.IsFree);
+        fUpdatePadPrompt(lbCross && !UWModernPointer.IsFree, lOOffset);
     }
 
     /// <summary>
@@ -252,7 +252,7 @@ public class UWModernCrosshair : UWModernPart
     /// the pointer locked. The glyphs of the buttons as bound now, their names where a glyph is
     /// missing.
     /// </summary>
-    private void fUpdatePadPrompt(bool pbLocked)
+    private void fUpdatePadPrompt(bool pbLocked, Vector2 pOOffset)
     {
         string lsVerb = pbLocked && UWUserSettings.ShowsPadHints && mOSession != null ? mOSession.World.TargetPadVerb : null;
 
@@ -296,8 +296,10 @@ public class UWModernCrosshair : UWModernPart
         float lfUseGlyph = lOUse != null ? lfGlyph + lfGap : 0f;
         float lfLookGlyph = lOLook != null ? lfGlyph + lfGap : 0f;
         float lfTotal = lfUseGlyph + lfUseWidth + lfGlyph + lfLookGlyph + lfLookWidth;
-        float lfX = -lfTotal * 0.5f;
-        float lfY = -(4f * miPixelScale) - (liFontSize * 1.5f);
+        // Under the name, at the view's middle as the crosshair (per user 2026-11-26: in Classic Wide and the 4:3 frame the
+        // hints stood at the screen's middle, off the crosshair).
+        float lfX = pOOffset.x - (lfTotal * 0.5f);
+        float lfY = pOOffset.y - (4f * miPixelScale) - (liFontSize * 1.5f);
 
         mOPadUseGlyph.texture = lOUse;
         mOPadUseGlyph.enabled = lOUse != null;

@@ -14,9 +14,9 @@ namespace UWDataImport.UWData
 	/// English; the numbers stay as they are, so the conversations, the traps, the shrines and the
 	/// cutscenes find their texts where they always did.
 	///
-	/// THE FILE, Languages/&lt;code&gt;.strings.tsv beside the game (UWLanguage; FileSuffix), is the
-	/// format of the higesho fork's Localization/ja.tsv, so a translation made for it runs as it
-	/// is:
+	/// THE FILE, Languages/&lt;code&gt;.strings.tsv beside the game (UWLanguage; FileSuffix) - the second
+	/// game's Languages/UW2/&lt;code&gt;.strings.tsv (PathOf) - is the format of the higesho fork's
+	/// Localization/ja.tsv, so a translation made for it runs as it is:
 	///   - UTF-8, a byte order mark allowed; one string per line: the block, a TAB, the index, a
 	///     TAB, the text. Block and index in decimal, as the port numbers them: the index of the
 	///     parsed list (UWStringBlock), where 1 is a block's first string and 0 the empty slot.
@@ -59,6 +59,62 @@ namespace UWDataImport.UWData
 		/// <summary>The end of a game-text pack's name: de.strings.tsv beside de.tsv, the port's own
 		/// texts of the same language.</summary>
 		public const string FileSuffix = ".strings.tsv";
+
+		/// <summary>
+		/// A PACK PER GAME (2026-11-25, per user: a folder of the game's own, as the user folder keeps UW1 and
+		/// UW2): the second game's pack is Languages/UW2/&lt;code&gt;.strings.tsv, the same name one folder down;
+		/// the first game's stays Languages/&lt;code&gt;.strings.tsv, where the higesho fork has it too. Until
+		/// then the second game took the first game's pack, whose lines with a checksum mostly kept the
+		/// English there and whose lines without one changed strings of other meaning. The port's own texts,
+		/// Languages/&lt;code&gt;.tsv, serve both games.
+		/// </summary>
+		public static string FolderOf(UWGame peGame)
+		{
+			return peGame == UWGame.Uw2 ? "UW2" : string.Empty;
+		}
+
+		/// <summary>A language's pack of a game in a Languages folder.</summary>
+		public static string PathOf(string psLanguagesFolder, UWGame peGame, string psCode)
+		{
+			string lsFolder = FolderOf(peGame);
+
+			return Path.Combine(lsFolder.Length == 0 ? psLanguagesFolder : Path.Combine(psLanguagesFolder, lsFolder), psCode + FileSuffix);
+		}
+
+		/// <summary>The pack's place as a translator writes it: "Languages/de.strings.tsv",
+		/// "Languages/UW2/de.strings.tsv".</summary>
+		public static string PlaceOf(UWGame peGame, string psCode)
+		{
+			string lsFolder = FolderOf(peGame);
+
+			return "Languages/" + (lsFolder.Length == 0 ? string.Empty : lsFolder + "/") + psCode + FileSuffix;
+		}
+
+		/// <summary>The port's own texts of a pack's language (de.tsv for de.strings.tsv): beside the pack,
+		/// or one folder up for a pack in a game's folder (Languages/UW2/de.strings.tsv - Languages/de.tsv);
+		/// null when there is none.</summary>
+		public static string OwnTextsOf(string psPackPath)
+		{
+			string lsCode = UWGrammar.CodeOfPackFile(psPackPath);
+
+			if (string.IsNullOrEmpty(lsCode))
+				return null;
+
+			string lsFolder = Path.GetDirectoryName(Path.GetFullPath(psPackPath));
+			string lsBeside = Path.Combine(lsFolder, lsCode + ".tsv");
+
+			if (File.Exists(lsBeside))
+				return lsBeside;
+
+			string lsUp = Path.GetDirectoryName(lsFolder);
+
+			if (lsUp == null || !string.Equals(Path.GetFileName(lsFolder), FolderOf(UWGame.Uw2), StringComparison.OrdinalIgnoreCase))
+				return null;
+
+			string lsAbove = Path.Combine(lsUp, lsCode + ".tsv");
+
+			return File.Exists(lsAbove) ? lsAbove : null;
+		}
 
 		/// <summary>One line with a text.</summary>
 		public sealed class Row
@@ -400,13 +456,13 @@ namespace UWDataImport.UWData
 		/// or with pbEmpty an empty text under the English as a comment. The original's text: written
 		/// where the translator chooses, never shipped.
 		/// </summary>
-		public static string Template(UWStrings pOStrings, string psCode, bool pbEmpty)
+		public static string Template(UWStrings pOStrings, string psCode, bool pbEmpty, UWGame peGame = UWGame.Uw1)
 		{
 			StringBuilder lOText = new StringBuilder();
 			List<int> lOBlocks = new List<int>(pOStrings.Blocks.Keys);
 
-			lOText.Append("# Underworld Revisited, the game's texts (STRINGS.PAK) in the language ").Append(psCode)
-				.Append(": Languages/").Append(psCode).Append(FileSuffix).Append(" beside the game.\n");
+			lOText.Append("# Underworld Revisited, the texts of ").Append(peGame == UWGame.Uw2 ? "Ultima Underworld II" : "Ultima Underworld I")
+				.Append(" (STRINGS.PAK) in the language ").Append(psCode).Append(": ").Append(PlaceOf(peGame, psCode)).Append(" beside the game.\n");
 			lOText.Append("# One string per line: block TAB index TAB text, in decimal as Underworld Revisited numbers them (index 1 is a block's first string).\n");
 			lOText.Append("# In the text \\n is a line break, \\t a TAB, \\\\ a backslash before n, r, t or another backslash;\n");
 			lOText.Append("# every other backslash is the game's own code (\\m, \\p, \\0) and stays. Keep the placeholders (@SS1, @GI3C2).\n");
@@ -522,13 +578,15 @@ namespace UWDataImport.UWData
 		/// of an id or null - Languages/&lt;code&gt;.tsv beside the pack): a frame that leaves an argument of
 		/// the English to its fragments ("{0}." for msg.repair.result) needs every fragment of it to name
 		/// that argument, else the name is lost (ERROR at the fragment's row, or at line 0 for a
-		/// fragment the pack leaves English).
+		/// fragment the pack leaves English). peGame: the game whose STRINGS.PAK pOEnglish is - its own
+		/// pieces of the frames (UWTextFragments).
 		/// </summary>
-		public List<Finding> Validate(UWStrings pOEnglish, IUWGrammar pIGrammar = null, Func<string, string> pFrame = null, string psPluralCode = null)
+		public List<Finding> Validate(UWStrings pOEnglish, IUWGrammar pIGrammar = null, Func<string, string> pFrame = null, string psPluralCode = null,
+			UWGame peGame = UWGame.Uw1)
 		{
 			List<Finding> lOFound = new List<Finding>(mOSkipped);
 
-			fValidateFrames(lOFound, pOEnglish, pFrame);
+			fValidateFrames(lOFound, pOEnglish, pFrame, peGame);
 
 			HashSet<string> lOSeen = new HashSet<string>();
 
@@ -591,7 +649,7 @@ namespace UWDataImport.UWData
 
 				// A piece of a frame with slots places the frame's arguments itself (wave 4): its blanks at
 				// the ends no longer join it to them.
-				bool lbSlotted = lsText.IndexOf('{') >= 0 && UWTextFragments.Find(lORow.Block, lORow.Index) != null;
+				bool lbSlotted = lsText.IndexOf('{') >= 0 && UWTextFragments.Find(lORow.Block, lORow.Index, peGame) != null;
 
 				if (!lbSlotted && fStartsBlank(lsEnglish) != fStartsBlank(lsText))
 					fFind(lOFound, lORow, false, fStartsBlank(lsEnglish) ? "the English starts with a blank, the text does not" : "the text starts with a blank, the English does not");
@@ -622,7 +680,7 @@ namespace UWDataImport.UWData
 				if (lsNameProblem != null)
 					fFind(lOFound, lORow, false, "name format (" + pIGrammar.Code + "): " + lsNameProblem);
 
-				fValidateSlots(lOFound, lORow, psPluralCode ?? (pIGrammar != null ? pIGrammar.Code : null));
+				fValidateSlots(lOFound, lORow, psPluralCode ?? (pIGrammar != null ? pIGrammar.Code : null), peGame);
 			}
 
 			// By line, the findings of one line in the order found (OrderBy is stable).
@@ -637,14 +695,14 @@ namespace UWDataImport.UWData
 		private const int WordBlock = 5;
 
 		/// <summary>A row's slots, select and plural: read as its frame reads them.</summary>
-		private static void fValidateSlots(List<Finding> pOFound, Row pORow, string psPluralCode)
+		private static void fValidateSlots(List<Finding> pOFound, Row pORow, string psPluralCode, UWGame peGame)
 		{
 			string lsText = pORow.Text;
 
 			if (lsText.IndexOf('{') < 0 && lsText.IndexOf('}') < 0)
 				return;
 
-			UWTextFragments.Use lOUse = UWTextFragments.Find(pORow.Block, pORow.Index);
+			UWTextFragments.Use lOUse = UWTextFragments.Find(pORow.Block, pORow.Index, peGame);
 			int liArguments;
 			string lsWhat;
 
@@ -671,7 +729,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>A frame of the language's own texts that leaves an argument of the English to its
 		/// fragments: every fragment of it must name the argument.</summary>
-		private void fValidateFrames(List<Finding> pOFound, UWStrings pOEnglish, Func<string, string> pFrame)
+		private void fValidateFrames(List<Finding> pOFound, UWStrings pOEnglish, Func<string, string> pFrame, UWGame peGame)
 		{
 			if (pFrame == null)
 				return;
@@ -680,7 +738,7 @@ namespace UWDataImport.UWData
 
 			foreach (UWTextFragments.Use lOUse in UWTextFragments.Uses)
 			{
-				if (!lsFrames.Contains(lOUse.Frame))
+				if (lOUse.Game == peGame && !lsFrames.Contains(lOUse.Frame))
 					lsFrames.Add(lOUse.Frame);
 			}
 
@@ -691,7 +749,7 @@ namespace UWDataImport.UWData
 				if (lsLeft.Length == 0)
 					continue;
 
-				foreach (UWTextFragments.Use lOUse in UWTextFragments.Of(lsFrame))
+				foreach (UWTextFragments.Use lOUse in UWTextFragments.Of(lsFrame, peGame))
 				{
 					for (int liIndex = lOUse.First; liIndex <= lOUse.Last; liIndex++)
 					{

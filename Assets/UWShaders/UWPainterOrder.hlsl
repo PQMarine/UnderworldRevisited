@@ -561,11 +561,38 @@ bool UWPainterModelAround(float2 pTile)
     return false;
 }
 
+// THE DOOR OF THE SPRITE'S OWN TILE, THE SPRITE BEYOND IT (per user 2026-11-26, UW2 level 17, 22/35: bottles behind an open
+// door showed over its leaf in Remastered, hidden in the palette mode): the original paints what stands beyond a door's plane
+// before the door, so the whole door - the open leaf too, which reaches far into the tile - covers it where nearer. The
+// near-edge plane put the sprite only just behind the closed door's plane (UWOwnTileDoorCrossing), in front of the open leaf;
+// the true depth lets the leaf and the frame decide, as a model painted after it does.
+bool UWPainterBeyondOwnDoor(float3 pPivotWS)
+{
+    float2 lOwn = UWPainterTileOf(pPivotWS.xz);
+
+    if (_UWDoorPlanesReady < 0.5 || any(lOwn < 0.0) || any(lOwn > 63.0))
+        return false;
+
+    float4 lDoor = LOAD_TEXTURE2D(_UWDoorPlanes, int2(lOwn));
+
+    // A door (g 0 or 1), not a bridge's deck (g 2).
+    if (lDoor.r < 0.5 || lDoor.g > 1.5)
+        return false;
+
+    float lfEye = lDoor.g > 0.5 ? _WorldSpaceCameraPos.x : _WorldSpaceCameraPos.z;
+    float lfPivot = lDoor.g > 0.5 ? pPivotWS.x : pPivotWS.z;
+
+    return (lfEye - lDoor.b) * (lfPivot - lDoor.b) < 0.0;
+}
+
 bool UWPainterModelAfterSprite(float3 pPivotWS, float pfBigRadius, float pfKeyBonus, float pfSpriteChain)
 {
     float2 lOwn = UWPainterTileOf(pPivotWS.xz);
     float2 lTile;
     float lfPart;
+
+    if (UWPainterBeyondOwnDoor(pPivotWS))
+        return true;
 
     UWPainterObjectPlace(pPivotWS, pfBigRadius, pfKeyBonus, lTile, lfPart);
 

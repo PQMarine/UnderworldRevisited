@@ -423,9 +423,6 @@ public static class UWTriggerSystem
             UWCritterRules.GetTheftSightZ(lOPlayer.ZPos, fGetHeight(UWObjectMechanics.AdventurerObjectId, pOLevelLoader)), pOLevelLoader, pfSay);
     }
 
-    /// <summary>The second game's anger lines in block 1: 0xF0 + attitude (our numbering one higher).</summary>
-    private const int Uw2TheftMessageBase = 0xF0 + 1;
-
     /// <summary>COMOBJ's can_own.</summary>
     private static bool fCanOwn(int piObjectId, UWLevelLoader pOLevelLoader)
     {
@@ -500,7 +497,7 @@ public static class UWTriggerSystem
             // theft message, which in the original reads "a goblin is angered by your action."
             // (per user, 2026-09-16). The sentence is UWItemMessages.Angered's.
             pfSay(UWItemMessages.Angered(pOLevelLoader.UWDataImporter, lOInfo.ObjectData.ID, liAttitude,
-                pbSecondGame ? Uw2TheftMessageBase : UWCritterRules.TheftMessageBase));
+                pbSecondGame ? UWCritterRules.Uw2TheftMessageBase : UWCritterRules.TheftMessageBase));
         }
 
         return liAngered;

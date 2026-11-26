@@ -232,7 +232,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         // npc_say's \\P: scroll_wait(200), which a key or a click cuts short.
         if (mOView.HoldPending)
         {
-            if (Time.unscaledTime >= mfHoldUntil || fAnyInput())
+            if (Time.unscaledTime >= mfHoldUntil || fAnyInput() || (MoreTakesPad && UWGamepad.AnyPressed(false)))
             {
                 mOView.HoldOver();
                 fRedraw();
@@ -270,7 +270,9 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
 
         if (mOView.MorePending)
         {
-            if (fAnyInput())
+            // Any pad button as well, as the first game's [MORE] (UWConversationController.fAnyInput, 2026-11-25 the
+            // gamepad on UW2); the pad's pointer leaves that press alone (MoreTakesPad, UWPadOwners).
+            if (fAnyInput() || (MoreTakesPad && UWGamepad.AnyPressed(false)))
             {
                 mOView.ContinueAfterMore();
                 fRedraw();
@@ -291,6 +293,8 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             return;
         }
 
+        fStepChoicesByPad();
+
         int liChoice = fReadChoice();
 
         if (liChoice <= 0)
@@ -308,6 +312,117 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         return fButtonReleased();
     }
 
+    /// <summary>"[MORE]" WAITS FOR ANY PRESS, a pad button too (2026-11-25, the gamepad on UW2, as the first game's
+    /// UWConversationController.MoreTakesPad): UWPadOwners asks when the frame begins, so the pad's pointer does not click
+    /// with that press - its release would fetch the next page as well.</summary>
+    internal bool MoreTakesPad => mOSession != null && mOView != null && (mOView.MorePending || mOView.HoldPending)
+        && !mOSession.IsAskingText && !IsKeyboardTaken && !UWLetterGrid.IsShown && miOpenedFrame != Time.frameCount;
+
+    /// <summary>THE END'S HOLD WAITS FOR ANY PRESS, a pad button too (2026-11-26, the rest of the gamepad check on UW2, as the
+    /// first game's UWConversationController.EndTakesPad): the last line before the fade; UWPadOwners keeps the press from
+    /// the pad's pointer. MoreTakesPad covers npc_say's \P hold as well (scroll_wait takes any press).</summary>
+    internal bool EndTakesPad => mbEndHoldWaits && mbClosing && IsOpen && !IsKeyboardTaken && !UWLetterGrid.IsShown;
+
+    /// <summary>The end's hold is waiting (fCloseWithFade).</summary>
+    private bool mbEndHoldWaits;
+
+    /// <summary>The gamepad steps through the answers (UWPadEntryStepper), as in the first game.</summary>
+    private readonly UWPadEntryStepper mOChoiceStepper = new UWPadEntryStepper();
+
+    private readonly List<Rect> mOChoiceRects = new List<Rect>();
+
+    /// <summary>The answers the stepper last saw - new ones snap the pointer onto the first.</summary>
+    private string msSteppedChoices;
+
+    /// <summary>
+    /// THE ANSWERS ON THE D-PAD AND THE LEFT STICK (2026-11-25, the gamepad on UW2, as the first game's
+    /// UWConversationController.fStepChoicesByPad): they put the pointer onto the next answer, A (the pad's click)
+    /// chooses it; a new set of answers snaps it onto the first while the pad is in use. The modern rows
+    /// (UWModernConversation, its history scrolled by the stick) or the classic scroll's rows, one per answer.
+    /// </summary>
+    private void fStepChoicesByPad()
+    {
+        // A thing's menu in the bags beside the conversation has the d-pad for its entries (per user 2026-11-26).
+        if (UWModernBags.IsMenuOpen || UWModernBags.IsSplitting)
+            return;
+
+        if (mOSession == null || mOSession.Choices.Count == 0)
+        {
+            msSteppedChoices = null;
+
+            return;
+        }
+
+        mOChoiceRects.Clear();
+
+        Rect lOHistory = default;
+
+        if (IsModern)
+        {
+            if (UWModernConversation.Instance == null)
+                return;
+
+            UWModernConversation.Instance.GetChoiceRects(mOChoiceRects);
+            lOHistory = UWControlScheme.Ui.ConversationHistoryRect;
+        }
+        else
+            fClassicChoiceRects(mOChoiceRects);
+
+        if (mOChoiceRects.Count == 0)
+            return;
+
+        string lsChoices = mOSession.Choices.Count + "|" + mOSession.Choices[0];
+
+        if (lsChoices != msSteppedChoices)
+        {
+            msSteppedChoices = lsChoices;
+            mOChoiceStepper.Opened();
+        }
+
+        mOChoiceStepper.Update(mOChoiceRects, lOHistory);
+    }
+
+    /// <summary>The classic scroll's answers as screen rectangles, one per answer over all its rows (the rows fReadChoice
+    /// reads a click on, mOAnswerOfRow), from the top.</summary>
+    private void fClassicChoiceRects(List<Rect> pORects)
+    {
+        if (mOFrame == null)
+            return;
+
+        int liAnswer = 0;
+        int liFirstRow = 0;
+
+        for (int liRow = 0; liRow <= mOAnswerOfRow.Count; liRow++)
+        {
+            int liAt = liRow < mOAnswerOfRow.Count ? mOAnswerOfRow[liRow] : 0;
+
+            if (liAt == liAnswer)
+                continue;
+
+            if (liAnswer > 0)
+                pORects.Add(fScreenRect(UWClassicLayoutUw2.Conversation.AnswerClickLeft,
+                    UWClassicLayoutUw2.Conversation.AnswersTopRow - (liRow * UWClassicLayoutUw2.Conversation.LineHeight) + 1,
+                    UWClassicLayoutUw2.Conversation.AnswerClickRight + 1,
+                    UWClassicLayoutUw2.Conversation.AnswersTopRow - (liFirstRow * UWClassicLayoutUw2.Conversation.LineHeight) + 1));
+
+            liAnswer = liAt;
+            liFirstRow = liRow;
+        }
+    }
+
+    /// <summary>A rectangle of the 320x200 screen (fPoint's numbers: x from the left, y up from the bottom) in screen
+    /// pixels.</summary>
+    private Rect fScreenRect(int piLeft, int piBottom, int piRight, int piTop)
+    {
+        Vector2 lOMin = RectTransformUtility.WorldToScreenPoint(null, mOFrame.TransformPoint(new Vector3(
+            piLeft - (UWClassicLayout.Screen.Width / 2f), piBottom - (ScreenHeight / 2f), 0f)));
+        Vector2 lOMax = RectTransformUtility.WorldToScreenPoint(null, mOFrame.TransformPoint(new Vector3(
+            piRight - (UWClassicLayout.Screen.Width / 2f), piTop - (ScreenHeight / 2f), 0f)));
+
+        return Rect.MinMaxRect(Mathf.Min(lOMin.x, lOMax.x), Mathf.Min(lOMin.y, lOMax.y), Mathf.Max(lOMin.x, lOMax.x),
+            Mathf.Max(lOMin.y, lOMax.y));
+    }
+
     /// <summary>The frame both buttons were up for the first time since the opening, -1 before that.</summary>
     private int miButtonsUpFrame = -1;
 
@@ -317,7 +432,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     {
         Mouse lOMouse = Mouse.current;
 
-        if (miButtonsUpFrame < 0 && (lOMouse == null || (!lOMouse.leftButton.isPressed && !lOMouse.rightButton.isPressed)))
+        if (miButtonsUpFrame < 0 && (lOMouse == null || (!UWPointer.Held(lOMouse.leftButton) && !UWPointer.Held(lOMouse.rightButton))))
             miButtonsUpFrame = Time.frameCount;
 
         return miButtonsUpFrame >= 0 && Time.frameCount > miButtonsUpFrame && (UWMouseButtons.LeftReleased || UWMouseButtons.RightReleased);
@@ -886,7 +1001,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         // Whether the left button's hold began on a trade slot (below): its release is that press's own.
         bool lbOwnPress = mbTradePressHeld;
 
-        if (lOMouse == null || !lOMouse.leftButton.isPressed)
+        if (lOMouse == null || !UWPointer.Held(lOMouse.leftButton))
             mbTradePressHeld = false;
 
         if (miPressedSlot >= 0)
@@ -899,7 +1014,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         // A THING DRAGGED FROM A BAG WINDOW AND LET GO OVER THE PLAYER'S SLOT goes there (UW2 plan, the modern
         // interface's part U4b step 3, 2026-11-23: the first game's bag windows drag with the button held, and their
         // own trade slots are the first game's conversation's). The same drop as the press with a thing on the pointer.
-        if (IsModern && !lbOwnPress && lOMouse != null && lOMouse.leftButton.wasReleasedThisFrame && lOInventory.CursorItem != null
+        if (IsModern && !lbOwnPress && lOMouse != null && UWPointer.Released(lOMouse.leftButton) && lOInventory.CursorItem != null
             && UWModernConversation.Instance != null
             && UWModernConversation.Instance.TryGetTradeSlotAt(UWPointer.Position, out bool lbDropNpc, out int liDropAt) && !lbDropNpc)
         {
@@ -911,7 +1026,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             return;
         }
 
-        if (lOMouse == null || miOpenedFrame == Time.frameCount || !(lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame))
+        if (lOMouse == null || miOpenedFrame == Time.frameCount || !(UWPointer.Pressed(lOMouse.leftButton) || UWPointer.Pressed(lOMouse.rightButton)))
             return;
 
         int liPlayerSlot = -1;
@@ -937,7 +1052,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         if (liSlot < 0)
             return;
 
-        if (lOMouse.leftButton.wasPressedThisFrame)
+        if (UWPointer.Pressed(lOMouse.leftButton))
             mbTradePressHeld = true;
 
         if (lOInventory.CursorItem != null)
@@ -958,7 +1073,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         if (lOItem == null)
             return;
 
-        if (lOMouse.rightButton.wasPressedThisFrame)
+        if (UWPointer.Pressed(lOMouse.rightButton))
         {
             if (lbPlayer)
                 mOSession.LookAtOwnTradeItem(lOItem);
@@ -977,7 +1092,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     {
         Mouse lOMouse = Mouse.current;
 
-        if (lOMouse == null || !lOMouse.leftButton.isPressed)
+        if (lOMouse == null || !UWPointer.Held(lOMouse.leftButton))
         {
             if (mbPressedPlayer)
                 pOTrade.TogglePlayerSelected(miPressedSlot);
@@ -1151,13 +1266,17 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     {
         bool lbTimed = mOSession.EndsWithTimedPause;
 
+        mbEndHoldWaits = true;
+
         for (float lfAt = 0f; !lbTimed || lfAt < UWClassicLayoutUw2.Conversation.EndHoldSeconds; lfAt += Time.unscaledDeltaTime)
         {
             yield return null;
 
-            if (fAnyInput())
+            if (fAnyInput() || (EndTakesPad && UWGamepad.AnyPressed(false)))
                 break;
         }
+
+        mbEndHoldWaits = false;
 
         UWScreenUi.ShowLoadingCover();
 

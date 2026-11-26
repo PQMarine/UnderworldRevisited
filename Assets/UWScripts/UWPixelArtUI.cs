@@ -13,7 +13,35 @@ public static class UWPixelArtUI
 
     private static Material mOMaterial;
 
+    /// <summary>The same shader for the original's own pictures (ApplyOriginal): _UWFromPalette set.</summary>
+    private static Material mOOriginalMaterial;
+
+    private static readonly int FromPalette = Shader.PropertyToID("_UWFromPalette");
+
     private static bool mbMissing;
+
+    /// <summary>
+    /// For a picture of the original's own art in palette 0 (the flasks, the power gem, the map): as Apply, and while the
+    /// hallucination shows the other palette (UWUiPaletteSwap) its colours follow it as the classic screen's do. The
+    /// port's own art (leather, wood, the frames) takes Apply and keeps its colours.
+    /// </summary>
+    public static void ApplyOriginal(Graphic pOGraphic)
+    {
+        Apply(pOGraphic);
+
+        if (pOGraphic == null || mOMaterial == null)
+            return;
+
+        if (mOOriginalMaterial == null)
+        {
+            mOOriginalMaterial = new Material(mOMaterial);
+            mOOriginalMaterial.name = "UW Pixel art (UI, the original's pictures)";
+            mOOriginalMaterial.SetFloat(FromPalette, 1f);
+        }
+
+        if (pOGraphic.material != mOOriginalMaterial)
+            pOGraphic.material = mOOriginalMaterial;
+    }
 
     /// <summary>Attaches the material; without the shader the default stays (point filtered).</summary>
     public static void Apply(Graphic pOGraphic)

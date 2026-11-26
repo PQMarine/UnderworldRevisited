@@ -8,7 +8,7 @@ writes the game's pictures and palettes for artists (see PICTURES AND PALETTES b
 
 This kit contains NO text or picture of the game - neither the English of Ultima Underworld nor a
 translation of it. The game's texts and pictures are made from YOUR OWN copy of the game (Ultima
-Underworld I from GOG.com, Steam or the EA app), by uwdump, on your computer.
+Underworld I or II from GOG.com, Steam or the EA app), by uwdump, on your computer.
 
 
 WHAT IS IN IT
@@ -41,24 +41,29 @@ uwdump looks in the usual places. "xx" stands for your language's code (fr, ru, 
   2. The game's texts, from your own copy of the game:
        uwdump strings-template <game> xx --out Languages/xx.strings.tsv
      and translate them (--empty writes the English as comments and leaves the texts empty).
+     Ultima Underworld II has a pack of its own, one folder down:
+       uwdump strings-template --game uw2 <game> xx --out Languages/UW2/xx.strings.tsv
 
   3. Check them:
        uwdump validate-tsv <game> Languages/xx.strings.tsv
        uwdump fit <game> --strings Languages/xx.strings.tsv
        uwdump looks <game> --strings Languages/xx.strings.tsv
+     The second game's pack: uwdump validate-tsv --game uw2 <game> Languages/UW2/xx.strings.tsv
+     (fit and looks know the first game only so far).
      validate-tsv also checks the pictures of your language (Languages/xx/pictures, below), and
      fit measures the words written into the game's pictures. A string with characters the pixel
      fonts lack (Chinese, Japanese) is marked "?": only the game measures those - look at them
      there.
 
-  4. Try them: put both files into the folder Languages beside UR.exe (or UR.x86_64) and choose
-     the language in the Language row of the Game window. The row shows your language by its
+  4. Try them: put the files into the folder Languages beside UR.exe (or UR.x86_64), the second
+     game's pack into Languages/UW2, and choose the language in the Language row of the Game
+     window. The row shows your language by its
      setting.Language.name, written in the language itself ("Deutsch").
 
   A pack of the game's texts made before 0.19.0 gets the checksum lines (#@, see TRANSLATING.md,
   "The checksum line") once, from the game it was translated from:
        uwdump strings-checksums <game> Languages/xx.strings.tsv
-  They keep a line a mod changed from showing a translation of the old line.
+  (the second game's with --game uw2). They keep a line a mod changed from showing a translation of the old line.
 
   After a new release, bring your translation up to date with the new texts:
        uwdump text-template xx --from Languages/xx.tsv --out xx-new.tsv
@@ -194,7 +199,7 @@ PUBLISHING
 ----------
 
 Languages/xx.tsv, Underworld Revisited's own texts, may go into the project by pull request:
-https://github.com/PQMarine/UnderworldRevisited. The game's texts (xx.strings.tsv) are a
-translation of Origin's text: they never go into the project; a translator who publishes one
+https://github.com/PQMarine/UnderworldRevisited. The game's texts (xx.strings.tsv, either
+game's) are a translation of Origin's text: they never go into the project; a translator who publishes one
 does so on their own responsibility. The same holds for pictures painted over the game's
 (Languages/xx/pictures): they are Origin's art changed. See the end of TRANSLATING.md.

@@ -151,28 +151,13 @@ public class PortcullisMover : MonoBehaviour, IUsableDoor
             return;
 
         float lfSpeed = Mathf.Max(1f, LiftHeight) / OpenDuration;
-        float lfStep = (mCurrentLift > 0f ? -lfSpeed : lfSpeed) * Time.deltaTime;
+        // THE LAST STEP STOPS AT THE END, as DoorMover's (2026-11-26): with a negative remainder - the lift - the last step
+        // added its overshoot instead of taking it off, so the grate rose past its top while mfLiftNow stayed clamped, and
+        // came down short of the floor by as much. A step is never more than the remainder now.
+        float lfMove = lfSpeed * Time.deltaTime;
+        float lfStep = mCurrentLift > 0f ? -Mathf.Min(lfMove, mCurrentLift) : Mathf.Min(lfMove, -mCurrentLift);
 
-        if (mCurrentLift > 0f)
-        {
-            mCurrentLift += lfStep;
-
-            if (mCurrentLift < 0f)
-            {
-                lfStep += -mCurrentLift;
-                mCurrentLift = 0f;
-            }
-        }
-        else
-        {
-            mCurrentLift += lfStep;
-
-            if (mCurrentLift > 0f)
-            {
-                lfStep -= -mCurrentLift;
-                mCurrentLift = 0f;
-            }
-        }
+        mCurrentLift += lfStep;
 
         transform.Translate(0f, lfStep, 0f, Space.World);
         mfLiftNow = Mathf.Clamp(mfLiftNow + lfStep, 0f, LiftHeight);

@@ -491,8 +491,9 @@ public class UWModernActionBar : MonoBehaviour
 
         // Not where the gamepad's pointer takes the button (the PadPointer context,
         // UWInput.PadPointerTakes), nor in a conversation, where the d-pad steps the answers
-        // (UWConversationController).
-        bool lbPadFree = !UWModernUi.IsConversationOpen;
+        // (UWConversationController), nor while a thing's menu or the split box is up: the d-pad steps its entries
+        // (per user 2026-11-26: with a menu opened by X, d-pad up used the slot too).
+        bool lbPadFree = !UWModernUi.IsConversationOpen && !UWModernBags.IsMenuOpen && !UWModernBags.IsSplitting;
 
         if (lbPadFree && lOControls.Player.PadSlotPrevious.WasPressedThisFrame() && !UWInput.PadPointerTakes(lOControls.Player.PadSlotPrevious))
             fStepPadSlot(-1);

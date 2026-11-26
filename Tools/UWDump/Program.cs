@@ -106,7 +106,7 @@ namespace UnderworldRevisited.Tools
             fRegister("pack-check", "--pack dir-or-zip", "what the game makes of a picture pack: names, colours, overlaps, shifts", true, fPackCheck);
             fRegister("uwmod-check", "--pack file.uwmod", "whether an editor's mod (.uwmod) applies to this game, what it changes", true, fUwmodCheck);
             fRegister("text-template", "<code> [--out file] [--from existing.tsv]", "Underworld Revisited's own texts in English to translate, or a translation brought up to date", false, fTextTemplate);
-            fRegister("rules-template", "[filter]", "the rule set at the original's values, a rules.json with a meaning per key", false, fPrintRulesTemplate);
+            fRegister("rules-template", "[filter] [--game uw2]", "the rule set at the original's values, a rules.json with a meaning per key", false, fPrintRulesTemplate);
             fRegister("constants", "[filter]", "every constant of the engine-free layer (the self-check's constant pin)", false, fPrintConstants);
         }
 
@@ -230,13 +230,9 @@ namespace UnderworldRevisited.Tools
         private static void fLoadOwnTexts(string psStringsPath)
         {
             string lsCode = UWGrammar.CodeOfPackFile(psStringsPath);
+            string lsTexts = UWGameTextPack.OwnTextsOf(psStringsPath);
 
-            if (string.IsNullOrEmpty(lsCode))
-                return;
-
-            string lsTexts = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(psStringsPath)), lsCode + ".tsv");
-
-            if (!File.Exists(lsTexts))
+            if (string.IsNullOrEmpty(lsCode) || lsTexts == null)
                 return;
 
             UWTextLanguageFile lOFile = UWText.LoadLanguage(lsCode, lsTexts);
@@ -263,7 +259,8 @@ namespace UnderworldRevisited.Tools
             Console.WriteLine("game.gog itself - the image is then extracted into a cache once. Without it the");
             Console.WriteLine("environment variable UW_DATA is used, then the common installation folders.");
             Console.WriteLine("--game uw2 reads the second game from the same game.gog (its own cache): info, strings, find, level,");
-            Console.WriteLine("maprender, conv, pictures, palette and traps so far.");
+            Console.WriteLine("maprender, conv, pictures, palette, traps and the game-text packs (strings-template, validate-tsv,");
+            Console.WriteLine("strings-checksums; its pack is Languages/UW2/<code>.strings.tsv) so far.");
             Console.WriteLine("--save <folder> reads the world of a save game (SAVE1 ...) instead of the pristine one.");
             Console.WriteLine("--strings <file> lays a game-text pack (Languages/<code>.strings.tsv) over the English");
             Console.WriteLine("strings, as the game does, e.g. to see a translated conversation with conv --run;");

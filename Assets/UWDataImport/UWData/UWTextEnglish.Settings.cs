@@ -53,7 +53,7 @@ namespace UWDataImport.UWData
 			// instead of the file's code (2026-11-08, after the made-up Japanese xj showed only "xj").
 			fAdd("setting.Language.name", "English");
 			fAdd("setting.Game", "Game");
-			fAdd("setting.Game.hint", "Which of the games in the installation runs; a switch starts it from its main menu, and only the main menu offers it. Ultima Underworld II is a preview: much of the game works, some parts are still missing.");
+			fAdd("setting.Game.hint", "Which of the games in the installation runs; a switch starts it from its main menu, and only the main menu offers it. Ultima Underworld II is in beta: the whole game can be played, and reports of differences to the original are welcome.");
 			fAdd("setting.SaveFolder", "Save games");
 			fAdd("setting.SaveFolder.hint", "Where the save games of the GOG, Steam or EA app installation are, for both games. Automatic takes the folder the original last played from (its working copy SAVE0), and without one cloud_saves when GOG's DOSBox configuration mounts it. In cloud_saves a slot that is empty there shows the installation's save beneath, as DOSBox shows it, and every save goes to cloud_saves. A DOSBox of your own may write to the installation's folder instead.");
 			fAdd("setting.SaveFolder.choice.automatic", "Automatic");

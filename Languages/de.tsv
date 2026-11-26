@@ -45,7 +45,7 @@ setting.Language	Sprache
 setting.Language.hint	Wirkt sofort; Zeilen, die schon in der Nachrichtenrolle stehen, bleiben, wie sie waren. Eine Sprache besteht aus zwei Dateien im Ordner Languages neben dem Spiel: xx.tsv für die Texte von Underworld Revisited, xx.strings.tsv für die des Spiels; was fehlt, bleibt Englisch.
 setting.Language.name	Deutsch
 setting.Game	Spiel
-setting.Game.hint	Welches der Spiele der Installation läuft; ein Wechsel startet es in seinem Hauptmenü, und nur das Hauptmenü bietet ihn an. Ultima Underworld II ist eine Vorschau: Vieles im Spiel läuft, manche Teile fehlen noch.
+setting.Game.hint	Welches der Spiele der Installation läuft; ein Wechsel startet es in seinem Hauptmenü, und nur das Hauptmenü bietet ihn an. Ultima Underworld II ist in der Beta: Das ganze Spiel ist spielbar, Meldungen von Unterschieden zum Original sind willkommen.
 setting.SaveFolder	Spielstände
 setting.SaveFolder.hint	Wo die Spielstände der GOG-, Steam- oder EA-App-Installation liegen, für beide Spiele. Automatisch nimmt den Ordner, aus dem das Original zuletzt gespielt wurde (seine Arbeitskopie SAVE0), und ohne einen cloud_saves, wenn GOGs DOSBox-Konfiguration es einbindet. In cloud_saves zeigt ein dort leerer Platz den Spielstand der Installation darunter, wie DOSBox ihn zeigt, und jedes Speichern geht nach cloud_saves. Ein eigenes DOSBox schreibt womöglich in den Ordner der Installation.
 setting.SaveFolder.choice.automatic	Automatisch
@@ -868,8 +868,8 @@ editor.part.rune_tablet	Runentafel
 editor.part.stats_panel	Werteleiste
 editor.part.character_page	Charakterseite
 menu.title	Spielmenü
-menu.work_in_progress	In Arbeit
-menu.uw2_alpha_info	Spielbare Alpha\n- Klassische Oberfläche: vollständig\n- Alle Regeln gebaut und mit dem Original verglichen\n- Noch nicht bis zum Ende durchgespielt\n- Moderne Oberfläche: vorläufig\n\nFehlermeldungen sind willkommen.
+menu.work_in_progress	Beta
+menu.uw2_alpha_info	Beta\n- Klassische Oberfläche: geprüft\n- Regeln mit dem Original verglichen\n- Bis zum Ende durchgespielt\n- Moderne Oberfläche: wie im ersten Spiel\n\nFehlermeldungen sind willkommen.
 menu.update_available	Neu: {0}
 menu.resume	Weiterspielen
 menu.save_game	Spiel speichern

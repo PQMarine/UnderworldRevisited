@@ -88,9 +88,10 @@ public class UWModernVitals : UWModernPart
 
         // The free scale: hard texels at any size (UWPixelArtUI).
         UWPixelArtUI.Apply(mOShelf);
-        UWPixelArtUI.Apply(mOHealthFlask);
-        UWPixelArtUI.Apply(mOPowerGem);
-        UWPixelArtUI.Apply(mOManaFlask);
+        // The original's pictures: they follow the hallucination's palette (UWPixelArtUI.ApplyOriginal).
+        UWPixelArtUI.ApplyOriginal(mOHealthFlask);
+        UWPixelArtUI.ApplyOriginal(mOPowerGem);
+        UWPixelArtUI.ApplyOriginal(mOManaFlask);
         mOHealthText = UWUiKit.CreateText(pORoot, "Vitality value", new Vector2(0f, 0f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter, UWModernPalette.HudText, mOSession.TextUi, UWUiKit.HudText);
         mOManaText = UWUiKit.CreateText(pORoot, "Mana value", new Vector2(0f, 0f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter, UWModernPalette.HudText, mOSession.TextUi, UWUiKit.HudText);
     }

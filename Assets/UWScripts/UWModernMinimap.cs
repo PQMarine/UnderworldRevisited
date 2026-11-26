@@ -430,7 +430,7 @@ public class UWModernMinimap : MonoBehaviour
         {
             RawImage lONote = UWUiKit.CreateRawImage(mOContent, "Note");
 
-            UWPixelArtUI.Apply(lONote);
+            UWPixelArtUI.ApplyOriginal(lONote);
             mONotes.Add(lONote);
         }
 
@@ -586,8 +586,9 @@ public class UWModernMinimap : MonoBehaviour
         mOTiles = UWUiKit.CreateRawImage(mOContent, "Tiles");
 
         // Hard texels also when the map turns (UWPixelArtUI).
-        UWPixelArtUI.Apply(mOParchment);
-        UWPixelArtUI.Apply(mOTiles);
+        // The map's pictures of the original follow the hallucination's palette; the leather frame is the port's.
+        UWPixelArtUI.ApplyOriginal(mOParchment);
+        UWPixelArtUI.ApplyOriginal(mOTiles);
 
         mOArrow = UWUiKit.CreateRawImage(mOViewport, "Character");
 

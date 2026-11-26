@@ -114,6 +114,10 @@ namespace UWDataImport.UWData
 		/// <summary>The first of the tastes, " tasted putrid." (0xBB).</summary>
 		private const int FirstTasteString = 0xBB;
 
+		/// <summary>The same in our numbering (one higher), for UWItemMessages.Taste and the game-text pack's
+		/// pieces of a frame (UWTextFragments).</summary>
+		internal const int FirstTasteMessage = FirstTasteString + 1;
+
 		private const int LastTasteStep = 4;
 
 		private const int TasteRoll = 20;
@@ -218,7 +222,7 @@ namespace UWDataImport.UWData
 
 				int liTaste = Math.Min(LastTasteStep, ((UWRandom.Next(UWOriginalRandom.Range) * TasteRoll / UWOriginalRandom.Range) + pOFood.Quality) >> 4);
 
-				pfSay(UWItemMessages.Taste(pOData, liId, liTaste, FirstTasteString + 1));
+				pfSay(UWItemMessages.Taste(pOData, liId, liTaste, FirstTasteMessage));
 
 				return OutcomeEnum.Eaten;
 			}

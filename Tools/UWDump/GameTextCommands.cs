@@ -26,14 +26,15 @@ namespace UnderworldRevisited.Tools
 
             if (pOArgs.Count < 1 || !fIsLanguageCode(pOArgs[0]))
             {
-                Console.Error.WriteLine("Which language? A code of letters, digits, - and _, for example: uwdump strings-template de --out de.strings.tsv");
+                Console.Error.WriteLine("Which language? A code of letters, digits, - and _, for example: uwdump strings-template de --out de.strings.tsv"
+                    + " (the second game: uwdump strings-template --game uw2 de --out UW2/de.strings.tsv)");
 
                 return 1;
             }
 
             string lsCode = pOArgs[0];
             UWStrings lOEnglish = fEnglishStrings(pOContext);
-            byte[] lyText = new UTF8Encoding(false).GetBytes(UWGameTextPack.Template(lOEnglish, lsCode, lbEmpty));
+            byte[] lyText = new UTF8Encoding(false).GetBytes(UWGameTextPack.Template(lOEnglish, lsCode, lbEmpty, fGameOf(pOContext)));
 
             // The template read back is the English unchanged - the proof that nothing was lost.
             UWStrings lOBack = fEnglishStrings(pOContext);
@@ -104,12 +105,13 @@ namespace UnderworldRevisited.Tools
 
             // The language's own texts beside the pack (Languages/de.tsv beside de.strings.tsv, translation
             // wave 4): the frames whose arguments the fragments name, the generic grammar's header.
+            // (Languages/de.tsv one folder up for the second game's Languages/UW2/de.strings.tsv).
             string lsTexts = string.IsNullOrEmpty(lsCode) ? null
-                : Path.Combine(Path.GetDirectoryName(Path.GetFullPath(pOArgs[0])), lsCode + ".tsv");
+                : UWGameTextPack.OwnTextsOf(pOArgs[0]) ?? Path.Combine(Path.GetDirectoryName(Path.GetFullPath(pOArgs[0])), lsCode + ".tsv");
             UWTextLanguageFile lOTexts = lsTexts != null && File.Exists(lsTexts) ? UWText.LoadLanguage(lsCode, lsTexts) : null;
             Func<string, string> lOFrame = lOTexts == null ? null : (Func<string, string>)(psId => lOTexts.Texts.TryGetValue(psId, out string lsText) ? lsText : null);
             string lsPluralCode = lOTexts != null ? UWText.PluralCode : lIGrammar.Code;
-            List<UWGameTextPack.Finding> lOFindings = lOPack.Validate(lOEnglish, lIGrammar, lOFrame, lsPluralCode);
+            List<UWGameTextPack.Finding> lOFindings = lOPack.Validate(lOEnglish, lIGrammar, lOFrame, lsPluralCode, fGameOf(pOContext));
             int liErrors = 0;
             int liWarnings = 0;
 
@@ -189,6 +191,9 @@ namespace UnderworldRevisited.Tools
 
                 foreach (UWTextFragments.Use lOUse in UWTextFragments.Uses)
                 {
+                    if (lOUse.Game != fGameOf(pOContext))
+                        continue;
+
                     string lsLeftOut = UWTextLanguageFile.LeftOut(lOUse.Frame, lOFrame(lOUse.Frame));
                     string lsEntry = lOUse.Frame + " leaves {" + lsLeftOut.Replace(",", "},{") + "}";
 
@@ -206,10 +211,22 @@ namespace UnderworldRevisited.Tools
             int liUnmeasured = 0;
             string lsUnmeasuredSample = string.Empty;
 
-            List<UWClassicFit.Entry> lOMeasured = UWClassicFit.Measure(lOTranslated, pOContext.Data.MiscDataFiles, pOContext.Data.Fonts);
+            // The boxes and the pictures are the first game's: the second game's pack (--game uw2, read without
+            // DataImport) is not measured (2026-11-25).
+            List<UWClassicFit.Entry> lOMeasured = new List<UWClassicFit.Entry>();
 
-            // The pictures' words (UWPictureWords), with the port's texts of the pack's language.
-            lOMeasured.AddRange(UWClassicFit.MeasurePictures(pOContext.Data.Textures?.Words));
+            if (pOContext.Data != null)
+            {
+                lOMeasured.AddRange(UWClassicFit.Measure(lOTranslated, pOContext.Data.MiscDataFiles, pOContext.Data.Fonts));
+
+                // The pictures' words (UWPictureWords), with the port's texts of the pack's language.
+                lOMeasured.AddRange(UWClassicFit.MeasurePictures(pOContext.Data.Textures?.Words));
+            }
+            else
+            {
+                Console.WriteLine("the classic look's fixed boxes and the pictures' words are measured for the first game only;"
+                    + " look at character creation and the stats page in the game");
+            }
 
             foreach (UWClassicFit.Entry lOEntry in lOMeasured)
             {
@@ -232,7 +249,7 @@ namespace UnderworldRevisited.Tools
             }
 
             // The language's own pictures beside the pack (Languages/<code>/pictures, UWPicturePack).
-            if (!string.IsNullOrEmpty(lsCode))
+            if (!string.IsNullOrEmpty(lsCode) && pOContext.Data != null)
                 CheckPictureFolder(pOContext, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(pOArgs[0])), lsCode, UWPicturePack.FolderName),
                     ref liErrors, ref liWarnings);
 
@@ -343,6 +360,12 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>The player's STRINGS.PAK, read afresh: the English, whatever --strings says.</summary>
+        /// <summary>The game the command reads (--game).</summary>
+        private static UWGame fGameOf(DumpContext pOContext)
+        {
+            return pOContext.Game != null ? pOContext.Game.Game : UWGame.Uw1;
+        }
+
         private static UWStrings fEnglishStrings(DumpContext pOContext)
         {
             return new UWStrings(File.ReadAllBytes(Path.Combine(pOContext.DataPath, "STRINGS.PAK")));

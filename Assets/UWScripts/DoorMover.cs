@@ -151,6 +151,10 @@ public class DoorMover : MonoBehaviour, IUsableDoor
         mvSoundAt = transform.position;
         mbSoundAtSet = true;
 
+        // The closed leaf's pose, where every closing ends (fSnapShut).
+        mvClosedPosition = transform.localPosition;
+        mqClosedRotation = transform.localRotation;
+
         if (StartsOpen)
         {
             transform.RotateAround(RotationPoint, Vector3.up, DoorDirection ? OpenAngle : -OpenAngle);
@@ -172,28 +176,15 @@ public class DoorMover : MonoBehaviour, IUsableDoor
     {
 	    if(mCurrentRotation != 0f)
         {
-            float lRotation = (mCurrentRotation > 0 ? -SwingSpeed : SwingSpeed) * Time.deltaTime;
+            // THE LAST STEP STOPS AT THE END (per user 2026-11-26, UW2 level 17, 22/35: a door opened and closed again
+            // stood a few degrees open). With a negative remainder the last step added its overshoot instead of taking
+            // it off - twice the overshoot past the end; the count of mfOpenNow is clamped there, so the leaf stood
+            // farther open than counted, and the closing that followed fell short by as much. A step is never more
+            // than the remainder now, and x + (-x) ends it at exactly zero.
+            float lfStep = SwingSpeed * Time.deltaTime;
+            float lRotation = mCurrentRotation > 0f ? -Mathf.Min(lfStep, mCurrentRotation) : Mathf.Min(lfStep, -mCurrentRotation);
 
-            if (mCurrentRotation > 0f)
-            {
-                mCurrentRotation += lRotation;
-
-                if (mCurrentRotation < 0f)
-                {
-                    lRotation += mCurrentRotation * -1f;
-                    mCurrentRotation = 0f;
-                }
-            }
-            else
-            {
-                mCurrentRotation += lRotation;
-
-                if (mCurrentRotation > 0f)
-                {
-                    lRotation -= mCurrentRotation * -1f;
-                    mCurrentRotation = 0f;
-                }
-            }
+            mCurrentRotation += lRotation;
 
             transform.RotateAround(RotationPoint, Vector3.up, lRotation);
 
@@ -216,6 +207,7 @@ public class DoorMover : MonoBehaviour, IUsableDoor
             if (mCurrentRotation == 0f && mbClosing)
             {
                 mbClosing = false;
+                fSnapShut();
                 IsClosed = true;
                 fPlayShut();
             }
@@ -272,9 +264,26 @@ public class DoorMover : MonoBehaviour, IUsableDoor
         if (mbClosing && mCurrentRotation == 0f)
         {
             mbClosing = false;
+            fSnapShut();
             IsClosed = true;
             fPlayShut();
         }
+    }
+
+    private Vector3 mvClosedPosition;
+
+    private Quaternion mqClosedRotation;
+
+    /// <summary>A shut door stands exactly in its closed pose (2026-11-26): the swing's sum of small rotations about the
+    /// hinge keeps a little float error, which must not build up over many openings.</summary>
+    private void fSnapShut()
+    {
+        if (!mbSoundAtSet)
+            return;
+
+        transform.localPosition = mvClosedPosition;
+        transform.localRotation = mqClosedRotation;
+        mfOpenNow = 0f;
     }
 
     /// <summary>The door has come to rest shut: UWSoundEffectId.DoorShut, both games.</summary>

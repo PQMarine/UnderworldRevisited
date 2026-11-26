@@ -159,27 +159,46 @@ namespace UnderworldRevisited.Build
         /// there (_IceRelief): one texel per slice of the colour array (R8), 255 for an ice texture's wall or floor slice,
         /// 0 for anything else. In the second game a texture's number in either list is its T64.TR number. All 0 in the
         /// first game.
+        ///
+        /// THE SECOND GAME'S LAVA SLICES in the second channel (G; per user 2026-11-26: lava walls stood dark without a
+        /// light, and no lava of the second game glowed at all): its lava is no palette range - its colours 16 to 23, the
+        /// first game's lava, are none (UWPaletteRotation.IsLavaIndex) - but a texture TERRAIN.DAT gives the lava class
+        /// (UWTerrainUw2.ClassLava: 60, 177 and 178). Such a slice glows as a whole, walls and floors.
         /// </summary>
         public static Texture2D BuildIceSliceTable(DataImport pOData)
         {
             List<UWTexture> lOWalls = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.WALL);
             List<UWTexture> lOFloors = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.FLOOR);
             int liSliceCount = lOWalls.Count + lOFloors.Count + PaletteSwatchCount;
-            byte[] lyTable = new byte[liSliceCount];
+            byte[] lyTable = new byte[liSliceCount * 2];
 
             if (UWGameSession.Current.Game.Game == UWGame.Uw2)
             {
                 foreach (int liTexture in UWHeightMap.IceTexturesUw2)
                 {
                     if (liTexture < lOWalls.Count)
-                        lyTable[liTexture] = 255;
+                        lyTable[liTexture * 2] = 255;
 
                     if (liTexture < lOFloors.Count)
-                        lyTable[lOWalls.Count + liTexture] = 255;
+                        lyTable[(lOWalls.Count + liTexture) * 2] = 255;
+                }
+
+                UWTerrainUw2 lOTerrain = pOData.Terrain != null ? pOData.Terrain.Uw2 : null;
+
+                for (int liTexture = 0; lOTerrain != null && liTexture < UWTerrainUw2.TextureCount; liTexture++)
+                {
+                    if (lOTerrain.Class(liTexture) != UWTerrainUw2.ClassLava)
+                        continue;
+
+                    if (liTexture < lOWalls.Count)
+                        lyTable[(liTexture * 2) + 1] = 255;
+
+                    if (liTexture < lOFloors.Count)
+                        lyTable[((lOWalls.Count + liTexture) * 2) + 1] = 255;
                 }
             }
 
-            Texture2D lOTable = new Texture2D(liSliceCount, 1, TextureFormat.R8, false, true);
+            Texture2D lOTable = new Texture2D(liSliceCount, 1, TextureFormat.RG16, false, true);
 
             lOTable.name = "UWTextures (ice slices)";
             lOTable.filterMode = FilterMode.Point;
@@ -412,6 +431,77 @@ namespace UnderworldRevisited.Build
             public int Slice;
 
             public Texture2D[] States;
+        }
+
+        /// <summary>
+        /// THE WATER'S RELIEF MOVES WITH ITS COLOURS (per user 2026-11-26: "the shadows stay static, and one notices at
+        /// once"): for every wall and floor texture with the banks that rotate downwards (the first game's water, the second
+        /// game's 0xE0 to 0xEF) the normal map of each rotation step, from the rotated colours and indices as BuildNormals
+        /// makes it - the same states and cycle as BuildAnimatedSlices' colours, so UWAnimatedTextures copies both at one
+        /// step. Lava stays flat (its glow takes the relief off in the shader anyway; per user the same day).
+        /// </summary>
+        public static List<AnimatedSlice> BuildAnimatedNormals(DataImport pOData, float pfStrength)
+        {
+            List<AnimatedSlice> lOResult = new List<AnimatedSlice>();
+            List<UWTexture> lOWalls = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.WALL);
+            List<UWTexture> lOFloors = pOData.Textures.GetTexturesByType(UWTexture.TextureTypes.FLOOR);
+
+            for (int i = 0; i < lOWalls.Count; i++)
+                fAddAnimatedNormals(lOWalls[i], i, i, pfStrength, lOResult);
+
+            for (int i = 0; i < lOFloors.Count; i++)
+                fAddAnimatedNormals(lOFloors[i], lOWalls.Count + i, -1, pfStrength, lOResult);
+
+            return lOResult;
+        }
+
+        private static void fAddAnimatedNormals(UWTexture pOTexture, int piSlice, int piWall, float pfStrength, List<AnimatedSlice> pOResult)
+        {
+            if (pOTexture == null || pOTexture.PaletteIndices == null)
+                return;
+
+            bool lbLava = false;
+            bool lbWater = false;
+
+            for (int i = 0; i < pOTexture.PaletteIndices.Length; i++)
+            {
+                byte lyIndex = pOTexture.PaletteIndices[i];
+
+                if (UWPaletteRotation.IsUpIndex(lyIndex))
+                    lbLava = true;
+                else if (UWPaletteRotation.IsDownIndex(lyIndex))
+                    lbWater = true;
+            }
+
+            if (!lbWater)
+                return;
+
+            // The colours' cycle (BuildAnimatedSlices), lava's banks counted where a texture has both.
+            int liCycle = UWPaletteRotation.GetCycleLength(lbLava, lbWater);
+
+            if (liCycle <= 1)
+                return;
+
+            Texture2D[] lOStates = new Texture2D[liCycle];
+
+            for (int liStep = 0; liStep < liCycle; liStep++)
+            {
+                byte[] lyRotated = new byte[pOTexture.PaletteIndices.Length];
+
+                for (int i = 0; i < lyRotated.Length; i++)
+                    lyRotated[i] = (byte)UWPaletteRotation.GetSourceIndex(pOTexture.PaletteIndices[i], liStep);
+
+                Texture2D lOState = new Texture2D(SliceResolution, SliceResolution, TextureFormat.RGBA32, true, true);
+
+                lOState.name = string.Format("UWRotation normals {0}_{1} step {2}", pOTexture.TextureType, pOTexture.Index, liStep);
+                lOState.filterMode = FilterMode.Trilinear;
+                lOState.wrapMode = TextureWrapMode.Repeat;
+                lOState.SetPixels32(fGetNormalPixels(pOTexture.WithPixels(lyRotated), pfStrength, piWall));
+                lOState.Apply(true, false);
+                lOStates[liStep] = lOState;
+            }
+
+            pOResult.Add(new AnimatedSlice { Slice = piSlice, States = lOStates });
         }
 
         /// <summary>

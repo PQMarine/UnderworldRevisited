@@ -27,6 +27,45 @@ namespace UnderworldRevisited.Tools
 
             fCheckGameTextDecoder();
             fCheckGameTextParse();
+            fCheckGameTextPackPlaces();
+        }
+
+        /// <summary>A pack per game (2026-11-25, per user): the second game's in Languages/UW2, the port's own
+        /// texts of its language one folder up; a pack in another folder looks only beside itself.</summary>
+        private static void fCheckGameTextPackPlaces()
+        {
+            Check.Str("pack places: the first game's, the second game's",
+                UWGameTextPack.PlaceOf(UWGame.Uw1, "xz") + " | " + UWGameTextPack.PlaceOf(UWGame.Uw2, "xz"), "Languages/xz.strings.tsv | Languages/UW2/xz.strings.tsv");
+            Check.Str("pack paths in a Languages folder",
+                UWGameTextPack.PathOf("L", UWGame.Uw1, "xz") + " | " + UWGameTextPack.PathOf("L", UWGame.Uw2, "xz"),
+                Path.Combine("L", "xz.strings.tsv") + " | " + Path.Combine("L", "UW2", "xz.strings.tsv"));
+
+            string lsRoot = Path.Combine(Path.GetTempPath(), "UWSelfCheckPacks" + Guid.NewGuid().ToString("N"));
+            string lsLanguages = Path.Combine(lsRoot, "Languages");
+            string lsOther = Path.Combine(lsLanguages, "Other");
+
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(lsLanguages, "UW2"));
+                Directory.CreateDirectory(lsOther);
+                File.WriteAllText(Path.Combine(lsLanguages, "UW2", "xz.strings.tsv"), string.Empty);
+                File.WriteAllText(Path.Combine(lsOther, "xz.strings.tsv"), string.Empty);
+
+                string lsNone = UWGameTextPack.OwnTextsOf(Path.Combine(lsLanguages, "UW2", "xz.strings.tsv")) ?? "none";
+
+                File.WriteAllText(Path.Combine(lsLanguages, "xz.tsv"), string.Empty);
+                File.WriteAllText(Path.Combine(lsLanguages, "xz.strings.tsv"), string.Empty);
+
+                Check.Str("pack's own texts: none yet, one folder up from UW2, beside the first game's, not up from another folder",
+                    lsNone + " | " + (UWGameTextPack.OwnTextsOf(Path.Combine(lsLanguages, "UW2", "xz.strings.tsv")) == Path.Combine(lsLanguages, "xz.tsv"))
+                    + " | " + (UWGameTextPack.OwnTextsOf(Path.Combine(lsLanguages, "xz.strings.tsv")) == Path.Combine(lsLanguages, "xz.tsv"))
+                    + " | " + (UWGameTextPack.OwnTextsOf(Path.Combine(lsOther, "xz.strings.tsv")) ?? "none"),
+                    "none | True | True | none");
+            }
+            finally
+            {
+                try { Directory.Delete(lsRoot, true); } catch (IOException) { }
+            }
         }
 
         private static void fCheckGameTextData(DataImport pOData)

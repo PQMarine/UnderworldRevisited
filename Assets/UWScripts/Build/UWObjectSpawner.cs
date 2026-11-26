@@ -357,6 +357,7 @@ namespace UnderworldRevisited.Build
             SpawnedCount = 0;
             UnresolvedCount = 0;
             mOPanelsOnWall.Clear();
+            mOBridgesInTile.Clear();
 
             for (int z = 0; z < UWWorldScale.TilesPerAxis; z++)
             {
@@ -784,6 +785,17 @@ namespace UnderworldRevisited.Build
         /// <summary>How far a bridge's face moves along the line of sight to settle a tie as the original's painter does
         /// (UWOwnTile.hlsl, UWModelOwnTileDepth; per user 2026-11-19): a fifth of a unit, below any pixel.</summary>
         private const float BridgeTieBias = 0.2f;
+
+        /// <summary>
+        /// TWO BRIDGES IN ONE TILE AT ONE HEIGHT (per user 2026-11-26, UW2 level 4, 56/13: the two decks flickered into each
+        /// other): the original has no depth buffer - do_objsort (GAMESORT.C) partitions a tile at its LAST bridge in the
+        /// chain (z_part), and a bridge at the same height goes with the objects under it, drawn before. So the later bridge
+        /// in the chain lies on top. Each bridge before it in the same tile adds this to its tie bias - still below a pixel.
+        /// </summary>
+        private const float BridgeStackBias = 0.1f;
+
+        /// <summary>Bridges spawned per tile in this build, in chain order (Spawn clears it).</summary>
+        private readonly System.Collections.Generic.Dictionary<int, int> mOBridgesInTile = new System.Collections.Generic.Dictionary<int, int>();
 
         private const float ModelDrawShift = 16f * UWWorldScale.UnitsPerOriginalUnit - UWWorldScale.SubTileOffset - DrawOffset;
 
@@ -2038,6 +2050,33 @@ namespace UnderworldRevisited.Build
             return fSpawn3DModel(0, 0, pOObject, pOParent, piModelIndex, pOPosition, pORotation);
         }
 
+        /// <summary>How many bridges this build has spawned in the tile before this one (the chain's order), counting it.</summary>
+        private int fBridgesBefore(int piX, int piZ)
+        {
+            int liKey = (piZ * UWWorldScale.TilesPerAxis) + piX;
+
+            mOBridgesInTile.TryGetValue(liKey, out int liBefore);
+            mOBridgesInTile[liKey] = liBefore + 1;
+
+            return liBefore;
+        }
+
+        /// <summary>do_rect's rect_flagcol for the second game's bridge (uw2 3d/DRAWOBJ.C), by flags below the texture count.</summary>
+        private static readonly int[] msUw2BridgeFlagColours = { 0x8C, 0xC8 };
+
+        /// <summary>The second game's bridge sides (register 0, do_rect's model 2): with flags of 2 and up the floor texture's
+        /// first pixel (TxmCol, LOADGR.C load_tr_ems), else rect_flagcol by the flags; the face's own colour where neither is
+        /// known.</summary>
+        private static int fUw2BridgeSideColour(UWObject pOObject, int piDefault)
+        {
+            if (pOObject.Flags < msUw2BridgeFlagColours.Length)
+                return msUw2BridgeFlagColours[pOObject.Flags];
+
+            byte[] lyPixels = pOObject.Texture != null ? pOObject.Texture.GetMainPaletteIndices() : null;
+
+            return lyPixels != null && lyPixels.Length > 0 ? lyPixels[0] : piDefault;
+        }
+
         /// <summary>
         /// Shrine/ankh and boulders are some of the few objects that exist in the original as a
         /// real 3D model (baked into uw.exe, see
@@ -2293,6 +2332,13 @@ namespace UnderworldRevisited.Build
                         if (fIsUw2 && piModelIndex == BedModel && (lOFace.ColorRegister == 2 || lOFace.ColorRegister == 3))
                             liFaceColor = ((pOObject.Owner << 2) + (lOFace.ColorRegister == 2 ? 5 : 0)) & 0xFF;
 
+                        // THE SECOND GAME'S BRIDGE SIDES (do_rect's model 2, uw2 3d/DRAWOBJ.C; per user 2026-11-26, noted at the
+                        // beta gate: the Void's bridges have grey sides like their floor in the original, ours were orange-brown):
+                        // register 0 is the floor texture's colour (TxmCol, its first pixel) when the flags pass the texture
+                        // count, else rect_flagcol by the flags - not the colour record's 0x8F. The first game sets neither.
+                        if (fIsUw2 && piModelIndex == UW3DModelImport.ModelIndex.Bridge && lOFace.ColorRegister == 0)
+                            liFaceColor = fUw2BridgeSideColour(pOObject, liFaceColor);
+
                         if (lOLiveColour != null)
                         {
                             int liKey = lbGem ? lOFace.ColorRegister : lOFace.ColorIndex;
@@ -2465,7 +2511,7 @@ namespace UnderworldRevisited.Build
             // position and is left alone.
             if (!pOPositionOverride.HasValue && mOLevelLoader != null)
                 fSetModelDepthRange(lOObj.GetComponent<MeshRenderer>(), mOLevelLoader.GetFloorHeightAt(lOPosition),
-                    pOObject.ID == BridgeObjectId ? BridgeTieBias : 0f);
+                    pOObject.ID == BridgeObjectId ? BridgeTieBias + (BridgeStackBias * fBridgesBefore(xPos, zPos)) : 0f);
 
             // BoxCollider instead of MeshCollider: a concave MeshCollider (ankh outline with
             // notches) easily makes the CharacterController snag or slip through thin spots.

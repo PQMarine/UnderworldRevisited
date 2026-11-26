@@ -24,6 +24,13 @@ public class UWAnimatedTextures : MonoBehaviour
     private int miStep = -1;
     private bool mbCanCopyOnGpu;
 
+    /// <summary>
+    /// False on the palette path (UWPaletteRenderPath.fSetSideEffects): it rotates the colours in the shader and never
+    /// reads the colour array, but its Palette effects read the same normal array, whose water still has to move
+    /// (2026-11-26) - so the animator stays on there and copies only the relief.
+    /// </summary>
+    public bool CopiesColours = true;
+
     public void Initialise(Texture2DArray pOArray, List<UWTextureArrayBuilder.AnimatedSlice> pOSlices, float pfStepsPerSecond)
     {
         mOArray = pOArray;
@@ -51,34 +58,48 @@ public class UWAnimatedTextures : MonoBehaviour
 
         miStep = liStep;
 
+        // Without mipmap recalculation (in fCopyStates): the rotation only swaps colours within a narrow range, the
+        // difference is not visible at a distance, and an Apply with mipmaps over the whole array per step would be
+        // disproportionately expensive.
+        if (CopiesColours)
+            fCopyStates(mOArray, mOSlices, liStep);
+
+        fCopyStates(UWTextureCache.CurrentNormalArray, UWTextureCache.CurrentAnimatedNormals, liStep);
+    }
+
+    /// <summary>
+    /// THE WATER'S RELIEF AT THE SAME STEP (per user 2026-11-26: its shadows stood still while the colours flowed): the
+    /// normal array in force (UWTextureCache, shared by Remastered and the Palette effects) takes the step's normal map of
+    /// each moving water slice, as the colours above.
+    /// </summary>
+    private void fCopyStates(Texture2DArray pOArray, List<UWTextureArrayBuilder.AnimatedSlice> pOSlices, int piStep)
+    {
+        if (pOArray == null || pOSlices == null || pOSlices.Count == 0)
+            return;
+
         bool lbNeedsApply = false;
 
-        for (int i = 0; i < mOSlices.Count; i++)
+        foreach (UWTextureArrayBuilder.AnimatedSlice lOSlice in pOSlices)
         {
-            UWTextureArrayBuilder.AnimatedSlice lOSlice = mOSlices[i];
-
-            if (lOSlice.States == null || lOSlice.States.Length == 0)
+            if (lOSlice.States == null || lOSlice.States.Length == 0 || lOSlice.Slice >= pOArray.depth)
                 continue;
 
-            Texture2D lOState = lOSlice.States[((liStep % lOSlice.States.Length) + lOSlice.States.Length) % lOSlice.States.Length];
+            Texture2D lOState = lOSlice.States[((piStep % lOSlice.States.Length) + lOSlice.States.Length) % lOSlice.States.Length];
 
             if (lOState == null)
                 continue;
 
             if (mbCanCopyOnGpu)
             {
-                Graphics.CopyTexture(lOState, 0, mOArray, lOSlice.Slice);
+                Graphics.CopyTexture(lOState, 0, pOArray, lOSlice.Slice);
                 continue;
             }
 
-            mOArray.SetPixels32(lOState.GetPixels32(), lOSlice.Slice);
+            pOArray.SetPixels32(lOState.GetPixels32(), lOSlice.Slice);
             lbNeedsApply = true;
         }
 
-        // Without mipmap recalculation: the rotation only swaps colours within a narrow
-        // range, the difference is not visible at a distance, and an Apply with
-        // mipmaps over the whole array per step would be disproportionately expensive.
         if (lbNeedsApply)
-            mOArray.Apply(false, false);
+            pOArray.Apply(false, false);
     }
 }

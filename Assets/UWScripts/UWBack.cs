@@ -80,6 +80,10 @@ public static class UWBack
         UWGameUI lOUi = UWScene.GameUi;
         Interaction lOInteraction = lOUi != null ? lOUi.fFindInteraction() : null;
 
+        // THE SECOND GAME'S SCREENS hold the same states (2026-11-25, the gamepad on UW2: its map, its note, its save
+        // name, its conversation and typed answer were the first game's only here, so Start and B found no owner).
+        UWGameScreenUw2 lOUw2 = UWGameStartUw2.IsRunning ? UWGameScreenUw2.Current : null;
+
         fSet(ref leStates, UWBackState.Cutscene, UWScene.IntroPlayer != null && UWScene.IntroPlayer.HoldsKeys);
         fSet(ref leStates, UWBackState.RoamingSight, UWRoamingSight.IsAnyRunning);
         fSet(ref leStates, UWBackState.DebugTools, UWDebugTools.IsTyping);
@@ -90,18 +94,18 @@ public static class UWBack
         fSet(ref leStates, UWBackState.HelpKeys, UWHelpWindow.BlocksGameKeys);
         fSet(ref leStates, UWBackState.LetterGrid, UWLetterGrid.IsShown);
         fSet(ref leStates, UWBackState.CharacterName, UWCharacterCreationScreen.IsTypingName || UWCharacterCreationScreenUw2.IsTypingName);
-        fSet(ref leStates, UWBackState.MapNote, lOUi != null && lOUi.Map.IsWritingNote);
-        fSet(ref leStates, UWBackState.ClassicSaveName, lOUi != null && lOUi.Options.miSaveSlotTyping > 0);
+        fSet(ref leStates, UWBackState.MapNote, (lOUi != null && lOUi.Map.IsWritingNote) || (lOUw2 != null && UWMapScreenUw2.IsWriting));
+        fSet(ref leStates, UWBackState.ClassicSaveName, (lOUi != null && lOUi.Options.miSaveSlotTyping > 0) || (lOUw2 != null && lOUw2.IsTypingSaveName));
         fSet(ref leStates, UWBackState.Instrument, UWInstrumentPlayer.IsPlaying);
-        fSet(ref leStates, UWBackState.ConversationAnswer, UWConversationController.IsTypingAnswer);
+        fSet(ref leStates, UWBackState.ConversationAnswer, UWConversationController.IsTypingAnswer || (lOUw2 != null && UWConversationScreenUw2.IsTyping));
         fSet(ref leStates, UWBackState.PromptLine, lOInteraction != null && lOInteraction.IsPromptActive);
         fSet(ref leStates, UWBackState.Mantra, lOInteraction != null && lOInteraction.IsChanting);
         fSet(ref leStates, UWBackState.BagMenu, UWModernBags.IsMenuOpen);
         fSet(ref leStates, UWBackState.BagSplit, UWModernBags.IsSplitting);
         fSet(ref leStates, UWBackState.ModernSaveName, UWModernGameMenu.IsTypingName);
         fSet(ref leStates, UWBackState.ScreenMenu, UWScreenUi.IsScreenMenuOpen);
-        fSet(ref leStates, UWBackState.Conversation, UWConversationController.IsAnyOpen);
-        fSet(ref leStates, UWBackState.MapVisible, lOUi != null && lOUi.Map.IsMapVisible);
+        fSet(ref leStates, UWBackState.Conversation, UWConversationController.IsAnyOpen || (lOUw2 != null && UWConversationScreenUw2.IsOpen));
+        fSet(ref leStates, UWBackState.MapVisible, (lOUi != null && lOUi.Map.IsMapVisible) || (lOUw2 != null && UWMapScreenUw2.IsOpen));
         fSet(ref leStates, UWBackState.MenuOpen, UWModernUi.IsMenuOpen);
         fSet(ref leStates, UWBackState.ModernClosable, UWModernUi.HasClosable);
 

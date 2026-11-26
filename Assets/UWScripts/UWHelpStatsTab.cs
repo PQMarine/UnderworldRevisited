@@ -28,8 +28,8 @@ public sealed class UWHelpStatsTab : UWHelpTab
     /// unspent skill points, the exact experience and the next level's threshold, the load.
     ///
     /// THE SECOND GAME (per user, 2026-11-02, to watch a meal): the player's numbers run in UWVitalsUw2 and the
-    /// things in its screen; the UWCharacter and the UWGameUI of that scene stand idle. Its worn magic lies elsewhere
-    /// in its strings and is still left out, though the magic is built (Todo, inventory 2026-11-19).
+    /// things in its screen; the UWCharacter and the UWGameUI of that scene stand idle. Its worn magic is listed as the
+    /// first game's since 2026-11-22 (fDrawWornMagic).
     /// </summary>
     protected override void OnFlow(IUWHelpFlow pOFlow)
     {

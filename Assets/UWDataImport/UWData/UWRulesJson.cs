@@ -194,14 +194,37 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static string Write(UWRules pORules, bool pbMeanings)
 		{
+			return Write(pORules, pbMeanings, UWGame.Uw1);
+		}
+
+		/// <summary>
+		/// The same for a game: its folder in the header, and for the second game (2026-11-25, per user: its
+		/// template with a plain note) the note that not every key reaches it yet - much of its rules is still
+		/// code of its own - and, in the comment of each key whose value is not the first game's, that value.
+		/// </summary>
+		public static string Write(UWRules pORules, bool pbMeanings, UWGame peGame)
+		{
 			StringBuilder lOText = new StringBuilder();
 			IReadOnlyList<UWRuleEntry> lOEntries = UWRules.Entries;
+			bool lbUw2 = peGame == UWGame.Uw2;
+			UWRules lOFirst = lbUw2 ? UWRules.CreateOriginal() : null;
 
 			if (pbMeanings)
 			{
-				lOText.Append("// The rule set of Underworld Revisited at the original's values (uwdump rules-template).\n");
-				lOText.Append("// To change a rule, put its line into rules.json in the UW1 folder beside settings.json; a key left out\n");
-				lOText.Append("// keeps the original's value. The file is read when a game starts or is loaded.\n");
+				if (lbUw2)
+				{
+					lOText.Append("// The rule set of Underworld Revisited for Ultima Underworld II at its original's values\n");
+					lOText.Append("// (uwdump rules-template --game uw2). To change a rule, put its line into rules.json in the UW2 folder\n");
+					lOText.Append("// beside settings.json; a key left out keeps the original's value. The file is read when a game starts\n");
+					lOText.Append("// or is loaded. The second game reads the same keys, but much of its rules is still code of its own,\n");
+					lOText.Append("// so not every key changes it yet. A key whose value is not the first game's names that value.\n");
+				}
+				else
+				{
+					lOText.Append("// The rule set of Underworld Revisited at the original's values (uwdump rules-template).\n");
+					lOText.Append("// To change a rule, put its line into rules.json in the UW1 folder beside settings.json; a key left out\n");
+					lOText.Append("// keeps the original's value. The file is read when a game starts or is loaded.\n");
+				}
 			}
 
 			lOText.Append("{\n");
@@ -211,7 +234,16 @@ namespace UWDataImport.UWData
 				UWRuleEntry lOEntry = lOEntries[liAt];
 
 				if (pbMeanings)
-					lOText.Append("  // ").Append(lOEntry.Meaning).Append('\n');
+				{
+					lOText.Append("  // ").Append(lOEntry.Meaning);
+
+					string lsFirst = lOFirst != null ? fFormat(lOEntry.GetValue(lOFirst)) : null;
+
+					if (lsFirst != null && lsFirst != fFormat(lOEntry.GetValue(pORules)))
+						lOText.Append(" (The first game: ").Append(lsFirst).Append(".)");
+
+					lOText.Append('\n');
+				}
 
 				lOText.Append("  \"").Append(lOEntry.Key).Append("\": ").Append(fFormat(lOEntry.GetValue(pORules)));
 

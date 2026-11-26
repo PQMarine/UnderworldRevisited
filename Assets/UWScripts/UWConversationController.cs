@@ -425,6 +425,11 @@ public class UWConversationController : MonoBehaviour
     /// </summary>
     private void fStepChoicesByPad()
     {
+        // A thing's menu in the bags beside the conversation has the d-pad for its entries (per user 2026-11-26: the
+        // pointer jumped to the answers instead).
+        if (UWModernBags.IsMenuOpen || UWModernBags.IsSplitting)
+            return;
+
         UWConversationSession lOSession = Session;
 
         if (lOSession == null || lOSession.Choices.Count == 0)

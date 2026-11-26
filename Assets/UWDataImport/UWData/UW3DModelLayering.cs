@@ -55,6 +55,10 @@ namespace UWDataImport.UWData
 
 			/// <summary>The face's own plane as laid (Newell's normal turned to the test's side, through the corners' mean).</summary>
 			public double ONX, ONY, ONZ, OD;
+
+			/// <summary>How far its frontmost corner stands in front of that plane (0 for a flat face): a face of more
+			/// corners than three need not be flat, and a later face must be in front of all of it.</summary>
+			public double Above;
 		}
 
 		/// <summary>
@@ -269,10 +273,16 @@ namespace UWDataImport.UWData
 				ldZ = -ldZ;
 			}
 
+			double ldOD = -(ldX * ldCX + ldY * ldCY + ldZ * ldCZ) / liCount;
+			double ldAbove = 0;
+
+			foreach (UWVector3 lV in pOCorners)
+				ldAbove = Math.Max(ldAbove, ldX * lV.X + ldY * lV.Y + ldZ * lV.Z + ldOD);
+
 			return new LaidFace
 			{
 				Corners = pOCorners, Original = pOOriginal, NX = pdNX, NY = pdNY, NZ = pdNZ,
-				ONX = ldX, ONY = ldY, ONZ = ldZ, OD = -(ldX * ldCX + ldY * ldCY + ldZ * ldCZ) / liCount
+				ONX = ldX, ONY = ldY, ONZ = ldZ, OD = ldOD, Above = ldAbove
 			};
 		}
 
@@ -426,7 +436,10 @@ namespace UWDataImport.UWData
 			for (int liAt = 0; liAt < pOCorners.Length; liAt++)
 			{
 				UWVector3 lV = pOCorners[liAt];
-				double ldShort = RankOffset - (pOEarlier.ONX * lV.X + pOEarlier.ONY * lV.Y + pOEarlier.ONZ * lV.Z + pOEarlier.OD);
+				// In front of the earlier face's frontmost corner, not only its mean plane (per user 2026-11-26, UW2's bed: the
+				// side of its cover, painted after the grey sheet's side, let a triangle of the sheet show through - the sheet's
+				// side of seven corners stands up to a model unit off its mean plane).
+				double ldShort = RankOffset + pOEarlier.Above - (pOEarlier.ONX * lV.X + pOEarlier.ONY * lV.Y + pOEarlier.ONZ * lV.Z + pOEarlier.OD);
 
 				if (ldShort > 0)
 					pOCorners[liAt] = new UWVector3((float)(lV.X + pOEarlier.ONX * ldShort), (float)(lV.Y + pOEarlier.ONY * ldShort), (float)(lV.Z + pOEarlier.ONZ * ldShort));

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using UnderworldRevisited;
 using UnityEngine;
 using UWDataImport;
 using UWDataImport.UWData;
@@ -26,7 +27,9 @@ using UWDataImport.UWData;
 /// project folder), either or both:
 ///   - Languages/&lt;code&gt;.tsv: the port's own texts (UWText, the format described there);
 ///   - Languages/&lt;code&gt;.strings.tsv: the game's own texts, laid over the player's English
-///     STRINGS.PAK when the data is loaded (UWGameTextPack, UWLevelLoader; GameTextFile).
+///     STRINGS.PAK when the data is loaded (UWGameTextPack, UWLevelLoader; GameTextFile) - for the
+///     second game Languages/UW2/&lt;code&gt;.strings.tsv (UWGameTextPack.PathOf, per user 2026-11-25), so
+///     each game takes its own; the port's own texts serve both.
 /// A missing file, or a missing line in one, keeps the English.
 /// </summary>
 public static class UWLanguage
@@ -52,9 +55,22 @@ public static class UWLanguage
     /// included).</summary>
     public static string Current { get; private set; } = string.Empty;
 
-    /// <summary>The game-text pack of the language in force (Languages/&lt;code&gt;.strings.tsv), or null
-    /// when it has none - the data is then loaded with the English strings.</summary>
-    public static string GameTextFile { get; private set; }
+    /// <summary>The game-text pack of the language in force for the game chosen (UWSettings.Game:
+    /// Languages/&lt;code&gt;.strings.tsv, the second game's Languages/UW2/&lt;code&gt;.strings.tsv), or null
+    /// when it has none - the data is then loaded with the English strings. Asked anew each time, so a
+    /// switch of the game takes the other game's pack with its data.</summary>
+    public static string GameTextFile
+    {
+        get
+        {
+            if (Current.Length == 0 || Current == UWText.PseudoLanguage)
+                return null;
+
+            string lsPath = GameTextFileOf(Current, UWSettings.Game.Game);
+
+            return File.Exists(lsPath) ? lsPath : null;
+        }
+    }
 
     /// <summary>The folder the game runs from: beside the executable in a build (dataPath is its
     /// _Data folder), the project folder in the editor.</summary>
@@ -66,10 +82,10 @@ public static class UWLanguage
         return Path.Combine(GameFolder, FolderName, psCode + ".tsv");
     }
 
-    /// <summary>The file a language code's game texts are read from.</summary>
-    public static string GameTextFileOf(string psCode)
+    /// <summary>The file a language code's game texts of a game are read from.</summary>
+    public static string GameTextFileOf(string psCode, UWGame peGame)
     {
-        return Path.Combine(GameFolder, FolderName, psCode + UWGameTextPack.FileSuffix);
+        return UWGameTextPack.PathOf(Path.Combine(GameFolder, FolderName), peGame, psCode);
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -120,8 +136,9 @@ public static class UWLanguage
     }
 
     /// <summary>
-    /// The languages found beside the game, sorted: every code with a Languages/&lt;code&gt;.tsv or a
-    /// Languages/&lt;code&gt;.strings.tsv - the Game window's Language row lists them after English.
+    /// The languages found beside the game, sorted: every code with a Languages/&lt;code&gt;.tsv, a
+    /// Languages/&lt;code&gt;.strings.tsv or a Languages/UW2/&lt;code&gt;.strings.tsv - the Game window's
+    /// Language row lists them after English.
     /// English itself (an en.tsv written as a template) is not listed; an unreadable folder lists
     /// nothing.
     /// </summary>
@@ -132,19 +149,24 @@ public static class UWLanguage
         try
         {
             string lsFolder = Path.Combine(GameFolder, FolderName);
+            string lsUw2 = Path.Combine(lsFolder, UWGameTextPack.FolderOf(UWGame.Uw2));
+            List<string> lsFiles = new List<string>();
 
             if (Directory.Exists(lsFolder))
-            {
-                foreach (string lsFile in Directory.GetFiles(lsFolder, "*.tsv"))
-                {
-                    string lsName = Path.GetFileName(lsFile);
-                    string lsCode = lsName.EndsWith(UWGameTextPack.FileSuffix, StringComparison.OrdinalIgnoreCase)
-                        ? lsName.Substring(0, lsName.Length - UWGameTextPack.FileSuffix.Length)
-                        : lsName.Substring(0, lsName.Length - ".tsv".Length);
+                lsFiles.AddRange(Directory.GetFiles(lsFolder, "*.tsv"));
 
-                    if (IsCode(lsCode) && !string.Equals(lsCode, EnglishCode, StringComparison.OrdinalIgnoreCase))
-                        lOCodes.Add(lsCode);
-                }
+            if (Directory.Exists(lsUw2))
+                lsFiles.AddRange(Directory.GetFiles(lsUw2, "*" + UWGameTextPack.FileSuffix));
+
+            foreach (string lsFile in lsFiles)
+            {
+                string lsName = Path.GetFileName(lsFile);
+                string lsCode = lsName.EndsWith(UWGameTextPack.FileSuffix, StringComparison.OrdinalIgnoreCase)
+                    ? lsName.Substring(0, lsName.Length - UWGameTextPack.FileSuffix.Length)
+                    : lsName.Substring(0, lsName.Length - ".tsv".Length);
+
+                if (IsCode(lsCode) && !string.Equals(lsCode, EnglishCode, StringComparison.OrdinalIgnoreCase))
+                    lOCodes.Add(lsCode);
             }
         }
         catch (Exception lOError)
@@ -209,7 +231,6 @@ public static class UWLanguage
     {
         string lsCode = (psCode ?? string.Empty).Trim();
 
-        GameTextFile = null;
         Current = string.Empty;
 
         UWTextLine.UseEnglish();
@@ -239,12 +260,13 @@ public static class UWLanguage
         }
 
         string lsPath = FileOf(lsCode);
-        string lsGameText = GameTextFileOf(lsCode);
-        bool lbGameText = File.Exists(lsGameText);
+        string lsGameText = GameTextFileOf(lsCode, UWGame.Uw1);
+        string lsGameTextUw2 = GameTextFileOf(lsCode, UWGame.Uw2);
+        bool lbGameText = File.Exists(lsGameText) || File.Exists(lsGameTextUw2);
 
         if (!File.Exists(lsPath) && !lbGameText)
         {
-            Debug.LogWarning("UWLanguage: neither " + lsPath + " nor " + lsGameText + " - English");
+            Debug.LogWarning("UWLanguage: neither " + lsPath + " nor " + lsGameText + " nor " + lsGameTextUw2 + " - English");
             UWText.UseEnglish();
 
             return;
@@ -258,10 +280,9 @@ public static class UWLanguage
         UWTextLine.UseLanguage(UWGrammar.For(lsCode));
 
         if (lbGameText)
-        {
-            GameTextFile = lsGameText;
-            Debug.Log("UWLanguage: " + lsCode + ", the game's texts from " + lsGameText + " when the data is loaded");
-        }
+            Debug.Log("UWLanguage: " + lsCode + ", the game's texts when the data is loaded: the first game's "
+                + (File.Exists(lsGameText) ? "from " + lsGameText : "English") + ", the second game's "
+                + (File.Exists(lsGameTextUw2) ? "from " + lsGameTextUw2 : "English"));
 
         if (!File.Exists(lsPath))
         {

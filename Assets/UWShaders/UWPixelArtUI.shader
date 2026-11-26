@@ -16,6 +16,7 @@ Shader "UW/PixelArtUI"
     {
         [PerRendererData] _MainTex ("Picture", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
+        _UWFromPalette ("A picture of the original (follows the hallucination)", Float) = 0
 
         _StencilComp ("Stencil Comparison", Float) = 8
         _Stencil ("Stencil ID", Float) = 0
@@ -73,6 +74,17 @@ Shader "UW/PixelArtUI"
             float4 _MainTex_ST;
             float4 _MainTex_TexelSize;
 
+            // THE HALLUCINATION'S PALETTE ON THE ORIGINAL'S PICTURES (2026-11-26, per user's note of 2026-11-08: the
+            // modern flasks and the minimap kept their colours): the material of UWPixelArtUI.ApplyOriginal sets
+            // _UWFromPalette, UWUiPaletteSwap sets _UWUiHallucination while the other palette is shown. Each texel goes
+            // back to its index of palette 0 and takes that index's colour in row 0 of the colour table, as UW/UIPaletteSwap
+            // does - per texel before the seams are blended, so a seam mixes two palette colours. The port's own art
+            // (leather, wood) keeps the plain material and its colours.
+            float _UWFromPalette;
+            float _UWUiHallucination;
+            sampler2D _UWColourTable;
+            sampler3D _UWInverseLookup;
+
             struct Attributes
             {
                 float4 vertex : POSITION;
@@ -108,6 +120,14 @@ Shader "UW/PixelArtUI"
             float4 UWPremultiplied(float2 uv)
             {
                 float4 texel = tex2D(_MainTex, uv);
+
+                if (_UWFromPalette * _UWUiHallucination > 0.5)
+                {
+                    float3 cell = floor(saturate(texel.rgb) * 63.0 + 0.5);
+                    float index = floor(tex3D(_UWInverseLookup, (cell + 0.5) / 64.0).r * 255.0 + 0.5);
+
+                    texel.rgb = tex2D(_UWColourTable, float2((index + 0.5) / 256.0, 0.5 / 16.0)).rgb;
+                }
 
                 return float4(texel.rgb * texel.a, texel.a);
             }

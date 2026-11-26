@@ -33,6 +33,15 @@ public static class UWTextureCache
     /// <summary>The height strength the normal array was built with.</summary>
     private static float msfNormalStrength;
 
+    /// <summary>The water's normal maps per rotation step for the normal array in force (UWTextureArrayBuilder.
+    /// BuildAnimatedNormals), built with it; UWAnimatedTextures copies them at each step.</summary>
+    private static System.Collections.Generic.List<UWTextureArrayBuilder.AnimatedSlice> msOAnimatedNormals;
+
+    /// <summary>The normal array in force (null before the first GetNormalArray) and its moving slices.</summary>
+    public static Texture2DArray CurrentNormalArray => msONormalArray;
+
+    public static System.Collections.Generic.List<UWTextureArrayBuilder.AnimatedSlice> CurrentAnimatedNormals => msOAnimatedNormals;
+
     private static Texture2D msOMaterialLookup;
 
     private static Texture2D msOIceSliceTable;
@@ -48,6 +57,7 @@ public static class UWTextureCache
         msOData = null;
         msOIndexArray = null;
         msONormalArray = null;
+        msOAnimatedNormals = null;
         msfNormalStrength = 0f;
         msOMaterialLookup = null;
         msOIceSliceTable = null;
@@ -87,6 +97,8 @@ public static class UWTextureCache
 
         msONormalArray = UWTextureArrayBuilder.BuildNormals(pOData, pfHeightStrength);
         msfNormalStrength = pfHeightStrength;
+        fDestroyAnimatedNormals();
+        msOAnimatedNormals = UWTextureArrayBuilder.BuildAnimatedNormals(pOData, pfHeightStrength);
 
         Debug.Log(string.Format("Texture cache: built normals from {0} textures in {1:0} ms.",
             msONormalArray.depth, (Time.realtimeSinceStartup - lfStart) * 1000f));
@@ -144,12 +156,26 @@ public static class UWTextureCache
 
         fDestroy(ref msOIndexArray);
         fDestroy(ref msONormalArray);
+        fDestroyAnimatedNormals();
 
         if (msOIceSliceTable != null)
             Object.Destroy(msOIceSliceTable);
 
         msOIceSliceTable = null;
         msOData = pOData;
+    }
+
+    private static void fDestroyAnimatedNormals()
+    {
+        if (msOAnimatedNormals != null)
+        {
+            foreach (UWTextureArrayBuilder.AnimatedSlice lOSlice in msOAnimatedNormals)
+                foreach (Texture2D lOState in lOSlice.States)
+                    if (lOState != null)
+                        Object.Destroy(lOState);
+        }
+
+        msOAnimatedNormals = null;
     }
 
     private static void fDestroy(ref Texture2DArray pOArray)

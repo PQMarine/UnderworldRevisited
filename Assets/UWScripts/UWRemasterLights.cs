@@ -269,6 +269,35 @@ public sealed class UWRemasterLights : IUWRemasterFeature
         Dictionary<int, bool> lOIsLava = new Dictionary<int, bool>();
         int liCount = 0;
         int liSize = UWWorldScale.TilesPerAxis;
+        UWTerrainUw2 lOTerrainUw2 = UWGameSession.Current.Game.Game == UWGame.Uw2 && mOLevelLoader.UWDataImporter.Terrain != null
+            ? mOLevelLoader.UWDataImporter.Terrain.Uw2 : null;
+
+        // THE SECOND GAME'S LAVA WALLS (per user 2026-11-26: "Lava textures in Remastered should be bright without a light too,
+        // and if possible give light like the floor lava"): an open tile draws its walls in its own wall texture
+        // (UWLevelMeshBuilder), so one whose wall texture TERRAIN.DAT calls lava and that has a solid side shows lava walls.
+        // A lamp in every other such tile, before the floors' share of the lights.
+        for (int liY = 0; lOTerrainUw2 != null && liY < liSize; liY += 2)
+        {
+            for (int liX = 0; liX < liSize; liX += 2)
+            {
+                if (liCount >= MaxLavaLights)
+                    return liCount;
+
+                UWTile lOTile = lOLevel.GetTile(liX, liY);
+
+                if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid
+                    || lOTerrainUw2.Class(lOTile.TextureWall) != UWTerrainUw2.ClassLava || !fHasSolidSide(lOLevel, liX, liY))
+                    continue;
+
+                fCreateLight(mOHost.transform, new Vector3(UWUnits.TileCentreToWorldAxis(liX), lOTile.FloorHeight + 16f,
+                    UWUnits.TileCentreToWorldAxis(liY)), UWLightSourceTable.LavaTiles,
+                    UWLightSourceTable.LavaBrightness * pOSettings.RemasterLightBrightness,
+                    new Color(UWLightSourceTable.LavaRed, UWLightSourceTable.LavaGreen, UWLightSourceTable.LavaBlue),
+                    UWLightSourceTable.LavaFlicker, false, 0f, null, 0f);
+
+                liCount++;
+            }
+        }
 
         for (int liY = 0; liY < liSize; liY += LavaLightSpacing)
         {
@@ -284,7 +313,11 @@ public sealed class UWRemasterLights : IUWRemasterFeature
 
                 bool lbLava;
 
-                if (!lOIsLava.TryGetValue(lOTile.TextureFloor, out lbLava))
+                // THE SECOND GAME'S LAVA is a terrain class, not a palette range (UWPaletteRotation.IsLavaIndex; per user
+                // 2026-11-26): its tiles are the rules' lava tiles (TERRAIN.DAT).
+                if (lOTerrainUw2 != null)
+                    lbLava = mOLevelLoader.IsLavaTile(lOTile);
+                else if (!lOIsLava.TryGetValue(lOTile.TextureFloor, out lbLava))
                 {
                     lbLava = lOTile.TextureFloor < lOFloors.Count
                         && fGetLavaShare(lOFloors[lOTile.TextureFloor]) >= LavaFloorShare;
@@ -390,6 +423,27 @@ public sealed class UWRemasterLights : IUWRemasterFeature
     private Color fGetLightColour(int piId)
     {
         return UWLightColour.FromObject(mOLevelLoader.UWDataImporter, piId, UWLightColour.Fallback);
+    }
+
+    /// <summary>Whether a tile has a solid neighbour on one of its four sides (or is a diagonal tile): it shows walls.</summary>
+    private static bool fHasSolidSide(UWLevel pOLevel, int piX, int piY)
+    {
+        UWTile lOTile = pOLevel.GetTile(piX, piY);
+
+        if (lOTile != null && lOTile.TileType >= UWTile.TileTypeEnum.diagonal_se && lOTile.TileType <= UWTile.TileTypeEnum.diagonal_nw)
+            return true;
+
+        int[] liSteps = { 1, 0, -1, 0, 0, 1, 0, -1 };
+
+        for (int liAt = 0; liAt < liSteps.Length; liAt += 2)
+        {
+            UWTile lONext = pOLevel.GetTile(piX + liSteps[liAt], piY + liSteps[liAt + 1]);
+
+            if (lONext == null || lONext.TileType == UWTile.TileTypeEnum.solid)
+                return true;
+        }
+
+        return false;
     }
 
     private static float fGetLavaShare(UWTexture pOTexture)

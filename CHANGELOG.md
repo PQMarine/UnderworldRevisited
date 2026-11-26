@@ -10,6 +10,50 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-26
+
+Ultima Underworld II is in beta: played through to the end, its classic interface checked against the original, the
+modern interface the same as the first game's. Bug reports are welcome.
+
+### Added
+- Ultima Underworld II's own texts can be translated: its game-text pack is
+  `Languages/UW2/<code>.strings.tsv`, and `uwdump strings-template`, `validate-tsv` and `strings-checksums`
+  make and check it with `--game uw2` ([Docs/TRANSLATING.md](Docs/TRANSLATING.md)). The second game no
+  longer takes the first game's pack.
+- A rule-set template for Ultima Underworld II: `uwdump rules-template --game uw2`, in the packages as
+  `Docs/rules-template-uw2.jsonc`, every key at the second game's value (for `UW2/rules.json`). Not every
+  key changes the second game yet; the file says so.
+- Ultima Underworld II: the gamepad reaches all of its screens as in the first game - Start and B step back through
+  the menus and the map, View opens the map (tapped) or the help (held), the pad steps a conversation's answers and
+  pages [MORE], the letter grid comes up for typing, and the stick scrolls over the classic panels.
+- Documentation for both games: the README, the new [Docs/INSTALLING.md](Docs/INSTALLING.md), the package README,
+  CONTROLS, BUILDING, TRANSLATING and MOD-TOOLS, and screenshots of the second game.
+
+### Closer to the original
+- A name without a plural of its own takes an "s" ("You see 10 arrows."), and a name is cut short only where it has an
+  article ("Of bread" stood under the crosshair for a loaf).
+- Two bridges in one tile at the same height: the later one lies on top, by the original's draw order (they
+  flickered).
+- Ultima Underworld II: a bridge's sides take the original's colours (grey in the Ethereal Void).
+
+### Fixed
+- Doors and portcullises close fully; depending on the frame time one could stop a few degrees short.
+- Remastered: a thing behind an open door in the next tile no longer shows over the door's leaf.
+- Ultima Underworld II: the bed's long sides no longer show a grey triangle.
+- The crosshair's pad hints stand at the view's middle in Classic Wide and the 4:3 frame; with a thing's menu open the
+  d-pad no longer uses the action bar or steps a conversation's answers.
+- Ultima Underworld II: any pad button ends a conversation's waits, as in the first game.
+- Ultima Underworld II: our options and the game menu show the game's pointer in the modern scheme, not the system
+  arrow.
+- The modern scheme: a hallucination's colours reach the flasks, the power gem and the minimap too, as on the classic
+  screen.
+
+### Changed
+- Remastered: the second game's lava glows and gives light like the first game's, on floors and walls.
+- Remastered and the Palette effects: the relief of flowing water now moves with its colours, one normal map
+  per step of the palette rotation, in both games. Lava stays flat.
+- Ultima Underworld II's texts in the game say beta, and the main menu's note is "Beta (i)".
+
 ## [0.25.0] - 2026-11-25
 
 ### Added

@@ -659,6 +659,11 @@ namespace UWDataImport.UWData
 
 		public const int TheftMessageBase = 226;
 
+		/// <summary>The second game's anger lines in block 1: 0xF0 + attitude (our numbering one higher);
+		/// until 2026-11-25 a constant of UWTriggerSystem, here since the game-text pack's pieces of a frame
+		/// (UWTextFragments) name them too.</summary>
+		public const int Uw2TheftMessageBase = 0xF0 + 1;
+
 		/// <summary>AFTERWARDS the item belongs to nobody - but only when owner &amp; 0x1F is at
 		/// most 0x1B (ovr104_E4C labels ECF-EDA); the top two bits of the byte stay. Ours
 		/// cleared it always, and asked a different limit (28) before minding at all.</summary>

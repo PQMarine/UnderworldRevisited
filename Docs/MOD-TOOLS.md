@@ -15,7 +15,7 @@ on Linux `UR.x86_64`). Read it instead of guessing from file names. An example:
 {
   "featuresFormat": 1,
   "name": "Underworld Revisited",
-  "version": "0.21.0",
+  "version": "0.25.0",
   "executable": "UR.exe",
   "games": ["uw1", "uw2"],
   "preview": ["uw2"],
@@ -32,7 +32,7 @@ on Linux `UR.x86_64`). Read it instead of guessing from file names. An example:
 ```
 
 - `featuresFormat` goes up only when a field changes its meaning. New fields may appear without it.
-- `games` are the games the build runs, `preview` those not yet complete.
+- `games` are the games the build runs, `preview` those not yet complete (the second game, in beta).
 - `uwmod.formats` are the editor package formats it applies: the value of `"format"` in a
   package's `mod.json`, numbered as the Underworld Editor (Avalonia)'s own format description
   (`docs/mod-format.md` in its repository) numbers them. A package whose number is not in the
@@ -115,7 +115,10 @@ arguments lists every command.
   A tool can run it before it starts the game instead of rebuilding the check.
 - `uwdump rules-template` writes the rule set at the original's values, every key with its
   meaning, as a `rules.json` to start from (the release packages carry it as
-  `Docs/rules-template.jsonc`).
+  `Docs/rules-template.jsonc`). The game reads it from the game's folder in the user folder
+  (`UW1/rules.json`, `UW2/rules.json`). `uwdump rules-template --game uw2` writes the second game's
+  set (`Docs/rules-template-uw2.jsonc` in the packages); much of that game's rules is still code of
+  its own, so not every key changes it yet, as the file says.
 - `uwdump pack-check <game> --pack <folder or zip>` shows what the game makes of a picture pack:
   names, colours, overlaps, shifts.
 
@@ -137,7 +140,7 @@ of its own and start the game with it.
 Two things are still shared with the player's normal start:
 - the copy of the game's files with packages applied (`GameData/UW1-mods`), which is made anew
   when the packages differ from the last start's;
-- the saved games in the game's own folder (see below).
+- the saved games in the game's own folder (see above).
 
 `features.json` names the argument as `mods.folderArgument`; a build without it ignores `-mods`.
 

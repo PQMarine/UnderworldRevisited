@@ -45,6 +45,11 @@ public sealed class UWClassicUiScheme : IUWUiScheme
     /// <summary>Outside the original's view window (UWClassicScreen.IsScreenPositionInGameArea).</summary>
     public bool IsPointerOverInterface(Vector2 pOAt)
     {
+        // The second game's screen, its view window (2026-11-25, the gamepad on UW2: the left stick walked with the
+        // pointer on its panels instead of scrolling, as the first game's does).
+        if (UWGameStartUw2.IsRunning)
+            return UWGameScreenUw2.Current != null && !UWGameScreenUw2.Current.IsInViewWindow(pOAt);
+
         UWGameUI lOUi = fUi();
 
         return lOUi != null && !lOUi.ClassicScreen.IsScreenPositionInGameArea(pOAt);

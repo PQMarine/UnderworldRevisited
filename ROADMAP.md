@@ -9,7 +9,7 @@ of what is built was also read out of the original's executable.
 
 ## Finished
 
-- The whole game of Ultima Underworld 1 can be started, played and saved: all nine levels,
+- The whole game of Ultima Underworld I can be started, played and saved: all nine levels,
   the Void and the end sequence
 - World, objects, doors, locks, traps and triggers, including all trap actions and the
   special deaths
@@ -97,19 +97,17 @@ of what is built was also read out of the original's executable.
   ([Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md)). For mod managers and editors (0.21.0):
   a `features.json` beside the game, the start option `-mods` and
   [Docs/MOD-TOOLS.md](Docs/MOD-TOOLS.md)
+- Ultima Underworld II as a beta (0.26.0): its rules, music, sound and cutscenes built after the
+  original's code, the whole game played through and compared with the original, its classic
+  interface checked against the original area by area (0.25.0), the modern interface the first
+  game's with its presets and the layout editor (0.24.0), the gamepad on all its screens, its own
+  translation kit and rule-set template, the documentation for two games
 
 ## Next
 
-- **Ultima Underworld II, a playable alpha**: its rules, music, sound and cutscenes are built and the classic
-  interface is complete - since the preview of 0.13.0 the map, the conversations and what they change, the schedules and the world's events, the
-  creatures and fights, magic and the special weapons, water and lava, traps and triggers, the
-  player's death and the jail, the music by the game's rules and the cutscenes. The whole game has been
-  played through and compared with the original, and since 0.24.0 the modern interface is the first game's,
-  with its presets and the layout editor. Since 0.25.0 its classic interface has been checked against the
-  original, area by area. Next: the documentation for two games, and a beta. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has
+- **Ultima Underworld II in beta**: what players report, fixed as it comes in. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has
   the plan.
-- Ultima Underworld II: walking through peaceful people on Britannia's first level, as an aid
-  (before the play-through).
+- Ultima Underworld II: walking through peaceful people on Britannia's first level, as an aid.
 
 ## Open: gameplay parity
 

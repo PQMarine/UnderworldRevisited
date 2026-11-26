@@ -183,7 +183,16 @@ namespace UnderworldRevisited.Tools
                     + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.SmallBoulder)) + ", " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.MediumBoulder))
                     + ", " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.LargeBoulder)) + " | " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.Shrine))
                     + " | " + fLayered(lOUw1.GetModel(UW3DModelImport.ModelIndex.Table)),
-                    "19 1.14 | 19 1.14 | 0 0.00 | 0 0.00, 0 0.00, 0 0.00 | 0 0.00 | 0 0.00");
+                    "19 1.51 | 19 1.51 | 0 0.00 | 0 0.00, 0 0.00, 0 0.00 | 0 0.00 | 0 0.00");
+
+            // IN FRONT OF THE EARLIER FACE'S FRONTMOST CORNER (per user 2026-11-26, the second game's bed: a triangle of the grey
+            // sheet's side showed through the cover's side painted after it; 1.14 units for the chest's bands until then): the
+            // bed's two long sides (faces 12 under 13, 15 under 16), how far the sheet's frontmost corner stands in front of the
+            // cover's plane, in model units - negative is behind.
+            Check.Str("uw2 models: the bed's cover sides in front of the sheet's (frontmost sheet corner, units)",
+                fFrontmost(lOUw2.GetModel(0x1D), 12, 13).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " "
+                + fFrontmost(lOUw2.GetModel(0x1D), 15, 16).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture),
+                "-0.35 -0.35");
 
             // THE T-JUNCTIONS (UW3DModelLayering.CloseTJunctions, run by the import): the shrine's loop and crossbar, the
             // large boulder - the faces' corner counts after it, and a second run finds nothing more.
@@ -203,6 +212,45 @@ namespace UnderworldRevisited.Tools
                     liShrineCorners + " " + liLargeCorners + " | " + UW3DModelLayering.CloseTJunctions(lOShrine) + " " + UW3DModelLayering.CloseTJunctions(lOLarge),
                     "261 181 | 0 0");
             }
+        }
+
+        /// <summary>How far the frontmost laid corner of face piUnder stands in front of face piOver's laid plane, in model
+        /// units (a tile is 256), the plane's normal towards the side piOver's innermost back-face test shows.</summary>
+        private static double fFrontmost(UW3DModel pOModel, int piUnder, int piOver)
+        {
+            List<UWVector3[]> lOCorners = UW3DModelLayering.FaceCorners(pOModel);
+            UWVector3[] lOOver = lOCorners[piOver];
+            double ldX = 0, ldY = 0, ldZ = 0, ldCX = 0, ldCY = 0, ldCZ = 0;
+
+            for (int liAt = 0; liAt < lOOver.Length; liAt++)
+            {
+                UWVector3 lA = lOOver[liAt];
+                UWVector3 lB = lOOver[(liAt + 1) % lOOver.Length];
+
+                ldX += (lA.Y - lB.Y) * (lA.Z + lB.Z);
+                ldY += (lA.Z - lB.Z) * (lA.X + lB.X);
+                ldZ += (lA.X - lB.X) * (lA.Y + lB.Y);
+                ldCX += lA.X;
+                ldCY += lA.Y;
+                ldCZ += lA.Z;
+            }
+
+            double ldLength = System.Math.Sqrt(ldX * ldX + ldY * ldY + ldZ * ldZ);
+            List<UW3DModelSideTest> lOTests = pOModel.Faces[piOver].SideTests;
+            UW3DModelSideTest lOTest = lOTests[lOTests.Count - 1];
+            double ldSign = ldX * lOTest.NX < 0 ? -1 : 1;
+
+            ldX *= ldSign / ldLength;
+            ldY *= ldSign / ldLength;
+            ldZ *= ldSign / ldLength;
+
+            double ldD = -(ldX * ldCX + ldY * ldCY + ldZ * ldCZ) / lOOver.Length;
+            double ldWorst = double.MinValue;
+
+            foreach (UWVector3 lV in lOCorners[piUnder])
+                ldWorst = System.Math.Max(ldWorst, ldX * lV.X + ldY * lV.Y + ldZ * lV.Z + ldD);
+
+            return ldWorst * 256;
         }
 
         private static string fLayered(UW3DModel pOModel)

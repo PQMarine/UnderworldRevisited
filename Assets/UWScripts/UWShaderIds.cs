@@ -96,6 +96,10 @@ public static class UWShaderIds
 
     public static readonly int XferColours = fGlobal("_UWXferColours");
 
+    /// <summary>1 while the hallucination shows the other palette on the interface (UWUiPaletteSwap), for the original's
+    /// pictures on UW/PixelArtUI (UWPixelArtUI.ApplyOriginal).</summary>
+    public static readonly int UiHallucination = fGlobal("_UWUiHallucination");
+
     public static readonly int XferReady = fGlobal("_UWXferReady");
 
     // ------------------------------------------------- Globals: hallucination and Remastered's ghosts
