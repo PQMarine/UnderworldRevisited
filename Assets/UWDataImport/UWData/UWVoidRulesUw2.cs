@@ -205,6 +205,17 @@ namespace UWDataImport.UWData
 			return CountdownEnum.Crash;
 		}
 
+		/// <summary>
+		/// player_sleep's Killorn test (uw2 game/SKILLS.C:467-471): a night while the keep is falling (quest 50 without 54)
+		/// crashes it at once - Killorn_just_crashed(0) and 0xFF to the player, the caller's (with KeepCrashed). Missing
+		/// until 2026-11-26 (duplication audit K23): only the countdown on the tick existed.
+		/// </summary>
+		public static bool KeepCrashesInSleep(UWPlayerFile pOFile)
+		{
+			return pOFile != null && UWPlayerRecordUw2.GetQuest(pOFile, UWLevelHacksUw2.KeepFallsQuest) != 0
+				&& UWPlayerRecordUw2.GetQuest(pOFile, UWLevelHacksUw2.KeepCrashedQuest) == 0;
+		}
+
 		/// <summary>do_sfx(4, 0x2C): the shake of the countdown and of the counted one's death.</summary>
 		public const int CountdownShake = 0x2C << 1;
 

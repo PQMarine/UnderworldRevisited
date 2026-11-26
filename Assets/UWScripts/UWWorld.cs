@@ -108,7 +108,8 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     /// blink, as the original makes it in its main loop after the chain.</summary>
     public void TeleportSecondGame(UWTeleportUw2.Target pOTarget)
     {
-        if (Loader != null)
+        // do_teleport: on the same level only with room at the target (UWLevelLoader.Uw2TeleportHasRoom).
+        if (Loader != null && Loader.Uw2TeleportHasRoom(pOTarget))
             Loader.Uw2Teleport(pOTarget, true);
     }
 

@@ -70,6 +70,16 @@ namespace UWDataImport.UWData
 
 		public bool IceHoldsPlacedObjects => true;
 
+		public bool NothingRestsInVoid => false;
+
+		/// <summary>The fireball do_objhit lets strike again (ITEM_FIREBALL_1D).</summary>
+		public const int RepeatingFireballId = 0x1D;
+
+		/// <summary>The resilient sphere do_objhit lets strike again (ITEM_RESILIENT_SPHERE_13F).</summary>
+		public const int ResilientSphereId = 0x13F;
+
+		public bool StrikesMobilesAgain(int piItemId) => piItemId == RepeatingFireballId || piItemId == ResilientSphereId;
+
 		/// <summary>The light splash below this mass, the middle one below MediumSplashMass, else the first game's.</summary>
 		public const int LightSplashMass = 20;
 

@@ -1661,7 +1661,7 @@ namespace UWDataImport.UWData
 						// game: only a hostile creature).
 						if (lbGiveUp || !mIServices.Game.Critter.TriesDoor(mORecord.Attitude))
 							mORecord.Blocked = true;
-						else
+						else if (mIServices.Game.Critter.MayOpenDoorsOn(mIHost.DungeonLevel))
 							fTryOpenDoor(mOStep.HitObjectIndex, liItemId);
 					}
 					else if (mOStep.HitObjectIsCreature && liItemId != PlayerItemId && mORecord.Goal == 5

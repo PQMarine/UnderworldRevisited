@@ -381,6 +381,15 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// <summary>The vitals' IdentificationReset: better Lore makes the world unidentified again.</summary>
     public void ResetIdentification()
     {
+        ResetWorldIdentification();
+    }
+
+    /// <summary>
+    /// The level's lore tries cleared (clear_all_loretries) - for both games: UW2's get_skill does it too (uw2
+    /// game/SKILLS.C:180-184), which its player host never asked for until 2026-11-26 (duplication audit G3).
+    /// </summary>
+    public static void ResetWorldIdentification()
+    {
         UWLevelLoader lOLoader = UWScene.LevelLoader;
 
         if (lOLoader == null || lOLoader.CurrentLevel == null || lOLoader.UWDataImporter == null)
@@ -388,6 +397,13 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
 
         UWLoreCheck.ResetAttempts(lOLoader.CurrentLevel.Masterlist,
             lOLoader.UWDataImporter.CommonObjectProperties);
+
+        // And what the player carries: the original's walk reaches it through the player object (UWLoreCheck).
+        UWInventoryModel lOCarried = UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory
+            : UWScene.Inventory != null ? UWScene.Inventory.Model : null;
+
+        if (lOCarried != null)
+            UWLoreCheck.ResetAttempts(lOCarried.EnumerateAll(), lOLoader.UWDataImporter.CommonObjectProperties);
     }
 
     /// <summary>The vitals' FiveMinuteBlockDue: the level's share of the five-minute block, in duration_check's

@@ -61,6 +61,19 @@ namespace UWDataImport.UWData
 		/// note thrown in the ice caves never came to rest and kept making its landing sound).</summary>
 		bool IceHoldsPlacedObjects { get; }
 
+		/// <summary>Whether nothing comes to rest in the Void level (UWRulesLevels.Void): UW1's obj_deal frees it there
+		/// (PlayerLevel == LEVEL_VOID, uw1 motion/OBJPHYS.C:455); UW2 has no such case (OBJPHYS.C:446-450). GitHub issue 41,
+		/// 2026-11-26: the second game took the first game's rule, so a thing thrown on its level 9 (the Prison Tower)
+		/// vanished.</summary>
+		bool NothingRestsInVoid { get; }
+
+		/// <summary>Whether a mobile thing of this item strikes a mobile again after it struck one (do_objhit's b15 bit 7: two
+		/// mobile non-creatures that met pass through each other from then on). UW1: never (uw1 motion/OBJPHYS.C:173);
+		/// UW2: the fireball 0x1D and the resilient sphere 0x13F are exempt (uw2 OBJPHYS.C:165-167). Per user 2026-11-26,
+		/// UW2 level 67 at 15/15: the fireball bouncing to and fro over the bridge struck the player once and then passed
+		/// through him on every pass; in the original it strikes him each time.</summary>
+		bool StrikesMobilesAgain(int piItemId);
+
 		/// <summary>The sound of a fall into water by the mover's mass (do_zbounce; UW1: 5 at (mass - 600) / 50,
 		/// MOTION.C:509; UW2: 0x18 under 20, 0x19 under 100, else 5, all at 0, MOTION.C:518-526).</summary>
 		int WaterLandingSound(int piMass, out int piVolume);

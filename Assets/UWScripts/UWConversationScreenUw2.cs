@@ -328,7 +328,13 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
 
     private bool fAnyInput()
     {
-        if (UWTextEntry.AnyKeyPressed)
+        // As the first game's UWConversationController.fAnyInput (duplication audit U4, 2026-11-26): not while a window
+        // has the keyboard (the help's notes), and not F (the font toggle) or Tab (the help), which paged [MORE] or ended
+        // the hold along with what they do.
+        UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
+
+        if (UWTextEntry.AnyKeyPressed && !IsKeyboardTaken
+            && (lOKeyboard == null || (!lOKeyboard.fKey.wasPressedThisFrame && !lOKeyboard.tabKey.wasPressedThisFrame)))
             return true;
 
         return fButtonReleased();
@@ -474,7 +480,11 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
 
         if (lOKeyboard != null && !IsKeyboardTaken)
         {
-            for (int liAt = 0; liAt < UWClassicLayoutUw2.Conversation.ChoiceKeys && liAt < mOSession.Choices.Count; liAt++)
+            // The modern scheme takes the first game's count (UWUiSchemePolicy, 1 to 9), the classic one the original's
+            // keys (duplication audit U6, 2026-11-26: the second game's modern rows took 1 to 5 only).
+            int liKeys = IsModern ? UWControlScheme.Ui.Policy.ConversationChoiceKeys : UWClassicLayoutUw2.Conversation.ChoiceKeys;
+
+            for (int liAt = 0; liAt < liKeys && liAt < mOSession.Choices.Count; liAt++)
             {
                 if (lOKeyboard[Key.Digit1 + liAt].wasPressedThisFrame)
                     return liAt + 1;
@@ -484,8 +494,12 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         if (!fButtonReleased())
             return 0;
 
+        // The modern rows take the left button only - the right one is the bags' there, as on the first game
+        // (UWUiSchemePolicy.ConversationRightClickChooses; duplication audit U6).
         if (IsModern)
-            return UWModernConversation.Instance != null ? UWModernConversation.Instance.ChoiceAt(UWPointer.Position) : 0;
+            return UWModernConversation.Instance != null
+                && (UWControlScheme.Ui.Policy.ConversationRightClickChooses || UWMouseButtons.LeftReleased)
+                ? UWModernConversation.Instance.ChoiceAt(UWPointer.Position) : 0;
 
         if (!fPoint(out int liX, out int liY))
             return 0;
@@ -520,7 +534,9 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         if (IsKeyboardTaken)
             return;
 
-        bool lbEscape = Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame;
+        // Escape through the back chain (UWBackOwner.ConversationAnswer), as the first game's typed answer, so the pad's B
+        // ends it too (duplication audit U5, 2026-11-26: the raw Escape key left the pad without a way out).
+        bool lbEscape = UWBack.Takes(UWBackOwner.ConversationAnswer);
 
         // wdialog ends on Enter, Escape or a click.
         if (UWTextEntry.EnterPressed || lbEscape || fButtonReleased())

@@ -323,8 +323,10 @@ namespace UWDataImport.UWData
 			if (liCull > 0 && liCull <= 8 && (mOWorld.Random() & 7) < liCull && fObjectCulling(pORecord.Object))
 				lbKeep = false;
 
-			// Nothing comes to rest in the Void (the host's level is one-based).
-			if (mOHost.DungeonLevel == UWLevelIds.Number(mOWorld.Session.Rules.Levels.Void))
+			// Nothing comes to rest in the Void (the host's level is one-based) - the first game's rule alone
+			// (IUWMotionVariant.NothingRestsInVoid; GitHub issue 41).
+			if (mOWorld.Session.Game.Motion.NothingRestsInVoid
+				&& mOHost.DungeonLevel == UWLevelIds.Number(mOWorld.Session.Rules.Levels.Void))
 				lbKeep = false;
 
 			if (lbKeep)

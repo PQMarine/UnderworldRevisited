@@ -40,8 +40,10 @@ public class UWWorldViewUw2 : MonoBehaviour
         return fCentreEntity();
     }
 
-    /// <summary>The first thing along the view's middle within DoorReach (the camera's viewport middle: in Classic Wide
-    /// the window's, which is this game's projection centre).</summary>
+    /// <summary>The frontmost thing along the view's middle AS FAR AS ONE SEES (the camera's viewport middle: in Classic
+    /// Wide the window's, which is this game's projection centre) - as the first game's crosshair (Interaction.AimAtCrosshair:
+    /// UWWorldPicker.Measure's Frontmost within the sight). Per user 2026-11-26: UW2's crosshair named nothing beyond
+    /// DoorReach, so a creature in sight had no name and E did not talk to it. What E uses keeps the reach (fUseReaches).</summary>
     private UWEntityInfo fCentreEntity()
     {
         Camera lOCamera = UWViewpoint.Current;
@@ -49,13 +51,11 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (lOCamera == null)
             return null;
 
-        foreach (UWWorldPicker.Hit lOHit in UWWorldPicker.Measure(lOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f)), DoorReach).Hits)
-        {
-            if (lOHit.Entity != null && lOHit.Entity.ObjectData != null)
-                return lOHit.Entity;
-        }
+        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(lOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f)));
+        bool lbSeen = lOMeasured.HasFrontmost && Interaction.IsInSightBand(lOCamera.transform,
+            lOMeasured.FrontmostHit.point + (lOMeasured.FrontmostHit.normal * 0.5f), fViewingDistance());
 
-        return null;
+        return lbSeen && lOMeasured.Frontmost != null && lOMeasured.Frontmost.ObjectData != null ? lOMeasured.Frontmost : null;
     }
 
     /// <summary>
@@ -562,7 +562,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (!UWPointer.IsLookLocked)
             return null;
 
-        if (fTalks(fFirstEntity()))
+        if (fModernTalkPartner() != null)
             return UWText.T("hud.crosshair.talk");
 
         if (fPickableEntity(false) != null)
@@ -571,7 +571,8 @@ public class UWWorldViewUw2 : MonoBehaviour
         UseTarget lOAt = fUseTargetNow();
         UWObject lOData = lOAt.Door != null ? lOAt.Door.Data : lOAt.Thing != null ? lOAt.Thing.ObjectData : null;
 
-        if (lOData == null || UWModernWorldInput.HidesFromCrosshair(lOData.ID))
+        // Only what the hand reaches offers its use (the ray goes to the full range since G10).
+        if (lOData == null || UWModernWorldInput.HidesFromCrosshair(lOData.ID) || !fUseReaches(lOAt, false))
             return null;
 
         return UWText.T("hud.crosshair.use");
@@ -591,13 +592,13 @@ public class UWWorldViewUw2 : MonoBehaviour
     /// barrel emptied where it stands, as the first game's E held. The using itself is the second game's rules.</summary>
     private void fModernUse(bool pbDirect)
     {
-        UWEntityInfo lOThing = fFirstEntity();
+        UWEntityInfo lOPartner = fModernTalkPartner();
         UWEntityInfo lOPickable = pbDirect ? null : fPickableEntity(false);
 
         UWInventoryModel lOInventory = mOScreen != null ? mOScreen.Inventory : null;
 
-        if (fTalks(lOThing) && mOScreen != null)
-            mOScreen.TalkTo(lOThing);
+        if (lOPartner != null && mOScreen != null)
+            mOScreen.TalkTo(lOPartner);
         else if (lOPickable != null && lOInventory != null)
         {
             fTake(lOPickable, lOInventory, true);
@@ -605,6 +606,25 @@ public class UWWorldViewUw2 : MonoBehaviour
         }
         else
             fToggleDoor(true);
+    }
+
+    /// <summary>
+    /// WHO THE MODERN USE KEY TALKS TO: a creature or a wisp in front within the use's reach, else, with nothing nearer on
+    /// the ray, one as far as one sees (fTalkEntity) - as the first game's E (UWModernWorldInput.GetCrosshairPadVerb aims
+    /// with Interaction.AimAtCrosshair over the whole sight) and this screen's right drag (fBeginLookPress). Per user
+    /// 2026-11-26: standing far from a creature but in sight of it, E said nothing in UW2's modern scheme. Null when E
+    /// talks to nobody.
+    /// </summary>
+    private UWEntityInfo fModernTalkPartner()
+    {
+        UWEntityInfo lONear = fFirstEntity();
+
+        if (lONear != null)
+            return fTalks(lONear) ? lONear : null;
+
+        UWEntityInfo lOFar = fTalkEntity();
+
+        return fTalks(lOFar) ? lOFar : null;
     }
 
     /// <summary>
@@ -791,7 +811,7 @@ public class UWWorldViewUw2 : MonoBehaviour
     /// <summary>
     /// TAKING A THING FROM THE WORLD (player_3dget, the same in both games but for its strings and the
     /// second game's pressure plates): something that can be taken and lies within the hand's reach
-    /// (InPickRange, UWReachRules.CanReach; the terrain between is not tested yet) leaves its tile and
+    /// (InPickRange and BlockingTerrain, UWReachMeasure, since 2026-11-26 with the terrain between) leaves its tile and
     /// goes onto the pointer, a container with its contents; a stack asks how many first. The theft, the
     /// moonstone and the pick-up trigger are the second game's rules (built, fTakeCount). pbSay: Get says what it cannot
     /// take.
@@ -815,15 +835,20 @@ public class UWWorldViewUw2 : MonoBehaviour
 
         UWObject lOItem = pOEntity.ObjectData;
         Vector3 lOFeet = UWPlayerThrow.GetFeet(lOCamera.transform);
-        int liPlayerX = UWTileQueries.WorldToEighths(lOFeet.x);
-        int liPlayerY = UWTileQueries.WorldToEighths(lOFeet.z);
 
-        if (!UWReachRules.CanReach(liPlayerX, liPlayerY, UWUnits.WorldToZPos(lOFeet.y),
-            UWReachRules.ToEighths(lOItem.TileX, lOItem.XPos), UWReachRules.ToEighths(lOItem.TileY, lOItem.YPos), lOItem.ZPos,
-            UWReachRules.GetPickupDistanceSquared(UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.HasTelekinesis), false))
+        UWReachMeasure.TargetGrid(lOItem, out int liItemX, out int liItemY, out int liItemZ);
+
+        UWReachMeasure.Result leReach = UWReachMeasure.Measure(mOLoader, lOFeet, liItemX, liItemY, liItemZ,
+            UWReachRules.GetPickupDistanceSquared(UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.HasTelekinesis),
+            false, UWReachMeasure.SwimLoweringUw2());
+
+        if (leReach != UWReachMeasure.Result.Reached)
         {
-            // "That is too far away to take." (string 0x6A of the second game's block 1).
-            UWGameScreenUw2.Say(UWText.Block(lOData, 1, TooFarToTakeString + 1, string.Empty));
+            // game_sprint(inrange + 0x6A): "That is too far away to take." out of range, "You cannot reach that." in range
+            // but past the terrain (uw2 ui/INTERACT.C:390; the second until 2026-11-26, duplication audit G10).
+            int liString = leReach == UWReachMeasure.Result.OutOfRange ? TooFarToTakeString : TooFarToTakeString + 1;
+
+            UWGameScreenUw2.Say(UWText.Block(lOData, 1, liString + 1, string.Empty));
 
             return;
         }
@@ -1070,12 +1095,11 @@ public class UWWorldViewUw2 : MonoBehaviour
     /// anywhere along the ray came first; now the frontmost wins, so a switch beside a door is the switch.</summary>
     private UseTarget fUseTargetNow()
     {
-        // TELEKINESIS LIFTS THE USE'S REACH (UWReachRules.GetDistanceSquared, the original's pick distance 0 for "any"):
-        // the switches high on the wall of the Scintillus pillar hall (level 43) are worked with it, and the ray stopped
-        // at DoorReach (per user, 2026-11-16). Taking had it since 2026-11-11 (fPickableEntity).
-        bool lbTelekinesis = UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.HasTelekinesis;
-
-        foreach (UWWorldPicker.Hit lOHit in fMeasuredHits(lbTelekinesis ? UWWorldPicker.Range : DoorReach))
+        // pick_3d finds what the pointer shows at any distance; InPickRange and BlockingTerrain judge it afterwards
+        // (fUseAt, UWReachMeasure): "You are unable to use that from here." Until 2026-11-26 the ray ended at DoorReach
+        // and nothing was said beyond it (duplication audit G10). A wall or floor of the level ends the search: nothing
+        // behind it is used.
+        foreach (UWWorldPicker.Hit lOHit in fMeasuredHits(UWWorldPicker.Range))
         {
             UWDoor lODoor = lOHit.Raw.collider.GetComponentInParent<UWDoor>();
 
@@ -1085,12 +1109,51 @@ public class UWWorldViewUw2 : MonoBehaviour
             if (lOHit.Entity != null && lOHit.Entity.ObjectData != null)
                 return new UseTarget { Thing = lOHit.Entity };
 
-            // Over the long reach a wall or floor of the level ends the search: nothing behind it is used.
-            if (lbTelekinesis && lOHit.Raw.collider.GetComponent<UnderworldRevisited.Build.UWLevelChunk>() != null)
+            if (lOHit.Raw.collider.GetComponent<UnderworldRevisited.Build.UWLevelChunk>() != null)
                 break;
         }
 
         return default(UseTarget);
+    }
+
+    /// <summary>"You are unable to use that from here." (string 0xC8 of block 1; player_3duse).</summary>
+    public const int UnableToUseFromHereString = 0xC8;
+
+    /// <summary>The texture map objects (0x16E, 0x16F) say nothing when out of reach (player_3duse).</summary>
+    private const int TextureMapObjectId = 0x16E;
+
+    /// <summary>
+    /// player_3duse's test (uw2 ui/INTERACT.C:448-455): the door or thing within the hand's reach (PickDist, which
+    /// Telekinesis lifts) and no terrain between, else "You are unable to use that from here." - but for the texture map
+    /// objects, which stay silent. True when the use may go on.
+    /// </summary>
+    private bool fUseReaches(UseTarget pOTarget, bool pbSay)
+    {
+        UWObject lOData = pOTarget.Door != null ? pOTarget.Door.Data : pOTarget.Thing != null ? pOTarget.Thing.ObjectData : null;
+        Camera lOCamera = UWViewpoint.Current;
+
+        if (lOData == null || lOCamera == null || mOLoader == null)
+            return true;
+
+        bool lbTelekinesis = UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.HasTelekinesis;
+        int liX, liY, liZ;
+
+        if (pOTarget.Door != null)
+            UWReachMeasure.TargetGrid(lOData, out liX, out liY, out liZ);
+        else
+            UWReachMeasure.TargetGrid(pOTarget.Thing, out liX, out liY, out liZ);
+
+        if (UWReachMeasure.Measure(mOLoader, UWPlayerThrow.GetFeet(lOCamera.transform), liX, liY, liZ,
+                UWReachRules.GetDistanceSquared(false, lbTelekinesis), false, UWReachMeasure.SwimLoweringUw2())
+            == UWReachMeasure.Result.Reached)
+            return true;
+
+        DataImport lOGame = mOLoader.UWDataImporter;
+
+        if (pbSay && (lOData.ID & 0x1FE) != TextureMapObjectId && lOGame != null)
+            UWGameScreenUw2.Say(UWText.Block(lOGame, 1, UnableToUseFromHereString + 1, string.Empty));
+
+        return false;
     }
 
     /// <summary>The Use command and the modern use: the door or thing under the pointer now.</summary>
@@ -1112,8 +1175,12 @@ public class UWWorldViewUw2 : MonoBehaviour
     /// step (UWUseRulesUw2); another wall picture is looked at. Every use ends with checkTrap(who, obj, 4) - its use
     /// triggers. pbSayOther: a use not built yet says so.
     /// </summary>
-    private void fUseAt(UseTarget pOTarget, bool pbSayOther)
+    private void fUseAt(UseTarget pOTarget, bool pbSayOther, bool pbByHand = true)
     {
+        // The hand's reach first (player_3duse); a rule that works a thing from afar (UseThing) does not ask.
+        if (pbByHand && !fUseReaches(pOTarget, true))
+            return;
+
         UWDoor lODoor = pOTarget.Door;
 
         if (lODoor != null)
@@ -1200,7 +1267,7 @@ public class UWWorldViewUw2 : MonoBehaviour
             UWWorld lOWorld = UWWorld.Of(mOLoader);
 
             if (lOWorld != null && UWVitalsUw2.Current != null)
-                UWRuneRulesUw2.Touch(lOObject, null, new UWSpellHostUw2(UWVitalsUw2.Current, mOLoader, lOWorld.Presentation));
+                UWRuneRulesUw2.Touch(lOObject, null, new UWSpellHostUw2(UWVitalsUw2.Current, mOLoader, UWSleepUw2.ScrollOf(lOWorld)));
 
             return;
         }
@@ -1278,7 +1345,7 @@ public class UWWorldViewUw2 : MonoBehaviour
     public void UseThing(UWEntityInfo pOThing)
     {
         if (pOThing != null)
-            fUseAt(new UseTarget { Thing = pOThing }, false);
+            fUseAt(new UseTarget { Thing = pOThing }, false, false);
     }
 
     /// <summary>
@@ -1303,13 +1370,34 @@ public class UWWorldViewUw2 : MonoBehaviour
             return;
         }
 
+        DumpTheBag(pOEntity, true);
+    }
+
+    /// <summary>
+    /// DumpTheBag (uw2 obj/USEITEMS.C:816): the bag's whole chain goes down around it, the owner of a container that can
+    /// have one counts it as a bad deed, and with pbToPlayer "You empty the &lt;name&gt;." or "The &lt;name&gt; is empty.". No
+    /// lock test: that is UseCont's. Without pbToPlayer for a bag burnt or struck to pieces (remove_object, uw2
+    /// combat/DAMAGE.C:126; duplication audit G17, 2026-11-26 - until then its contents went with it).
+    /// </summary>
+    public void DumpTheBag(UWEntityInfo pOEntity, bool pbToPlayer)
+    {
+        DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
+        UWObject lOBag = pOEntity != null ? pOEntity.ObjectData : null;
+
+        if (lOData == null || lOBag == null || mOLoader.CurrentLevel == null)
+            return;
+
+        lOBag.EnsureContentsLoaded(mOLoader.CurrentLevel.Masterlist);
+
         int liOwner = lOData.CommonObjectProperties != null && lOData.CommonObjectProperties.TryGet(lOBag.ID, out UWCommonObjectProperties.Entry lOEntry)
             && lOEntry.CanHaveOwner ? lOBag.Owner : 0;
         int liDumped = UWSpill.Apply(mOLoader, lOBag, UWSpillRules.Partition(lOBag.Contents, UWSpillRules.LocksFreedOnSpill(UWGame.Uw2)), pOEntity.transform.position,
             mOLoader.WorldPositionToTile(pOEntity.transform.position), true);
 
         UWTriggerSystem.PlayerDidBadUw2(liOwner, mOLoader, UWGameScreenUw2.Say);
-        UWGameScreenUw2.Say(liDumped > 0 ? UWItemMessages.Emptied(lOData, lOBag.ID) : UWItemMessages.IsEmpty(lOData, lOBag.ID));
+
+        if (pbToPlayer)
+            UWGameScreenUw2.Say(liDumped > 0 ? UWItemMessages.Emptied(lOData, lOBag.ID) : UWItemMessages.IsEmpty(lOData, lOBag.ID));
     }
 
     /// <summary>
@@ -1484,7 +1572,7 @@ public class UWWorldViewUw2 : MonoBehaviour
     {
         DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
 
-        return mOLighting != null && lOData != null && lOData.Shades != null && lOData.Shades.TryGet(mOLighting.LightLevel, out UWShades.Entry lOShade)
+        return mOLighting != null && lOData != null && lOData.Shades != null && lOData.Shades.TryGet(mOLighting.GameLightLevel, out UWShades.Entry lOShade)
             ? lOShade.ViewingDistance : UWExplorationRules.RenderBandMaxDepth;
     }
 

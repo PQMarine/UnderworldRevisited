@@ -88,6 +88,32 @@ public class UWAudioMixer : MonoBehaviour
 
     private int miRequestedDevice = -1;
 
+    // ------------------------------------------------------------------
+    // THE AUDIO THREAD'S HEALTH IN THE LOG (2026-11-26, per user: on a Kubuntu laptop the music sounded only a moment
+    // every second, on AdLib as on General MIDI, the main menu included; on Windows fine). The filter counts the frames it
+    // mixed and the time it took; every HealthSeconds the game thread compares them with the output's rate and writes one
+    // line when the filter was fed too little (the source starved or suspended) or mixing took too long (the CPU). No line
+    // means our side delivered: the gap is after the filter. At most MaxHealthReports lines a run.
+    // ------------------------------------------------------------------
+
+    private const float HealthSeconds = 5f;
+
+    private const int MaxHealthReports = 12;
+
+    private int miOutputRate;
+
+    private long mlFramesMixed;
+
+    private long mlMixTicks;
+
+    private float mfHealthSince = -1f;
+
+    private long mlFramesAtCheck;
+
+    private long mlTicksAtCheck;
+
+    private int miHealthReports;
+
     private bool mbRequestedRecordings;
 
     private volatile bool mbReady;
@@ -177,6 +203,9 @@ public class UWAudioMixer : MonoBehaviour
         if (liOutputRate <= 0)
             liOutputRate = 48000;
 
+        miOutputRate = liOutputRate;
+        fLogConfiguration();
+
         mOEffectBank = lOBank;
         mOCore = new UWAudioMixCore(lOBank, liOutputRate, GeneralMidiSoundFontPath, () => Mt32RomFolder,
             psMessage => Debug.Log("UWAudioMixer: " + psMessage),
@@ -223,6 +252,7 @@ public class UWAudioMixer : MonoBehaviour
     {
         fReadSettings();
         UWAudioService.FollowDigitalSource();
+        fCheckHealth();
 
         if (mOInteraction == null)
             mOInteraction = UWScene.Interaction;
@@ -544,12 +574,69 @@ public class UWAudioMixer : MonoBehaviour
             return;
 
         UWAudioSettings lOSettings = mOSettings;
+        long llStart = System.Diagnostics.Stopwatch.GetTimestamp();
 
         lock (mOLock)
         {
             mOCore.Mix(pfData, piChannels, lOSettings.MusicGain, lOSettings.EffectGain);
             fMixDigital(pfData, piChannels, lOSettings.EffectGain);
         }
+
+        System.Threading.Interlocked.Add(ref mlMixTicks, System.Diagnostics.Stopwatch.GetTimestamp() - llStart);
+        System.Threading.Interlocked.Add(ref mlFramesMixed, pfData.Length / piChannels);
+    }
+
+    /// <summary>The output as Unity set it up, once at the start (see the health check above).</summary>
+    private void fLogConfiguration()
+    {
+        AudioConfiguration lOConfig = AudioSettings.GetConfiguration();
+        int liLength;
+        int liBuffers;
+
+        AudioSettings.GetDSPBufferSize(out liLength, out liBuffers);
+        Debug.Log("UWAudioMixer: output " + lOConfig.sampleRate + " Hz, " + lOConfig.speakerMode + ", DSP buffer "
+            + liLength + " x " + liBuffers + ", driver " + AudioSettings.driverCapabilities + ".");
+    }
+
+    /// <summary>Every HealthSeconds of real time: one line in the log when the filter mixed less than nine tenths of
+    /// what the output plays, or mixing took more than half the time.</summary>
+    private void fCheckHealth()
+    {
+        if (!mbReady || miOutputRate <= 0 || miHealthReports >= MaxHealthReports)
+            return;
+
+        float lfNow = Time.realtimeSinceStartup;
+        long llFrames = System.Threading.Interlocked.Read(ref mlFramesMixed);
+        long llTicks = System.Threading.Interlocked.Read(ref mlMixTicks);
+
+        if (mfHealthSince < 0f)
+        {
+            mfHealthSince = lfNow;
+            mlFramesAtCheck = llFrames;
+            mlTicksAtCheck = llTicks;
+
+            return;
+        }
+
+        float lfSeconds = lfNow - mfHealthSince;
+
+        if (lfSeconds < HealthSeconds)
+            return;
+
+        double ldFed = (llFrames - mlFramesAtCheck) / (lfSeconds * (double)miOutputRate);
+        double ldBusy = (llTicks - mlTicksAtCheck) / (double)System.Diagnostics.Stopwatch.Frequency / lfSeconds;
+
+        mfHealthSince = lfNow;
+        mlFramesAtCheck = llFrames;
+        mlTicksAtCheck = llTicks;
+
+        if (ldFed >= 0.9 && ldBusy <= 0.5)
+            return;
+
+        miHealthReports++;
+        Debug.LogWarning(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+            "[Audio] In the last {0:0.0} s the filter mixed {1:0} % of the output's samples and mixing took {2:0} % of the time (music on {3}).",
+            lfSeconds, ldFed * 100.0, ldBusy * 100.0, MusicDevice));
     }
 
     private void OnDestroy()

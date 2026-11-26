@@ -117,7 +117,7 @@ on purpose is listed in [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md), open points in
 - A modern readable font, and optional aids: dealing the attribute points yourself, skill raises without
   randomness or with rolls that stay the same after loading, and in the first game the lizardmen's words with their
   meanings
-- Languages: Underworld Revisited's own texts in English or German; the games' texts by language files a
+- Languages: Underworld Revisited's own texts in English, German or Greek; the games' texts by language files a
   translator publishes, Chinese, Japanese and Korean included ([Translating](Docs/TRANSLATING.md))
 - A rule set (`rules.json`) that changes the games' numbers, and mods: the `.uwmod` packages of the
   [Underworld Editor (Avalonia)](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia) and picture

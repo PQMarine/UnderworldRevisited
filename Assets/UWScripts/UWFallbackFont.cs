@@ -218,7 +218,7 @@ public sealed class UWFallbackFont : IUWGlyphSource
             if (!lOEntry.Usable)
                 continue;
 
-            if (UWFallbackGlyphs.Build(pOFont, lfRatio, piSize => fRaster(lOEntry, (char)piCode, piSize), out pOGlyph))
+            if (UWFallbackGlyphs.Build(pOFont, lfRatio, piSize => fRaster(lOEntry, (char)piCode, piSize), out pOGlyph, piCode))
                 return true;
         }
 

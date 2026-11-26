@@ -17,6 +17,8 @@ namespace UWDataImport.UWData
 
 		public int LevelUpString => LevelUpMessage;
 
+		public int TickSeconds => UWPlayerTick.Seconds;
+
 		public int ExplorationWeight(int piDungeonLevel) => piDungeonLevel;
 
 		public bool HasOrbLair => true;

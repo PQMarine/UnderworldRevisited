@@ -1973,6 +1973,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         for (int liAt = 0; liAt < liCount; liAt++)
             liShelf[liAt] = pORunes[liAt];
 
+        // A laid spell counts as a whole spell: the next rune clicked by hand starts a new shelf, as after a cast - the same
+        // rule as the first game's UWRuneShelfModel.Put (per user 2026-11-26).
+        msbCastSinceRune = true;
         fSetShelf(liShelf, liCount);
     }
 
@@ -2994,7 +2997,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (UWTalkRulesUw2.IsWisp(lOThing))
             lOThing = UWTalkRulesUw2.WispSpeaker();
 
-        UWTalkRulesUw2.AnswerEnum leAnswer = UWTalkRulesUw2.Answer(lOThing, mOData.Conversations, false, UWGameProfiles.Uw2.Conversation, out int liSlot);
+        // TimeStop: no one answers while time stands (uw2 conv/CONVERSE.C:114; duplication audit K16, 2026-11-26 - it passed
+        // false, so Freeze Time never kept a talk off).
+        UWTalkRulesUw2.AnswerEnum leAnswer = UWTalkRulesUw2.Answer(lOThing, mOData.Conversations, UWCharacter.TimeIsFrozen,
+            UWGameProfiles.Uw2.Conversation, out int liSlot);
 
         if (leAnswer == UWTalkRulesUw2.AnswerEnum.NotACreature || leAnswer == UWTalkRulesUw2.AnswerEnum.NoResponse)
         {
@@ -4998,16 +5004,22 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
     private void fChoose(CommandEnum peCommand)
     {
-        // Paralysed or swimming, fight is not chosen (deal_with_icons, INTERACT.C:676: paralyzed or motion_state bit 0).
-        if (peCommand == CommandEnum.Fight && (UWVitalsUw2.PlayerParalysed || UWVitalsUw2.PlayerAsleepInVoid
-            || (UWScene.PlayerTerrain != null && UWScene.PlayerTerrain.IsSwimming)))
-            return;
-
         // AN OBJECT ON THE POINTER: no icon answers (deal_with_icons returns while GameInputMode is set, INTERACT.C:647) -
         // per user in the original 2026-11-17, with a blackrock gem on the pointer every icon stayed still. Until then
         // ours held back the options icon alone.
         if (mOInventory != null && mOInventory.CursorItem != null)
             return;
+
+        // Paralysed, asleep in the Void or swimming, fight is not chosen and NO command stays lit: the old one was
+        // unselected before the test sets the mode to none (deal_with_icons, uw2 ui/INTERACT.C:668-678; duplication audit
+        // U14, 2026-11-26 - ours returned and left the old command lit).
+        if (peCommand == CommandEnum.Fight && (UWVitalsUw2.PlayerParalysed || UWVitalsUw2.PlayerAsleepInVoid
+            || (UWScene.PlayerTerrain != null && UWScene.PlayerTerrain.IsSwimming)))
+        {
+            Command = CommandEnum.None;
+
+            return;
+        }
 
         // The options icon opens the panel's game page.
         if (peCommand == CommandEnum.Options)

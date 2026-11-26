@@ -1187,6 +1187,10 @@ namespace UnderworldRevisited.Tools
 
             public bool IceHoldsPlacedObjects => false;
 
+            public bool NothingRestsInVoid => true;
+
+            public bool StrikesMobilesAgain(int piItemId) => false;
+
             public int WaterLandingSound(int piMass, out int piVolume) { piVolume = 0; return 5; }
         }
 
@@ -1248,6 +1252,8 @@ namespace UnderworldRevisited.Tools
         {
             public bool TriesDoor(int piAttitude) => true;
 
+            public bool MayOpenDoorsOn(int piDungeonLevel) => true;
+
             public int DeathCry(UWObjectClassProperties.Critter pORow) => 77;
 
             public int FootstepSound(int piCategory, int piFrame) => -1;
@@ -1282,6 +1288,8 @@ namespace UnderworldRevisited.Tools
         private sealed class SpyPlayer : IUWPlayerVariant
         {
             public int LevelUpString => 148;
+
+            public int TickSeconds => 21;
 
             public int ExplorationWeight(int piDungeonLevel) => piDungeonLevel;
 

@@ -26,11 +26,16 @@ namespace UWDataImport.UWData
 
 		private const int SequenceDie = 7;
 
-		/// <summary>Any creature tries the door (PATHFIND.C:1282); level 10's exception needs the level.</summary>
+		/// <summary>Any creature tries the door (PATHFIND.C:1282); level 10's exception is MayOpenDoorsOn.</summary>
 		public bool TriesDoor(int piAttitude)
 		{
 			return true;
 		}
+
+		/// <summary>The Prison Tower's second level (10): no creature opens a door (PATHFIND.C:1394).</summary>
+		public const int NoDoorsLevel = 10;
+
+		public bool MayOpenDoorsOn(int piDungeonLevel) => piDungeonLevel != NoDoorsLevel;
 
 		/// <summary>crit_die (AI.C:1437, UW2 plan phase 5 part B): the death kind, the row's byte 8 low three bits - 0
 		/// silent, 2, 3 and 4 the effects 0x22, 0x23 and 0x24, 1 and the rest effect 6. The original reads the kind of

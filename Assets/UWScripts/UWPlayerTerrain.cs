@@ -303,7 +303,7 @@ public class UWPlayerTerrain : MonoBehaviour
         UWShades.Entry lOShade;
 
         if (mOLighting != null && mOLevelLoader.UWDataImporter.Shades != null
-            && mOLevelLoader.UWDataImporter.Shades.TryGet(mOLighting.LightLevel, out lOShade))
+            && mOLevelLoader.UWDataImporter.Shades.TryGet(mOLighting.GameLightLevel, out lOShade))
             return lOShade.ViewingDistance;
 
         return UWExplorationRules.RenderBandMaxDepth;
@@ -316,7 +316,7 @@ public class UWPlayerTerrain : MonoBehaviour
         if (mOLighting == null)
             mOLighting = UWScene.Lighting;
 
-        return mOLighting != null ? mOLighting.LightLevel : -1;
+        return mOLighting != null ? mOLighting.GameLightLevel : -1;
     }
 
     /// <summary>Awards the exploration experience of one evaluation - see UWExplorationRules.</summary>

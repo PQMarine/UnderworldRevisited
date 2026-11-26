@@ -102,6 +102,9 @@ of what is built was also read out of the original's executable.
   interface checked against the original area by area (0.25.0), the modern interface the first
   game's with its presets and the layout editor (0.24.0), the gamepad on all its screens, its own
   translation kit and rule-set template, the documentation for two games
+- Greek (0.27.0): Underworld Revisited's own texts, from a translator, drawn in the classic look
+  with the language's font; the first batch of a second code cleanup, which read rules of Ultima
+  Underworld II again in the original and measures its hand's reach as the original does
 
 ## Next
 
@@ -159,11 +162,10 @@ of what is built was also read out of the original's executable.
 
 ## Open: translations
 
-- **Other scripts.** Chinese, Japanese and Korean work in the modern font, in the classic look too
-  (a translation switches its texts to that font); tried with a made-up test language, not yet
-  with a real translation. The original's pixel fonts would need letters of their own, and names in
-  save games keep the original's bytes. Cyrillic and others like it: built when a translator
-  comes forward.
+- **Other scripts.** Greek works in the classic look with the language's font since 0.27.0, the
+  first real translation in another script. Chinese, Japanese and Korean work in the modern font,
+  in the classic look too (a translation switches its texts to that font); tried with a made-up
+  test language, not yet with a real translation. Names in save games keep the original's bytes.
 
 ## Later
 

@@ -53,7 +53,11 @@ namespace UWDataImport.UWData
 	///   - THE PLACE: on the baseline below the 'H' (the rows under it are the descenders'), moved up or
 	///     down only as far as needed to stay inside the rows; from the pen position at its bearing.
 	///   - THE WIDTH: the font's advance, at least the ink and one free column - the original's glyphs
-	///     carry their spacing in their width (UWTextLayout.CharacterSpacing is 0).
+	///     carry their spacing in their width (UWTextLayout.CharacterSpacing is 0). At most MaxFreeColumns
+	///     free columns right of the ink, though (per user 2026-11-26, the Greek "χαρακτή ρα" in UW2's
+	///     menu: Segoe UI's eta with tonos, 15 rows tall, six pixels of ink and an advance of nine) - except a
+	///     Chinese, Japanese or Korean character (UWLanguageFont.IsCjk), whose punctuation takes its full width
+	///     on purpose.
 	/// The colour is the original's: a glyph is ink or not, UWTextRaster colours it.
 	/// </summary>
 	public static class UWFallbackGlyphs
@@ -110,7 +114,8 @@ namespace UWDataImport.UWData
 		/// The glyph of a character for pOFont (see the class): pRasterAt rasterises the character at a
 		/// size. False when the language's font does not have it.
 		/// </summary>
-		public static bool Build(UWFont pOFont, float pfCapRatio, Func<int, UWRasterGlyph> pRasterAt, out UWFont.Glyph pOGlyph)
+		public static bool Build(UWFont pOFont, float pfCapRatio, Func<int, UWRasterGlyph> pRasterAt, out UWFont.Glyph pOGlyph,
+			int piCode = -1)
 		{
 			pOGlyph = default;
 
@@ -144,7 +149,7 @@ namespace UWDataImport.UWData
 					lOGlyph = lOLarger;
 			}
 
-			pOGlyph = Place(pOFont, liBaseline, lOGlyph);
+			pOGlyph = Place(pOFont, liBaseline, lOGlyph, piCode);
 
 			return true;
 		}
@@ -163,15 +168,21 @@ namespace UWDataImport.UWData
 			return false;
 		}
 
+		/// <summary>The most free columns right of a character's ink (see the class, THE WIDTH).</summary>
+		public const int MaxFreeColumns = 2;
+
 		/// <summary>A rasterised character on the original font's baseline (see the class); rows beyond the
-		/// font's are cut.</summary>
-		public static UWFont.Glyph Place(UWFont pOFont, int piBaseline, UWRasterGlyph pOGlyph)
+		/// font's are cut. piCode: the character, for the width's limit (-1: the advance as it is).</summary>
+		public static UWFont.Glyph Place(UWFont pOFont, int piBaseline, UWRasterGlyph pOGlyph, int piCode = -1)
 		{
 			int liHeight = pOFont.Height;
 			bool lbInk = pOGlyph.Width > 0 && pOGlyph.Height > 0 && pOGlyph.Pixels != null
 				&& pOGlyph.Pixels.Length >= pOGlyph.Width * pOGlyph.Height;
 			int liLeft = Math.Max(0, pOGlyph.BearingX);
-			int liWidth = lbInk ? Math.Max(pOGlyph.Advance, liLeft + pOGlyph.Width + 1) : Math.Max(1, pOGlyph.Advance);
+			int liInkEnd = liLeft + pOGlyph.Width;
+			bool lbKeepAdvance = piCode < 0 || piCode > char.MaxValue || UWLanguageFont.IsCjk((char)piCode);
+			int liAdvance = lbKeepAdvance ? pOGlyph.Advance : Math.Min(pOGlyph.Advance, liInkEnd + MaxFreeColumns);
+			int liWidth = lbInk ? Math.Max(liAdvance, liInkEnd + 1) : Math.Max(1, pOGlyph.Advance);
 			byte[] lyPixels = new byte[liWidth * liHeight];
 
 			if (lbInk)

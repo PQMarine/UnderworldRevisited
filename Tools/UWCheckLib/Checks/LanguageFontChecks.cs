@@ -175,7 +175,7 @@ namespace UnderworldRevisited.Tools
             {
                 Asked++;
 
-                return UWFallbackGlyphs.Build(pOFont, 0.75f, piSize => fMadeUpRaster((char)piCode, piSize), out pOGlyph);
+                return UWFallbackGlyphs.Build(pOFont, 0.75f, piSize => fMadeUpRaster((char)piCode, piSize), out pOGlyph, piCode);
             }
         }
 
@@ -213,6 +213,15 @@ namespace UnderworldRevisited.Tools
             UWFallbackGlyphs.Build(lOFont, 0.75f, piSize => fMadeUpRaster('、', piSize), out UWFont.Glyph lOComma);
             Check.Str("fit: a mark rasterised away at its size taken one size larger", fRows(lOComma, 6), "...|...|...|...|##.|...");
             fExpectBool("fit: a character the font lacks", UWFallbackGlyphs.Build(lOFont, 0.75f, piSize => fMadeUpRaster('ก', piSize), out _), false);
+
+            // THE WIDTH'S LIMIT (per user 2026-11-26, the Greek eta with tonos): three ink columns, an advance of eight.
+            UWRasterGlyph lONarrow = new UWRasterGlyph { Found = true, Width = 3, Height = 2, BearingX = 0, BearingY = 2, Advance = 8,
+                Pixels = new byte[] { 1, 1, 1, 1, 0, 1 } };
+            fExpectInt("width: a Greek letter keeps at most two free columns", UWFallbackGlyphs.Place(lOFont, liBaseline, lONarrow, 'ή').Width, 5);
+            fExpectInt("width: a Chinese or Japanese sign keeps its advance", UWFallbackGlyphs.Place(lOFont, liBaseline, lONarrow, '。').Width, 8);
+            fExpectInt("width: without the character the advance as it is", UWFallbackGlyphs.Place(lOFont, liBaseline, lONarrow).Width, 8);
+            lONarrow.Advance = 2;
+            fExpectInt("width: at least the ink and one free column", UWFallbackGlyphs.Place(lOFont, liBaseline, lONarrow, 'ή').Width, 4);
 
             // The fonts' fallback: beyond ASCII only, once per character, forgotten when it changes.
             MadeUpGlyphSource lOSource = new MadeUpGlyphSource();

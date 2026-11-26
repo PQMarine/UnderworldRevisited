@@ -464,10 +464,12 @@ public class UWLevelLoader : MonoBehaviour
     /// <summary>
     /// THE SECOND GAME'S TELEPORT IN ITS SESSION (UW2 plan phase 2 step 5; new_player_pos, see
     /// UWTeleportUw2): the level the target names (0 the one the player is on), the first free tile near
-    /// the target by the strict pass of find_good_x_and_y (the loose pass clears objects, the first
-    /// game's rule - not run; without a free tile the target itself), the player set up there - near the
-    /// ceiling and falling when the trap says so - and turned to its heading. A level that is not in the
-    /// world leaves the player where he is.
+    /// the target by find_good_x_and_y - the strict pass, then the pass that clears what stands in the way, and with
+    /// no room at all the player dies (hp 0), as the first game's TravelTo (uw2 game/UWEDIT.C:479-485; until
+    /// 2026-11-26 only the strict pass ran and the player stood on the target, duplication audit G23) - the player
+    /// set up there, near the ceiling and falling when the trap says so, and turned to its heading. A level that is
+    /// not in the world leaves the player where he is. do_teleport's own test on the same level comes before
+    /// (Uw2TeleportHasRoom).
     /// pbFade: NewPlyFade 3, the view fades out, the move happens at full black, the view fades in
     /// (UWSleepUw2.Blink) - a trap, Portal and Gate Travel. A conversation's teleport clears NewPlyFade
     /// (do_babl_teleport) and death fades by itself (SKILLS.C:846), so those move at once. While a blink waits
@@ -486,6 +488,28 @@ public class UWLevelLoader : MonoBehaviour
             return;
 
         fUw2TeleportNow(pOTarget);
+    }
+
+    /// <summary>
+    /// do_teleport's test on the SAME level (uw2 event/WORLDEV.C:197-205): the target (level 0 or the one the player is
+    /// on, unless a coordinate is 0x3F) must have room by the strict pass before anyone moves - without it nothing
+    /// happens. For the teleports that go through do_teleport (a trap, a spell); a conversation, death, the jail
+    /// and the Void set the move themselves. The first game's TeleportTo has the same test.
+    /// </summary>
+    public bool Uw2TeleportHasRoom(UWTeleportUw2.Target pOTarget)
+    {
+        int liLevel = UWTeleportUw2.LevelOf(pOTarget, miLevelIndex + 1) - 1;
+
+        if (liLevel != miLevelIndex || CurrentLevel == null
+            || pOTarget.TileX == UWArrivalRules.NoSearchCoordinate || pOTarget.TileY == UWArrivalRules.NoSearchCoordinate)
+            return true;
+
+        if (fFindArrivalTile(pOTarget.TileX, pOTarget.TileY, false, out int liX, out int liY))
+            return true;
+
+        Debug.Log(string.Format("[Session] A teleport on this level to tile {0}/{1}: no room, nothing happens.", pOTarget.TileX, pOTarget.TileY));
+
+        return false;
     }
 
     /// <summary>How many teleports the second game's session was asked for (Uw2Teleport, a blink's included) - the
@@ -566,11 +590,26 @@ public class UWLevelLoader : MonoBehaviour
         int liX = pOTarget.TileX;
         int liY = pOTarget.TileY;
 
-        if (fFindArrivalTile(pOTarget.TileX, pOTarget.TileY, false, out int liFoundX, out int liFoundY))
+        // new_player_pos: the strict pass, then the clearing one; nowhere at all - death, without the set-up.
+        bool lbFound = fFindArrivalTile(pOTarget.TileX, pOTarget.TileY, false, out int liFoundX, out int liFoundY)
+            || fFindArrivalTile(pOTarget.TileX, pOTarget.TileY, true, out liFoundX, out liFoundY);
+
+        if (!lbFound)
         {
-            liX = liFoundX;
-            liY = liFoundY;
+            fPlacePlayerAtTile(liX, liY);
+
+            UWWorld lODeathWorld = UWWorld.Of(this);
+
+            if (lODeathWorld != null)
+                lODeathWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.ArrivalNowhere(ArrivalNowhereDamage)));
+
+            Debug.Log(string.Format("[Session] Teleport to level {0}, tile {1}/{2}: no room - the player dies.", miLevelIndex + 1, liX, liY));
+
+            return;
         }
+
+        liX = liFoundX;
+        liY = liFoundY;
 
         if (pOTarget.HasHeading)
             fSetPlayerHeading(UWUnits.AngleToDegrees(pOTarget.Heading));

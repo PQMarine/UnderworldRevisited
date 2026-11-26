@@ -40,7 +40,7 @@ namespace UnderworldRevisited.Tools
             Check.Str("shelf: Put replaces, at most three", fRunes(lOShelf.Selected), "8 11 14");
             lOShelf.Put(new[] { 8, 11 });
             lOShelf.Add(14);
-            Check.Str("shelf: Put forgets the cast", fRunes(lOShelf.Selected), "8 11 14");
+            Check.Str("shelf: a laid spell counts as a whole one, the next rune starts anew (per user 2026-11-26)", fRunes(lOShelf.Selected), "14");
 
             lOShelf.Put(new[] { 8, 11 });
             fExpectInt("shelf: In Lor is sequence 8568", lOShelf.Sequence, 8568);

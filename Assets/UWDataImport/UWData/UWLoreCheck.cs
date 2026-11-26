@@ -176,6 +176,28 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// THE CARRIED THINGS TOO (per user 2026-11-26, test list 248.5: a potion in the pack was never looked at anew
+		/// after Lore rose): clear_all_loretries walks every tile's chain with Obj_Check, which goes into each object's
+		/// contents - and the player object lies in its tile's chain with the inventory as its contents
+		/// (ThePlayer->ol.link), so the pack, the worn things and what lies in the bags are cleared as well (uw1 and uw2
+		/// event/WORLDEV.C, obj/OBJECTS.C Obj_Check). Ours keeps the inventory beside the level's list: it is walked
+		/// here (UWInventoryModel.EnumerateAll). The thing on the pointer is in no chain and keeps its mark.
+		/// </summary>
+		public static void ResetAttempts(IEnumerable<UWObject> pOCarried, UWCommonObjectProperties pOCommon)
+		{
+			if (pOCarried == null)
+				return;
+
+			foreach (UWObject lOObject in pOCarried)
+			{
+				if (lOObject == null || !CanBeIdentified(lOObject, pOCommon))
+					continue;
+
+				lOObject.Heading = (ushort)(lOObject.Heading & ResultMask);
+			}
+		}
+
+		/// <summary>
 		/// Sets an item permanently to the highest level - the Name Enchantment
 		/// spell. For this the reference simply writes seven into the heading,
 		/// i.e. "already attempted" plus level three, and checks the same exclusions as the

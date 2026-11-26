@@ -122,6 +122,17 @@ namespace UWDataImport.UWData
 			return liHeight <= liFactor * lORules.Below && liHeight >= -(liFactor * lORules.Above);
 		}
 
+		/// <summary>The second game's swimmer reaches lower (InPickRange, uw2 ui/INTERACT.C:154-155): dz -= swim_count &gt;&gt; 3
+		/// once the swim counter passes 0x50 - the amount to take off the player's height for the window. The first game
+		/// has no such term (see CanReach).</summary>
+		public static int SwimLowering(int piSwimCount)
+		{
+			return piSwimCount > SwimLoweringFrom ? piSwimCount >> 3 : 0;
+		}
+
+		/// <summary>The swim counter above which the second game's reach goes lower.</summary>
+		public const int SwimLoweringFrom = 0x50;
+
 		/// <summary>
 		/// THE TERRAIN BETWEEN (BlockingTerrain, UnderworldExhumed ui/INTERACT.C), the second test
 		/// next to CanReach for use, take and the target mode. Only for a thing off the player's

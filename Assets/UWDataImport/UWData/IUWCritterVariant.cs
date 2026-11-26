@@ -15,6 +15,11 @@ namespace UWDataImport.UWData
 		/// PATHFIND.C:1282 and :1394).</summary>
 		bool TriesDoor(int piAttitude);
 
+		/// <summary>Whether a creature that tries a door may open it on this level (1-based): try_to_open_door returns at
+		/// once on UW2's level 10, the Prison Tower's second, where no creature opens a door (uw2 critter/PATHFIND.C:1394;
+		/// duplication audit K15, 2026-11-26). The creature is then neither blocked nor through: it bumps on.</summary>
+		bool MayOpenDoorsOn(int piDungeonLevel);
+
 		/// <summary>The sound a dying creature cries, or -1 for none (UW1: effect 6 when the row's byte
 		/// 8 says so, AI.C:1441; UW2: one of four by the death kind, AI.C:1437).</summary>
 		int DeathCry(UWObjectClassProperties.Critter pORow);

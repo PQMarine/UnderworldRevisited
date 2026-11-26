@@ -132,9 +132,27 @@ public sealed class UWSleepUw2 : MonoBehaviour
             return;
         }
 
-        IUWWorld lONight = UWScopedWorld.With(lOWorld, new NightPresentation(this, lOWorld.Presentation, lOWorld.Data));
+        // The dream plant's night ends in the Void with "Your dreams are vivid..." alone: dream() goes to go_void before its
+        // "You feel rested." (uw2 game/SKILLS.C:340-346; duplication audit K22, 2026-11-26). Every other night has the
+        // line, passing out too (SKILLS.C:374, 380, 541).
+        // A night while Killorn Keep falls crashes it at once (UWVoidRulesUw2.KeepCrashesInSleep): the player dies before
+        // the night's last line.
+        bool lbKeepCrashes = UWVoidRulesUw2.KeepCrashesInSleep(lOFile);
+        NightPresentation lONightShown = new NightPresentation(this, lOWorld.Presentation, lOWorld.Data)
+        {
+            SkipsRestedLine = lbKeepCrashes || (!pbPassedOut && lOFile != null && UWVoidRulesUw2.DreamIsVoid(lOFile))
+        };
+        IUWWorld lONight = UWScopedWorld.With(lOWorld, lONightShown);
 
         bool lbSlept = UWSleepRules.Sleep(lOPlayer.Vitals, liLevel, lONight, pbPassedOut, pbBedroll, pbBed);
+
+        if (lbKeepCrashes && (lbSlept || pbPassedOut))
+        {
+            UWLevelHacksUw2.KeepCrashed(lOFile);
+            UWScheduleHostUw2.RunAll();
+            Debug.Log("[Session] Asleep while Killorn Keep falls: it crashes.");
+            lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Plain(UWVoidRulesUw2.CrashDamage, UWDamageTypes.None)));
+        }
 
         // The night's music: the world's first walking theme as the night begins, a walking theme by chance on waking
         // (player_sleep, SKILLS.C:452, :487, :555; UW2 plan phase 5 part A). Ours sleeps in one step: both at once.
@@ -396,6 +414,16 @@ public sealed class UWSleepUw2 : MonoBehaviour
         return new NightPresentation(this, pOWorld.Presentation, pOWorld.Data);
     }
 
+    /// <summary>
+    /// The second game's scroll for a world's lines, wherever a host is made: the world's own presentation writes to the
+    /// first game's Interaction, idle in the second (duplication audit G24, 2026-11-26: the tym rune's "You feel your
+    /// limbs stiffen." went there and was lost, so did the lines of a rune touched in the motion host and of a spell trap).
+    /// </summary>
+    public static IUWPresentation ScrollOf(UWWorld pOWorld)
+    {
+        return Current != null ? Current.ScrollPresentation(pOWorld) : pOWorld.Presentation;
+    }
+
     /// <summary>The night's lines go to the second game's scroll by its own block, the black to the session's view; a
     /// cutscene to the world's presentation; the first game's night theme is dropped, the second's comes from fSleep. The rest is the world's.</summary>
     private sealed class NightPresentation : IUWPresentation
@@ -415,6 +443,9 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
         public bool ShowsMessages => true;
 
+        /// <summary>The night's last line is left out (the dream plant's night, see fSleep).</summary>
+        public bool SkipsRestedLine;
+
         public void AddMessage(string psMessage)
         {
             UWGameScreenUw2.Say(psMessage);
@@ -422,6 +453,9 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
         public void AddGeneralMessage(int piIndex)
         {
+            if (SkipsRestedLine && UWSleepRules.IsRestedLine(piIndex))
+                return;
+
             UWGameScreenUw2.Say(UWText.General(mOData, piIndex));
         }
 

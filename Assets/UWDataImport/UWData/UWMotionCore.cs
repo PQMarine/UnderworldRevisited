@@ -1077,7 +1077,7 @@ namespace UWDataImport.UWData
 				// Mobile against mobile: a non-creature mover collides with a mobile only once.
 				if (Mover.IsMobile && lOOther.IsMobile)
 				{
-					if (!Mover.IsCreature && Mover.CollidedWithMobile)
+					if (!Mover.IsCreature && Mover.CollidedWithMobile && !fStrikesAgain(Mover.ItemId))
 						return 2;
 
 					Mover.CollidedWithMobile = true;
@@ -1104,6 +1104,14 @@ namespace UWDataImport.UWData
 				Mover.CollidedWithMobile = false;
 
 			return fTransferMomentum(lbOther, lOOther);
+		}
+
+		/// <summary>Whether the mover strikes a mobile again after it struck one (IUWMotionVariant.StrikesMobilesAgain).</summary>
+		private bool fStrikesAgain(int piItemId)
+		{
+			UWGameSession lOSession = mOWorld != null ? mOWorld.Session : null;
+
+			return lOSession != null && lOSession.Game.Motion.StrikesMobilesAgain(piItemId & 0x1FF);
 		}
 
 		/// <summary>seg029_29EE_3: the struck object gets the mover's heading, speed 0xEB and a

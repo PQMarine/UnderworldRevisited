@@ -1293,6 +1293,31 @@ namespace UWDataImport.UWData
 			[UWClassicLayout.Exe("uw2 ui/MAINMENU.C:109 while ((w = string_width(s[i])) > 0x13E)")]
 			public const int ListWidth = 0x13E;
 
+			/// <summary>A TRANSLATED CAPTION in the buttons' own colours (per user 2026-11-26: the German captions came out green,
+			/// the first game's save list colours read from this palette). Idle the letters' body of the idle pictures (52,52,52,
+			/// the save list's ListColour too), with a light edge left and below; lit the lit pictures' lavender body (140,140,168)
+			/// with a dark red edge left and below.</summary>
+			[UWClassicLayout.Measured("OPBTN.GR 0, 2, 4, 6 on palette 2: the idle letters' most frequent colour")]
+			public const int CaptionColour = 0xCD;
+
+			/// <summary>The lit picture's light lavender (184,184,204), not its body (140,140,168, index 154): per user 2026-11-26 the
+			/// broad FONTBIG letters in the body's tone still read dark red beside their edge; the painted letters show this
+			/// lighter tone on their upper side.</summary>
+			[UWClassicLayout.Measured("OPBTN.GR 1, 3, 5, 7 on palette 2: the lit letters' light lavender (184,184,204), 123 pixels on button 1")]
+			public const int CaptionLitColour = 152;
+
+			[UWClassicLayout.Measured("OPBTN.GR 0, 2, 4, 6 on palette 2: the light edge (188,188,188), mostly two left and one below the ink")]
+			public const int CaptionEdge = 196;
+
+			[UWClassicLayout.Measured("OPBTN.GR 1, 3, 5, 7 on palette 2: the dark red edge (60,0,0), one or two left and one below the ink")]
+			public const int CaptionLitEdge = 37;
+
+			/// <summary>The edge's copies of a caption: left by these pixels, one row down. One copy only (per user 2026-11-26,
+			/// "sieht komisch aus"): the painted letters are broad and their edge a rim, FONTBIG's strokes are one or two
+			/// pixels wide, so the second copy of the measured two outweighed the ink - idle read light, lit dark red.</summary>
+			[UWClassicLayout.Measured("OPBTN.GR on palette 2: the edges lie one and two pixels left of the ink, one row below; one taken")]
+			public static readonly int[] CaptionEdgeLeft = { 1 };
+
 			/// <summary>"You reenter the Underworld . . ." (block 1, 0x111 - get_string(0x311)) in colour 7,
 			/// ten columns right of centre, on y 0x5A.</summary>
 			[UWClassicLayout.Exe("uw2 ui/MAINMENU.C:382 get_string(0x311)")]

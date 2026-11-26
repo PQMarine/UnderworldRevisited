@@ -333,16 +333,44 @@ public class UWLighting : MonoBehaviour
     }
 
     /// <summary>
+    /// THE LIGHT LEVEL OF THE RULES: what the player sees by in the game's terms - the rows the light reaches for the
+    /// automap's exploration (UWPlayerTerrain) and the second game's view distance (UWWorldViewUw2) - in EVERY render
+    /// mode. LightLevel leaves the second game's level minimum out under Remastered, where it is drawn as ambient
+    /// light instead, and until 2026-11-26 the rules read that, so the render mode changed what the player explored
+    /// (cleanup plan 2, section 2 item 1). The minimum always counts here, as set_light(max(light_act, loc_lght))
+    /// does (uw2 game/PLAYDATA.C:413-416).
+    /// </summary>
+    public int GameLightLevel
+    {
+        get
+        {
+            if (mbDebugBrightnessOverride)
+                return UWDataImport.UWData.UWShades.EntryCount - 1;
+
+            return Mathf.Clamp(fBrightness(true), 0, UWDataImport.UWData.UWShades.EntryCount - 1);
+        }
+    }
+
+    /// <summary>
     /// THE ONE HOME of the player's brightness: level 6 while Roaming Sight is active or a
     /// crystal ball shows its vision (UWMiscSpellRules.RemoteViewLightLevel, set_light(6) in
     /// FixPlayerEquips and crystal_ball), otherwise the larger of carried and cast brightness.
     /// </summary>
     private int fBrightness()
     {
-        if (mbRoamingSightLight || miCrystalBallViews > 0)
-            return UWDataImport.UWData.UWMiscSpellRules.RemoteViewLightLevel;
+        return fBrightness(false);
+    }
 
-        return Mathf.Max(Mathf.Max(CarriedBrightness, miMagicBrightness), fMinimumAsAmbient ? 0 : LevelMinimum);
+    /// <summary>pbForRules: the level's minimum counts even where Remastered draws it as ambient (GameLightLevel).</summary>
+    private int fBrightness(bool pbForRules)
+    {
+        int liMinimum = fMinimumAsAmbient && !pbForRules ? 0 : LevelMinimum;
+
+        // WizEye's 6 is compared with the level's minimum like any light (uw2 game/PLAYDATA.C:413-416).
+        if (mbRoamingSightLight || miCrystalBallViews > 0)
+            return Mathf.Max(UWDataImport.UWData.UWMiscSpellRules.RemoteViewLightLevel, liMinimum);
+
+        return Mathf.Max(Mathf.Max(CarriedBrightness, miMagicBrightness), liMinimum);
     }
 
     /// <summary>Whether the level's minimum light is drawn as ambient light (Remastered) rather than as the player's

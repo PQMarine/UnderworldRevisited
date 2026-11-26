@@ -314,6 +314,9 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         public Texture2D Head;
 
         public float Top;
+
+        /// <summary>The head's height, measured with its top (fPlaceSpeakerHeads).</summary>
+        public float Height;
     }
 
     private readonly List<SpeakerMark> mOSpeakerMarks = new List<SpeakerMark>();
@@ -324,6 +327,9 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     private float mfSpeakersWidth = -1f;
 
     private int miSpeakersFontSize = -1;
+
+    /// <summary>The face the heads were measured in: a switch (F, the Interface window) measures them anew.</summary>
+    private UWUiFonts.FaceEnum meSpeakersFace;
 
     /// <summary>A head's height in font sizes.</summary>
     private const int SpeakerHeadFontSizes = 3;
@@ -961,17 +967,32 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     /// <summary>The heads over their empty lines; measured anew when the text, its width or its size changed.</summary>
     private void fPlaceSpeakerHeads(float pfWidth, float pfContent, int piFontSize)
     {
-        if (mOSpeakerMarks.Count > 0 && (!Mathf.Approximately(pfWidth, mfSpeakersWidth) || piFontSize != miSpeakersFontSize))
+        // Measured anew when the width, the size or THE FACE changed (per user 2026-11-26, Classic Wide after F: the head
+        // stayed where the other face had put it, over the earlier text) - each part first given the font it shows now
+        // (UWUiFonts.ApplyNow), else it measures with last frame's.
+        if (mOSpeakerMarks.Count > 0 && (!Mathf.Approximately(pfWidth, mfSpeakersWidth) || piFontSize != miSpeakersFontSize
+            || UWUiFonts.Face != meSpeakersFace))
         {
             mfSpeakersWidth = pfWidth;
             miSpeakersFontSize = piFontSize;
+            meSpeakersFace = UWUiFonts.Face;
 
             foreach (SpeakerMark lOMark in mOSpeakerMarks)
             {
                 Text lOPart = mOHistoryTexts[lOMark.Part];
+                float lfUnit = lOPart.pixelsPerUnit > 0f ? lOPart.pixelsPerUnit : 1f;
+                UWUiFonts.ApplyNow(lOPart);
+
+                TextGenerationSettings lOSettings = lOPart.GetGenerationSettings(new Vector2(pfWidth, 0f));
 
                 lOMark.Top = string.IsNullOrEmpty(lOMark.TextBefore) ? 0f
-                    : lOPart.cachedTextGeneratorForLayout.GetPreferredHeight(lOMark.TextBefore, lOPart.GetGenerationSettings(new Vector2(pfWidth, 0f))) / lOPart.pixelsPerUnit;
+                    : lOPart.cachedTextGeneratorForLayout.GetPreferredHeight(lOMark.TextBefore, lOSettings) / lfUnit;
+
+                // In the original's face the head fills the text lines made for it (fHeadRoom), in the modern one the line
+                // as tall as the head.
+                lOMark.Height = meHistoryFace == UWUiFonts.FaceEnum.Original
+                    ? lOPart.cachedTextGeneratorForLayout.GetPreferredHeight(fHeadRoom(piFontSize), lOSettings) / lfUnit
+                    : piFontSize * SpeakerHeadFontSizes;
             }
         }
 
@@ -993,17 +1014,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
                 continue;
 
             SpeakerMark lOMark = mOSpeakerMarks[liAt];
-            float lfHeight = piFontSize * SpeakerHeadFontSizes;
-
-            // In the original's face the head fills the text lines made for it (fHeadRoom), measured in its part.
-            if (meHistoryFace == UWUiFonts.FaceEnum.Original && lOMark.Part < mOHistoryTexts.Count)
-            {
-                Text lOPart = mOHistoryTexts[lOMark.Part];
-                float lfUnit = lOPart.pixelsPerUnit > 0f ? lOPart.pixelsPerUnit : 1f;
-
-                lfHeight = lOPart.cachedTextGeneratorForLayout.GetPreferredHeight(fHeadRoom(piFontSize),
-                    lOPart.GetGenerationSettings(new Vector2(pfWidth, 0f))) / lfUnit;
-            }
+            float lfHeight = lOMark.Height > 0f ? lOMark.Height : piFontSize * SpeakerHeadFontSizes;
             float lfWidth = lfHeight * lOMark.Head.width * UWModernHudArt.PixelAspectX / lOMark.Head.height;
 
             mOSpeakerHeads[liAt].texture = lOMark.Head;
@@ -1567,6 +1578,11 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         mfScroll = Mathf.Clamp(mfScroll, 0f, lfMaxScroll);
         mOHistoryBody.anchoredPosition = new Vector2(0f, lfContent <= lOView.height ? lOView.height - lfContent : -mfScroll);
         mOHistoryBody.sizeDelta = new Vector2(lOView.width, lfContent);
+
+        // The speakers' heads in the original look too (per user 2026-11-26, Classic Wide, 4:3 and the modern scheme with
+        // the classic dialog look: the room stood empty - the heads came with the modern look on 2026-10-31, the second
+        // game's original look on 2026-11-24, and its layout never placed them).
+        fPlaceSpeakerHeads(lOView.width, lfContent, liFontSize);
 
         // The answers on their own parchment, from its top down.
         mOAnswersBack.texture = mOOrigAnswers;

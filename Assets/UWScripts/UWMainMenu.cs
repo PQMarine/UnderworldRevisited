@@ -163,6 +163,9 @@ public class UWMainMenu : MonoBehaviour
     private int miHover = -1;
     private Mode meMode = Mode.Hidden;
     private bool mbAutoShowDone;
+
+    /// <summary>A sequence played last frame (UWScene.IntroPlayer), for the second game's menu theme after it.</summary>
+    private bool mbSequenceWasPlaying;
     private int miStartFrame;
     private UWIntroPlayer mOIntro;
     private UWCharacterCreationScreen mOCharacterCreation;
@@ -351,6 +354,19 @@ public class UWMainMenu : MonoBehaviour
         // in place of the provisional system arrow.
         if (IsOpen && IsUw2Menu && meMode != Mode.Hidden && meMode != Mode.Cutscene)
             UWMenuPointerUw2.Apply(mOData);
+
+        // THE SECOND GAME'S MENU THEME AFTER ANY SEQUENCE OVER IT (per user 2026-11-26, a first start on the Linux laptop:
+        // after the introduction the menu kept its music): without a save the opening plays cutscenes 0 and 1 itself
+        // (UWSplashSequence.AfterSplashScreens, real_start's do_intro_scene), past this menu's own Cutscene mode, which is
+        // the only one that asked for theme 1 again (MAINMENU.C:147). Ended or cancelled, the menu asks for it now.
+        UWIntroPlayer lOSequence = UWScene.IntroPlayer;
+        bool lbSequencePlaying = lOSequence != null && lOSequence.IsPlaying;
+
+        if (mbSequenceWasPlaying && !lbSequencePlaying && IsOpen && IsUw2Menu && meMode != Mode.Cutscene
+            && meMode != Mode.CharacterCreation)
+            UWAudioService.Uw2RequestNow(UWMusicSelectorUw2.MenuTheme);
+
+        mbSequenceWasPlaying = lbSequencePlaying;
 
         AcceptsMenuBar = IsOpen && (meMode == Mode.Buttons || meMode == Mode.SaveList || meMode == Mode.ScreenOnly);
 
@@ -729,6 +745,37 @@ public class UWMainMenu : MonoBehaviour
 
         int liLeft = (lOButton.texture.width - UWScreenUi.ScreenWidth) / 2;
         int liTop = (lOButton.texture.height - CaptionInkRows) / 2 - CaptionInkTop;
+
+        // THE SECOND GAME'S CAPTIONS in its buttons' own colours (UWClassicLayoutUw2.MainMenu.Caption*, per user 2026-11-26:
+        // they came out green in the first game's colours): dark grey idle with a light edge, lavender lit with a dark red
+        // edge, the edge one and two pixels left and one row below, as OPBTN.GR paints them.
+        if (IsUw2Menu)
+        {
+            const int liPalette = UWClassicLayoutUw2.MainMenu.Palette;
+            Color32 lOInk = UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, liPalette,
+                pbLit ? UWClassicLayoutUw2.MainMenu.CaptionLitColour : UWClassicLayoutUw2.MainMenu.CaptionColour));
+            Color32 lOEdge = UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, liPalette,
+                pbLit ? UWClassicLayoutUw2.MainMenu.CaptionLitEdge : UWClassicLayoutUw2.MainMenu.CaptionEdge));
+            int[] liEdgeLeft = UWClassicLayoutUw2.MainMenu.CaptionEdgeLeft;
+
+            // BROAD LETTERS (per user 2026-11-26, "sieht trotzdem seltsam aus"): the painted captions are broad with the
+            // edge as a thin rim, FONTBIG's strokes one pixel wide - the lit lavender drowned in its red edge. The first
+            // copy is the edge left and below, the second the ink again one pixel right, under the caption: every stroke
+            // two pixels wide, the edge showing only at its left and lower side.
+            for (int liShadow = 0; liShadow < CaptionShadowOffsets.Length; liShadow++)
+            {
+                RawImage lOShadow = mOButtonCaptionShadows[piButton, liShadow];
+                bool lbEdge = liShadow < liEdgeLeft.Length;
+
+                UWScreenUi.SetText(lOShadow, lOFont, UWText.T(lsId), lbEdge ? lOEdge : lOInk, UWScreenUi.ScreenWidth, true);
+                UWScreenUi.Place(lOShadow, lbEdge ? liLeft - liEdgeLeft[liShadow] : liLeft + 1, lbEdge ? liTop + 1 : liTop);
+            }
+
+            UWScreenUi.SetText(lOCaption, lOFont, UWText.T(lsId), lOInk, UWScreenUi.ScreenWidth, true);
+            UWScreenUi.Place(lOCaption, liLeft, liTop);
+
+            return;
+        }
 
         // A black shadow below and right of the letters, as the painted captions have it (measured on
         // OPBTN.GR 2026-11-08: one and two pixels; per user, the text was hard to make out on the stone).

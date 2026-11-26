@@ -1039,43 +1039,12 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
             piDistanceSquared, pbUsingPole))
             return ReachEnum.OutOfRange;
 
-        UWLevel lOLevel = mLevelLoader != null ? mLevelLoader.CurrentLevel : null;
-
-        if (!pbTerrain || lOLevel == null)
+        if (!pbTerrain)
             return ReachEnum.Reached;
 
-        UWTerrain lOTerrain = mOUWDataImporter != null ? mOUWDataImporter.Terrain : null;
-
-        bool lbBlocked = UWReachRules.IsBlockedByTerrain(liPlayerX >> 3, liPlayerY >> 3, liPlayerZ,
-            liTargetX >> 3, liTargetY >> 3, liTargetZ, piDistanceSquared, pbUsingPole,
-            (piX, piY) =>
-            {
-                UWTile lOTile = lOLevel.GetTile(piX, piY);
-
-                return lOTile != null ? (lOTile.FloorHeight >> 4) & 0xF : 0;
-            },
-            (piX, piY) =>
-            {
-                UWTile lOTile = lOLevel.GetTile(piX, piY);
-
-                return lOTile != null && lOTerrain != null ? ((int)lOTerrain.GetFloorTerrain(lOTile.TextureFloor) & 0xFF) >> 4 : 0;
-            },
-            (piX, piY) =>
-            {
-                UWTile lOTile = lOLevel.GetTile(piX, piY);
-                int liBridge = -1;
-
-                if (lOTile != null && lOTile.ObjectsInTile != null)
-                {
-                    foreach (UWObject lOObject in lOTile.ObjectsInTile)
-                    {
-                        if (lOObject != null && lOObject.ID == UWObjectIds.Bridge && lOObject.ZPos > liBridge)
-                            liBridge = lOObject.ZPos;
-                    }
-                }
-
-                return liBridge;
-            });
+        // The terrain between, one home for both games since 2026-11-26 (UWReachMeasure).
+        bool lbBlocked = UWReachMeasure.IsBlockedByTerrain(mLevelLoader, liPlayerX, liPlayerY, liPlayerZ,
+            liTargetX, liTargetY, liTargetZ, piDistanceSquared, pbUsingPole);
 
         return lbBlocked ? ReachEnum.Blocked : ReachEnum.Reached;
     }

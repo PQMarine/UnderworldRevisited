@@ -14,7 +14,9 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 {
     public static UWVitalsUw2 Current { get; private set; }
 
-    private readonly UWTickClock mOClock = new UWTickClock(UWPlayerTick.Seconds);
+    /// <summary>The second game's player tick, 20 seconds (UWPlayerVariantUw2.TickLength; uw2 ui/INTERACT.C:116-118). Until
+    /// 2026-11-26 the first game's 21 (duplication audit G1).</summary>
+    private readonly UWTickClock mOClock = new UWTickClock(UWPlayerVariantUw2.TickLength);
 
     private UWPlayerVitals mOVitals;
 
@@ -43,7 +45,13 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         UWInventoryModel lOInventory = UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
 
         if (mOVitals != null)
+        {
             UWArmourProtection.Compute(lOInventory, mOData, mOVitals.ActiveSpells, mOStatus);
+
+            // The stealth of the worn things at once with the pass, as UWCharacter.RefreshStatus sets it (duplication audit
+            // G4, 2026-11-26: here it came only with the next tick).
+            mOVitals.StealthBonus = mOStatus.StealthBonus;
+        }
 
         // THE MOTION SPELLS IN THE SESSION (per user, 2026-11-06: Bouncing did nothing; magic stage 1 left "the motion
         // spells' effect on the walk" open): Leap, Slow Fall, Levitate, Water Walk, Fly and Bouncing, as UWCharacter
@@ -219,7 +227,8 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
         for (int liTick = 0; liTick < liTicks; liTick++)
         {
-            mOVitals.RunGameTick(UWDataImport.UWData.UWGameClock.UnitsPerTick, DamageTypeProof);
+            // The game clock goes on at real time (256 units a second): one tick is twenty seconds of it here.
+            mOVitals.RunGameTick(UWPlayerVariantUw2.TickLength * UWPlayerTick.PitTicksPerSecond, DamageTypeProof);
 
             // The lights burn on the same tick and its counter (duration_check, PLAYTIME.C:88).
             if (lOInventory != null)
@@ -240,6 +249,12 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
                 BeginRoamingSight(false);
             else if (mORoamingSight != null)
                 mORoamingSight.Stop();
+
+            // WizEye lights the view at level 6 (uw2 game/PLAYDATA.C:413, FixPlayerEquips), as UWCharacter's
+            // OnActiveSpellsChanged does on the first game (duplication audit G2, 2026-11-26: the second game's view
+            // stayed at the player's own light).
+            if (UWScene.Lighting != null)
+                UWScene.Lighting.RoamingSightLight = mbRoaming;
 
             if (UWGameScreenUw2.Current != null)
                 UWGameScreenUw2.Current.ShowRuneState();
@@ -308,6 +323,10 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
             if (UWVoidRulesUw2.TickSleep(mOFile))
                 UWSleepUw2.WakeFromVoid();
         };
+        // Lore rose: the level's lore tries are cleared, as on the first game (uw2 game/SKILLS.C:180-184; duplication
+        // audit G3, 2026-11-26 - it was never subscribed here).
+        mOVitals.IdentificationReset += UWCharacter.ResetWorldIdentification;
+
         mOVitals.ActiveSpellsChanged += (pbHastened, pbRoamingSight, pbTimeFrozen, pbTelekinesis) =>
         {
             mbSpellsChanged = true;

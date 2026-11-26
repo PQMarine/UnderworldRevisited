@@ -27,6 +27,12 @@ namespace UWDataImport.UWData
 		/// UW2, one more in our block).</summary>
 		int LevelUpString { get; }
 
+		/// <summary>THE PLAYER TICK'S LENGTH in real seconds (duration_check's counter, one a second of game_clock >> 8):
+		/// UW1 sets DurCount to 0 once it passes 0x14, so a tick every 21 seconds (uw1 ui/INTERACT.C:251-253); UW2
+		/// takes 0x14 off it, so every 20 (uw2 ui/INTERACT.C:116-118). Found 2026-11-26 by the duplication audit (G1):
+		/// UW2 ran on UW1's 21 until then, its regeneration, hunger, spell durations and lights 5 % slow.</summary>
+		int TickSeconds { get; }
+
 		/// <summary>What a newly mapped tile counts for, before the tenth (process_grid: the dungeon level in UW1,
 		/// the world in UW2, GRIDDB.C:256).</summary>
 		int ExplorationWeight(int piDungeonLevel);

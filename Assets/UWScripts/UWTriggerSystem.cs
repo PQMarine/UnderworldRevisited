@@ -790,7 +790,8 @@ public static class UWTriggerSystem
                 if (UWVitalsUw2.Current == null)
                     return false;
 
-                lIHost = new UWSpellHostUw2(UWVitalsUw2.Current, mOLoader, mOWorld.Presentation);
+                lIHost = new UWSpellHostUw2(UWVitalsUw2.Current, mOLoader,
+                    mOWorld is UWWorld lOUnityWorld ? UWSleepUw2.ScrollOf(lOUnityWorld) : mOWorld.Presentation);
             }
             else
             {

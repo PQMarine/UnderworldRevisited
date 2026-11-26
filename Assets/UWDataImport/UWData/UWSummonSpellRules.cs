@@ -191,8 +191,10 @@ namespace UWDataImport.UWData
 
 			if (pIHost.Cast.ByCreature)
 			{
+				// creat_spell's dist is nine for every summoning in the second game, a creature's too (uw2 combat/SPELLS2.C:487;
+				// duplication audit K12, 2026-11-26 - it took the first game's twelve).
 				if (piMinorClass == SummonMonsterSpell)
-					fSummonForCreature(pIHost);
+					fSummonForCreature(pIHost, PlacementDistance);
 
 				return;
 			}
@@ -492,13 +494,13 @@ namespace UWDataImport.UWData
 		/// player's only. Returns false when nothing was summoned.
 		/// </summary>
 		public static bool SummonByCreature(IUWSpellHost pIHost, float pfFromX, float pfFromZ, float pfYawDegrees,
-			int piDungeonLevel, UWTilePos pOPlayerTile)
+			int piDungeonLevel, UWTilePos pOPlayerTile, int piDistance = SummonDistance)
 		{
 			if (pIHost == null || UWSpellCasting.LevelOf(pIHost) == null || pIHost.Data == null
 				|| pIHost.Data.ObjectClassProperties == null)
 				return false;
 
-			if (!fFindSpotFrom(SummonDistance, pfFromX, pfFromZ, pfYawDegrees, pIHost, out UWTilePos lOTile,
+			if (!fFindSpotFrom(piDistance, pfFromX, pfFromZ, pfYawDegrees, pIHost, out UWTilePos lOTile,
 					out float lfAtX, out float lfAtZ))
 				return false;
 
@@ -534,7 +536,7 @@ namespace UWDataImport.UWData
 		/// body's point, which is the record's since step 4.8, the facing in degrees, the loader's
 		/// level index + 1 and the player's tile under the character.
 		/// </summary>
-		private static bool fSummonForCreature(IUWSpellHost pIHost)
+		private static bool fSummonForCreature(IUWSpellHost pIHost, int piDistance = SummonDistance)
 		{
 			UWSpot lOCaster = pIHost.Cast.CasterSpot;
 			UWSpot lOPlayer = pIHost.World.Player.FloorSpot;
@@ -544,7 +546,7 @@ namespace UWDataImport.UWData
 				UWUnits.SubTileToWorldAxis(lOCaster.Tile.Y, lOCaster.FineY),
 				UWHeadings.HeadingByteToDegrees(pIHost.Cast.CasterHeading),
 				pIHost.World.LevelIndex + 1,
-				lOPlayer.IsOnMap ? lOPlayer.Tile : lOCaster.Tile);
+				lOPlayer.IsOnMap ? lOPlayer.Tile : lOCaster.Tile, piDistance);
 		}
 
 		/// <summary>The new creature of a summoning: set up as ovr101_5E does

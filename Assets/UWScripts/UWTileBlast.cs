@@ -193,7 +193,16 @@ public static class UWTileBlast
             // Otherwise its contents fall onto the tile first, and NO SMOKE FOR A CONTAINER:
             // the smoke roll sits in the branch of the things that are no door, chest, barrel
             // or bag (per user on the original 2026-10-12, a smashed chest never smokes).
-            if (pOEntity != null && UWScene.Interaction != null)
+            // The second game (remove_object, uw2 combat/DAMAGE.C:104-128): a chest or barrel is used with no one (UseCont,
+            // its locks), a bag dumped silently (DumpTheBag(obj, 0)); its session has no Interaction.
+            if (pOEntity != null && UWGameStartUw2.IsRunning && UWWorldViewUw2.Current != null)
+            {
+                if (UWObjectDamageRules.IsUsedWhenDestroyed(pOObject.ID))
+                    UWWorldViewUw2.Current.SpillDestroyedContainer(pOEntity);
+                else
+                    UWWorldViewUw2.Current.DumpTheBag(pOEntity, false);
+            }
+            else if (pOEntity != null && UWScene.Interaction != null)
                 UWScene.Interaction.SpillWorldContainer(pOEntity, true, false, true);
 
             lORemains = UWObjectDamageRules.Remains.Debris;

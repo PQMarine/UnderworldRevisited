@@ -172,8 +172,11 @@ public sealed class UWSpellHostUw2 : IUWSpellHost, IUWSpellHostUw2
 
     public void MovePlayer(int piLevel, UWTilePos pOTile)
     {
-        if (mOLoader != null)
-            mOLoader.Uw2Teleport(new UWTeleportUw2.Target { Level = piLevel, TileX = pOTile.X, TileY = pOTile.Y }, true);
+        UWTeleportUw2.Target lOTarget = new UWTeleportUw2.Target { Level = piLevel, TileX = pOTile.X, TileY = pOTile.Y };
+
+        // do_teleport: on the same level only with room at the target (UWLevelLoader.Uw2TeleportHasRoom).
+        if (mOLoader != null && mOLoader.Uw2TeleportHasRoom(lOTarget))
+            mOLoader.Uw2Teleport(lOTarget, true);
     }
 
     /// <summary>FreePlayerInv and the weight (the model's ClearAll sets the running load to 0), clearobj (the

@@ -12,6 +12,8 @@ namespace UWDataImport.UWData
 			return piAttitude == UWNpc.AttitudeHostile;
 		}
 
+		public bool MayOpenDoorsOn(int piDungeonLevel) => true;
+
 		public int FootstepSound(int piCategory, int piFrame)
 		{
 			switch (piCategory)

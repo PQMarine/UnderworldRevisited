@@ -10,6 +10,68 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-26
+
+The first batch of a second cleanup: rules of Ultima Underworld II read again in the original and corrected, its
+hand's reach measured as the original measures it, and Underworld Revisited in Greek.
+
+### Added
+- Greek (Ελληνικά) for Underworld Revisited's own texts - menus, settings, help and the modern interface - by
+  @kzagoris ([#42](https://github.com/PQMarine/UnderworldRevisited/issues/42),
+  [#43](https://github.com/PQMarine/UnderworldRevisited/pull/43)). The game's own texts in Greek are published by the
+  translator.
+
+### Closer to the original
+- Ultima Underworld II: the player's tick comes every 20 seconds, not 21. Regeneration, hunger, spell durations and
+  light sources ran about 5 % slow.
+- Ultima Underworld II: when Lore rises, the identification tries are reset as in the first game. In both games the
+  carried things are reset too, bags included, not only those on the level.
+- Ultima Underworld II: Roaming Sight lights the view as in the first game. In both games the level's minimum light
+  counts when it is higher.
+- Ultima Underworld II, Remastered: the level's minimum light counts for exploring the map, so every graphics mode
+  explores as far.
+- Ultima Underworld II: a level change looks for room as the original does, first strictly, then clearing the way,
+  and without any room the player dies. A teleport within a level without room at the target does not happen.
+- Ultima Underworld II: the eight-position switch works - it raises or lowers a floor or sets a thing's height.
+- Ultima Underworld II: a spell trap with a targeted spell does nothing, a creature's Summon Monster puts the monster
+  nine eighths ahead, and creatures on level 10 do not open doors.
+- Ultima Underworld II: during Freeze Time nobody answers Talk.
+- Ultima Underworld II: the dream plant's night ends without "You feel rested.", and sleeping while Killorn Keep falls
+  ends it at once.
+- Ultima Underworld II: a bag that burns or is smashed spills what it holds; a chest or a barrel is opened first.
+- Ultima Underworld II: the stealth of worn things counts at once, not from the next tick.
+- Ultima Underworld II: the hand's reach is measured as in the original - distance, height and the ground between: a
+  wall, a floor too far down, water or lava (unless a bridge carries the line). Using says "You are unable to use that
+  from here.", taking "That is too far away to take." or "You cannot reach that.", and swimming reaches deeper.
+- Ultima Underworld II: the fireball that floats to and fro in the Ethereal Void strikes on every pass; the original
+  exempts it and the resilient sphere from striking only once.
+
+### Fixed
+- Ultima Underworld II: thrown things no longer vanish on level 9, the Prison Tower
+  ([issue 41](https://github.com/PQMarine/UnderworldRevisited/issues/41)).
+- Ultima Underworld II: the lines of runes and spell traps ("You feel your limbs stiffen.") reach the scroll.
+- Ultima Underworld II, conversations: F and Tab no longer page [MORE] or end a wait, no key counts while the help's
+  notes have the keyboard, and a typed answer ends with B on the pad too. In the modern scheme answers take the left
+  button and the keys 1 to 9, as in the first game.
+- Ultima Underworld II: choosing to fight while swimming or paralysed leaves no command lit.
+- Ultima Underworld II, the modern scheme: a targeted spell or a missile with the free pointer says "Choose the target
+  with the left button.", as in the first game.
+- Ultima Underworld II, the modern conversation: the speakers' heads show in the original look too, and after a font
+  switch they stand where they belong.
+- Ultima Underworld II: the main menu plays its theme again after the introduction that runs by itself without a save.
+- The active spells' hover text stays on the screen (Classic Wide and 4:3 at narrow resolutions).
+- Translations: a character drawn from the language's font keeps at most two free columns to its right (the Greek
+  "χαρακτήρα" had a gap). Chinese, Japanese and Korean characters keep their width.
+- Ultima Underworld II, the main menu in a translation: the captions take the buttons' own colours, dark grey and
+  light lavender when lit, instead of green.
+
+### Changed
+- Runes laid by the help's spell list count as a whole spell: the next rune clicked by hand starts a new shelf, as after
+  a cast. Both games.
+- Ultima Underworld II, the modern scheme: the crosshair names what it is on as far as one sees, as in the first game,
+  and E talks to a creature in sight. Using keeps its reach, and the crosshair offers "Use" only within it.
+- The log records the state of the audio now and then, to find occasional sound dropouts.
+
 ## [0.26.1] - 2026-11-26
 
 ### Fixed

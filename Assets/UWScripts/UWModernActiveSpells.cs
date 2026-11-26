@@ -214,8 +214,20 @@ public class UWModernActiveSpells : UWModernPart
         float lfHeight = FontSize * 2f;
         bool lbAbove = pfBottom - pfGap - lfHeight < 0f;
 
+        // KEPT ON THE SCREEN (per user 2026-11-26, Classic Wide and 4:3 at narrow resolutions: a long text such as "... is
+        // unstable" ran out at the left): right-aligned to the spells while it fits, else pushed right until its start
+        // is on the screen, never past the right edge.
+        UWUiFonts.ApplyNow(mOSpellTip);
+
+        RectTransform lOSpace = lOTip.parent as RectTransform;
+        float lfWidth = mOSpellTip.preferredWidth;
+        float lfRight = pfRight;
+
+        if (lOSpace != null && lfWidth > 0f)
+            lfRight = Mathf.Min(Mathf.Max(pfRight, lfWidth + pfGap), Mathf.Max(lfWidth + pfGap, lOSpace.rect.width - pfGap));
+
         mOSpellTip.alignment = lbAbove ? TextAnchor.LowerRight : TextAnchor.UpperRight;
-        lOTip.anchoredPosition = new Vector2(pfRight, lbAbove ? pfTop + pfGap + lfHeight : pfBottom - pfGap);
+        lOTip.anchoredPosition = new Vector2(lfRight, lbAbove ? pfTop + pfGap + lfHeight : pfBottom - pfGap);
         lOTip.sizeDelta = new Vector2(600f, lfHeight);
     }
 

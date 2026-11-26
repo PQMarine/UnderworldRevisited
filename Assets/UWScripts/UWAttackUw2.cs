@@ -393,6 +393,21 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         miTargetCost = piManaCost;
         mITargetHost = pIHost;
         miSpellBeganFrame = Time.frameCount;
+        fSayChooseTarget(true);
+    }
+
+    /// <summary>
+    /// The modern scheme's prompt for a spell that waits for its target, as UWPendingSpell.AfterModernCast says it on the
+    /// first game (duplication audit G11, 2026-11-26: the second game said nothing): a target spell always, a missile only
+    /// with the pointer free (locked it flies at once). The classic scheme has its pointer for it, as the original.
+    /// </summary>
+    private void fSayChooseTarget(bool pbTargetSpell)
+    {
+        if (!UWGameScreenUw2.IsModernScheme || !UWControlScheme.Ui.Policy.ProjectileFliesWhenPointerLocked)
+            return;
+
+        if (pbTargetSpell || UWControlScheme.Ui.IsPointerUnlocked)
+            UWGameScreenUw2.Say(UWText.T("prompt.choose_target"));
     }
 
     /// <summary>Escape lets a waiting target spell go, its mana unpaid.</summary>
@@ -427,33 +442,19 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         Camera lOCamera = UWViewpoint.Current;
         Vector3 lOFeet = lOCamera != null ? UWPlayerThrow.GetFeet(lOCamera.transform) : Vector3.zero;
         bool lbTelekinesis = MeleeVitals != null && MeleeVitals.HasTelekinesis;
-        UWObject lOData = lOTarget.ObjectData;
-        int liTargetX, liTargetY, liTargetZ;
-
-        // WHERE THE THING IS, as InPickRange measures it: a creature where it walks (its node), anything else by its
-        // record - tile, fine place and height, as the first game's reach (Interaction.fGetTargetGridPosition) and the
-        // session's take. A door's node stands at its hinge, so Open said "You cannot reach that." in front of it (per user,
-        // 2026-11-12, test list 30.5).
-        if (UWObjectIds.Major(lOData.ID) == UWObjectIds.CreatureMajorClass)
-        {
-            Vector3 lOAt = lOTarget.transform.position;
-
-            liTargetX = UWTileQueries.WorldToEighths(lOAt.x);
-            liTargetY = UWTileQueries.WorldToEighths(lOAt.z);
-            liTargetZ = UWUnits.WorldToZPos(lOAt.y);
-        }
-        else
-        {
-            liTargetX = UWReachRules.ToEighths(lOData.TileX, lOData.XPos);
-            liTargetY = UWReachRules.ToEighths(lOData.TileY, lOData.YPos);
-            liTargetZ = lOData.ZPos;
-        }
+        // WHERE THE THING IS, as InPickRange measures it (UWReachMeasure.TargetGrid): a creature where it walks, anything
+        // else by its record - a door's node stands at its hinge, so Open said "You cannot reach that." in front of it
+        // (per user, 2026-11-12, test list 30.5).
+        UWReachMeasure.TargetGrid(lOTarget, out int liTargetX, out int liTargetY, out int liTargetZ);
 
         // UsingPole (UseUtil, uses part 2): the pole waiting for its switch reaches twice as far.
         bool lbPole = lbUseOn && mOUseOnItem != null && mOUseOnItem.ID == UWToolRulesUw2.Pole;
 
-        if (!UWReachRules.CanReach(UWTileQueries.WorldToEighths(lOFeet.x), UWTileQueries.WorldToEighths(lOFeet.z), UWUnits.WorldToZPos(lOFeet.y),
-            liTargetX, liTargetY, liTargetZ, UWReachRules.GetDistanceSquared(lbPole, lbTelekinesis), lbPole))
+        // InPickRange AND BlockingTerrain (uw2 ui/INTERACT.C:507-510): since 2026-11-26 with the terrain between and the
+        // swimmer's lower reach (duplication audit G10).
+        if (UWReachMeasure.Measure(UWScene.LevelLoader, lOFeet, liTargetX, liTargetY, liTargetZ,
+                UWReachRules.GetDistanceSquared(lbPole, lbTelekinesis), lbPole, UWReachMeasure.SwimLoweringUw2())
+            != UWReachMeasure.Result.Reached)
         {
             AddGeneralMessage(CannotReachString);
 
@@ -581,6 +582,8 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
         if (UWGameScreenUw2.IsModernScheme && UWPointer.IsLookLocked)
             FireSpellMissile();
+        else
+            fSayChooseTarget(false);
     }
 
     /// <summary>Escape in the modern scheme lets a waiting missile go, its mana unpaid.</summary>

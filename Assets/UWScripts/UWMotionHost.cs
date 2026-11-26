@@ -900,7 +900,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         if (lOWorld == null || UWVitalsUw2.Current == null)
             return;
 
-        UWSpellHostUw2 lOHost = new UWSpellHostUw2(UWVitalsUw2.Current, mOLoader, lOWorld.Presentation);
+        UWSpellHostUw2 lOHost = new UWSpellHostUw2(UWVitalsUw2.Current, mOLoader, UWSleepUw2.ScrollOf(lOWorld));
 
         foreach (PendingTrigger lOAt in lOPending)
         {

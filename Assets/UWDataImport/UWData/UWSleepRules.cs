@@ -77,6 +77,13 @@ namespace UWDataImport.UWData
 		/// <summary>A night on an empty stomach costs two untyped points (damage_item(..., 2, 0)).</summary>
 		internal const int StarvingDamage = 2;
 		private const int RestedMessage = 0x14;
+
+		/// <summary>The night's last line, "You feel rested." (comfort 1) or "Your sleep is uneasy." (0): general string
+		/// RestedMessage - comfort.</summary>
+		public static bool IsRestedLine(int piGeneralIndex)
+		{
+			return piGeneralIndex == RestedMessage || piGeneralIndex == RestedMessage - 1;
+		}
 		private const int CannotSleepHereMessage = 0x15;
 		private const int InterruptedMessage = 0x16;
 

@@ -277,7 +277,7 @@ setup.done	Έτοιμο
 setup.format.steps_off	Ανενεργό
 setup.format.steps	{0} βήματα
 setup.game.title	Παιχνίδι
-setup.bar.gameplay	Παιχνίδι
+setup.bar.gameplay	Μηχανισμοί
 setup.bar.interface	Διεπαφή
 setup.interface.title	Διεπαφή
 setup.interface.intro	Πώς φαίνεται και συμπεριφέρεται η διεπαφή, και στα δύο σχήματα. Πού στέκονται τα πράγματα στην οθόνη το ορίζει ο επεξεργαστής διάταξης (σύγχρονο σχήμα, μενού παιχνιδιού).
@@ -286,7 +286,7 @@ setup.interface.modern	Σύγχρονο σχήμα
 setup.interface.freeopens	Ο ελεύθερος δείκτης ανοίγει:
 setup.interface.windows	Παράθυρα
 setup.bar.mods	Mods
-setup.gameplay.title	Παιχνίδι
+setup.gameplay.title	Μηχανισμοί
 setup.gameplay.intro	Αυτές οι επιλογές αλλάζουν πώς παίζεται το παιχνίδι. Ανενεργό είναι πάντα όπως στο πρωτότυπο.
 setup.gameplay.original	Όπως το πρωτότυπο
 setup.gameplay.aids	Βοηθήματα

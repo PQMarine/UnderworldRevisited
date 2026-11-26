@@ -1194,10 +1194,18 @@ namespace UWDataImport.UWData
 			return pIHost.FireSpellTrap(pOTrap, piTileX, piTileY, liMajor, liMinor);
 		}
 
+		/// <summary>The targeted spells' class (do_spell's case 7, nail_1area).</summary>
+		private const int TargetSpellClass = 7;
+
 		/// <summary>Whether a spell trap of this class and minor does anything (see fFireSpell).</summary>
 		public static bool SpellTrapCasts(int piMajor, int piMinor)
 		{
 			if (piMajor <= 4 || piMajor == 9 || piMajor == 10)
+				return false;
+
+			// Class 7, the targeted spells: nail_1area gives only the PLAYER a target (uw2 combat/SPELLS.C:783-795), so a
+			// trap as the caster does nothing (duplication audit K3, 2026-11-26).
+			if (piMajor == TargetSpellClass)
 				return false;
 
 			return piMajor != UWExtraSpellRulesUw2.MajorClass || (piMinor & 0x3F) == UWExtraSpellRulesUw2.TremorSpell;
@@ -2141,6 +2149,10 @@ namespace UWDataImport.UWData
 
 						return fCrystalBall(pOTrap, liX, liY, pIHost);
 					})
+				.Register(EightPositionTileHack, "eight-position switch (tile)",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fEightPositionSwitch(pOTrap, pOTrigger, pOSwitch, pIHost))
+				.Register(EightPositionObjectHack, "eight-position switch (object)",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fEightPositionSwitch(pOTrap, pOTrigger, pOSwitch, pIHost))
 				.Register(TrespassHack, "trespass", (pOTrap, pOTrigger, pOSwitch, pIHost) => fTrespass(pOTrap, pIHost))
 				.Register(VendSelectHack, "vending: choose", (pOTrap, pOTrigger, pOSwitch, pIHost) => fAt(pOTrigger, (x, y) => fVend(VendSelectHack, pOTrap, x, y, pOSwitch, pIHost)))
 				.Register(VendBuyHack, "vending: buy", (pOTrap, pOTrigger, pOSwitch, pIHost) => fAt(pOTrigger, (x, y) => fVend(VendBuyHack, pOTrap, x, y, pOSwitch, pIHost)))
@@ -2205,6 +2217,50 @@ namespace UWDataImport.UWData
 		// ------------------------------------------------- The general hacks (part H6)
 
 		public const int CrystalBallHack = 2;
+
+		/// <summary>do_trap_hack 3 and 4, eight_pos_switch (uw2 event/TRIGGER.C:781-783, WORLDEV.C:596-608): the height
+		/// is the trap's z plus the used switch's flags times 8; quality 3 sets the target square's floor to it over 8
+		/// (change_terrain, below 0x68), quality 4 the z of the object the trap's link names (ten bits). Missing in the
+		/// second game's table until 2026-11-26 (duplication audit K6); the first game's is UWTrapRules'.</summary>
+		public const int EightPositionTileHack = 3;
+
+		public const int EightPositionObjectHack = 4;
+
+		private const int EightPositionHeightLimit = 0x68;
+
+		private const int EightPositionLinkMask = 0x3FF;
+
+		private static bool fEightPositionSwitch(UWObject pOTrap, UWObject pOTrigger, UWObject pOSwitch, IUWTrapHost pIHost)
+		{
+			UWLevel lOLevel = pIHost.World.Level;
+
+			if (pOSwitch == null || lOLevel == null)
+				return false;
+
+			int liHeight = pOTrap.ZPos + ((pOSwitch.Flags & 0xF) << 3);
+
+			if (pOTrap.Quality == EightPositionTileHack)
+			{
+				(int liX, int liY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
+
+				UWTrapLog.Detail = string.Format("-> tile {0}/{1} height {2}", liX, liY, liHeight >> 3);
+
+				return liHeight < EightPositionHeightLimit
+					&& ChangeTerrain(liX, liY, 0xFF, 0xFF, liHeight >> 3, 0xFF, 0, 0, pIHost);
+			}
+
+			int liIndex = pOTrap.Quantity & EightPositionLinkMask;
+			UWObject lOMoved = liIndex > 0 && liIndex < lOLevel.Masterlist.Count ? lOLevel.Masterlist[liIndex] : null;
+
+			if (lOMoved == null)
+				return false;
+
+			lOMoved.ZPos = liHeight;
+			pIHost.World.RedrawObject(lOMoved);
+			UWTrapLog.Detail = string.Format("-> z {0} for object {1}", liHeight, liIndex);
+
+			return true;
+		}
 
 		// ------------------------------------------------- Vending, sleep, the arena (G4 rest part 3b, 2026-11-16)
 

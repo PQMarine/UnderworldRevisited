@@ -23,6 +23,11 @@ namespace UWDataImport.UWData
 
 		public int LevelUpString => LevelUpMessage;
 
+		/// <summary>duration_check every 20 seconds: DurCount -= 0x14 once it passes 0x14 (uw2 ui/INTERACT.C:116-118).</summary>
+		public const int TickLength = 20;
+
+		public int TickSeconds => TickLength;
+
 		public int ExplorationWeight(int piDungeonLevel) => (piDungeonLevel / LevelsPerWorld) + 1;
 
 		public bool HasOrbLair => false;

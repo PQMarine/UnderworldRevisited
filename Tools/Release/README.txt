@@ -197,8 +197,8 @@ plays as the original.
 LANGUAGES
 ---------
 
-The Language row in the Game window chooses the language of Underworld Revisited's own texts (English or
-German); the change takes effect at once. The files are in the folder Languages beside the game.
+The Language row in the Game window chooses the language of Underworld Revisited's own texts (English,
+German or Greek); the change takes effect at once. The files are in the folder Languages beside the game.
 A translation of the game's own texts is a file <code>.strings.tsv that a translator publishes on
 their own; put it into Languages too, with its folder of pictures if it brings one. With such a
 translation the cutscenes show subtitles for their speech ("Subtitles in cutscenes" in the Game

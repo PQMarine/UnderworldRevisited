@@ -92,7 +92,11 @@ namespace UWDataImport.UWData
 		public void Put(IReadOnlyList<int> pORunes)
 		{
 			mOSelected.Clear();
-			msbCastSinceLastRune = false;
+
+			// A LAID SPELL COUNTS AS A WHOLE SPELL (per user 2026-11-26: "if the help laid a spell, one hardly wants to add
+			// a single rune to it"): the next rune clicked by hand starts a new shelf, as after a cast. Until then the laid
+			// runes took the next rune as their fourth.
+			msbCastSinceLastRune = true;
 
 			for (int liAt = 0; pORunes != null && liAt < pORunes.Count && mOSelected.Count < Capacity; liAt++)
 				mOSelected.Add(pORunes[liAt]);
