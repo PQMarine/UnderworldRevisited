@@ -30,6 +30,12 @@ namespace UWDataImport.UWData
 			/// nothing waits for a click there.</summary>
 			public bool PauseForMore;
 
+			/// <summary>[MORE] at every "\m" alone, not after a full parchment: the second game's modern history, which
+			/// scrolls, stops where the original's text asks for a page (GitHub issue 39, 2026-11-26 - a group
+			/// conversation's speakers end their text with \m, so the classic scroll waits there before the next
+			/// portrait, the modern one ran on).</summary>
+			public bool PauseAtPageMarks;
+
 			/// <summary>The width the lines wrap to (the parchment's).</summary>
 			public int WrapWidth;
 
@@ -340,7 +346,7 @@ namespace UWDataImport.UWData
 				mOShownRoles.Add(lOLine.Role);
 				miLinesSincePause++;
 
-				if (lOLine.BreakAfter && pyPolicy.PauseForMore)
+				if (lOLine.BreakAfter && (pyPolicy.PauseForMore || pyPolicy.PauseAtPageMarks))
 					MorePending = true;
 			}
 

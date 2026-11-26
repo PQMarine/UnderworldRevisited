@@ -157,6 +157,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     /// <summary>When the wait before the partner's line is over.</summary>
     private float mfHoldUntil;
 
+
     /// <summary>\\P's 200 ticks at 256 a second.</summary>
     private const float PartnerHoldSeconds = 0xC8 / 256f;
 
@@ -165,6 +166,9 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     private static UWConversationView.Policy fPolicy => new UWConversationView.Policy
     {
         PauseForMore = !IsModern,
+        // The modern history scrolls, but where the text asks for a page (\m) it waits as the classic scroll does -
+        // before a group conversation's next speaker (GitHub issue 39).
+        PauseAtPageMarks = true,
         WrapWidth = UWClassicLayoutUw2.Conversation.HistoryWidth,
         LinesCapacity = UWClassicLayoutUw2.Conversation.HistoryLines,
         HoldBeforePartner = true
@@ -220,6 +224,24 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         // Before the wait, so the slots stand at once when the first line waits.
         if (mOSession.Trade != null && mOSession.Trade.Version != miTradeVersion)
             fDrawTrade();
+
+        // THE MODERN [MORE] AT A PAGE MARK (Policy.PauseAtPageMarks, GitHub issue 39): "[MORE]" in the answers' place as a
+        // look text, until a key, a click or a pad button. Before the look text's own handling below, which would take
+        // the click and end the marker, not the wait (the first build looped so).
+        if (IsModern && mOView.MorePending)
+        {
+            if (!mOView.IsLookTextShown)
+                mOView.ShowLookText(UWConversationView.MoreMarker, Time.unscaledTime);
+
+            if (fAnyInput() || (MoreTakesPad && UWGamepad.AnyPressed(false)))
+            {
+                mOView.EndLookText();
+                mOView.ContinueAfterMore();
+                fRedraw();
+            }
+
+            return;
+        }
 
         // switch_pic acts at once; the wait comes with the partner's next line.
         while (mOView.PendingPicture != 0)

@@ -10,6 +10,18 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-11-26
+
+### Fixed
+- Ultima Underworld II, the modern conversation: in the original font the small head of a new speaker no longer
+  covers the lines below it ([issue 39](https://github.com/PQMarine/UnderworldRevisited/issues/39)).
+
+### Changed
+- Ultima Underworld II, the modern conversation: it waits with [MORE] where the text asks for a page, as the classic
+  scroll does - in a group conversation before each new speaker - until a key, a click or a pad button. The new
+  portrait comes with the click, the text after the short pause. A group conversation no longer runs by itself
+  ([issue 39](https://github.com/PQMarine/UnderworldRevisited/issues/39)).
+
 ## [0.26.0] - 2026-11-26
 
 Ultima Underworld II is in beta: played through to the end, its classic interface checked against the original, the

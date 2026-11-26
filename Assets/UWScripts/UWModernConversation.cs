@@ -192,6 +192,9 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     /// <summary>Whether the history text was last built in the original's colours.</summary>
     private bool mbHistoryOriginal;
 
+    /// <summary>The face the history was filled in (UWUiFonts.Face): a head's room is made differently in each.</summary>
+    private UWUiFonts.FaceEnum meHistoryFace;
+
     /// <summary>The game under it; the first game's is made at Start, the second's given (SetHost).</summary>
     private IUWModernConversationHost mOHost;
 
@@ -934,6 +937,27 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         return lfContent;
     }
 
+    /// <summary>
+    /// THE ROOM A HEAD TAKES IN THE HISTORY: one unseen line as tall as the head (a size tag) in the modern face. The
+    /// original's face is a pixel font whose sizes are steps (UWUiFonts) and which ignores the size tag, so that line
+    /// stayed one text line tall and the head lay over the lines below (GitHub issue 39, 2026-11-26: the group
+    /// conversation of the second game's opening in the original look) - there the head takes text lines of its own.
+    /// </summary>
+    private static string fHeadRoom(int piFontSize)
+    {
+        if (UWUiFonts.Face == UWUiFonts.FaceEnum.Original)
+        {
+            StringBuilder lORoom = new StringBuilder("<color=#00000000>.");
+
+            for (int liLine = 1; liLine < SpeakerHeadFontSizes; liLine++)
+                lORoom.Append("\n.");
+
+            return lORoom.Append("</color>").ToString();
+        }
+
+        return "<size=" + (piFontSize * SpeakerHeadFontSizes) + "><color=#00000000>.</color></size>";
+    }
+
     /// <summary>The heads over their empty lines; measured anew when the text, its width or its size changed.</summary>
     private void fPlaceSpeakerHeads(float pfWidth, float pfContent, int piFontSize)
     {
@@ -970,6 +994,16 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
             SpeakerMark lOMark = mOSpeakerMarks[liAt];
             float lfHeight = piFontSize * SpeakerHeadFontSizes;
+
+            // In the original's face the head fills the text lines made for it (fHeadRoom), measured in its part.
+            if (meHistoryFace == UWUiFonts.FaceEnum.Original && lOMark.Part < mOHistoryTexts.Count)
+            {
+                Text lOPart = mOHistoryTexts[lOMark.Part];
+                float lfUnit = lOPart.pixelsPerUnit > 0f ? lOPart.pixelsPerUnit : 1f;
+
+                lfHeight = lOPart.cachedTextGeneratorForLayout.GetPreferredHeight(fHeadRoom(piFontSize),
+                    lOPart.GetGenerationSettings(new Vector2(pfWidth, 0f))) / lfUnit;
+            }
             float lfWidth = lfHeight * lOMark.Head.width * UWModernHudArt.PixelAspectX / lOMark.Head.height;
 
             mOSpeakerHeads[liAt].texture = lOMark.Head;
@@ -995,7 +1029,8 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     {
         int liLines = mOHost.HistoryLines(pOView);
 
-        if (liLines == miLinesShown && piFontSize == miHistoryFontSize && pbOriginal == mbHistoryOriginal)
+        if (liLines == miLinesShown && piFontSize == miHistoryFontSize && pbOriginal == mbHistoryOriginal
+            && UWUiFonts.Face == meHistoryFace)
             return;
 
         // New lines: back to the newest.
@@ -1005,6 +1040,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         miLinesShown = liLines;
         miHistoryFontSize = piFontSize;
         mbHistoryOriginal = pbOriginal;
+        meHistoryFace = UWUiFonts.Face;
 
         List<string> lOParts = fHistoryParts(pOView.Lines, liLines, piFontSize, pbOriginal);
 
@@ -1096,7 +1132,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
                     mOSpeakerMarks.Add(new SpeakerMark { Part = lOParts.Count, TextBefore = lOText.ToString().TrimEnd('\n'), Head = lOHead });
                     // An unseen letter, not a space: a last line of spaces does not count for the text's height,
                     // and the newest head stood below the view until its text came.
-                    lOText.Append("<size=").Append(piFontSize * SpeakerHeadFontSizes).Append("><color=#00000000>.</color></size>");
+                    lOText.Append(fHeadRoom(piFontSize));
                     lbUnderHead = true;
                 }
 
