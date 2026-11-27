@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using UWDataImport;
 using UWDataImport.UWData;
@@ -82,6 +83,19 @@ namespace UnderworldRevisited.Tools
             Check.Bool("format: without a prefix it warns", lIGerman.CheckName("Wumpel") != null && lIGerman.CheckName("x:Wumpel") != null, true);
             Check.Bool("format: an empty name or plural warns", lIGerman.CheckName("m:") != null && lIGerman.CheckName("m:Wumpel&") != null, true);
             Check.Bool("format: English has no format to check", UWGrammar.English.CheckName("Wumpel") == null, true);
+
+            // THE CAPITALS (GitHub issue 44, 2026-11-26): the language's pairs after the upper case - Greek drops the tonos
+            // and keeps the dialytika; the invariant upper case, never the system's culture.
+            Dictionary<char, char> lOGreek = UWText.ParseAllCaps("ΆΑ ΈΕ ΉΗ ΊΙ ΌΟ ΎΥ ΏΩ ΐΪ ΰΫ");
+            Check.Str("all caps: Greek drops the tonos (the translator's examples)", string.Join("|",
+                new[] { "Μαχητής", "Άοπλη μάχη", "Σπαθί" }
+                    .Select(lsText => UWText.ApplyAllCaps(lsText.ToUpperInvariant(), lOGreek))),
+                "ΜΑΧΗΤΗΣ|ΑΟΠΛΗ ΜΑΧΗ|ΣΠΑΘΙ");
+            Check.Str("all caps: iota with dialytika and tonos keeps the dialytika", UWText.ApplyAllCaps("Μαΐου".ToUpperInvariant(), lOGreek),
+                "ΜΑΪΟΥ");
+            Check.Int("all caps: none, a lone character and a longer word are no pairs", UWText.ParseAllCaps("none Ά ΆΑΑ").Count, 0);
+            Check.Str("all caps: without a rule the upper case alone", UWText.ApplyAllCaps("Äpfel".ToUpperInvariant(), UWText.ParseAllCaps("none")), "ÄPFEL");
+            Check.Str("all caps: English as before", UWText.AllCaps("Fighter"), "FIGHTER");
         }
 
         private static void fCheckGrammarNames()

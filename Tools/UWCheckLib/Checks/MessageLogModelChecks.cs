@@ -171,6 +171,16 @@ namespace UnderworldRevisited.Tools
             Check.Bool("paging: ... nothing pending", lOPending.Count == 0, true);
             Check.Bool("paging: ... the scroll did not move", lbScrolled, false);
 
+            // THE LAST LINE JOINS THE PAGE (cleanup plan 2, U1, 2026-11-27): a short text, one piece, wrapped to five lines -
+            // its fifth starts in the last piece and passes with the first page; without the text it waits for [MORE].
+            List<string> lOJoinShown = new List<string>();
+            List<string> lOJoinPending = new List<string> { "aa", "bb", "cc", "dd", "ee" };
+            UWMessageLogModel.ShowNextPage(new List<string>(), lOJoinPending, 5, lOJoinShown, "aa bb cc dd ee");
+            Check.Str("paging: the last line in the last piece joins the page", fJoinLog(lOJoinShown) + "/" + lOJoinPending.Count, "aa|bb|cc|dd|ee/0");
+            lOJoinPending = new List<string> { "aa", "bb", "cc", "dd", "ee" };
+            UWMessageLogModel.ShowNextPage(new List<string>(), lOJoinPending, 5, lOJoinShown);
+            Check.Int("paging: ... without the text it waits", lOJoinPending.Count, 1);
+
             // Leading lines count as printed: a long text pushes them out without a confirmation.
             lOPages = fPageThrough(new[] { 5 }, new List<string> { "look", "You read the scroll..." }, out lOScrolled);
             Check.Str("paging: the leading lines pushed out by the first page", lOPages[0], "L1|L2|L3|L4 [MORE]");

@@ -62,6 +62,11 @@ namespace UWDataImport.UWData
 			// yes: the classic texts' Chinese, Japanese and Korean characters bold in the modern font.
 			fAdd("grammar.rule.classic.bold", "no");
 
+			// ALL CAPS (2026-11-26, GitHub issue 44; UWText.AllCaps): pairs of a character and what it becomes when
+			// a whole text is set in capitals, after the upper case - Greek drops the tonos ("ΆΑ ΈΕ ... ΐΪ ΰΫ"); none.
+			// Read for every language.
+			fAdd(UWText.AllCapsRuleId, UWGrammarGeneric.NoneValue);
+
 			// THE SOUND TAGS (2026-11-04, UWGrammarGeneric.TagsOf): "tag=beginnings; ..." - none.
 			fAdd(UWGrammarGeneric.TagsRuleId, UWGrammarGeneric.NoneValue);
 

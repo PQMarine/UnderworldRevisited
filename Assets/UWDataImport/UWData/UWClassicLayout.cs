@@ -675,6 +675,11 @@ namespace UWDataImport.UWData
 			[Estimated("reference scene")]
 			public static readonly float[] NeedleTop =
 				{ 131f, 133f, 134f, 137f, 141f, 146f, 147f, 150f, 152f, 150f, 147f, 146f, 141f, 137f, 134f, 133f };
+
+			/// <summary>The compass turns one step of sixteen towards its goal, the short way, on each slow update: every
+			/// 64 of the 1/256-second clock (cleanup plan 2, U10, 2026-11-27).</summary>
+			[Exe("uw1 ui/PANELS.C:362 update_screen, the slow ones when now >> 6 changes; :608 adjust_compass")]
+			public const float StepSeconds = 64f / 256f;
 		}
 
 		// ------------------------------------------------- The dragons

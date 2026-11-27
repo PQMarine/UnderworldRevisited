@@ -389,21 +389,16 @@ internal sealed class UWModernBagClicks
         if (lOGame == null)
             return;
 
-        try
-        {
-            // In a conversation the look replaces the answers for a moment (the messages are
-            // hidden there), as the classic screen shows it.
-            if (UWModernBagTrade.IsTalking)
-            {
-                UWModernBagTrade.ShowTalkText(lOGame.Describe(pOItem));
-                return;
-            }
-        }
-        catch
-        {
-            return;
-        }
+        // Not while a conversation's text waits ([MORE], a hold): the original reads no click then (per user 2026-11-27).
+        UWConversationController lOTalk = UWConversationController.IsAnyOpen ? UWScene.ConversationController : null;
 
+        if ((lOTalk != null && lOTalk.IsTextWaiting) || UWConversationScreenUw2.IsTextWaiting)
+            return;
+
+        // IN A CONVERSATION the look goes to the answer scroll as everything said there: the first game's message box
+        // routes it (UWMessageLog.fToConversation), the second game's Say (cleanup plan 2, U8, per user 2026-11-27: the
+        // modern look in a conversation gave "You see ..." alone, never a book's text). Until then it took the
+        // description by itself here (UWModernBagTrade.ShowTalkText).
         if (lOGame.TryRead(pOItem, true))
             return;
 

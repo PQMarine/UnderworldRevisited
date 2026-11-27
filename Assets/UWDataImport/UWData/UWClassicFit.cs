@@ -278,11 +278,11 @@ namespace UWDataImport.UWData
 
 			for (int liClass = 0; liClass < UWCharacterGeneration.ClassCount; liClass++)
 				fAdd(pOEntries, pOSeen, "stats page class", fKey(UWStringIds.ClassNameBase + liClass),
-					UWCharacterText.ClassName(pOStrings, liClass).ToUpper(), pOFont, liClassBox);
+					UWText.AllCaps(UWCharacterText.ClassName(pOStrings, liClass)), pOFont, liClassBox);
 
 			for (int liSkill = 0; liSkill < UWCharacterText.SkillEntryCount; liSkill++)
 				fAdd(pOEntries, pOSeen, "stats page skill", fKey(UWStringIds.SkillNameBase + liSkill),
-					UWCharacterText.SkillName(pOStrings, liSkill).ToUpper(), pOFont, liSkillBox);
+					UWText.AllCaps(UWCharacterText.SkillName(pOStrings, liSkill)), pOFont, liSkillBox);
 		}
 	}
 }

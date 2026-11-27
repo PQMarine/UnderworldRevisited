@@ -114,6 +114,12 @@ public sealed class UWHudCommands
         if (leMode == UWCommandMode.None || leMode == UWCommandMode.Options)
             return false;
 
+        // PARTWAY THROUGH AN ACTION the column takes the click and does nothing (cleanup plan 2, U9, 2026-11-27;
+        // uw1 INTERACT.C:773 deal_with_icons: GameInputMode != 0 returns) - a thing on the pointer or used on
+        // another, a target spell, a missile's aim. Until then the mode changed under it.
+        if (mOUi.Options != null && mOUi.Options.IsPartway)
+            return true;
+
         mOUi.mOInteraction.SetCommandMode(leMode);
 
         return true;

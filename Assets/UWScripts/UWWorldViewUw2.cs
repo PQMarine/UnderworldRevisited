@@ -1206,9 +1206,9 @@ public class UWWorldViewUw2 : MonoBehaviour
             else
                 lODoor.Toggle(UWTrapRules.Setter.Player);
 
-            // UseObj's checkTrap with mode 4 after the use, locked or not (G3 part H4).
+            // UseObj's checkTrap with mode 4 after the use, locked or not (G3 part H4), and its checkSpell (G20).
             if (lODoor.Data != null)
-                UWTriggerSystem.CheckTrapUw2(lODoor.Data, UWTrapRulesUw2.UseMode, lODoor.Data.TileX, lODoor.Data.TileY, mOLoader);
+                fAfterUse(lODoor.Data);
 
             return;
         }
@@ -1234,14 +1234,18 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (lOObject.ID == UWSleepUw2.BedObjectId && UWSleepUw2.Current != null)
         {
             UWSleepUw2.Current.InBed();
-            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+            fAfterUse(lOObject);
 
             return;
         }
 
-        // UseRect's switches, the lever and the switch picture, their use triggers with them.
+        // UseRect's switches, the lever and the switch picture, their use triggers with them; then UseObj's checkSpell (G20).
         if (UWTriggerSystem.UseWallControlUw2(lOObject, mOLoader))
+        {
+            fCheckSpellInWorld(lOObject);
+
             return;
+        }
 
         // UseRect's minor 1 (uses part 2, 2026-11-18): a barrel or a chest not marked as a quantity is emptied as a
         // container (UseCont with how 0), and its owner, if it can have one, counts it once more (player_did_bad after
@@ -1256,7 +1260,7 @@ public class UWWorldViewUw2 : MonoBehaviour
                 && lOData.CommonObjectProperties.TryGet(lOObject.ID, out UWCommonObjectProperties.Entry lOEntry) && lOEntry.CanHaveOwner)
                 UWTriggerSystem.PlayerDidBadUw2(lOObject.Owner, mOLoader, UWGameScreenUw2.Say);
 
-            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+            fAfterUse(lOObject);
 
             return;
         }
@@ -1275,7 +1279,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         // UseUtil in the world: the anvil and the pole ask for their target (UWToolUseUw2.UseInWorld).
         if (UWToolUseUw2.UseInWorld(lOObject, mOLoader.UWDataImporter, mOScreen != null ? mOScreen.Inventory : null))
         {
-            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+            fAfterUse(lOObject);
 
             return;
         }
@@ -1284,7 +1288,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (lOObject.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
         {
             fDumpTheBag(lOThing);
-            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+            fAfterUse(lOObject);
 
             return;
         }
@@ -1296,7 +1300,7 @@ public class UWWorldViewUw2 : MonoBehaviour
         if (lOFountain != null)
         {
             fUseFountain(lOFountain);
-            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+            fAfterUse(lOObject);
 
             return;
         }
@@ -1322,10 +1326,26 @@ public class UWWorldViewUw2 : MonoBehaviour
 
         // ANY OTHER THING (2026-11-18: until then "Not yet in the walk"): UseObj's checkTrap with mode 4 and checkSpell,
         // the thing itself casting on the player without the wait between casts; nothing is said.
-        UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+        fAfterUse(lOObject);
+    }
 
+    /// <summary>
+    /// WHAT UseObj DOES AFTER EVERY HANDLER (uw2 obj/OBJUSE.C:142-146): checkTrap with mode 4, then checkSpell - the thing
+    /// itself casting on the player, without the wait between casts. Cleanup plan 2, G20 (2026-11-26): until then only the
+    /// last branch of fUseAt cast; a door, the bed, a switch, a barrel or chest, a tool, a container and a fountain only
+    /// ran their traps. The wand, food, books and the runes have no such tail in the original either (UseObj's trap flag).
+    /// </summary>
+    private void fAfterUse(UWObject pOObject)
+    {
+        UWTriggerSystem.CheckTrapUw2(pOObject, UWTrapRulesUw2.UseMode, pOObject.TileX, pOObject.TileY, mOLoader);
+        fCheckSpellInWorld(pOObject);
+    }
+
+    /// <summary>UseObj's checkSpell for a thing used in the world (how 0, UWCarriedSpellRulesUw2.CheckSpellInWorld).</summary>
+    private void fCheckSpellInWorld(UWObject pOObject)
+    {
         if (UWGameScreenUw2.Current != null && mOLoader.CurrentLevel != null)
-            UWCarriedSpellRulesUw2.CheckSpellInWorld(lOObject, mOLoader.CurrentLevel.Masterlist, UWGameScreenUw2.Current.CastOnPlayer);
+            UWCarriedSpellRulesUw2.CheckSpellInWorld(pOObject, mOLoader.CurrentLevel.Masterlist, UWGameScreenUw2.Current.CastOnPlayer);
     }
 
     /// <summary>RectLook's classes that speak when used (look -1): the bridge 4, the gravestone 5, the plaque 6.</summary>

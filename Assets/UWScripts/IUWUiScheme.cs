@@ -33,6 +33,14 @@ public interface IUWUiScheme
     /// </summary>
     int ShownLogWidth(int piClassicWidth);
 
+    /// <summary>
+    /// A long text wrapped as the scroll in use now shows it, for paging: the pixel font at ShownLogWidth - or, the modern
+    /// message box shown, the box's own font and width (UWModernMessageBox.WrapForBox; per user 2026-11-27, test 255.1:
+    /// a page of four lines wrapped in the pixel font grew to seven and nine rows in the box, which wraps again in its
+    /// font). pOFont and piClassicWidth: the running game's scroll font and classic box width.
+    /// </summary>
+    System.Collections.Generic.List<string> WrapShownLog(UWDataImport.UWData.UWFont pOFont, string psText, int piClassicWidth);
+
     /// <summary>The pointer was freed from the mouse look (UWModernPointer: the right button, R3,
     /// the bags); the classic scheme has no lock, its pointer was never freed.</summary>
     bool IsPointerUnlocked { get; }

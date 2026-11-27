@@ -344,10 +344,10 @@ namespace UWDataImport.UWData
 
 			string lsText = psText ?? string.Empty;
 
-			// The second game's babl_ask writes nothing into the history (CONVERSE.C): the answer stays in the
-			// answer scroll, and the script says it again or not.
-			if (fFileUw2 == null)
-				mOLines.Add(new Line { IsPlayer = true, Text = lsText });
+			// babl_ask writes nothing into the history in either game (uw1 and uw2 conv/CONVERSE.C getInputText): the answer
+			// stays in the answer scroll, and the script says it again or not (fTryReprint). Cleanup plan 2, U3, per user
+			// 2026-11-27 with a picture of the original: after Escape only the script's "???" stands there; the first game
+			// wrote the answer itself until then, an empty line after Escape.
 
 			mOVm.SupplyTypedInput(RegisterString(lsText));
 
@@ -439,6 +439,9 @@ namespace UWDataImport.UWData
 		/// Escape). It becomes the player's line - or nothing, when it repeats the answer just
 		/// written (compared ignoring case).
 		/// </summary>
+		/// <summary>The first game's empty typed answer as the script says it again.</summary>
+		public const string EmptyAnswerShown = "???";
+
 		private bool fTryReprint(string psText)
 		{
 			if (psText == null || !psText.StartsWith("\\1") || !psText.EndsWith("\\0"))
@@ -453,12 +456,9 @@ namespace UWDataImport.UWData
 				return true;
 			}
 
-			if (mOLines.Count > 0 && mOLines[mOLines.Count - 1].IsPlayer
-				&& string.Equals(mOLines[mOLines.Count - 1].Text.Trim(), lsText.Trim(), System.StringComparison.OrdinalIgnoreCase))
-				return true;
-
-			if (lsText.Trim().Length > 0)
-				mOLines.Add(new Line { IsPlayer = true, Text = lsText });
+			// THE FIRST GAME shows an empty answer said again as "???" (per user 2026-11-27, a picture of the original after
+			// Escape: "???" in the player's colour under the chosen line).
+			mOLines.Add(new Line { IsPlayer = true, Text = lsText.Trim().Length > 0 ? lsText : EmptyAnswerShown });
 
 			return true;
 		}

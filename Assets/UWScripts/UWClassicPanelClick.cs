@@ -214,10 +214,9 @@ public sealed class UWClassicPanelClick
         if (mOServices.Data == null || lOItem == null)
             return;
 
-        // IN A CONVERSATION the look goes onto the parchment (UWClassicTradeDrag.TryLook).
-        if (mOTrade.TryLook(lOItem))
-            return;
-
+        // IN A CONVERSATION the look goes onto the parchment: what the look says - "You see ...", a book's text with its
+        // [MORE] - is written into the answer scroll by the message box (UWMessageLog.fToConversation; cleanup plan 2, U8,
+        // 2026-11-27). Until then UWClassicTradeDrag.TryLook gave the description alone, never the text.
         // A text scroll is also read on right click (per user, 2026-09-03).
         // The look message is not lost - it is the first line of what is
         // read. Scrolls without text (picture parchment, map) fall through and are

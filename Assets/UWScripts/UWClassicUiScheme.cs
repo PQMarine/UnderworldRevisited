@@ -29,6 +29,10 @@ public sealed class UWClassicUiScheme : IUWUiScheme
     /// <summary>The classic box's own width.</summary>
     public int ShownLogWidth(int piClassicWidth) => piClassicWidth;
 
+    /// <summary>The classic box: the pixel font at its width.</summary>
+    public System.Collections.Generic.List<string> WrapShownLog(UWDataImport.UWData.UWFont pOFont, string psText, int piClassicWidth)
+        => UWDataImport.UWData.UWMessageLogModel.WrapForPaging(pOFont, psText, piClassicWidth);
+
     public int ShownLogLines
     {
         get

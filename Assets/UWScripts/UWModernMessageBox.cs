@@ -28,6 +28,60 @@ public class UWModernMessageBox : UWModernPart
     public UWModernMessageBox(UWModernHud pOHud, UWModernScroll pOScroll) : base(pOHud)
     {
         mOScroll = pOScroll;
+        msCurrent = this;
+    }
+
+    /// <summary>The box last built: the paging asks it how it wraps (WrapForBox).</summary>
+    private static UWModernMessageBox msCurrent;
+
+    /// <summary>
+    /// A TEXT WRAPPED AS THE BOX SHOWS IT (per user 2026-11-27, test 255.1): the box draws in its own font and wraps at its
+    /// own width, so a page of lines wrapped in the pixel font grew in it. Each paragraph (a line break of the text) laid
+    /// out by the box's text at the box's width, cut into the rows it makes. Null without a box laid out yet.
+    /// </summary>
+    public static System.Collections.Generic.List<string> WrapForBox(string psText)
+    {
+        Text lOText = msCurrent != null ? msCurrent.mOMessages : null;
+
+        if (lOText == null || lOText.font == null || string.IsNullOrEmpty(psText))
+            return null;
+
+        float lfWidth = ((RectTransform)lOText.transform).rect.width;
+
+        if (lfWidth <= 1f)
+            return null;
+
+        System.Collections.Generic.List<string> lOLines = new System.Collections.Generic.List<string>();
+        TextGenerationSettings lOSettings = lOText.GetGenerationSettings(new Vector2(lfWidth, 0f));
+        TextGenerator lOGenerator = new TextGenerator();
+
+        lOSettings.horizontalOverflow = HorizontalWrapMode.Wrap;
+        lOSettings.verticalOverflow = VerticalWrapMode.Overflow;
+        lOSettings.richText = false;
+
+        foreach (string lsParagraph in psText.Replace("\r", string.Empty).Split('\n'))
+        {
+            if (lsParagraph.Length == 0)
+            {
+                lOLines.Add(string.Empty);
+
+                continue;
+            }
+
+            lOGenerator.Populate(lsParagraph, lOSettings);
+
+            System.Collections.Generic.IList<UILineInfo> lOInfos = lOGenerator.lines;
+
+            for (int liAt = 0; liAt < lOInfos.Count; liAt++)
+            {
+                int liStart = Mathf.Clamp(lOInfos[liAt].startCharIdx, 0, lsParagraph.Length);
+                int liEnd = liAt + 1 < lOInfos.Count ? Mathf.Clamp(lOInfos[liAt + 1].startCharIdx, liStart, lsParagraph.Length) : lsParagraph.Length;
+
+                lOLines.Add(lsParagraph.Substring(liStart, liEnd - liStart).TrimEnd());
+            }
+        }
+
+        return lOLines;
     }
 
     /// <summary>Where the message box starts above the flasks (screen pixels from the bottom) -

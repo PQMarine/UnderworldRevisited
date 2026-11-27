@@ -61,10 +61,33 @@ namespace UWDataImport.UWData
 
 		// ------------------------------------------------- Wrapping
 
-		/// <summary>The markers in the text at which the original pauses: "\m" is documented
-		/// (reference MessageDisplay), "\p" appears alongside it in the data (Ben on level 2) and
-		/// is treated the same way - whether the original pauses there is not documented.</summary>
+		/// <summary>The markers in the text at which the original pauses: "\m" pages with [MORE], "\p" waits a fixed time
+		/// (TimedPauseTicks; uw1 ui/SCROLLIO.C, uw2 ui/SCROLL.C scroll_print2 - read 2026-11-27, until then both paged).
+		/// </summary>
 		public static readonly string[] PageBreaks = { "\\m", "\\p" };
+
+		/// <summary>npc_say's \P before a partner's line: scroll_wait(0xC8), a key or a click cuts it short.</summary>
+		public const int PartnerHoldTicks = 0xC8;
+
+		/// <summary>\p's scroll_wait(0x190 + 0xC8).</summary>
+		public const int TimedPauseTicks = 0x190 + 0xC8;
+
+		/// <summary>For each marker in the text in order: true for a timed \p, false for a paging \m.</summary>
+		public static List<bool> TimedBreaks(string psText)
+		{
+			List<bool> lOTimed = new List<bool>();
+
+			for (int liAt = 0; psText != null && liAt + 1 < psText.Length; liAt++)
+			{
+				if (psText[liAt] != '\\' || (psText[liAt + 1] != 'm' && psText[liAt + 1] != 'p'))
+					continue;
+
+				lOTimed.Add(psText[liAt + 1] == 'p');
+				liAt++;
+			}
+
+			return lOTimed;
+		}
 
 		private static readonly string[] msLineBreaks = { "\r\n", "\n" };
 

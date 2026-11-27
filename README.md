@@ -123,6 +123,15 @@ on purpose is listed in [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md), open points in
   [Underworld Editor (Avalonia)](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia) and picture
   packs, in a load order of your own ([Mod tools](Docs/MOD-TOOLS.md))
 
+## Community translations
+
+Translations of the games' texts, published by their translators on their own pages:
+
+- **Greek** (Ελληνικά), both games: [underworld-revisited-greek](https://github.com/wittyprogramming/underworld-revisited-greek)
+
+The translators publish these game texts on their own responsibility. They are not part of Underworld Revisited.
+How a language file is installed is described on each translator's page and in [Translating](Docs/TRANSLATING.md).
+
 ## Requirements
 
 - **Windows** 10 or newer (64-bit) with a DirectX 11 graphics card - the system Underworld Revisited is developed

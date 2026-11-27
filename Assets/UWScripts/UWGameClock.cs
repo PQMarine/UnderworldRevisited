@@ -37,6 +37,11 @@ public static class UWGameClock
     /// floor to stand on yet.</summary>
     public const string NoWorldHold = "no world";
 
+    /// <summary>The first game's prompts in the scroll - "Move how many?", a yes or no question, a mantra: the
+    /// original's wdialog and wyorn are blocking loops, the game stands still (cleanup plan 2, U16, 2026-11-27;
+    /// uw1 SCROLLIO.C:505-675). Interaction holds it; the second game's prompts hold their own.</summary>
+    public const string PromptHold = "prompt";
+
     private static readonly HashSet<string> msHolds = new HashSet<string>();
 
     public static bool IsHeld

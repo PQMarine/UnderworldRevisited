@@ -105,6 +105,8 @@ of what is built was also read out of the original's executable.
 - Greek (0.27.0): Underworld Revisited's own texts, from a translator, drawn in the classic look
   with the language's font; the first batch of a second code cleanup, which read rules of Ultima
   Underworld II again in the original and measures its hand's reach as the original does
+- The second cleanup batch, its first part (0.28.0): the interface of Ultima Underworld checked
+  again against the original, the conversations' waits of both games rebuilt after its clock
 
 ## Next
 

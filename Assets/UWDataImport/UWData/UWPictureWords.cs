@@ -320,7 +320,7 @@ namespace UWDataImport.UWData
 			List<string> lsLines = new List<string>();
 			string lsText = psText ?? string.Empty;
 
-			foreach (string lsPart in (pbUpper ? lsText.ToUpperInvariant() : lsText).Replace("\\n", "\n").Split('\n'))
+			foreach (string lsPart in (pbUpper ? UWText.AllCaps(lsText) : lsText).Replace("\\n", "\n").Split('\n'))
 			{
 				string lsLine = string.Empty;
 

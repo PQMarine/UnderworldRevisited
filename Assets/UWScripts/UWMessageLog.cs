@@ -100,6 +100,9 @@ public sealed class UWMessageLog : IUWMessageSink
     {
         string lsMessage = UWText.General(fData(), piIndex);
 
+        if (!string.IsNullOrWhiteSpace(lsMessage) && fToConversation(lsMessage))
+            return;
+
         if (!string.IsNullOrWhiteSpace(lsMessage))
         {
             mOLines.Add(lsMessage);
@@ -110,6 +113,9 @@ public sealed class UWMessageLog : IUWMessageSink
 
     public void AddMessage(string psMessage)
     {
+        if (!string.IsNullOrEmpty(psMessage) && fToConversation(psMessage))
+            return;
+
         if (!string.IsNullOrEmpty(psMessage))
         {
             mOLines.Add(psMessage);
@@ -122,9 +128,42 @@ public sealed class UWMessageLog : IUWMessageSink
     /// list (Interaction.LookAtTarget until 2026-10-22), and does so still through this.</summary>
     public void AddLine(string psLine)
     {
+        if (!string.IsNullOrEmpty(psLine) && fToConversation(psLine))
+            return;
+
         mOLines.Add(psLine);
         SaidCount++;
         fStamp();
+    }
+
+    /// <summary>
+    /// IN A CONVERSATION THE SCROLL IS ITS ANSWER SCROLL (cleanup plan 2, U8, 2026-11-27): the original's scroll_print writes
+    /// into the scroll of the moment, the conversation's menu scroll while one runs (uw1 obj/LOOK.C:53-133 LookAt, then
+    /// SpecialLook - a book's text with [MORE]). A line said then stands in place of the answers for the look's moment,
+    /// joined with what else is said in that frame (UWConversationController.ShowLookText) - as the second game's
+    /// UWGameScreenUw2.Say. Until then it went into the message box behind the parchment, unseen.
+    /// </summary>
+    private static bool fToConversation(string psLine)
+    {
+        UWConversationController lOConversation = fOpenConversation();
+
+        if (lOConversation == null)
+            return false;
+
+        lOConversation.ShowLookText(UWFontRenderer.CleanText(psLine));
+
+        return true;
+    }
+
+    /// <summary>The first game's conversation that is open and not closing, else null.</summary>
+    private static UWConversationController fOpenConversation()
+    {
+        if (!UWConversationController.IsAnyOpen || UWGameStartUw2.IsRunning)
+            return null;
+
+        UWConversationController lOConversation = UWScene.ConversationController;
+
+        return lOConversation != null && !lOConversation.IsClosing ? lOConversation : null;
     }
 
     /// <summary>
@@ -280,6 +319,16 @@ public sealed class UWMessageLog : IUWMessageSink
     /// </summary>
     public void ShowPagedText(string psText, params string[] psLeading)
     {
+        // In a conversation the text goes to its answer scroll and pages there (U8).
+        UWConversationController lOConversation = fOpenConversation();
+
+        if (lOConversation != null && !string.IsNullOrEmpty(psText))
+        {
+            lOConversation.ShowLookPaged(UWFontRenderer.CleanText(psText), psLeading);
+
+            return;
+        }
+
         mOPendingPageLines.Clear();
         mOPrintedPageLines.Clear();
 
@@ -303,7 +352,8 @@ public sealed class UWMessageLog : IUWMessageSink
             }
         }
 
-        mOPendingPageLines.AddRange(lOUi.MessageLog.WrapLogText(UWFontRenderer.CleanText(psText)));
+        msPagedText = UWFontRenderer.CleanText(psText);
+        mOPendingPageLines.AddRange(lOUi.MessageLog.WrapLogText(msPagedText));
 
         fShowNextPage();
     }
@@ -325,7 +375,7 @@ public sealed class UWMessageLog : IUWMessageSink
         int liPendingBefore = mOPendingPageLines.Count;
 
         // Paging moves the message scroll too (UW.EXE seg043_37F0_8EB).
-        bool lbScrolled = UWMessageLogModel.ShowNextPage(mOPrintedPageLines, mOPendingPageLines, liCapacity, mOLines);
+        bool lbScrolled = UWMessageLogModel.ShowNextPage(mOPrintedPageLines, mOPendingPageLines, liCapacity, mOLines, msPagedText);
 
         // The page's lines count as said, one each (the edges turn by them, UWMessageLogModel.Update).
         SaidCount += liPendingBefore - mOPendingPageLines.Count;
@@ -341,6 +391,17 @@ public sealed class UWMessageLog : IUWMessageSink
 
         fUpdatePagedTimeScale();
     }
+
+    /// <summary>The text being paged, as wrapped - its last piece decides whether the last line joins a page (U1).</summary>
+    private string msPagedText;
+
+    /// <summary>After the last page the buttons must come up first (scroll_wait's mouse_release, uw1 SCROLLIO.C:102-121;
+    /// cleanup plan 2, U2, 2026-11-27): the click that paged neither walks nor strikes when it is held on - the second
+    /// game's msbPageRelease.</summary>
+    private bool mbPageRelease;
+
+    /// <summary>The paging's click is still held after the last page (U2).</summary>
+    public bool IsWaitingForRelease => mbPageRelease;
 
     /// <summary>What has already been printed of this text - the scroll from which the box
     /// shows its last lines.</summary>
@@ -375,7 +436,12 @@ public sealed class UWMessageLog : IUWMessageSink
     public bool UpdatePaging()
     {
         if (!IsWaitingForPage)
-            return false;
+        {
+            if (mbPageRelease && !UWMouseButtons.LeftHeld && !UWMouseButtons.RightHeld)
+                mbPageRelease = false;
+
+            return mbPageRelease;
+        }
 
         // Any key, mouse or pad button (UWGamepad), one page a frame and a click's release no second one - the one
         // routine of both games (UWPageInput, 2026-11-24). The press is the paging's: the pad's pointer does not click
@@ -384,6 +450,9 @@ public sealed class UWMessageLog : IUWMessageSink
         {
             miPageInputFrame = Time.frameCount;
             fShowNextPage();
+
+            if (!IsWaitingForPage)
+                mbPageRelease = true;
         }
 
         return true;

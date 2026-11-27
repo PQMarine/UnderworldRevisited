@@ -232,11 +232,21 @@ namespace UWDataImport.UWData
 		/// holds) - paging moves the message scroll too (UW.EXE seg043_37F0_8EB), the caller turns
 		/// the dragon then.
 		/// </summary>
-		public static bool ShowNextPage(List<string> pOPrinted, List<string> pOPending, int piCapacity, List<string> pOShown)
+		public static bool ShowNextPage(List<string> pOPrinted, List<string> pOPending, int piCapacity, List<string> pOShown,
+			string psText = null)
 		{
 			int liPerPage = LinesAboveMore(piCapacity);
 
 			for (int liAt = 0; liAt < liPerPage && pOPending.Count > 0; liAt++)
+			{
+				pOPrinted.Add(pOPending[0]);
+				pOPending.RemoveAt(0);
+			}
+
+			// THE LAST LINE JOINS THE PAGE (LastLineJoinsPage, scroll_print3's flag 0; cleanup plan 2, U1, 2026-11-27 - the
+			// first game took it from the second's, uw1 SCROLLIO.C:325 is the same): with psText, the one line left that
+			// starts in the text's last piece passes without another [MORE].
+			if (pOPending.Count == 1 && LastLineJoinsPage(psText, pOPending[0]))
 			{
 				pOPrinted.Add(pOPending[0]);
 				pOPending.RemoveAt(0);

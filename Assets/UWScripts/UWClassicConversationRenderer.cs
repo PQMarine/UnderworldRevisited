@@ -192,22 +192,46 @@ public sealed class UWClassicConversationRenderer : IUWConversationChoiceRows
     /// ">" followed by the typed text with an underscore as cursor, as with the
     /// name entry when saving. No answer can be clicked meanwhile.
     /// </summary>
-    public void DrawTypedAnswer(UWConversationView pOView, UWFont pOFont)
+    public void DrawTypedAnswer(UWConversationView pOView, UWFont pOFont, List<string> pOTypedBefore)
     {
         mOFirstLines.Clear();
         fBuildHitboxes(pOFont, mOFirstLines);
 
         mOLines.Clear();
+
+        if (pOTypedBefore != null)
+            mOLines.AddRange(pOTypedBefore);
+
         mOLines.Add(pOView.TypedAnswerLine);
 
-        fRenderInto(mOChoiceImage, pOFont, mOLines, fNpcColours(1), UWConversationLayout.ChoicesWidth);
+        fRenderInto(mOChoiceImage, pOFont, mOLines, fNpcColours(mOLines.Count), UWConversationLayout.ChoicesWidth);
+    }
+
+    /// <summary>The answers typed since the last menu, without a cursor and without click rows (cleanup plan 2, U3): the
+    /// ">answer" line stays in the scroll after wdialog, as in the original.</summary>
+    public void DrawTypedLines(UWFont pOFont, List<string> pOTypedLines)
+    {
+        mOFirstLines.Clear();
+        fBuildHitboxes(pOFont, mOFirstLines);
+
+        mOLines.Clear();
+        mOLines.AddRange(pOTypedLines);
+
+        fRenderInto(mOChoiceImage, pOFont, mOLines, fNpcColours(mOLines.Count), UWConversationLayout.ChoicesWidth);
     }
 
     /// <summary>A look text in place of the answers (UWConversationView.ShowLookText); the click
     /// rows stay as they were.</summary>
-    public void DrawLookText(UWFont pOFont, List<string> pOLines)
+    public void DrawLookText(UWFont pOFont, List<string> pOLines, bool pbMoreLast = false)
     {
-        fRenderInto(mOChoiceImage, pOFont, pOLines, fNpcColours(pOLines.Count), UWConversationLayout.ChoicesWidth);
+        Color32[] lyColours = fNpcColours(pOLines.Count);
+
+        // A long look's [MORE] in its last row is white, as the message box's and the history's (UiText; per user
+        // 2026-11-27, test 255.1: it came in the text's colour).
+        if (pbMoreLast && lyColours.Length > 0)
+            lyColours[lyColours.Length - 1] = fColour(UWConversationLayout.ClassicColour(UWConversationLayout.RoleEnum.Ui));
+
+        fRenderInto(mOChoiceImage, pOFont, pOLines, lyColours, UWConversationLayout.ChoicesWidth);
     }
 
     /// <summary>The scroll empty: while the text waits for [MORE], during a prompt.</summary>

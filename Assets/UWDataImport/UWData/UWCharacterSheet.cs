@@ -134,7 +134,7 @@ namespace UWDataImport.UWData
 
 				string lsName = mOPlayer.Name.Length > OriginalNameLength ? mOPlayer.Name.Substring(0, OriginalNameLength) : mOPlayer.Name;
 
-				return lsName.ToUpper();
+				return UWText.AllCaps(lsName);
 			}
 		}
 
@@ -146,7 +146,7 @@ namespace UWDataImport.UWData
 			{
 				string lsClass = UWCharacterText.ClassName(mOStrings, mOPlayer);
 
-				return fIsOriginal ? lsClass.ToUpper() : UWCharacterText.TitleCase(lsClass);
+				return fIsOriginal ? UWText.AllCaps(lsClass) : UWCharacterText.TitleCase(lsClass);
 			}
 		}
 
@@ -239,7 +239,7 @@ namespace UWDataImport.UWData
 				if (lsPoints == null)
 					return true;
 
-				psName = lsPoints.ToUpper();
+				psName = UWText.AllCaps(lsPoints);
 				psValue = mOVitals != null ? SkillPoints.ToString() : string.Empty;
 
 				return true;
@@ -255,7 +255,7 @@ namespace UWDataImport.UWData
 				if (lsWord == null)
 					return true;
 
-				psName = mbSecondGamePage ? lsWord.ToUpper() : lsWord;
+				psName = mbSecondGamePage ? UWText.AllCaps(lsWord) : lsWord;
 			}
 			else
 				psName = SkillName(piEntry);

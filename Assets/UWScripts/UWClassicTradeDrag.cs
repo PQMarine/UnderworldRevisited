@@ -198,20 +198,4 @@ public sealed class UWClassicTradeDrag
             pOInteraction.AddGeneralMessage(piMessageIndex);
     }
 
-    /// <summary>
-    /// IN A CONVERSATION the look goes onto the parchment: the description replaces the
-    /// answers for two seconds, as for an item in the trade area (per user on the original,
-    /// 2026-09-18). The message box behind the parchment is not visible there. False outside a
-    /// conversation.
-    /// </summary>
-    public bool TryLook(UWObject pOItem)
-    {
-        if (Trade != null || (mOConversationScreen != null && mOConversationScreen.IsOpen && mOConversationScreen.Session != null))
-        {
-            mOConversationScreen.Session.LookAt(pOItem);
-            return true;
-        }
-
-        return false;
-    }
 }

@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace UWDataImport.UWData
 {
 	/// <summary>
@@ -202,6 +205,75 @@ namespace UWDataImport.UWData
 			string lsRaw = Block(pOData, UWConversations.PartnerNameStringBlock, piIndex, null);
 
 			return lsRaw == null ? psFallback : UWGrammar.Of(pOData).PersonName(lsRaw);
+		}
+
+		/// <summary>The rule of the capitals (see AllCaps).</summary>
+		public const string AllCapsRuleId = "grammar.rule.allcaps";
+
+		/// <summary>
+		/// A WHOLE TEXT IN CAPITALS FOR THE SCREEN (GitHub issue 44, 2026-11-26): the stats page's class and skills, the
+		/// labels written in capitals, the words painted into the pictures. The upper case of every language
+		/// (ToUpperInvariant: never the system's culture - a Turkish Windows would make "i" an "İ"), then the language's
+		/// capitals rule (grammar.rule.allcaps, read for every language): pairs of a character and what it becomes,
+		/// blanks between them - Greek drops the tonos in capitals and keeps the dialytika ("ΆΑ ΈΕ ΉΗ ΊΙ ΌΟ ΎΥ ΏΩ ΐΪ ΰΫ";
+		/// ΐ and ΰ have no single capital, so the upper case leaves them small and the rule takes them). A plain list
+		/// rather than Unicode's decomposition: the same everywhere, no normalisation tables. Not for a first letter
+		/// alone (Capitalised): "Άβαταρ" keeps its tonos.
+		/// </summary>
+		public static string AllCaps(string psText)
+		{
+			if (string.IsNullOrEmpty(psText))
+				return psText;
+
+			return ApplyAllCaps(psText.ToUpperInvariant(), fAllCapsMap());
+		}
+
+		/// <summary>The rule's pairs: each blank-separated entry of exactly two characters maps the first to the second;
+		/// anything else (none, a lone character, a longer word) is left out.</summary>
+		public static Dictionary<char, char> ParseAllCaps(string psRule)
+		{
+			Dictionary<char, char> lOMap = new Dictionary<char, char>();
+
+			foreach (string lsPair in (psRule ?? string.Empty).Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries))
+			{
+				if (lsPair.Length == 2 && !lOMap.ContainsKey(lsPair[0]))
+					lOMap.Add(lsPair[0], lsPair[1]);
+			}
+
+			return lOMap;
+		}
+
+		/// <summary>A text with the map's characters replaced (the text as it is without any).</summary>
+		public static string ApplyAllCaps(string psText, Dictionary<char, char> pOMap)
+		{
+			if (string.IsNullOrEmpty(psText) || pOMap == null || pOMap.Count == 0)
+				return psText;
+
+			char[] lcChars = psText.ToCharArray();
+
+			for (int liAt = 0; liAt < lcChars.Length; liAt++)
+			{
+				if (pOMap.TryGetValue(lcChars[liAt], out char lcTo))
+					lcChars[liAt] = lcTo;
+			}
+
+			return new string(lcChars);
+		}
+
+		private static Dictionary<char, char> msAllCaps;
+
+		private static int miAllCapsVersion = -1;
+
+		/// <summary>The language in force's map, read again when the language changes.</summary>
+		private static Dictionary<char, char> fAllCapsMap()
+		{
+			if (msAllCaps == null || miAllCapsVersion != LanguageVersion)
+			{
+				msAllCaps = ParseAllCaps(T(AllCapsRuleId));
+				miAllCapsVersion = LanguageVersion;
+			}
+
+			return msAllCaps;
 		}
 
 		/// <summary>The first letter upper-case, the rest as it is - a name as a title or a

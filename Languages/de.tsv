@@ -1071,6 +1071,7 @@ grammar.rule.font	none
 grammar.rule.ime	no
 grammar.rule.classic.font	original
 grammar.rule.classic.bold	no
+grammar.rule.allcaps	none
 grammar.rule.tags	none
 grammar.article.indefinite	{0}
 grammar.article.definite	{0}

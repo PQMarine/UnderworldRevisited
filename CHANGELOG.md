@@ -10,6 +10,52 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-27
+
+The second batch of the cleanup, its first part: the interface of Ultima Underworld checked again against the
+original, the conversations' waits rebuilt in both games, and capitals in Greek without the accent.
+
+### Closer to the original
+- Conversations, both games: the original's waits. The text pauses briefly before each line of the partner (now in
+  the first game too, so a typed answer stands before the partner answers), a pause written into a text waits about
+  two and a half seconds instead of asking for [MORE], and a look over the answers stays about two seconds. A key or a
+  click cuts each short.
+- Conversations, both games: while the partner's text waits with [MORE] or in a pause, the panels take no click and a
+  right click looks at nothing, as in the original. The click that ends the wait does nothing else either.
+- Ultima Underworld, typed answers: a click ends the typing as Enter does, Escape leaves ">-", and the line stays until
+  the next answers. The history shows only what the conversation repeats, "???" for an empty answer.
+- Ultima Underworld: what is said or looked at in a conversation goes into its answer scroll and pages there with
+  [MORE] in white, a book's text included.
+- Ultima Underworld: a long text that pages with [MORE] takes a single last line onto its last page instead of asking
+  once more.
+- Ultima Underworld: the click that pages [MORE] must come up before the game goes on, and it neither walks nor
+  strikes.
+- Ultima Underworld: partway through an action (a thing on the pointer or used on another, a target spell or a
+  missile's aim waiting) the command icons take no click, and a click on options gives no line. The keys still say
+  "You cannot select options partway through an action.".
+- Ultima Underworld: the compass turns step by step towards the heading instead of jumping.
+- Ultima Underworld: the active-spell icons take no click partway through an action either.
+- Ultima Underworld: the questions for a count, a yes or no and a mantra stop the game's clock while they wait.
+- Ultima Underworld, character creation: arrows, Home, End, Page Up and Page Down and Enter choose, a click follows the
+  pointer until the button comes up, Escape goes back to the first question, and Escape in the name ends it as Enter
+  does.
+- Ultima Underworld II: after every use in the world the game checks the spells that end on it, not only after some.
+- Ultima Underworld II, conversations: the press that showed a look text does not cut it short, and the active-spell
+  icons take no click.
+- Ultima Underworld II, the classic map: Escape leaves a note and the map as the other windows do, and the eraser
+  reaches half its width to the left of the pointer.
+
+### Fixed
+- Translations: a whole text set in capitals follows the language's rule. Greek drops the accent (tonos) and keeps the
+  dialytika ([#44](https://github.com/PQMarine/UnderworldRevisited/issues/44)). A capital at a word's start is
+  untouched, and the system's own language no longer changes the capitals.
+- The modern message box: a long text pages by the box's own lines, not seven and nine at a time. Both games.
+- After the last page of a long text, a held mouse button no longer walks the player off. Both games.
+
+### Added
+- The README lists community translations of the games' texts, starting with Greek for both games. The translators
+  publish them on their own pages.
+
 ## [0.27.0] - 2026-11-26
 
 The first batch of a second cleanup: rules of Ultima Underworld II read again in the original and corrected, its

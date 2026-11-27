@@ -894,8 +894,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         msPendingPage.Clear();
         // Wrapped at the scroll shown (IUWUiScheme.ShownLogWidth): a narrowed modern scroll wraps more lines, which the
         // page must count (per user, 2026-11-24: they scrolled away unread).
-        msPendingPage.AddRange(UWMessageLogModel.WrapForPaging(lOFont, psText,
-            IsModernScheme ? UWControlScheme.Ui.ShownLogWidth(UWClassicLayoutUw2.MessageLog.Width) : ClassicLogWidth));
+        msPendingPage.AddRange(IsModernScheme ? UWControlScheme.Ui.WrapShownLog(lOFont, psText, UWClassicLayoutUw2.MessageLog.Width)
+            : UWMessageLogModel.WrapForPaging(lOFont, psText, ClassicLogWidth));
         msPagedText = psText;
         msiPageStartFrame = Time.frameCount;
         Current.fShowNextPage(lOFont);
@@ -965,7 +965,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     {
         // A look's [MORE] in a conversation's answer scroll pages there (UWConversationScreenUw2.fUpdateLookPaging): the
         // conversation's frame runs from here, as the rest of Update does not (per user 2026-11-20: [MORE] took no input).
-        if (UWConversationScreenUw2.IsLookPaging)
+        if (UWConversationScreenUw2.IsLookPaging || UWConversationScreenUw2.IsTextWaiting)
         {
             if (mOConversation != null)
                 mOConversation.Tick();
@@ -1870,12 +1870,15 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     }
 
     /// <summary>try_clear: the icon's spell, from the right. Not while a thing is on the pointer, a target or a missile
-    /// spell or a thing used on another waits (GameInputMode 1 to 3, uw2 RUNES.C:142; the roaming view's 8 lets it).</summary>
+    /// spell or a thing used on another waits (GameInputMode 1 to 3, uw2 RUNES.C:142; the roaming view's 8 lets it).
+    /// NOT DURING A CONVERSATION (cleanup plan 2, U11, 2026-11-26): start_gameinp registers the icons with the mask 1, the
+    /// 3D view alone (uw2 ui/GAMESCR.C:141), and a conversation's input mode is 4 - as the first game's panel rests.</summary>
     private void fClickActiveSpell(int piIndex, bool pbRight)
     {
         UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
 
-        if (lOPlayer == null || lOPlayer.Vitals == null || piIndex < 0 || piIndex >= lOPlayer.Vitals.ActiveSpells.Count || fHoldsInputMode)
+        if (lOPlayer == null || lOPlayer.Vitals == null || piIndex < 0 || piIndex >= lOPlayer.Vitals.ActiveSpells.Count || fHoldsInputMode
+            || UWConversationScreenUw2.IsOpen)
             return;
 
         if (pbRight)
@@ -3349,7 +3352,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (lsName.Length > UWClassicLayoutUw2.Statistics.NameLength)
             lsName = lsName.Substring(0, UWClassicLayoutUw2.Statistics.NameLength);
 
-        fSetText(mOStatName, leFont, lsName.ToUpperInvariant(), liHeader, AlignEnum.Centre,
+        fSetText(mOStatName, leFont, UWText.AllCaps(lsName), liHeader, AlignEnum.Centre,
             UWClassicLayoutUw2.Statistics.Left + (UWClassicLayoutUw2.Statistics.NameWidth / 2));
         fSetText(mOStatClass, leFont, fChargenString(UWClassicLayoutUw2.Statistics.FirstClassString + UWPlayerRecordUw2.CharacterClass(lOPlayer)),
             liHeader, AlignEnum.Left, UWClassicLayoutUw2.Statistics.Left);
@@ -3397,7 +3400,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// strings count one higher.</summary>
     private string fChargenString(int piOriginalIndex)
     {
-        return UWText.Block(mOData, 2, piOriginalIndex + 1, string.Empty).ToUpperInvariant();
+        return UWText.AllCaps(UWText.Block(mOData, 2, piOriginalIndex + 1, string.Empty));
     }
 
     /// <summary>What the flasks show, to see when it moved.</summary>

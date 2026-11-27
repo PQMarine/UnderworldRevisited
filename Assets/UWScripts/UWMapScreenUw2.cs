@@ -191,9 +191,9 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
         int liY = Mathf.FloorToInt((lOAt.y - lOScreen.yMin) / lOScreen.height * UWScreenUi.ScreenHeight);
 
         // ESCAPE, AND IN THE MODERN SCHEME START AND THE PAD'S B (2026-11-25, the gamepad on UW2): the first game's big map
-        // closes by the back chain's ModernMap row (UWHotkeys group 1); the classic map keeps Escape alone, as there.
-        if ((UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
-            || (UWGameScreenUw2.IsModernScheme && UWBack.Takes(UWBackOwner.ModernMap)))
+        // closes by the back chain's ModernMap row (UWHotkeys group 1); the classic map keeps Escape alone, as there -
+        // through the chain's ClassicMapUw2 row since cleanup plan 2's U18 (2026-11-26), not past what has the key.
+        if (UWGameScreenUw2.IsModernScheme ? UWBack.Takes(UWBackOwner.ModernMap) : UWBack.Takes(UWBackOwner.ClassicMapUw2, UWBackKey.Escape))
         {
             Close();
 
@@ -208,7 +208,8 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
     /// <summary>The keys of the note: Enter or a click ends it, Escape keeps it too and closes the map.</summary>
     private void fUpdateWriting()
     {
-        if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.escapeKey.wasPressedThisFrame)
+        // Through the back chain's MapNote row, as the first game's note (UWHudMap.fUpdateMapWriting; U18).
+        if (UWBack.Takes(UWBackOwner.MapNote))
         {
             Close();
 
@@ -254,8 +255,16 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
         {
             IsErasing = false;
 
-            if (mONotes.EraseAt(piX, piY - UWClassicLayoutUw2.Map.EraserRowsBelow))
-                fShowNotes();
+            // From the point leftwards, the nearest column first (EraserReachLeft, per user on the original).
+            for (int liLeft = 0; liLeft <= UWClassicLayoutUw2.Map.EraserReachLeft; liLeft++)
+            {
+                if (mONotes.EraseAt(piX - liLeft, piY - UWClassicLayoutUw2.Map.EraserRowsBelow))
+                {
+                    fShowNotes();
+
+                    break;
+                }
+            }
 
             return;
         }

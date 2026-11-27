@@ -119,6 +119,12 @@ public sealed class UWHudCompass
 
     private bool mbCompassFrozen;
 
+    /// <summary>The step the compass shows (-1 before the first frame: it starts on its goal) and the time towards its
+    /// next step (U10).</summary>
+    private int miShownStep = -1;
+
+    private float mfStepTime;
+
     private int miFrozenCompassStep;
 
     /// <summary>The step in force, 0 (north) to 15 clockwise: the view's, or the frozen one in the
@@ -274,7 +280,28 @@ public sealed class UWHudCompass
         if (Camera.main == null)
             return;
 
-        int liStep = mbCompassFrozen ? miFrozenCompassStep : fGetCompassStepFromView();
+        // THE COMPASS TURNS TOWARDS ITS GOAL (cleanup plan 2, U10, 2026-11-27; uw1 ui/PANELS.C:608 adjust_compass): the
+        // view's step (or the Void's frozen one) is only the goal (display_scr's set_screen_frame), the face and the
+        // needle follow it one step the short way on each slow update - a quick turn or a teleport swings the needle
+        // round. On the game clock, as the second game's (UWGameScreenUw2.fUpdateCompass): held, it stands.
+        int liGoal = mbCompassFrozen ? miFrozenCompassStep : fGetCompassStepFromView();
+        int liStep = miShownStep < 0 ? liGoal : miShownStep;
+
+        mfStepTime += Time.deltaTime;
+
+        if (liStep == liGoal)
+            mfStepTime = 0f;
+
+        while (liStep != liGoal && mfStepTime >= UWClassicLayout.Compass.StepSeconds)
+        {
+            mfStepTime -= UWClassicLayout.Compass.StepSeconds;
+
+            int liAhead = (liGoal - liStep + 16) & 0xF;
+
+            liStep = (liStep + (liAhead <= 8 ? 1 : -1) + 16) & 0xF;
+        }
+
+        miShownStep = liStep;
 
         for (int liAt = 0; liAt < mCompassBackgrounds.Length; liAt++)
             mCompassBackgrounds[liAt].enabled = (liStep % CompassBackgroundCount) == liAt

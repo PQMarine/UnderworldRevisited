@@ -536,14 +536,19 @@ public sealed class UWHudOptions
         return true;
     }
 
-    /// <summary>The approximation of the original's GameInputMode, see RefusesToOpen.</summary>
+    /// <summary>The approximation of the original's GameInputMode 1 to 3, see RefusesToOpen: a thing on the pointer or
+    /// used on another (1), a target spell (2), a missile's aim (3). The use-on came with cleanup plan 2's U9
+    /// (2026-11-27).</summary>
     private bool fIsPartway()
     {
         Interaction lOInteraction = mOUi.mOInteraction;
 
-        return (mOUi.mOInventory != null && mOUi.mOInventory.CursorItem != null)
+        return (mOUi.mOInventory != null && (mOUi.mOInventory.CursorItem != null || mOUi.mOInventory.UseModeItem != null))
             || (lOInteraction != null && (lOInteraction.IsSpellTargeting || lOInteraction.IsRangedTargeting));
     }
+
+    /// <summary>Partway through an action (fIsPartway): the command column takes no click (deal_with_icons).</summary>
+    internal bool IsPartway => fIsPartway();
 
     /// <summary>
     /// THE ORIGINAL'S CTRL SHORTCUTS (read 2026-09-26: the key table sends Ctrl+S, R, M, F, D
@@ -640,8 +645,11 @@ public sealed class UWHudOptions
             if (UWRoamingSight.IsAnyRunning)
                 return false;
 
-            if (RefusesToOpen())
-                return false;
+            // THE CLICK IS SILENT partway through an action (cleanup plan 2, U9, 2026-11-27): deal_with_icons returns
+            // at once for any GameInputMode (uw1 INTERACT.C:773); "You cannot select options partway through an
+            // action." is do_option_shortcut's (OPTIONS.C:466-476), the keys' - ChooseByShortcut keeps it.
+            if (fIsPartway())
+                return true;
 
             fOpenOptions();
 

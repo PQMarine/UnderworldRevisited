@@ -260,6 +260,13 @@ public class UWItemDrag : MonoBehaviour
             && (mOInteraction.IsWaitingForPage || mOInteraction.PageInputConsumedThisFrame))
             return;
 
+        // While a conversation's text waits ([MORE], a hold) the pack takes no click either (UWConversationController.
+        // IsTextWaiting; per user 2026-11-27 on the original).
+        UWConversationController lOTalk = UWConversationController.IsAnyOpen ? UWScene.ConversationController : null;
+
+        if (lOTalk != null && lOTalk.IsTextWaiting)
+            return;
+
         // During the quantity prompt the rest of the drag flow does not run - otherwise
         // the click used to answer would immediately start the next drag.
         if (fUpdateCountPrompt())

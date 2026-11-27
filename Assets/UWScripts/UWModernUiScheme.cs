@@ -28,6 +28,20 @@ public sealed class UWModernUiScheme : IUWUiScheme
     /// else the classic box's width, as the message box's lines always were.</summary>
     public int ShownLogWidth(int piClassicWidth) => UWModernLayout.IsScrollShown ? UWModernScroll.ShownTextWidth : piClassicWidth;
 
+    /// <summary>The modern scroll: the pixel font at its paper's width; the message box: its own font and width.</summary>
+    public System.Collections.Generic.List<string> WrapShownLog(UWDataImport.UWData.UWFont pOFont, string psText, int piClassicWidth)
+    {
+        if (!UWModernLayout.IsScrollShown)
+        {
+            System.Collections.Generic.List<string> lOBoxLines = UWModernMessageBox.WrapForBox(psText);
+
+            if (lOBoxLines != null)
+                return lOBoxLines;
+        }
+
+        return UWDataImport.UWData.UWMessageLogModel.WrapForPaging(pOFont, psText, ShownLogWidth(piClassicWidth));
+    }
+
     /// <summary>The pointer hold of UWModernPointer, the bags and whatever else freed it
     /// (UWControlScheme.IsPointerFree).</summary>
     public bool IsPointerUnlocked

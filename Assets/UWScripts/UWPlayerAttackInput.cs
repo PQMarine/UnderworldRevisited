@@ -123,7 +123,9 @@ public sealed class UWPlayerAttackInput
 
             // In the classic view window; the modern scheme: on the world, not on a window of its
             // UI (a drag from a bag onto the world must not strike) - IUWUiScheme.PressAimsAtWorld.
-            mOState.PressInViewport = UWControlScheme.Ui.PressAimsAtWorld(mOState.FromPad);
+            // Not the press that pages a long text (cleanup plan 2, U2, 2026-11-27: in combat mode the right click
+            // through [MORE] started a swing once the last page came).
+            mOState.PressInViewport = UWControlScheme.Ui.PressAimsAtWorld(mOState.FromPad) && !mOInteraction.IsPagingPress;
         }
 
         if (mOInteraction.IsCombatModeActive && !mOState.IsAttacking && !mOState.BlowPending && mOState.PressInViewport

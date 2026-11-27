@@ -701,6 +701,9 @@ public sealed class UWHudRunes
         if (liSlot < 0 || liSlot >= mOUi.mCharacter.Vitals.ActiveSpells.Count)
             return;
 
+        if (fSpellIconsRest())
+            return;
+
         if (lbLeft)
             mOUi.mCharacter.Vitals.CancelActiveSpell(liSlot);
         else
@@ -722,16 +725,25 @@ public sealed class UWHudRunes
             mOUi.mOInteraction.AddMessage(lsText);
     }
 
+    /// <summary>GameInputMode 1 to 3, where try_clear returns (cleanup plan 2, U12, 2026-11-27; uw1 RUNES.C:165): a thing on
+    /// the pointer or used on another, a target spell or a missile's aim waiting - the roaming view (8) lets it. The
+    /// second game's UWGameScreenUw2.fClickActiveSpell asks the same, for the classic page and the modern row.</summary>
+    private bool fSpellIconsRest()
+    {
+        return fInAnotherInputMode() || (mOUi.mOInteraction != null && mOUi.mOInteraction.IsRangedTargeting);
+    }
+
     /// <summary>For the modern HUD's active spells (UWModernHud): the left button names it in the
     /// messages, the right button ends it - the classic page's two the other way round.</summary>
     internal void DescribeActiveSpell(int piSlot)
     {
-        fDescribeActiveSpell(piSlot);
+        if (!fSpellIconsRest())
+            fDescribeActiveSpell(piSlot);
     }
 
     internal void CancelActiveSpell(int piSlot)
     {
-        if (mOUi.mCharacter == null || piSlot < 0 || piSlot >= mOUi.mCharacter.Vitals.ActiveSpells.Count)
+        if (mOUi.mCharacter == null || piSlot < 0 || piSlot >= mOUi.mCharacter.Vitals.ActiveSpells.Count || fSpellIconsRest())
             return;
 
         mOUi.mCharacter.Vitals.CancelActiveSpell(piSlot);

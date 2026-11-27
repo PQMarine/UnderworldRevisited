@@ -29,6 +29,9 @@ namespace UWDataImport.UWData
 	///   grammar.rule.ime           yes: the text entries use the system's input method (no; UWLanguageFont)
 	///   grammar.rule.classic.font  modern: the classic texts start in the modern font (original; UWLanguageFont)
 	///   grammar.rule.classic.bold  yes: their CJK characters bold in the modern font (no; UWLanguageFont)
+	///   grammar.rule.allcaps      pairs of a character and what it becomes when a whole text is set in capitals
+	///                              (none; GitHub issue 44, read for every language - UWText.AllCaps): Greek
+	///                              "ΆΑ ΈΕ ΉΗ ΊΙ ΌΟ ΎΥ ΏΩ ΐΪ ΰΫ" drops the tonos
 	///   grammar.rule.tags          the sound tags a phrase's start gives it, for the frames' select (none;
 	///                              2026-11-04, a French translator's elision): "v=a e i o u h; z=sb sc"
 	///                              - a phrase starting with one of a tag's beginnings has it, a name's

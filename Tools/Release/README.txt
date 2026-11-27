@@ -204,6 +204,8 @@ their own; put it into Languages too, with its folder of pictures if it brings o
 translation the cutscenes show subtitles for their speech ("Subtitles in cutscenes" in the Game
 window: Auto, Off or On). How to make one: Docs/TRANSLATING.md in the repository and the
 Translation Kit beside each release.
+The translations published so far are listed under "Community translations" in the README on GitHub
+(https://github.com/PQMarine/UnderworldRevisited).
 
 
 MUSIC

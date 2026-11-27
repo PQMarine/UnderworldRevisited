@@ -310,6 +310,7 @@ in its `<code>.tsv`, tell the grammar what it needs. The English values are the 
 | `grammar.rule.ime` | `no` | `yes`: the text fields use the system's input method (Chinese, Japanese, Korean); read for every language |
 | `grammar.rule.classic.font` | `original` | `modern`: choosing the language switches the classic texts to the modern font (see [Fonts and input methods](#fonts-and-input-methods)); read for every language |
 | `grammar.rule.classic.bold` | `no` | `yes`: in the modern font the classic texts draw their Chinese, Japanese and Korean characters bold; read for every language |
+| `grammar.rule.allcaps` | `none` | only for a whole text set in capitals (the stats page, labels, the words in the pictures), never for a capital at the start of a word or line (that is `grammar.rule.capital`): pairs of a character and what it becomes there, after the upper case. Greek `ΆΑ ΈΕ ΉΗ ΊΙ ΌΟ ΎΥ ΏΩ ΐΪ ΰΫ` drops the tonos and keeps the dialytika, while `Άβαταρ` keeps its accent. Read for every language |
 | `grammar.rule.tags` | `none` | the sound tags and the first letters that give them (`v=a e i o u h; z=sb sc`) - see [Sound tags](#sound-tags) |
 | `grammar.article.indefinite` | `{0}` | the indefinite article around the noun phrase `{0}` |
 | `grammar.article.definite` | `{0}` | the definite one |
@@ -505,3 +506,6 @@ game's texts are not ours: a translated `<code>.strings.tsv` (either game's) is 
 Origin's text. It never comes into this repository. A translator who publishes one does so on their own
 responsibility. The same holds for pictures painted over the game's (`Languages/<code>/pictures`):
 they are Origin's art changed, published only by the translator, never here.
+
+A published translation can be listed under *Community translations* in the [README](../README.md): open an
+issue with the link to your page. The list links to that page, never to a file.

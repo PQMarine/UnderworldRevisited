@@ -780,7 +780,7 @@ public sealed class UWHudPanel
 
         for (int liRow = 0; liRow < msStatsLabelIds.Length; liRow++)
         {
-            fSetStatsLine(StatsLabelLine + liRow, lbAsText ? UWText.T(msStatsLabelIds[liRow]).ToUpperInvariant() : null,
+            fSetStatsLine(StatsLabelLine + liRow, lbAsText ? UWText.AllCaps(UWText.T(msStatsLabelIds[liRow])) : null,
                 UWClassicLayout.Stats.FirstRow + (liRow * UWClassicLayout.Stats.RowHeight), StatsAlignEnum.LeftAt, StatsLabelLeft, Color.black);
         }
 

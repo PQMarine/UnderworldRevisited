@@ -128,6 +128,11 @@ namespace UWDataImport.UWData
 		/// Paging.</summary>
 		WindowPicture,
 
+		/// <summary>The second game's map in the classic scheme: Escape closes it (UWMapScreenUw2; uw2 ui/AUTOMAP.C:87,
+		/// _input_addkey(KEY_ESC, 1, 2, newscr)). Cleanup plan 2, U18 (2026-11-26): it read the keyboard's Escape itself,
+		/// past whatever had the key - the help's notes, the setup bar's panel.</summary>
+		ClassicMapUw2,
+
 		/// <summary>The big map in the modern scheme: Escape, Start or B close it (UWGameUI, UWHotkeys).</summary>
 		ModernMap,
 
@@ -334,6 +339,10 @@ namespace UWDataImport.UWData
 			// with the same Escape).
 			fCover(UWBackOwner.Paging, AnyKey, UWBackState.Paging),
 			fCover(UWBackOwner.WindowPicture, AnyKey, UWBackState.WindowPicture),
+
+			// The second game's classic map: its Escape, not past a panel or a field that has the keys (U18).
+			fRow(UWBackOwner.ClassicMapUw2, UWBackKey.Escape, UWBackState.MapVisible,
+				Typing | UWBackState.SetupPanel | UWBackState.KitText | UWBackState.HelpKeys),
 
 			// The modern routing (UWGameUI): the map first, then the chain, then the menu.
 			fRow(UWBackOwner.ModernMap, UWBackKey.Menu, UWBackState.MapVisible, ModernShut),

@@ -399,6 +399,8 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
         if (UWGameStartUw2.IsRunning)
             return;
 
+        fHoldClockForPrompts();
+
         // Jumping into water with the weapon drawn ends combat mode and puts the weapon away:
         // UW.EXE SetPlayerDataOxB9_seg008_B calls PutAwayWeapon_seg024_15C0 when swimming starts
         // (per user on the original, 2026-09-14).
@@ -1310,6 +1312,10 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
     /// <summary>A long text is waiting for its next page (UWMessageLog).</summary>
     public bool IsWaitingForPage => mOLog.IsWaitingForPage;
 
+    /// <summary>A text pages, or its last page's click is still held (UWMessageLog.IsWaitingForRelease): a press now is the
+    /// paging's, never a strike's (cleanup plan 2, U2).</summary>
+    public bool IsPagingPress => mOLog.IsWaitingForPage || mOLog.IsWaitingForRelease || mOLog.PageInputConsumedThisFrame;
+
     /// <summary>The page-forward input was swallowed this frame - UWItemDrag asks, so the click
     /// that confirms the last page starts no drag (UWMessageLog).</summary>
     public bool PageInputConsumedThisFrame => mOLog.PageInputConsumedThisFrame;
@@ -1350,6 +1356,49 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
     }
 
     public bool IsPromptActive => mOLog.IsPromptActive;
+
+    /// <summary>The clock is held for a prompt (UWGameClock.PromptHold), and the frame the last prompt ended in.</summary>
+    private bool mbPromptClockHeld;
+
+    private int miPromptEndedFrame = -1;
+
+    /// <summary>
+    /// THE GAME STANDS STILL UNDER A PROMPT (cleanup plan 2, U16, 2026-11-27): "Move how many?" (AskHowMany, uw1
+    /// INVPANEL.C:468), a yes or no question (the trap's, the repair's) and a mantra (SKILLS.C:274) are the original's
+    /// wdialog and wyorn, blocking loops that only read the mouse and the keys (SCROLLIO.C:505-675) - creatures, water
+    /// and the weapon wait. Ours ran on; the second game held its own already (UWCountAskUw2, UWGameScreenUw2). The hold
+    /// goes a frame after the prompt, with the click or key that answered it, as the second game's does.
+    /// </summary>
+    private void fHoldClockForPrompts()
+    {
+        UWItemDrag lODrag = UWScene.ItemDrag;
+        bool lbPrompt = IsChanting || IsAskingYesNo || (lODrag != null && lODrag.IsAskingCount);
+
+        if (lbPrompt)
+        {
+            miPromptEndedFrame = -1;
+
+            if (!mbPromptClockHeld)
+            {
+                mbPromptClockHeld = true;
+                UWGameClock.Hold(UWGameClock.PromptHold);
+            }
+
+            return;
+        }
+
+        if (!mbPromptClockHeld)
+            return;
+
+        if (miPromptEndedFrame < 0)
+            miPromptEndedFrame = Time.frameCount;
+        else if (Time.frameCount > miPromptEndedFrame)
+        {
+            mbPromptClockHeld = false;
+            miPromptEndedFrame = -1;
+            UWGameClock.Release(UWGameClock.PromptHold);
+        }
+    }
 
     /// <summary>The running input line's index in ActiveStrings, -1 for none.</summary>
     public int PromptLineIndex => mOLog.PromptLine;

@@ -1789,6 +1789,13 @@ namespace UWDataImport.UWData
 			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my -= 5")]
 			public const int EraserRowsBelow = 5;
 
+			/// <summary>The eraser also takes a note up to this many columns left of its point, the nearest first - half its
+			/// picture's width (CURSORS.GR 13 is 16 wide). The original erases at a point (AUTOMAP.C:617), but the pointer's
+			/// place against the picture is not certain from the code; per user on the original, the note goes from the
+			/// picture's bottom left to its bottom middle (test 253.5, cleanup plan 2 U18).</summary>
+			[UWClassicLayout.UserTuned("2026-11-26, the eraser reaches from its bottom middle to its bottom left in the original")]
+			public const int EraserReachLeft = 8;
+
 			/// <summary>The notes' and the level number's ink, in the map's palette.</summary>
 			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap *foreground_color = 0x4E")]
 			public const int InkColour = 0x4E;

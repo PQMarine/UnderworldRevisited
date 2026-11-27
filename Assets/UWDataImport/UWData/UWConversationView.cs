@@ -42,8 +42,9 @@ namespace UWDataImport.UWData
 			/// <summary>How many lines the parchment holds.</summary>
 			public int LinesCapacity;
 
-			/// <summary>The second game's screen: the text stops before each line of the partner (npc_say's \\P),
-			/// HoldPending, until the screen lets it go on.</summary>
+			/// <summary>The text stops before each line of the partner (npc_say's \\P), HoldPending, until the screen lets it
+			/// go on - both games (uw1 and uw2 conv/CONVERSE.C npc_say; the first game since cleanup plan 2's U3, per user
+			/// 2026-11-27 on the original: the typed answer stands, then after a wait the partner's answer comes).</summary>
 			public bool HoldBeforePartner;
 
 			/// <summary>The parchment's policy in this font; the modern scheme's is the same without
@@ -54,7 +55,8 @@ namespace UWDataImport.UWData
 				{
 					PauseForMore = !pbModern,
 					WrapWidth = UWConversationLayout.HistoryWidth,
-					LinesCapacity = UWConversationLayout.HistoryCapacity(pOFont)
+					LinesCapacity = UWConversationLayout.HistoryCapacity(pOFont),
+					HoldBeforePartner = true
 				};
 			}
 
@@ -78,8 +80,11 @@ namespace UWDataImport.UWData
 			/// <summary>No line: the portrait changes here (UWConversationSession.Line.Picture).</summary>
 			public int Picture;
 
-			/// <summary>No line: the text waits here (Policy.HoldBeforePartner).</summary>
+			/// <summary>No line: the text waits here (Policy.HoldBeforePartner, or a \\p in the text).</summary>
 			public bool Hold;
+
+			/// <summary>The hold's ticks at 256 a second: \\P's 0xC8 before a partner's line, \\p's 0x190 + 0xC8.</summary>
+			public int HoldTicks;
 
 			/// <summary>How many of the session's lines stand once this is out (LinesRevealed).</summary>
 			public int LinesUpTo;
@@ -214,6 +219,9 @@ namespace UWDataImport.UWData
 		/// <summary>The text waits before a line of the partner.</summary>
 		public bool HoldPending { get; private set; }
 
+		/// <summary>How long the running hold lasts, in seconds (its ticks at 256 a second), unless a key or a click ends it.</summary>
+		public float HoldSeconds { get; private set; } = UWConversationLayout.PartnerHoldTicks / 256f;
+
 		/// <summary>How many of the session's Lines have come out of the waits: what a history that shows whole
 		/// lines may show (the modern one of the second game).</summary>
 		public int LinesRevealed { get; private set; }
@@ -264,14 +272,20 @@ namespace UWDataImport.UWData
 				UWConversationLayout.RoleEnum leRole = UWConversationLayout.RoleOf(lOLine);
 
 				if (pbHold && (leRole == UWConversationLayout.RoleEnum.Npc || lOLine.IsReprint))
-					mOPendingLines.Enqueue(new PendingLine { Hold = true });
+					mOPendingLines.Enqueue(new PendingLine { Hold = true, HoldTicks = UWConversationLayout.PartnerHoldTicks });
 
+				// THE TEXT'S CODES (uw1 ui/SCROLLIO.C, uw2 ui/SCROLL.C scroll_print2): \\m pages with [MORE]; \\p waits
+				// 0x190 + 0xC8 ticks, which a key or a click cuts short (cleanup plan 2, per user 2026-11-27: "baue die
+				// Zeiten nach"; until then \\p paged as \\m did).
 				string[] lsSegments = (lOLine.Text ?? string.Empty).Split(UWConversationLayout.PageBreaks, System.StringSplitOptions.None);
+				List<bool> lbTimedAfter = UWConversationLayout.TimedBreaks(lOLine.Text ?? string.Empty);
 
 				for (int liSegment = 0; liSegment < lsSegments.Length; liSegment++)
 				{
 					// Spaces off, a newline kept: its empty line is the original's (WrapWithBreaks).
 					List<string> lOWrapped = UWConversationLayout.WrapWithBreaks(pOFont, lsSegments[liSegment].Trim(' ', '\t', '\r'), piWidth);
+					bool lbBreak = liSegment < lsSegments.Length - 1;
+					bool lbTimed = lbBreak && liSegment < lbTimedAfter.Count && lbTimedAfter[liSegment];
 
 					for (int liAt = 0; liAt < lOWrapped.Count; liAt++)
 					{
@@ -279,10 +293,13 @@ namespace UWDataImport.UWData
 						{
 							Text = lOWrapped[liAt],
 							Role = leRole,
-							BreakAfter = liAt == lOWrapped.Count - 1 && liSegment < lsSegments.Length - 1,
+							BreakAfter = liAt == lOWrapped.Count - 1 && lbBreak && !lbTimed,
 							LinesUpTo = liUpTo
 						});
 					}
+
+					if (lbTimed)
+						mOPendingLines.Enqueue(new PendingLine { Hold = true, HoldTicks = UWConversationLayout.TimedPauseTicks, LinesUpTo = liUpTo });
 				}
 
 				// ESCAPE AT A TYPED ANSWER (per user with the original, 2026-10-31): wdialog copies the string at DS:0,
@@ -314,6 +331,7 @@ namespace UWDataImport.UWData
 				if (lOLine.Hold)
 				{
 					HoldPending = true;
+					HoldSeconds = (lOLine.HoldTicks > 0 ? lOLine.HoldTicks : UWConversationLayout.PartnerHoldTicks) / 256f;
 
 					break;
 				}
@@ -524,7 +542,9 @@ namespace UWDataImport.UWData
 		/// went into the conversation history, where nothing seemed to happen and it only turned up
 		/// in black after the trade.
 		/// </summary>
-		public const float LookTextSeconds = 2f;
+		/// <summary>converse_event_loop's scroll_wait(0x1F4) before the answers come back after a line printed over them
+		/// (uw1 and uw2 conv/CONVERSE.C; 2 s until 2026-11-27, per user: "baue die Zeiten nach").</summary>
+		public const float LookTextSeconds = 0x1F4 / 256f;
 
 		/// <summary>Until when a look text is shown; below zero none is.</summary>
 		private float mfLookTextUntil = -1f;

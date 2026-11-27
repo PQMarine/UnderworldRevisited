@@ -208,9 +208,14 @@ namespace UnderworldRevisited.Tools
 
             lOView.Refresh(pOFont, lyPolicy);
 
-            for (int liClick = 0; liClick < 100 && lOView.MorePending; liClick++)
+            // A click pages [MORE] and ends a hold (\P before the partner, a timed \p).
+            for (int liClick = 0; liClick < 100 && (lOView.MorePending || lOView.HoldPending); liClick++)
             {
-                lOView.ContinueAfterMore();
+                if (lOView.HoldPending)
+                    lOView.HoldOver();
+                else
+                    lOView.ContinueAfterMore();
+
                 lOView.Refresh(pOFont, lyPolicy);
             }
 
@@ -255,6 +260,22 @@ namespace UnderworldRevisited.Tools
             UWConversationView.Policy lyModern = UWConversationView.Policy.For(pOFont, true);
             List<string> lOVisible = new List<string>();
             List<UWConversationLayout.RoleEnum> lORoles = new List<UWConversationLayout.RoleEnum>();
+
+            // THE HOLDS (2026-11-27, per user "baue die Zeiten nach"): npc_say's \P before a partner's line, 0xC8 ticks,
+            // and a \p in the text, 0x190 + 0xC8 - both games' scroll_wait, which a key or a click cuts short.
+            Check.Bool("hold: both schemes hold before the partner", lyClassic.HoldBeforePartner && lyModern.HoldBeforePartner, true);
+            UWConversationView lOHeld = fViewOf(new UWConversationSession.Line { IsNpc = true, Text = "first\\psecond" });
+            lOHeld.Refresh(pOFont, lyClassic);
+            Check.Str("hold: \\P first, 0xC8 ticks", lOHeld.HoldPending + " " + lOHeld.HoldSeconds.ToString("F4"),
+                "True " + (0xC8 / 256f).ToString("F4"));
+            lOHeld.HoldOver();
+            lOHeld.Refresh(pOFont, lyClassic);
+            Check.Str("hold: \\p waits 0x258 ticks, no [MORE]", lOHeld.HoldPending + " " + lOHeld.HoldSeconds.ToString("F4") + " " + lOHeld.MorePending,
+                "True " + (0x258 / 256f).ToString("F4") + " False");
+
+            // The paging below without the partner's hold: its own checks are above.
+            lyClassic.HoldBeforePartner = false;
+            lyModern.HoldBeforePartner = false;
 
             Check.Bool("policy: classic pauses for [MORE]", lyClassic.PauseForMore, true);
             Check.Bool("policy: modern never does", lyModern.PauseForMore, false);
@@ -302,8 +323,9 @@ namespace UnderworldRevisited.Tools
             lOPaged.ContinueAfterMore();
             lOPaged.Refresh(pOFont, lyClassic);
             lOPaged.VisibleHistory(lyClassic, lOVisible, lORoles);
-            Check.Str("\\p: ... and after its second", string.Join("|", lOVisible), "First part.|Second part.|" + UWConversationView.MoreMarker);
-            lOPaged.ContinueAfterMore();
+            Check.Str("\\p: ... after its second a hold, no [MORE] (its time, 2026-11-27)", string.Join("|", lOVisible) + "/" + lOPaged.HoldPending,
+                "First part.|Second part./True");
+            lOPaged.HoldOver();
             lOPaged.Refresh(pOFont, lyClassic);
             lOPaged.VisibleHistory(lyClassic, lOVisible, lORoles);
             Check.Str("\\m: the last part without a pause", string.Join("|", lOVisible), "First part.|Second part.|Third.");

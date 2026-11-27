@@ -119,6 +119,7 @@ public class UWConversationController : MonoBehaviour
             mORenderer = new UWClassicConversationRenderer(transform, mOGameUi);
 
         mOView.Begin(lOSession, pONpc, piSlot, pOData.InitialPlayer);
+        mOTypedLines.Clear();
 
         IsAnyOpen = true;
         mbClosing = false;
@@ -155,6 +156,9 @@ public class UWConversationController : MonoBehaviour
     }
 
     private bool mbClosing;
+
+    /// <summary>The conversation has ended and closes: what is said now goes to the message box (U8).</summary>
+    public bool IsClosing => mbClosing;
 
     /// <summary>The last line's hold before the fade waits for a key or a click (fCloseWithFade).</summary>
     private bool mbEndHoldWaits;
@@ -299,6 +303,10 @@ public class UWConversationController : MonoBehaviour
         // THE PRESS THAT SHOWED IT does not cut it short: the modern context menu's Look acts on the
         // press, and its release came a frame later and took the text away at once (per user,
         // 2026-10-04).
+        // A LONG LOOK WAITS WITH [MORE] in the answer scroll, then for the buttons to come up (U8): nothing else runs.
+        if (mOView.IsLookTextShown && fUpdateLookPaging())
+            return;
+
         bool lbLookRelease = mOView.IsLookTextShown && UWMouseButtons.LeftReleased;
 
         if (lbLookRelease && mbLookIgnoresRelease)
@@ -359,11 +367,28 @@ public class UWConversationController : MonoBehaviour
         if (IsTypingAnswer)
             fEndTyping();
 
+        // npc_say's \\P (uw1 conv/CONVERSE.C:510-519): scroll_wait(0xC8) before each line of the partner, which a key or a
+        // click cuts short (cleanup plan 2, U3, per user 2026-11-27 on the original - as the second game's screen).
+        if (mOView.HoldPending)
+        {
+            if (Time.unscaledTime >= mfHoldUntil || fAnyInput())
+            {
+                miTextWaitEndedFrame = Time.frameCount;
+                mOView.HoldOver();
+                fRedraw();
+            }
+
+            return;
+        }
+
         // "[MORE]": any key or mouse button fetches the rest of the text.
         if (mOView.MorePending)
         {
             if (fAnyInput())
+            {
+                miTextWaitEndedFrame = Time.frameCount;
                 fContinueAfterMore();
+            }
 
             return;
         }
@@ -477,6 +502,7 @@ public class UWConversationController : MonoBehaviour
         if (!IsTypingAnswer)
         {
             IsTypingAnswer = true;
+            miTypingButtonsUpFrame = -1;
             mOView.BeginTyping();
 
             if (lOKeyboard != null)
@@ -485,26 +511,28 @@ public class UWConversationController : MonoBehaviour
             fDrawTypedAnswer();
         }
 
-        if (lOKeyboard == null || IsKeyboardTaken)
+        if (IsKeyboardTaken)
             return;
 
-        if (UWTextEntry.EnterPressed)
-        {
-            string lsAnswer = mOView.TypedAnswer;
+        // WDIALOG ENDS ON ENTER, ESCAPE OR A CLICK (cleanup plan 2, U3, 2026-11-27; uw1 conv/CONVERSE.C:580, SCROLLIO.C:505-631,
+        // as the second game's UWConversationScreenUw2.fUpdateTyping): the ">answer" line stays in the scroll until the next
+        // answers come, Escape answers nothing and leaves ">-". Until then a click did nothing, Escape showed no dash and the
+        // line went at once.
+        bool lbEscape = UWBack.Takes(UWBackOwner.ConversationAnswer);
 
+        if (UWTextEntry.EnterPressed || lbEscape || fTypingButtonReleased())
+        {
+            string lsAnswer = lbEscape ? string.Empty : mOView.TypedAnswer;
+
+            mOTypedLines.Add(UWConversationLayout.TypedAnswerPrompt + (lbEscape ? EscapedAnswer : lsAnswer));
             fEndTyping();
             Session.SupplyText(lsAnswer);
             fRedraw();
             return;
         }
 
-        if (UWBack.Takes(UWBackOwner.ConversationAnswer))
-        {
-            fEndTyping();
-            Session.SupplyText(string.Empty);
-            fRedraw();
+        if (lOKeyboard == null)
             return;
-        }
 
         if (UWTextEntry.BackspacePressed && mOView.Backspace())
             fDrawTypedAnswer();
@@ -537,7 +565,36 @@ public class UWConversationController : MonoBehaviour
         if (lOFont == null)
             return;
 
-        mORenderer.DrawTypedAnswer(mOView, lOFont);
+        mORenderer.DrawTypedAnswer(mOView, lOFont, mOTypedLines);
+    }
+
+    /// <summary>The answers typed since the last menu, ">answer" or ">-" for Escape: they stay in the scroll until the next
+    /// answers (U3).</summary>
+    private readonly List<string> mOTypedLines = new List<string>();
+
+    /// <summary>When the running hold before a partner's line is over, and whether it has been timed.</summary>
+    private float mfHoldUntil;
+
+    private bool mbHoldTimed;
+
+    /// <summary>wdialog's Escape answer as the scroll shows it.</summary>
+    private const string EscapedAnswer = "-";
+
+    /// <summary>The frame both buttons were up since the typing began, -1 before: the click that chose the answer
+    /// leading here does not end the typing when it comes up.</summary>
+    private int miTypingButtonsUpFrame = -1;
+
+    /// <summary>A button came up that went down while typing (wdialog's mouse codes 1 to 3).</summary>
+    private bool fTypingButtonReleased()
+    {
+        if (!UWPointer.HasMouse)
+            return false;
+
+        if (miTypingButtonsUpFrame < 0 && !UWMouseButtons.LeftHeld && !UWMouseButtons.RightHeld)
+            miTypingButtonsUpFrame = Time.frameCount;
+
+        return miTypingButtonsUpFrame >= 0 && Time.frameCount > miTypingButtonsUpFrame
+            && (UWMouseButtons.LeftReleased || UWMouseButtons.RightReleased);
     }
 
     /// <summary>While the help has the keyboard (typing in its notes, reading the manual), or
@@ -653,10 +710,29 @@ public class UWConversationController : MonoBehaviour
         mOView.Refresh(lOFont, lyPolicy);
         mORenderer.DrawHistory(mOView, lOFont, lyPolicy);
 
-        if (mOView.MorePending)
+        // A hold that begins now runs its 0xC8 ticks from here.
+        if (mOView.HoldPending && !mbHoldTimed)
+            mfHoldUntil = Time.unscaledTime + mOView.HoldSeconds;
+
+        mbHoldTimed = mOView.HoldPending;
+
+        // The answers come once everything has been said (conv_choice prints them when the script reaches them, after
+        // every say with its \\P); until then the typed lines stay in the scroll - [MORE] and the holds included - or it
+        // is empty (per user 2026-11-27 with a picture of the original, test 255.3).
+        bool lbTextWaits = mOView.MorePending || mOView.HoldPending || mOView.PendingPicture != 0;
+
+        if (mOTypedLines.Count > 0 && (lbTextWaits || (Session != null && Session.Choices.Count == 0)))
+            mORenderer.DrawTypedLines(lOFont, mOTypedLines);
+        else if (lbTextWaits)
             mORenderer.HideAnswers();
         else
+        {
+            // The next answers take the scroll: the typed lines go (U3, as the second game's fRedraw).
+            if (Session != null && Session.Choices.Count > 0)
+                mOTypedLines.Clear();
+
             mORenderer.DrawChoices(mOView, lOFont);
+        }
     }
 
     /// <summary>The click on "[MORE]": continue with the text.</summary>
@@ -678,10 +754,192 @@ public class UWConversationController : MonoBehaviour
         if (lOFont == null || string.IsNullOrEmpty(psText) || mORenderer == null)
             return;
 
-        mORenderer.DrawLookText(lOFont, UWConversationView.LookLines(lOFont, psText));
-        mOView.ShowLookText(psText, Time.unscaledTime);
-        mbLookIgnoresRelease = UWMouseButtons.LeftHeld;
+        // THE LINES OF ONE LOOK STAND TOGETHER (cleanup plan 2, U8, 2026-11-27; as the second game's
+        // UWConversationScreenUw2.fShowLook): what is said in the same frame joins the look, "You see a book." and what
+        // follows it. Until then each line replaced the one before.
+        fStartOrJoinLook(psText);
+        mOLookLines.AddRange(UWConversationView.LookLines(lOFont, psText));
+        fDrawLook();
     }
+
+    /// <summary>
+    /// A TEXT IN PLACE OF THE ANSWERS, PAGED (cleanup plan 2, U8, 2026-11-27): a book or a scroll read in a conversation
+    /// (UWMessageLog.ShowPagedText while a conversation is open). psLeading come before it as printed lines; a text
+    /// longer than the answer scroll waits with [MORE] there - four lines a page, the scroll's five less the [MORE] row,
+    /// the last line joining a page as in the message scroll (scroll_print3) - and the look's moment starts with the last
+    /// page. The modern answers show it whole. As the second game's fShowLookPaged.
+    /// </summary>
+    public void ShowLookPaged(string psText, params string[] psLeading)
+    {
+        UWFont lOFont = fFont();
+
+        if (lOFont == null || string.IsNullOrEmpty(psText) || mORenderer == null)
+            return;
+
+        // The leading lines belong to the look's text too: the modern answers show the whole of it.
+        string lsWhole = psText;
+
+        if (psLeading != null)
+        {
+            for (int liAt = psLeading.Length - 1; liAt >= 0; liAt--)
+            {
+                if (!string.IsNullOrEmpty(psLeading[liAt]))
+                    lsWhole = psLeading[liAt] + "\n" + lsWhole;
+            }
+        }
+
+        fStartOrJoinLook(lsWhole);
+
+        if (psLeading != null)
+        {
+            foreach (string lsLeading in psLeading)
+            {
+                if (!string.IsNullOrEmpty(lsLeading))
+                    mOLookLines.AddRange(UWConversationView.LookLines(lOFont, lsLeading));
+            }
+        }
+
+        if (UWControlScheme.IsModern)
+        {
+            mOLookLines.AddRange(UWConversationView.LookLines(lOFont, psText));
+            fDrawLook();
+
+            return;
+        }
+
+        mOLookPending.AddRange(UWConversationView.LookLines(lOFont, psText));
+        msPagedLookText = psText;
+        fNextLookPage();
+    }
+
+    /// <summary>The frame of the look shown last and its text: what is said in the same frame joins it.</summary>
+    private int miLookFrame = -1;
+
+    private string msLookText;
+
+    /// <summary>The look's lines printed so far, and those waiting for [MORE].</summary>
+    private readonly List<string> mOLookLines = new List<string>();
+
+    private readonly List<string> mOLookPending = new List<string>();
+
+    /// <summary>The text being paged (its last piece decides the last line's join).</summary>
+    private string msPagedLookText;
+
+    /// <summary>After the last page the buttons must come up first (scroll_wait's mouse_release).</summary>
+    private bool mbLookPageRelease;
+
+    private int miLookPageFrame = -1;
+
+    /// <summary>A new look, or more of the one of this frame.</summary>
+    private void fStartOrJoinLook(string psText)
+    {
+        if (miLookFrame != Time.frameCount || msLookText == null || !mOView.IsLookTextShown)
+        {
+            mOLookLines.Clear();
+            mOLookPending.Clear();
+            mbLookPageRelease = false;
+            msLookText = psText;
+            mbLookIgnoresRelease = UWMouseButtons.LeftHeld;
+        }
+        else
+            msLookText = msLookText + "\n" + psText;
+
+        miLookFrame = Time.frameCount;
+    }
+
+    /// <summary>The answer scroll's lines (five in the classic scroll).</summary>
+    private int fLookCapacity()
+    {
+        return UWMessageLogModel.CapacityOf(fFont(), UWConversationLayout.ChoicesHeight);
+    }
+
+    private void fNextLookPage()
+    {
+        int liPerPage = UWMessageLogModel.LinesAboveMore(fLookCapacity());
+
+        for (int liAt = 0; liAt < liPerPage && mOLookPending.Count > 0; liAt++)
+        {
+            mOLookLines.Add(mOLookPending[0]);
+            mOLookPending.RemoveAt(0);
+        }
+
+        if (mOLookPending.Count == 1 && UWMessageLogModel.LastLineJoinsPage(msPagedLookText, mOLookPending[0]))
+        {
+            mOLookLines.Add(mOLookPending[0]);
+            mOLookPending.RemoveAt(0);
+        }
+
+        miLookPageFrame = Time.frameCount;
+
+        if (mOLookPending.Count == 0 && miLookFrame != Time.frameCount)
+            mbLookPageRelease = true;
+
+        fDrawLook();
+    }
+
+    /// <summary>The last lines of the look as the scroll holds them, [MORE] in its last row while lines wait; the look's
+    /// moment starts anew with every page.</summary>
+    private void fDrawLook()
+    {
+        UWFont lOFont = fFont();
+
+        if (lOFont == null)
+            return;
+
+        int liCapacity = fLookCapacity();
+        bool lbMore = mOLookPending.Count > 0;
+        int liShown = lbMore ? UWMessageLogModel.LinesAboveMore(liCapacity) : liCapacity;
+        List<string> lOLines = new List<string>();
+
+        for (int liAt = System.Math.Max(0, mOLookLines.Count - liShown); liAt < mOLookLines.Count; liAt++)
+            lOLines.Add(mOLookLines[liAt]);
+
+        if (lbMore)
+            lOLines.Add(UWConversationView.MoreMarker);
+
+        mORenderer.DrawLookText(lOFont, lOLines, lbMore);
+        mOView.ShowLookText(msLookText, Time.unscaledTime);
+    }
+
+    /// <summary>scroll_wait for the look's [MORE]: a key, a mouse button or a pad button brings the next page, then the
+    /// buttons must come up. True while the look is not to be ended or cut short.</summary>
+    private bool fUpdateLookPaging()
+    {
+        if (mOLookPending.Count == 0)
+        {
+            if (mbLookPageRelease && !UWMouseButtons.LeftHeld && !UWMouseButtons.RightHeld)
+            {
+                mbLookPageRelease = false;
+
+                return true;
+            }
+
+            return mbLookPageRelease;
+        }
+
+        if (Time.frameCount == miLookPageFrame)
+            return true;
+
+        if (UWPageInput.TryConfirm(!IsKeyboardTaken))
+            fNextLookPage();
+
+        return true;
+    }
+
+    /// <summary>
+    /// THE TEXT WAITS - the partner's [MORE], a hold before a line or a \\p, a look's [MORE] - or its wait ended in this
+    /// frame: the panels take no click (per user 2026-11-27 on the original: while the partner's long text waits with
+    /// [MORE], a right click looks at nothing; only when the answers stand). The original's scroll_wait and scroll_more are
+    /// loops of their own that read nothing else (uw1 ui/SCROLLIO.C:102-120). UWItemDrag and the modern bags ask.
+    /// </summary>
+    public bool IsTextWaiting => IsAnyOpen && mOView != null
+        && (mOView.MorePending || mOView.HoldPending || IsLookPaging || miTextWaitEndedFrame == Time.frameCount);
+
+    /// <summary>The frame a key or a click ended a wait of the text.</summary>
+    private int miTextWaitEndedFrame = -1;
+
+    /// <summary>A look's [MORE] waits, or its last page's click is still held: the session's panels take no click.</summary>
+    public bool IsLookPaging => mOView.IsLookTextShown && (mOLookPending.Count > 0 || mbLookPageRelease);
 
     /// <summary>The look text came from a left press still held - its release is not the click
     /// that cuts the text short.</summary>

@@ -338,41 +338,140 @@ public class UWCharacterCreationScreen : MonoBehaviour
         if (IsTypingName)
             fEndTyping();
 
-        // B as Escape (UWScreenUi.WasPadBackPressed until cleanup step 7.5; the chain, UWBack).
-        if (UWBack.Takes(UWBackOwner.CharacterCreation))
+        // B as Escape (UWScreenUi.WasPadBackPressed until cleanup step 7.5; the chain, UWBack), Alt+X too.
+        if (UWBack.Takes(UWBackOwner.CharacterCreation) || (lOKeyboard != null && lOKeyboard.altKey.isPressed && lOKeyboard.xKey.wasPressedThisFrame))
         {
-            Hide();
+            fBack();
             return;
         }
 
         fStepByPad();
 
-        int liHover = -1;
+        if (fFollowPress())
+            return;
 
+        // PICKOPT'S KEYS (cleanup plan 2, U17, 2026-11-27; uw1 game/CHARGEN.C:419-519, as the second game's creation): the
+        // arrows move the light by one or by a row, Home and Page Up to the first answer, End and Page Down to the last,
+        // Enter chooses the lit one. Until then the creation took no keys.
+        if (lOKeyboard == null || mOButtons.Count == 0)
+            return;
+
+        int liSelected = miHover;
+
+        if (lOKeyboard.downArrowKey.wasPressedThisFrame)
+            liSelected = fMove(miColumns);
+        else if (lOKeyboard.upArrowKey.wasPressedThisFrame)
+            liSelected = fMove(-miColumns);
+        else if (lOKeyboard.rightArrowKey.wasPressedThisFrame)
+            liSelected = fMove(1);
+        else if (lOKeyboard.leftArrowKey.wasPressedThisFrame)
+            liSelected = fMove(-1);
+        else if (lOKeyboard.homeKey.wasPressedThisFrame || lOKeyboard.pageUpKey.wasPressedThisFrame)
+            liSelected = 0;
+        else if (lOKeyboard.endKey.wasPressedThisFrame || lOKeyboard.pageDownKey.wasPressedThisFrame)
+            liSelected = mOButtons.Count - 1;
+        else if (UWTextEntry.EnterPressed && miHover >= 0)
+        {
+            fChoose(miHover);
+            return;
+        }
+
+        fLight(liSelected);
+    }
+
+    /// <summary>The answers in a row of this question: two for a long list, else one (fBuildChoiceButtons).</summary>
+    private int miColumns = 1;
+
+    /// <summary>A press is followed (mousopt).</summary>
+    private bool mbPress;
+
+    /// <summary>The question the light was set for: the manual dealing of the points keeps its light.</summary>
+    private UWCharacterGeneration.Stage meLitStage;
+
+    private int fMove(int piStep)
+    {
+        int liSelected = miHover + piStep;
+
+        return liSelected < 0 ? 0 : liSelected >= mOButtons.Count ? mOButtons.Count - 1 : liSelected;
+    }
+
+    /// <summary>The answer under the pointer, -1 for none.</summary>
+    private int fAnswerUnderPointer()
+    {
         for (int liAt = 0; liAt < mOButtons.Count; liAt++)
         {
             if (UWScreenUi.IsMouseOver(mOButtons[liAt].Image))
-            {
-                liHover = liAt;
-                break;
-            }
+                return liAt;
         }
 
-        if (liHover != miHover)
-        {
-            miHover = liHover;
+        return -1;
+    }
 
-            for (int liAt = 0; liAt < mOButtons.Count; liAt++)
-            {
-                if (mOButtons[liAt].Focus != null)
-                    mOButtons[liAt].Focus.enabled = liAt == miHover;
-            }
-        }
-
-        if (miHover < 0 || !UWScreenUi.WasLeftClicked())
+    /// <summary>The lit answer: its focus frame on, the others off.</summary>
+    private void fLight(int piAnswer)
+    {
+        if (piAnswer < 0 || piAnswer >= mOButtons.Count)
             return;
 
-        fChoose(miHover);
+        miHover = piAnswer;
+
+        for (int liAt = 0; liAt < mOButtons.Count; liAt++)
+        {
+            if (mOButtons[liAt].Focus != null)
+                mOButtons[liAt].Focus.enabled = liAt == miHover;
+        }
+    }
+
+    /// <summary>
+    /// MOUSOPT (cleanup plan 2, U17, 2026-11-27; uw1 CHARGEN.C:376-413): any button's press lights the answer under the
+    /// pointer while it is held - the last one lit stays lit off the answers - and letting go over an answer chooses it.
+    /// Until then the light followed the pointer without a press and the left press chose. True while a press is followed.
+    /// </summary>
+    private bool fFollowPress()
+    {
+        if (!UWPointer.HasMouse)
+            return false;
+
+        if (!mbPress && UWPointer.AnyPressed)
+            mbPress = true;
+
+        if (!mbPress)
+        {
+            // While the pad drives the pointer the light follows it, as in the second game's creation.
+            if (UWGamepad.IsActive)
+                fLight(fAnswerUnderPointer());
+
+            return false;
+        }
+
+        int liAnswer = fAnswerUnderPointer();
+
+        if (liAnswer >= 0)
+            fLight(liAnswer);
+
+        if (UWPointer.AnyHeld)
+            return true;
+
+        mbPress = false;
+
+        if (liAnswer >= 0)
+            fChoose(liAnswer);
+
+        return true;
+    }
+
+    /// <summary>Escape (gen_char's choice -1, CHARGEN.C:573-578): from the first question back to the main menu, from any
+    /// other the creation starts again.</summary>
+    private void fBack()
+    {
+        if (mOGeneration.CurrentStage == UWCharacterGeneration.Stage.Sex)
+        {
+            Hide();
+            return;
+        }
+
+        mOGeneration.Begin();
+        fRefresh();
     }
 
     /// <summary>The gamepad steps through the choices (UWPadEntryStepper, per user 2026-10-08: as
@@ -475,9 +574,19 @@ public class UWCharacterCreationScreen : MonoBehaviour
         if (pOKeyboard == null)
             return;
 
+        // ESCAPE ENDS THE NAME AS ENTER DOES (cleanup plan 2, U17, 2026-11-27; uw1 CHARGEN.C:637-641: pickopt returns the
+        // typed text, which becomes the name when there is one). Until then it left the creation. Without a name typed it
+        // stays here, as Enter does: the original would go on with the old name, ours has none.
         if (UWBack.Takes(UWBackOwner.CharacterName))
         {
-            Hide();
+            string lsTyped = msTyped.Trim();
+
+            if (lsTyped.Length == 0)
+                return;
+
+            fEndTyping();
+            mOGeneration.SetName(lsTyped);
+            fRefresh();
             return;
         }
 
@@ -557,8 +666,15 @@ public class UWCharacterCreationScreen : MonoBehaviour
     /// <summary>Everything anew after each answer: left page and the question on the right.</summary>
     private void fRefresh()
     {
+        // The manual dealing of the points keeps its light from point to point; every new question lights its first
+        // answer (pickopt's selopt(opt, 0)).
+        bool lbKeepLight = mOGeneration.CurrentStage == UWCharacterGeneration.Stage.Attributes && meLitStage == mOGeneration.CurrentStage;
+        int liKeptLight = miHover;
+
+        meLitStage = mOGeneration.CurrentStage;
         fClearButtons();
         miHover = -1;
+        mbPress = false;
 
         UWCharacterGeneration.Stage leStage = mOGeneration.CurrentStage;
 
@@ -654,12 +770,17 @@ public class UWCharacterCreationScreen : MonoBehaviour
                 fBuildChoiceButtons();
                 break;
         }
+
+        if (mOButtons.Count > 0)
+            fLight(lbKeepLight && liKeptLight >= 0 ? Mathf.Min(liKeptLight, mOButtons.Count - 1) : 0);
     }
 
     private void fBuildChoiceButtons()
     {
         int liCount = mOGeneration.Choices.Count;
         int liColumns = liCount <= SingleColumnLimit ? 1 : 2;
+
+        miColumns = liColumns;
         int liRows = liCount <= SingleColumnLimit ? liCount : liCount / 2;
 
         for (int liAt = 0; liAt < liCount; liAt++)
@@ -690,6 +811,8 @@ public class UWCharacterCreationScreen : MonoBehaviour
     private void fBuildPortraitButtons()
     {
         int liFirst = mOGeneration.IsFemale ? FemalePortraitImage : MalePortraitImage;
+
+        miColumns = 1;
 
         for (int liAt = 0; liAt < UWCharacterGeneration.PortraitCount; liAt++)
         {

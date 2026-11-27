@@ -93,6 +93,22 @@ public sealed class UWPlayerInput
         return lOInteraction != null && lOInteraction.IsCombatModeActive;
     }
 
+    /// <summary>A press that pages a long text, or comes while its last page's click is held: it never starts
+    /// a walk (cleanup plan 2, U2, 2026-11-27; scroll_wait's mouse_release, uw1 SCROLLIO.C:102-121 - ours walked as the
+    /// last page came).</summary>
+    private static bool fPressPages()
+    {
+        // The second game's paging (UWGameScreenUw2.IsWaitingForPage: [MORE], its ending frame and the release after the
+        // last page) - per user 2026-11-27 the same walk-off there, after noclip only because the last left press before
+        // reading had been in the view.
+        if (UWGameStartUw2.IsRunning)
+            return UWGameScreenUw2.IsWaitingForPage;
+
+        Interaction lOInteraction = UWScene.Interaction;
+
+        return lOInteraction != null && lOInteraction.IsPagingPress;
+    }
+
     /// <summary>Left button held with a press that started in the viewport, original scheme. The second game's
     /// walk too (per user 2026-11-18: a right click to jump while walking by pointer looked as well; mous_in_3d
     /// breaks off with the left button down in both games, uw2 ui/INTERACT.C:483) - its first-game interface is
@@ -465,10 +481,16 @@ public sealed class UWPlayerInput
         // (UWGameScreenUw2); the first game's interface stays uninitialised there.
         UWGameScreenUw2 lOUw2Screen = UWGameStartUw2.IsRunning ? UWGameScreenUw2.Current : null;
 
+        // WHILE A TEXT PAGES the world and this frame stand still, so the paging's own presses never reach here: the drag
+        // of a press from before the text must not drive once its last page comes with the button held (per user
+        // 2026-11-27, test 255.2 in the pointer scheme: ours walked off).
+        if (fPressPages())
+            mbCursorDragStartedInViewport = false;
+
         if (!lbHeldDrag && (mGameUi != null || lOUw2Screen != null) && UWMouseButtons.LeftPressed && UWPointer.HasMouse)
             mbCursorDragStartedInViewport = lOUw2Screen != null
                 ? lOUw2Screen.IsInViewWindow(UWPointer.Position)
-                : mGameUi.ClassicScreen.IsScreenPositionInGameArea(UWPointer.Position);
+                : mGameUi.ClassicScreen.IsScreenPositionInGameArea(UWPointer.Position) && !fPressPages();
 
         IsCursorMovementInProgress = !lbHeldDrag && (mGameUi != null || lOUw2Screen != null) && UWMouseButtons.LeftHeld
             && mbCursorDragStartedInViewport;

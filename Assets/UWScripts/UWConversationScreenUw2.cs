@@ -157,10 +157,6 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     /// <summary>When the wait before the partner's line is over.</summary>
     private float mfHoldUntil;
 
-
-    /// <summary>\\P's 200 ticks at 256 a second.</summary>
-    private const float PartnerHoldSeconds = 0xC8 / 256f;
-
     private UWFont fFont => mOData.Fonts != null ? mOData.Fonts.Get(UWFonts.FontType.Normal) : null;
 
     private static UWConversationView.Policy fPolicy => new UWConversationView.Policy
@@ -274,7 +270,15 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             if (fUpdateLookPaging())
                 return;
 
-            if (mOView.IsLookTextOver(Time.unscaledTime) || UWMouseButtons.LeftReleased)
+            bool lbCutShort = UWMouseButtons.LeftReleased;
+
+            if (lbCutShort && mbLookIgnoresRelease)
+            {
+                mbLookIgnoresRelease = false;
+                lbCutShort = false;
+            }
+
+            if (mOView.IsLookTextOver(Time.unscaledTime) || lbCutShort)
             {
                 mOView.EndLookText();
                 fRedraw();
@@ -584,7 +588,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             return;
 
         mOView.Refresh(lOFont, fPolicy);
-        mfHoldUntil = Time.unscaledTime + PartnerHoldSeconds;
+        mfHoldUntil = Time.unscaledTime + mOView.HoldSeconds;
         mOView.VisibleHistory(fPolicy, mOLines, mORoles);
 
         if (mOView.RollEdges(mOLines))
@@ -817,6 +821,12 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     public static bool IsLookPaging => msOCurrent != null && IsOpen && msOCurrent.mOView != null && msOCurrent.mOView.IsLookTextShown
         && (msOCurrent.mOLookPending.Count > 0 || msOCurrent.mbLookPageRelease);
 
+    /// <summary>The partner's text waits - [MORE] or a hold (\\P, \\p): the session's panels take no click, as during a
+    /// look's [MORE] (UWGameScreenUw2.fUpdatePaging; per user 2026-11-27 on the original: a right click looks at nothing
+    /// while the partner's long text waits, only once the answers stand).</summary>
+    public static bool IsTextWaiting => msOCurrent != null && IsOpen && !msOCurrent.mbClosing && msOCurrent.mOView != null
+        && (msOCurrent.mOView.MorePending || msOCurrent.mOView.HoldPending);
+
     /// <summary>The conversation has ended and closes (the hold before the fade, the fade): a click is taken by the end.</summary>
     public static bool IsClosing => msOCurrent != null && IsOpen && msOCurrent.mbClosing;
 
@@ -841,6 +851,9 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
     /// does not end the look when it is let go.</summary>
     private bool mbLookPageRelease;
 
+    /// <summary>The look text came from a left press still held: its release is not the click that cuts it short (U7).</summary>
+    private bool mbLookIgnoresRelease;
+
     /// <summary>A new look, or more of the one of this frame.</summary>
     private void fStartOrJoinLook(string psText)
     {
@@ -850,6 +863,10 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             mOLookPending.Clear();
             mbLookPageRelease = false;
             msLookText = psText;
+            // THE PRESS THAT SHOWED IT does not cut it short (cleanup plan 2, U7, 2026-11-26; the first game's
+            // UWConversationController.mbLookIgnoresRelease): the modern menu's Look acts on the left press, and its
+            // release a frame later took the text away at once.
+            mbLookIgnoresRelease = UWMouseButtons.LeftHeld;
         }
         else
         {
