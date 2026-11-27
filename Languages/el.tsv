@@ -1067,7 +1067,7 @@ grammar.rule.font	NotoSans-Regular.ttf, os:Segoe UI, os:Tahoma
 grammar.rule.ime	no
 grammar.rule.classic.font	original
 grammar.rule.classic.bold	no
-grammar.rule.allcaps	ΆΑ ΈΕ ΉΗ ΊΙ ΌΟ ΎΥ ΏΩ ΐΪ ΰΫ
+grammar.rule.allcaps	ΆΑ ΈΕ ΉΗ ΊΙ ΌΟ ΎΥ ΏΩ ΐΪ ΰΫ ςΣ
 grammar.rule.tags	none
 grammar.article.indefinite	{0,select,m.acc{έναν {0}}m.gen{ενός {0}}f.gen{μιας {0}}n.gen{ενός {0}}f{μια {0}}n{ένα {0}}other{ένας {0}}}
 grammar.article.definite	{0,select,m.acc{τον {0}}f.acc{την {0}}m.gen{του {0}}f.gen{της {0}}n.gen{του {0}}n.acc{το {0}}f{η {0}}n{το {0}}other{ο {0}}}
