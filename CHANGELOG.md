@@ -10,6 +10,41 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-28
+
+The second batch of the cleanup, finished: the rules of Ultima Underworld's play checked again against the original,
+its footsteps as quiet as there, and the waits of wands and potions on the game's clock in both games.
+
+### Closer to the original
+- Ultima Underworld: footsteps are faint when walking slowly and a little louder at a run, as in the original, and
+  every step or turn with the easy-movement keys makes one.
+- Ultima Underworld: a blow released just before the map, a yes/no question or a window picture waits until it is
+  gone instead of landing behind it.
+- Ultima Underworld: a bow or a sling shoots only when the button comes up with the pointer in the view.
+- Ultima Underworld: during Roaming Sight no rune and no spell of the action bar can be cast.
+- Ultima Underworld: a locked door says "The door is locked." with its own name and a full stop.
+- Ultima Underworld: Open and Remove Trap work on carried things too. Open on anything without a lock says "The spell
+  has no discernable effect.", and Remove Trap takes the poison out of a poisoned potion.
+- Both games: the wait between two spells from things (a wand, a potion, a scroll) runs on the game's clock: the
+  easy-movement steps count towards it and a loaded game starts without one, as in the original.
+- Ultima Underworld: a fall that ends on a teleport does no fall damage, as in the second game.
+- Ultima Underworld: the swimming view on "Original" rises and sinks as fully as in the original.
+- Ultima Underworld: Paralyze, Confusion and Ally go through the original's goal change: a guard that is hit after
+  it returns to guarding. The spells also take a creature in its death throes. Mass Confusion in the second game too.
+- Ultima Underworld: each bolt of Sheet Lightning starts on a frame of its own, and a drop without room thuds a little
+  more quietly.
+- Ultima Underworld: when a walking theme ends, a new one is picked even if the same was asked for.
+- Ultima Underworld, rules no shipped place shows: True Sight finds a look trigger anywhere in a thing's chain, a
+  carried container sets off its use trigger and its spell when it is opened, a pick-up trigger fires before the thing
+  leaves the floor, a spell trap casts from its own place, the victory music plays for every kill, a switch moves
+  before its trigger fires, the weapon hand takes no stack of melee weapons, and several trap and conversation rules
+  follow the original's tests.
+
+### Fixed
+- The water's rushing no longer goes on behind the main menu. Both games.
+- Greek capitals turn the final sigma into Σ ("ΤΕΧΝΙΤΗΣ", not "ΤΕΧΝΙΤΗς"), by @kzagoris
+  ([#45](https://github.com/PQMarine/UnderworldRevisited/pull/45)).
+
 ## [0.28.0] - 2026-11-27
 
 The second batch of the cleanup, its first part: the interface of Ultima Underworld checked again against the

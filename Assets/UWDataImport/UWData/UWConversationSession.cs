@@ -680,19 +680,22 @@ namespace UWDataImport.UWData
 			return mIHost.GetPlayerSkillByNumber(piSkill);
 		}
 
-		/// <summary>x_traps(variable, value): sets a game variable (those of the
-		/// variable traps, see UWGameVariables) and returns its value; from 10000 on it is only
-		/// read.</summary>
+		/// <summary>x_traps(variable, value): sets a game variable (those of the variable traps, see UWGameVariables) and
+		/// returns its value - written only for a value of 0 to 0x3F, any other only reads (uw1 conv/BABLHACK.C:119-128;
+		/// cleanup plan 2, K18, 2026-11-28 - until then up to 9999 was written; no shipped conversation passes more).</summary>
 		private int fXTraps(int piVariable, int piValue)
 		{
 			if (piVariable < 0)
 				return 0;
 
-			if (piValue >= 0 && piValue < SkillIncrease)
+			if (piValue >= 0 && piValue <= XTrapsLargestValue)
 				mOGame.Variables.Set(piVariable, piValue);
 
 			return mOGame.Variables.Get(piVariable);
 		}
+
+		/// <summary>x_traps writes a value up to this one.</summary>
+		private const int XTrapsLargestValue = 0x3F;
 
 		/// <summary>Clock of the original: this many units are one game minute here (UW.EXE divides
 		/// the clock at 0xCE by 0x3BC4, not by the 0x3C00 of the rest of the game - see

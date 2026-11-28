@@ -1691,18 +1691,26 @@ namespace UWDataImport.UWData
 
 		/// <summary>Confusion: goal 2, attitude 1, the player as target - the three fields the
 		/// original's spell writes (deviation 39 adopted), after the resistance check
-		/// (fPassesSpellResistance). No duration.</summary>
+		/// (fPassesSpellResistance). No duration.
+		///
+		/// THE GOAL THROUGH change_critter_goal, as every mind spell's (uw1 combat/SPELLS.C:366-374 hit_critter_goal, gtarg 1;
+		/// sp_charm :379-386 gtarg 0; critter_set_goal AI.C:1397 keeps a guard's goal 4 as the old goal): cleanup plan 2,
+		/// K9, 2026-11-28 - until then Confuse, Paralyse and Befriend wrote the goal directly, so a guard woken by a hit
+		/// wandered off instead of guarding again, and Paralyse kept its old target.
+		///
+		/// A DYING CREATURE TAKES IT TOO (K13): neither game's mind spells ask (uw1 SPELLS.C:366, process_area :471-477; uw2
+		/// SPELLS.C:364), so the spell is spent on the one in its death animation. Until then ours passed it by and hit the
+		/// next one behind.</summary>
 		public UWTargetSpellRules.Result Confuse()
 		{
-			if (mOHealth == null || IsDead)
+			if (mOHealth == null)
 				return UWTargetSpellRules.Result.Missed;
 
 			if (!fPassesSpellResistance("confusion"))
 				return UWTargetSpellRules.Result.Spent;
 
 			fTrace("confused");
-			mORecord.Goal = WanderGoal;
-			mORecord.GTarg = PlayerIndex;
+			mORecord.SetNewGoal(WanderGoal, PlayerIndex);
 			mORecord.Attitude = 1;
 
 			return UWTargetSpellRules.Result.Shown;
@@ -1738,7 +1746,8 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public UWTargetSpellRules.Result Befriend()
 		{
-			if (mOHealth == null || IsDead)
+			// A dying creature too, and the goal through change_critter_goal (see Confuse; K9, K13).
+			if (mOHealth == null)
 				return UWTargetSpellRules.Result.Missed;
 
 			if (!fPassesSpellResistance("ally"))
@@ -1747,10 +1756,7 @@ namespace UWDataImport.UWData
 			fTrace("befriended");
 
 			if (!mORecord.IsAlly)
-			{
-				mORecord.Goal = WanderGoal;
-				mORecord.GTarg = 0;
-			}
+				mORecord.SetNewGoal(WanderGoal, 0);
 
 			mORecord.IsAlly = true;
 			mORecord.Attitude = 3;
@@ -1763,14 +1769,15 @@ namespace UWDataImport.UWData
 		/// A hit wakes it: the damage reaction sets goal 5.</summary>
 		public UWTargetSpellRules.Result Paralyse()
 		{
-			if (mOHealth == null || IsDead)
+			// A dying creature too, and the goal through change_critter_goal with gtarg 1 (see Confuse; K9, K13).
+			if (mOHealth == null)
 				return UWTargetSpellRules.Result.Missed;
 
 			if (!fPassesSpellResistance("paralysis"))
 				return UWTargetSpellRules.Result.Spent;
 
 			fTrace("paralysed");
-			mORecord.Goal = GoalParalysed;
+			mORecord.SetNewGoal(GoalParalysed, PlayerIndex);
 			mORecord.Attitude = 1;
 
 			return UWTargetSpellRules.Result.Shown;
@@ -1804,7 +1811,8 @@ namespace UWDataImport.UWData
 		/// <summary>Cause Fear: goal 6 against the player, without a morale roll.</summary>
 		public UWTargetSpellRules.Result Flee()
 		{
-			if (mOHealth == null || IsDead || mIWorld == null || !mIWorld.HasPlayer)
+			// A dying creature too (see Confuse; K13).
+			if (mOHealth == null || mIWorld == null || !mIWorld.HasPlayer)
 				return UWTargetSpellRules.Result.Missed;
 
 			if (!fPassesSpellResistance("fear"))

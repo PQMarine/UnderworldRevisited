@@ -204,6 +204,21 @@ namespace UWDataImport.UWData
 		// one after a melee hit even ran AFTER the brain and overwrote its theme with a float
 		// fraction against a quarter (deviation 53).
 
+		/// <summary>music_repeats (uw1 sound/SOUND.C:91): whether a theme may start again by itself when it ends.</summary>
+		private static readonly bool[] mbRepeats =
+		{
+			false, false, true, true, true, true, true, true, true, false, false, false, true, true
+		};
+
+		private static bool fRepeats(int piTheme)
+		{
+			return piTheme < 0 || piTheme >= mbRepeats.Length || mbRepeats[piTheme];
+		}
+
+		/// <summary>The 3D view is up (the original's scrmode 1): not the map, not a conversation, a world there. The host
+		/// sets it before Refresh; true by default (K26).</summary>
+		public bool OnGameView { get; set; } = true;
+
 		private static bool fIsLevel(int piTheme)
 		{
 			return piTheme >= FirstLevelTheme && piTheme <= LastLevelTheme;
@@ -240,14 +255,15 @@ namespace UWDataImport.UWData
 			// plays again. With the weapon drawn it is Armed either way. The change timer is cleared.
 			// Until then ours went silent after every theme but level, combat and Armed (taken from
 			// the reference) - after the fanfare only a sheathing's level theme request had filled
-			// the gap. Not built: with the mouse mode 1 (dseg_5c99_565E) a level theme or a theme
-			// flagged 0 in the table of seg061 picks a new level theme even over a request.
+			// the gap. ON THE 3D VIEW (scrmode 1) a walking theme or one that does not repeat (music_repeats) picks a new
+			// walking theme even over a request (uw1 sound/SOUND.C:977-981; cleanup plan 2, K26, 2026-11-28 - "not built"
+			// until then, so a request for the walking theme that had just ended played it again).
 			if (NewTheme == 0 || NewTheme == CurrentTheme)
 			{
 				if (lbPlaying)
 					return;
 
-				if (NewTheme == 0)
+				if (NewTheme == 0 || (OnGameView && (fIsLevel(CurrentTheme) || !fRepeats(CurrentTheme))))
 					PickLevelTheme();
 				else if (NewTheme == IntroTheme && CurrentTheme == IntroTheme)
 					NewTheme = IntroFollowTheme;

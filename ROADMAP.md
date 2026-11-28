@@ -107,6 +107,8 @@ of what is built was also read out of the original's executable.
   Underworld II again in the original and measures its hand's reach as the original does
 - The second cleanup batch, its first part (0.28.0): the interface of Ultima Underworld checked
   again against the original, the conversations' waits of both games rebuilt after its clock
+- The second cleanup batch, finished (0.29.0): the rules of Ultima Underworld's play checked
+  again against the original, the waits of wands and potions on the game's clock
 
 ## Next
 

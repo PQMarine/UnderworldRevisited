@@ -750,6 +750,21 @@ public class UWItemDrag : MonoBehaviour
             mOInventory != null ? mOInventory.Model : null, lOHost);
     }
 
+    /// <summary>
+    /// After a carried container was opened or closed by a use: UseObj's checkTrap with mode 4, then checkSpell (uw1
+    /// obj/USEITEMS.C:96-97, 172-174; cleanup plan 2, G16, 2026-11-27 - the second game's fix of 2026-11-20). The classic
+    /// panel's click and the modern bags' use call it.
+    /// </summary>
+    public void AfterContainerUse(UWObject pOContainer)
+    {
+        if (pOContainer == null)
+            return;
+
+        UWTriggerSystem.TryFireCarriedUseTrigger(pOContainer, UWScene.LevelLoader, mOInteraction);
+        UWItemUse.TryCastCarriedSpell(pOContainer, mOUWData, mOInventory != null ? mOInventory.Model : null,
+            new UWItemUseHost(mOUseServices, pOContainer, UWItemUseHost.ConsumptionEnum.Nothing, UWDragSource.None));
+    }
+
     /// <summary>The classic use mode for a carried piece: its icon on the pointer and "Use ...
     /// on what?".</summary>
     public void BeginUseMode(UWObject pOItem)

@@ -79,8 +79,10 @@ namespace UWDataImport.UWData
 		/// when the shot flew, MISSILE.C:103).</summary>
 		bool Twangs(int piLauncherId, bool pbFired);
 
-		/// <summary>The sound of a shot or a drop that found no room, UWAttackResolution.NoSound for none at the
-		/// shot (UW1; UW2: 0x2D, MISSILE.C:119).</summary>
+		/// <summary>The sound of a SHOT that found no room: UWAttackResolution.NoSound for none (UW1, MISSILE.C:117-119;
+		/// its twang still plays) or 0x2D (UW2, MISSILE.C:119). The first game's drop without room plays its own 0xF at -10
+		/// (UWPlayerThrow; cleanup plan 2, G14 - this said "a shot or a drop" until then, which a merge could have taken
+		/// for the drop too and silenced it); the second game's drop takes this 0x2D (uw2 MISSILE.C:254).</summary>
 		int NoRoomSound { get; }
 
 		/// <summary>"You need more space to fire that weapon." in our block 1.</summary>

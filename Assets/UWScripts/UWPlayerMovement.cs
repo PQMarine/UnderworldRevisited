@@ -292,6 +292,10 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     /// objects four units, halved under Speed; UWCritterDriver.StepWorld, since 2026-10-05).</summary>
     private void fReportEasyMovementStep()
     {
+        // check_physics' easy step: game_clock += 0x40 (PLAYMOVE.C:304, uw2 :297), which the spells from things wait on
+        // (UWThingSpellWait; cleanup plan 2, K11).
+        UWThingSpellWait.AddEasyStep();
+
         // The second game's step to its own vitals (G0 of the 2026-11-06 sweep: the idle UWCharacter took it).
         if (UWGameStartUw2.IsRunning)
         {
@@ -302,8 +306,14 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
             if (UWScene.PlayerTerrain != null)
                 UWScene.PlayerTerrain.EasyStepNoiseUw2();
         }
-        else if (UWScene.Character != null)
-            UWScene.Character.Vitals.ReportEasyMovementStep();
+        else
+        {
+            if (UWScene.Character != null)
+                UWScene.Character.Vitals.ReportEasyMovementStep();
+
+            // make_noise with easy: the step's footstep at once (K21; UWPlayerFootsteps.EasyStep).
+            mOFootsteps.EasyStep(fIsOnFootForSteps());
+        }
 
         if (UWCritterDriver.Instance != null)
             UWCritterDriver.Instance.StepWorld();
@@ -612,7 +622,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // frame, so that a teleport is not overwritten by the step.
         UWMotionHost lOTriggerWorld = UWScene.LevelLoader != null ? UWMotionHost.Ensure(UWScene.LevelLoader) : null;
 
-        int liTeleportsBefore = UWScene.LevelLoader != null ? UWScene.LevelLoader.Uw2TeleportCount : 0;
+        int liTeleportsBefore = UWScene.LevelLoader != null ? UWScene.LevelLoader.TeleportCount : 0;
 
         if (lOTriggerWorld != null)
             lOTriggerWorld.FirePendingPlayerTriggers();
@@ -624,7 +634,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
 
             miHeldFallDamage = 0;
 
-            if (UWScene.LevelLoader == null || UWScene.LevelLoader.Uw2TeleportCount == liTeleportsBefore)
+            if (UWScene.LevelLoader == null || UWScene.LevelLoader.TeleportCount == liTeleportsBefore)
                 fDealFallDamage(liHeld);
             else
                 Debug.Log("[Motion] A fall onto a teleport: no fall damage (" + liHeld + "), as do_zbounce stops on the trigger.");
@@ -643,13 +653,18 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     /// in the air or hovering.</summary>
     private void fUpdateFootsteps()
     {
-        UWLevelLoader lOLoader = UWScene.LevelLoader;
-        // The second game makes its own footsteps (make_noise, UWPlayerTerrain.fUpdateNoiseUw2 - ice sounds, easy
-        // steps, strokes); here only the momentum is measured for it.
-        bool lbOnFoot = !(mController == null || IsInLiquid || fIsHovering() || !fIsOnGround()
-            || (lOLoader != null && !lOLoader.HasWorld && !UWGameStartUw2.IsRunning) || UWGameStartUw2.IsRunning);
+        mOFootsteps.Step(transform.position, Mathf.Max(mfModernForwardSpeed, mfOriginalForwardSpeed), fIsOnFootForSteps());
+    }
 
-        mOFootsteps.Step(transform.position, Mathf.Max(mfModernForwardSpeed, mfOriginalForwardSpeed), lbOnFoot);
+    /// <summary>The first game's footsteps may sound: a world, on the ground, not in a liquid, not hovering. The second
+    /// game makes its own footsteps (make_noise, UWPlayerTerrain.fUpdateNoiseUw2 - ice sounds, easy steps, strokes); there
+    /// only the momentum is measured.</summary>
+    private bool fIsOnFootForSteps()
+    {
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        return !(mController == null || IsInLiquid || fIsHovering() || !fIsOnGround()
+            || (lOLoader != null && !lOLoader.HasWorld && !UWGameStartUw2.IsRunning) || UWGameStartUw2.IsRunning);
     }
 
     /// <summary>The character's values the frame reads: the abilities (a change re-applies the
@@ -740,7 +755,10 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // MOTION.C:535): the teleport trap answers 0x10 (do_teleport, WORLDEV.C:226), stop_me, and no impact is left for
         // phys_affect_player's damage (PHYSICS.C:601). Ours fires the player's move triggers after the frame, the fall
         // having reached the floor - so a step that queued one holds its fall damage until they have fired.
-        UWMotionHost lOHost = UWGameStartUw2.IsRunning && UWScene.LevelLoader != null ? UWMotionHost.Ensure(UWScene.LevelLoader) : null;
+        // BOTH GAMES (cleanup plan 2, G22, 2026-11-27): the first game's do_zbounce hands the trigger to do_objhit the same
+        // way (uw1 motion/MOTION.C:519-522, motion/OBJPHYS.C:188-189) and its do_teleport answers 0x10 (event/WORLDEV.C:197);
+        // until then the first game hurt on arrival.
+        UWMotionHost lOHost = UWScene.LevelLoader != null ? UWMotionHost.Ensure(UWScene.LevelLoader) : null;
 
         if (lOResult.FallDamage > 0 && lOHost != null && lOHost.HasPendingPlayerTriggers)
             miHeldFallDamage += lOResult.FallDamage;

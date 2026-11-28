@@ -487,8 +487,12 @@ public class UWPlayerTerrain : MonoBehaviour
                     * UWUserSettings.SwimViewStrength;
             }
 
-            // The rigid distance between player object and camera, without our own offset.
-            float lfRigidOffset = mOCamera.position.y - transform.position.y - mfAppliedCameraOffset;
+            // The rigid distance between player object and camera, without EVERYTHING this method put on it last frame -
+            // the followed offset, Original's swim offsets, the head and levitation bob (cleanup plan 2, G25, 2026-11-27:
+            // until then only the followed offset came off, so the follow chased Original's wave and damped it; the
+            // original adds it to PN.z + 0xA4 and nothing cancels it, uw1 motion/PLAYMOVE.C:527-544; the second game's
+            // fSwimViewUw2 takes its whole mfAppliedBobUw2 off).
+            float lfRigidOffset = mOCamera.position.y - transform.position.y - mfAppliedExtraUw1;
 
             lfWanted = pfTileFloor + lfHeight + lfSway - (transform.position.y + lfRigidOffset);
         }
@@ -507,9 +511,9 @@ public class UWPlayerTerrain : MonoBehaviour
         float lfPitch = mOCamera.localEulerAngles.x * Mathf.Deg2Rad;
 
         Vector3 lOLocal = mOCamera.localPosition;
+        mfAppliedExtraUw1 = mfAppliedCameraOffset + lfHeadBob + fGetLevitationBob() + (mOSwimView.HeightEighths * SwimCounterWorldUnit);
         lOLocal.x = UWWorldScale.ViewOffsetAcross;
-        lOLocal.y = mfBaseCameraLocalY + mfAppliedCameraOffset + lfHeadBob + fGetLevitationBob()
-            + (mOSwimView.HeightEighths * SwimCounterWorldUnit) + (UWWorldScale.ViewOffsetUp * Mathf.Cos(lfPitch));
+        lOLocal.y = mfBaseCameraLocalY + mfAppliedExtraUw1 + (UWWorldScale.ViewOffsetUp * Mathf.Cos(lfPitch));
         lOLocal.z = UWWorldScale.ViewOffsetUp * Mathf.Sin(lfPitch);
 
         mOCamera.localPosition = lOLocal;
@@ -518,6 +522,9 @@ public class UWPlayerTerrain : MonoBehaviour
     /// <summary>The original's swimming offsets of the moment (UWSwimViewRules), zero unless
     /// the switch stands on Original and the player swims.</summary>
     private UWSwimViewRules.Offsets mOSwimView;
+
+    /// <summary>What fUpdateCamera put on the camera's height last frame above its base (G25).</summary>
+    private float mfAppliedExtraUw1;
 
     private float mfSwimViewRollTimer;
 

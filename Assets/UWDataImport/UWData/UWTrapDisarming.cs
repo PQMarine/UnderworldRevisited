@@ -123,6 +123,29 @@ namespace UWDataImport.UWData
 			return lOResult;
 		}
 
+		/// <summary>
+		/// Remove Trap on a CARRIED thing (obj_spells' case 3, uw1 combat/SPELLS.C:737-739; cleanup plan 2, G19): found with
+		/// 45 and disarmed with 45 as in the world (SpellFinds), which never fails. The thing's special chain is cleared
+		/// as DefuseTrap clears it - for a carried thing its resolved contents and the link, which the inventory's writer
+		/// follows (UWInventoryWorkspace). Null when it holds no trap: the original prints nothing then.
+		/// </summary>
+		public static string RemoveCarriedTrapWithSpell(UWObject pOItem, IList<UWObject> pORecords, DataImport pOData)
+		{
+			if (!UWObjectMechanics.TryFindDisarmableTrap(pOItem, pORecords, out UWObject lOTrap, out UWObject _))
+				return null;
+
+			if (!UWSkillCheck.IsSuccess(UWSkillCheck.Check(SpellTrapSkill, UWGameSession.Current.Game.Player.TrapDetectTarget()))
+				|| !UWSkillCheck.IsSuccess(UWSkillCheck.Check(SpellTrapSkill, UWGameSession.Current.Game.Player.TrapDisarmTarget())))
+				return null;
+
+			if (pOItem.Contents != null)
+				pOItem.Contents.Clear();
+
+			pOItem.Quantity = 0;
+
+			return DisarmedMessage(pOData, lOTrap.ID, pOItem.ID);
+		}
+
 		/// <summary>"The arrow trap on the chest was successfully dearmed." - the trap's name
 		/// (GetTrapName; nominative) and the target's (dative), the frame msg.trap.disarmed.</summary>
 		public static string DisarmedMessage(DataImport pOData, int piTrapId, int piTargetId)

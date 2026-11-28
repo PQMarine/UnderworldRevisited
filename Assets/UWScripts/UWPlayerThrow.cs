@@ -68,6 +68,9 @@ public static class UWPlayerThrow
     /// pack gives it.</summary>
     public const int NoSpaceMessage = 0xFD + 1;
 
+    /// <summary>The drop without room: effect 0xF at volume -10 (uw1 combat/MISSILE.C:229).</summary>
+    private const int NoSpaceDropVolume = -10;
+
     /// <summary>
     /// Drops or throws the item at the pointer. Returns false if it stays at the pointer.
     /// </summary>
@@ -269,7 +272,9 @@ public static class UWPlayerThrow
         {
             pOInteraction?.AddGeneralMessage(NoSpaceMessage);
 
-            UWAudioService.PlayEffect(UWSoundEffectId.Landing);
+            // play_effect_here(0xF, 0x40, -10) (uw1 combat/MISSILE.C:229; cleanup plan 2, G14, 2026-11-28 - until then at
+            // its full volume).
+            UWAudioService.PlayEffect(UWSoundEffectId.Landing, NoSpaceDropVolume);
 
             return false;
         }

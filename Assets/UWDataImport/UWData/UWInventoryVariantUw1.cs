@@ -13,6 +13,12 @@ namespace UWDataImport.UWData
 		public bool FitsBodySlot(UWObject pOItem, UWArmorItemMap.BodySlot peSlot, UWArmorItemMap.BodySlot peMainHand,
 			UWObjectClassProperties pOClasses)
 		{
+			// The weapon hand: no stack of melee weapons (uw1 inv/INVPANEL.C:585-586; cleanup plan 2, K14, 2026-11-28, as the
+			// second game's variant). The same weapon already there swaps, as in the original (per user the same day).
+			if (pOItem != null && peSlot == peMainHand && pOItem.ID <= UWInventoryVariantUw2.LastMeleeWeaponId
+				&& UWStackRules.Count(pOItem) > 1)
+				return false;
+
 			return UWArmorItemMap.Fits(pOItem, peSlot);
 		}
 

@@ -49,8 +49,8 @@ namespace UWDataImport.UWData
 
 		public const int LastPotion = 0xE7;
 
-		/// <summary>nextSpellTime's step: 0x2FD game clock ticks.</summary>
-		public const int CastWait = 0x2FD;
+		/// <summary>nextSpellTime's step: 0x2FD game clock ticks (UWThingSpellWait.Wait).</summary>
+		public const int CastWait = UWThingSpellWait.Wait;
 
 		/// <summary>"You are not yet ready to cast another spell." (0xB; our block counts one higher).</summary>
 		public const int NotReadyString = 0xB + 1;
@@ -61,10 +61,6 @@ namespace UWDataImport.UWData
 		/// <summary>"With a loud &lt;SNAP!&gt;, the wand cracks." (0x8B).</summary>
 		public const int WandCracksString = 0x8B + 1;
 
-		/// <summary>The game clock before which the player casts nothing more from a thing (nextSpellTime). Not saved,
-		/// as the original keeps it in memory only.</summary>
-		private static int msNextSpellTime;
-
 		public static bool IsWand(int piId) => piId >= FirstWand && piId <= LastWand;
 
 		public static bool IsBrokenWand(int piId) => piId >= FirstBrokenWand && piId <= LastBrokenWand;
@@ -74,7 +70,7 @@ namespace UWDataImport.UWData
 		/// <summary>UseFood's nextSpellTime = 0: the next cast from a thing waits for nothing.</summary>
 		public static void ClearWait()
 		{
-			msNextSpellTime = 0;
+			UWThingSpellWait.Clear();
 		}
 
 		/// <summary>
@@ -109,10 +105,12 @@ namespace UWDataImport.UWData
 				|| !lbCastOnUse)
 				return CastEnum.None;
 
-			if ((uint)piGameClock < (uint)msNextSpellTime)
+			// nextSpellTime is the session's since cleanup plan 2, K11 (UWThingSpellWait; a static here until then, which
+			// outlived a load).
+			if (UWThingSpellWait.IsWaitingAt(piGameClock))
 				return CastEnum.NotReady;
 
-			msNextSpellTime = piGameClock + CastWait;
+			UWThingSpellWait.StartAt(piGameClock);
 
 			if (pfCast != null)
 				pfCast(liMajor, liEffect);

@@ -400,6 +400,11 @@ namespace UWDataImport.UWData
 		{
 			IUWInventoryVariant lOVariant = fVariant;
 
+			// NO SAME-WEAPON TEST HERE: ItemFitsSlot's cont test (uw1 inv/INVPANEL.C:584, the thing already in the hand of
+			// the same item) read as a refusal (cleanup plan 2, K14, 2026-11-28), but the original swaps two longswords on
+			// the weapon hand (per user on the original the same day) - the swap takes the held one first, so the test never
+			// sees it. Taken out again; only the stack part stays (the variants).
+
 			return lOVariant != null
 				? lOVariant.FitsBodySlot(pOItem, peSlot, MainHandSlot, fData.ObjectClassProperties)
 				: UWArmorItemMap.Fits(pOItem, peSlot);

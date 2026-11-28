@@ -49,7 +49,7 @@ public static class UWTargetSpell
         // original"): sp_ward_undead and sp_poison have no dying test (UnderworldExhumed
         // combat/SPELLS.C:344-361), so Smite Undead and Poison strike it - the body's one rule
         // (UWDamageable.TakesBlows); until then a destroyed body was missed here. Cause Fear, Ally
-        // and Paralyse still miss a dying one (their own IsDead test, UWCreatureActor).
+        // and Paralyse take a dying one as well since cleanup plan 2, K13 (2026-11-28; UWCreatureActor.Confuse).
         if (lOCritter == null || lODamageable == null || !lODamageable.TakesBlows)
             return UWTargetSpellRules.Result.Missed;
 

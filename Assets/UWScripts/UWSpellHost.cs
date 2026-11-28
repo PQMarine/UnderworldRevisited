@@ -226,8 +226,10 @@ public sealed class UWSpellHost : IUWSpellHost
         UWTriggerSystem.FireBullfrog(piMode, mOLoader, mOInteraction);
     }
 
+    /// <summary>sp_true_sight: the first look trigger anywhere in the thing's chain (UWTrapRules.TryFireLookTriggerInChain,
+    /// cleanup plan 2, G12).</summary>
     public bool FireLookTrigger(UWObject pOObject, int piSearchSkill)
     {
-        return UWTriggerSystem.TryFireLookTrigger(pOObject, mOLoader, mOInteraction, piSearchSkill);
+        return UWTriggerSystem.TryFireLookTriggerInChain(pOObject, mOLoader, mOInteraction, piSearchSkill);
     }
 }

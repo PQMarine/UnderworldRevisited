@@ -164,7 +164,10 @@ public sealed class UWClassicPanelClick
                 mOGameUi.Panel.ToggleRunePanel();
         }
         else if (lOPendingItem != null && lOPendingItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
+        {
             mOInventory.TryOpenContainer(lOPendingItem);
+            mODrag.AfterContainerUse(lOPendingItem);
+        }
         // In a conversation the left click does not use anything (per user, 2026-09-11);
         // opening containers and dragging still work - trading needs that. THE ONE
         // EXCEPTION is the combat mode from the weapon hand: the original flips it at

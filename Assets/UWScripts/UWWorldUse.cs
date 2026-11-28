@@ -223,7 +223,9 @@ public sealed class UWWorldUse
         if (pONpc == null || !UWObjectIds.IsCreature(pONpc.ID))
             return false;
 
-        if (piSlot > 0 && pONpc.NPCwhoami != NoResponseWhoami && !fHasEmptyConversation(piSlot)
+        // Whoami 255 is CreatureAnswers' to decide: it refuses unless the goal is 10 (uw1 conv/CONVERSE.C:136-140;
+        // cleanup plan 2, K17, 2026-11-28 - until then refused here first, at any goal). The conversation must exist.
+        if (piSlot > 0 && !fHasEmptyConversation(piSlot)
             && UWClickRules.CreatureAnswers(pONpc.NPCwhoami, pONpc.NPCGoal, pONpc.NPCGTarg, pONpc.NPCAttitude, pONpc.NPCIsAlly))
             return false;
 
@@ -231,9 +233,6 @@ public sealed class UWWorldUse
 
         return true;
     }
-
-    /// <summary>whoami 255: this creature never talks (reference).</summary>
-    private const int NoResponseWhoami = 255;
 
     /// <summary>"You get no response." - block 7, entry 1 in game, for us as usual one
     /// higher.</summary>
@@ -559,7 +558,10 @@ public sealed class UWWorldUse
         switch (UWDoorRules.Use(lODoor.IsClosed, lODoor.IsSpiked, lODoor.IsLocked, true, lbKeyAtHand))
         {
             case UWDoorRules.UseOutcome.Locked:
-                mOInteraction.AddMessage(UWText.T("msg.door.locked"));
+                // "The " + the door's name + " is locked." (uw1 obj/USEITEMS.C:966-973; cleanup plan 2, G15, 2026-11-27 - until
+                // then "The door is locked" for every door and without the full stop; the second game named it already).
+                mOInteraction.AddMessage(lODoor.Data != null && fData() != null
+                    ? UWItemMessages.IsLocked(fData(), lODoor.Data.ID) : UWText.T("msg.door.locked"));
                 return;
 
             case UWDoorRules.UseOutcome.Spiked:

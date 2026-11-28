@@ -277,10 +277,12 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// checkLock's "open" for a key (uw2 obj/OBJUSE.C): an open door (index 8 and up) or an open container (index below
-		/// 0xC with the odd id) answers "That is already open." when the lock is unlocked.
+		/// checkLock's "open" for a key (uw1 obj/USEITEMS.C:1015-1017, uw2 obj/OBJUSE.C): an open door (index 8 and up) or an
+		/// open container (index below 0xC with the odd id) answers "That is already open." when the lock is unlocked. Both
+		/// games since cleanup plan 2, K24 (2026-11-28; the first game asked doors only and let a key lock an open chest; the
+		/// only open container holding a lock in the shipped game, a coffer on level 3, is linked to nothing - latent).
 		/// </summary>
-		public static bool IsOpenForKeySecondGame(UWObject pOTarget)
+		public static bool IsOpenForKey(UWObject pOTarget)
 		{
 			if (pOTarget == null)
 				return false;

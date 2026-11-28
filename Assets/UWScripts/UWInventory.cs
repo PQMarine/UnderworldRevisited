@@ -298,17 +298,17 @@ public class UWInventory : MonoBehaviour
 
         UWObject lOData = pOEntity.ObjectData;
 
+        // THE PICK-UP TRIGGER FIRES FIRST, while the thing still lies on its tile: release_3d runs checkTrap(obj, 2) before
+        // Obj_Rem takes it off (uw1 ui/INTERACT.C:436-437; cleanup plan 2, G18, 2026-11-27 - until then afterwards; the
+        // second game fired first already). Some items are an ambush - the pouch on level 3 (49/52) carries a creation
+        // trap that places a headless at 44/55.
+        if (lOData != null && mOLevelLoader != null)
+            UWTriggerSystem.TryFirePickUpTrigger(lOData, mOLevelLoader, GetComponent<Interaction>());
+
         if (lOData != null && mOLevelLoader != null && mOLevelLoader.CurrentLevel != null)
             mOLevelLoader.RemoveObjectFromWorld(lOData);
 
         // The clicked picture itself, whether or not the registry knew it.
         Destroy(pOEntity.gameObject);
-
-        // Only AFTERWARDS: some items carry an a_pick up trigger, and in the original it is an
-        // ambush - the pouch on level 3 (49/52) carries a creation trap that places a headless at
-        // 44/55. The item itself is already pocketed by then; the data object lives on and carries
-        // the chain.
-        if (lOData != null && mOLevelLoader != null)
-            UWTriggerSystem.TryFirePickUpTrigger(lOData, mOLevelLoader, GetComponent<Interaction>());
     }
 }

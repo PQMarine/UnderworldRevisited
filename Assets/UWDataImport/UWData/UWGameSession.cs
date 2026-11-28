@@ -263,9 +263,68 @@ namespace UWDataImport.UWData
 
 		public int CastDelayTicks;
 
+		/// <summary>nextSpellTime: the cast clock (UWThingSpellWait.Clock) before which the player casts nothing more from
+		/// a thing; 0 at the start, as reset_times sets it on entering the game (uw1 game/UWEDIT.C:375, uw2 :359).</summary>
+		public long NextThingSpellTicks;
+
+		/// <summary>What the original's game_clock gains beyond the running time: 0x40 for every easy step (PLAYMOVE.C:304,
+		/// uw2 :297), which the scheduler's clock leaves out on purpose (UWWorldScheduler).</summary>
+		public long ClockExtraTicks;
+
 		// The switch for the original's dead resistance nibble lived here until cleanup phase 10
 		// (2026-10-26); it is the rule set's combat.resistBlowsAddsArmour now - see
 		// UWArmourProtection.ResistBlowsAddsArmour.
+	}
+
+	/// <summary>
+	/// THE WAIT BETWEEN TWO SPELLS FROM THINGS - a wand, a potion, a scroll, anything that casts when used (checkSpell with
+	/// how set: uw1 obj/USEITEMS.C:1059-1063, uw2 obj/OBJUSE.C:362-367): nextSpellTime = game_clock + 0x2FD, about three
+	/// seconds. Both games, on the session's clock (cleanup plan 2, K11, 2026-11-28; per user the same day: "Unity als
+	/// Zeitgeber sollten wir sowieso ausbauen") - until then the first game's on Unity's Time.time and the second game's
+	/// on Time.time in ticks, which also survived a load.
+	///
+	/// THE CLOCK is the original's game_clock: the scheduler's running time in PIT ticks (it stands in menus, the
+	/// conversation, the options, as the original's does), plus 0x40 for every easy step (AddEasyStep). The session owns
+	/// the state, so a new or loaded game starts without a wait, as reset_times has it. Not saved, as the original
+	/// keeps it in memory only.
+	/// </summary>
+	public static class UWThingSpellWait
+	{
+		/// <summary>nextSpellTime's step: 0x2FD game clock ticks.</summary>
+		public const int Wait = 0x2FD;
+
+		/// <summary>check_physics' step for an easy move: game_clock += 0x40.</summary>
+		public const int EasyStepTicks = 0x40;
+
+		private static UWSessionQuirks fQuirks => UWGameSession.Current.Quirks;
+
+		/// <summary>The original's game_clock as far as this wait reads it, in PIT ticks.</summary>
+		public static long Clock => UWGameSession.Current.Schedule.Now + fQuirks.ClockExtraTicks;
+
+		/// <summary>An easy step or turn was made: the clock goes on by 0x40.</summary>
+		public static void AddEasyStep()
+		{
+			fQuirks.ClockExtraTicks += EasyStepTicks;
+		}
+
+		/// <summary>The last spell from a thing was too recent (player->game_clock &lt; nextSpellTime).</summary>
+		public static bool IsWaiting => IsWaitingAt(Clock);
+
+		public static bool IsWaitingAt(long plClock) => plClock < fQuirks.NextThingSpellTicks;
+
+		/// <summary>A spell from a thing was cast: the next waits Wait ticks.</summary>
+		public static void Start() => StartAt(Clock);
+
+		public static void StartAt(long plClock)
+		{
+			fQuirks.NextThingSpellTicks = plClock + Wait;
+		}
+
+		/// <summary>nextSpellTime = 0 (the second game's UseFood around its cast).</summary>
+		public static void Clear()
+		{
+			fQuirks.NextThingSpellTicks = 0;
+		}
 	}
 
 	/// <summary>

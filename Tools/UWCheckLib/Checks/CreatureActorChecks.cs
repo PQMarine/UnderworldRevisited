@@ -427,6 +427,16 @@ namespace UnderworldRevisited.Tools
             fExpectBool("paralyse: goal 7",
                 lOFresh.Actor.Paralyse() == UWTargetSpellRules.Result.Shown && lORecord.Goal == 7, true);
 
+            // K9 (cleanup plan 2, 2026-11-28): through change_critter_goal - a guard's goal 4 is kept as the old goal and the
+            // target becomes the player (uw1 combat/SPELLS.C:366-374, critter/AI.C:1397).
+            lORecord.BackupGoal = 0;
+            lORecord.Goal = 4;
+            lORecord.GTarg = 5;
+            fExpectBool("paralyse on a guard: goal 7 for the player, the guarding kept as the old goal",
+                lOFresh.Actor.Paralyse() == UWTargetSpellRules.Result.Shown && lORecord.Goal == 7
+                && lORecord.GTarg == UWCritterBrain.PlayerIndex && lORecord.BackupGoal == 4, true);
+            lORecord.BackupGoal = 0;
+
             lORecord.IsAlly = false;
             lORecord.GTarg = 1;
             fExpectBool("ally: wandering, bound to nobody, the ally bit, attitude 3",

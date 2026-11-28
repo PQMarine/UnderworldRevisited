@@ -168,26 +168,28 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The player has USED pOObject (switch, double door, ...). Looks up the
-		/// chain object -> a_use trigger -> trap and fires it. A switch without a function still
-		/// flips - see below.</summary>
+		/// chain object -> a_use trigger -> trap and fires it. A switch or a lever moves first, with or without a
+		/// function (K25).</summary>
 		public static bool TryFireSwitch(UWObject pOObject, IUWTrapHost pIHost)
 		{
-			bool lbFired = fTryFireTriggerChain(pOObject, UWObjectMechanics.UseTriggerId, pIHost);
+			// A SWITCH OR A LEVER MOVES FIRST, whatever hangs behind it (uw1 obj/USEITEMS.C:979-998 UseRect steps the lever
+			// or flips the button, then UseObj's checkTrap fires the trigger, :172-175; cleanup plan 2, K25, 2026-11-28 -
+			// until then it moved only when its link was the use trigger, or when it had no link at all). Every shipped
+			// switch links to a use trigger or to nothing (latent).
+			bool lbSwitch = pOObject != null && pIHost != null && pOObject.GetCategory() == UWObject.ObjectCategoryEnum.Switches;
 
-			// A SWITCH WITHOUT A FUNCTION STILL MOVES. The lever on level 3, 48/55 (381) has no a_use
-			// trigger in SAVE4, and in the original it can still be thrown (per user, 2026-09-17);
-			// ours did nothing at all. Only for switches - doors and other objects also come through
-			// here and must not swallow the use.
-			if (!lbFired && pOObject != null && pIHost != null
-				&& pOObject.GetCategory() == UWObject.ObjectCategoryEnum.Switches
-				&& (fLevel(pIHost) == null
-					|| UWObjectMechanics.GetLinkedObject(pOObject, fLevel(pIHost).Masterlist) == null))
+			int liIdBeforeMove = pOObject != null ? pOObject.ID : 0;
+
+			if (lbSwitch)
 			{
+				pIHost.AdvanceLever(pOObject);
 				pIHost.ToggleSwitchVisual(pOObject);
-				lbFired = true;
 			}
 
-			return lbFired;
+			// A switch's use counts whatever hangs behind it - so a switch without a function still moves, as the lever on
+			// level 3, 48/55 (381) in the original (per user, 2026-09-17; until K25 a fallback of its own here). Doors and
+			// other objects also come through here; they count only when their trigger fires.
+			return fTryFireTriggerChain(pOObject, UWObjectMechanics.UseTriggerId, pIHost, 0, lbSwitch, liIdBeforeMove) || lbSwitch;
 		}
 
 		/// <summary>The buttons and switches, class 0x17 (items 0x170-0x17F, major 5 minor 3).</summary>
@@ -236,7 +238,8 @@ namespace UWDataImport.UWData
 		/// objects (see UWObjectMechanics.GetLinkedObject) - the use/look triggers
 		/// on level 1 even have it set throughout. Same approach as the already
 		/// working teleport trigger scan in UWLevelLoader.</summary>
-		private static bool fTryFireTriggerChain(UWObject pOObject, int piExpectedTriggerId, IUWTrapHost pIHost, int piSearchSkill = 0)
+		private static bool fTryFireTriggerChain(UWObject pOObject, int piExpectedTriggerId, IUWTrapHost pIHost, int piSearchSkill = 0,
+			bool pbMovedFirst = false, int piIdBeforeMove = 0)
 		{
 			if (pOObject == null || pIHost == null || fLevel(pIHost) == null)
 				return false;
@@ -253,6 +256,11 @@ namespace UWDataImport.UWData
 			// so the state after this press is taken. No shipped switch holds two triggers (latent,
 			// reference audit traps D18; built 2026-10-12).
 			bool lbOnNow = (pOObject.ID & SwitchOnBit) != 0;
+			// Moved first (TryFireSwitch, K25): the state before that move, whether the picture's flip has reached the data
+			// yet or not, and the use's flip counted as before.
+			if (pbMovedFirst)
+				lbOnNow = (piIdBeforeMove & SwitchOnBit) != 0;
+
 			bool lbOnWhenAsked = piExpectedTriggerId == UWObjectMechanics.UseTriggerId ? !lbOnNow : lbOnNow;
 
 			if (lOTrigger != null && ClicksWhenUsed(pOObject.ID) && lbOnWhenAsked)
@@ -271,6 +279,66 @@ namespace UWDataImport.UWData
 			if (lOTrigger == null || lOTrigger.ID != piExpectedTriggerId)
 				return false;
 
+			return fFireFoundTrigger(pOObject, lOTrigger, piExpectedTriggerId, pIHost, piSearchSkill, pbMovedFirst);
+		}
+
+		/// <summary>
+		/// sp_true_sight (uw1 combat/SPELLS.C:285-301): the FIRST LOOK TRIGGER ANYWHERE in the thing's chain goes off, the
+		/// Search skill raised for the call - Obj_InList walks the whole list, so a lock or a spell before the trigger does
+		/// not hide it. A thing with a quantity, without a link or itself a trap has none. Cleanup plan 2, G12, 2026-11-27:
+		/// until then the first link only (TryFireLookTrigger, the plain look's way); the second game walked it already
+		/// (UWSpellHostUw2.FireLookTrigger).
+		/// </summary>
+		public static bool TryFireLookTriggerInChain(UWObject pOObject, IUWTrapHost pIHost, int piSearchSkill)
+		{
+			if (pOObject == null || pIHost == null || fLevel(pIHost) == null)
+				return false;
+
+			if (pOObject.HasQuantity || pOObject.Quantity == 0 || UWObjectIds.Major(pOObject.ID) == UWObjectMechanics.TrapMajorClass)
+				return false;
+
+			List<UWObject> lOMaster = fLevel(pIHost).Masterlist;
+
+			foreach (UWObject lOHeld in UWObjectChain.Walk(pOObject, lOMaster, lOMaster.Count))
+			{
+				if (lOHeld != null && lOHeld.ID == UWObjectMechanics.LookTriggerId)
+					return fFireFoundTrigger(pOObject, lOHeld, UWObjectMechanics.LookTriggerId, pIHost, piSearchSkill);
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// UseObj's checkTrap with mode 4 for a CARRIED thing that was used (uw1 obj/USEITEMS.C:172-174, :1080-1097): the
+		/// first trap or trigger anywhere in its chain (Obj_InList), and a use trigger goes off as by the player. Cleanup
+		/// plan 2, G16, 2026-11-27: until then a carried container fired nothing when it was opened (the second game's fix of
+		/// 2026-11-20, Felix's box). A plain trap with flags 0, which checkTrap sets off and deletes for mode 4, is not built:
+		/// none sits in a carried thing of the shipped game (latent).
+		/// </summary>
+		public static bool TryFireCarriedUseTrigger(UWObject pOObject, IUWTrapHost pIHost)
+		{
+			if (pOObject == null || pIHost == null || fLevel(pIHost) == null || pOObject.HasQuantity || pOObject.Quantity == 0)
+				return false;
+
+			List<UWObject> lOMaster = fLevel(pIHost).Masterlist;
+
+			foreach (UWObject lOHeld in UWObjectChain.Walk(pOObject, lOMaster, lOMaster.Count))
+			{
+				if (lOHeld == null || UWObjectIds.Major(lOHeld.ID) != UWObjectMechanics.TrapMajorClass)
+					continue;
+
+				return lOHeld.ID == UWObjectMechanics.UseTriggerId
+					&& fFireFoundTrigger(pOObject, lOHeld, UWObjectMechanics.UseTriggerId, pIHost, 0);
+			}
+
+			return false;
+		}
+
+		/// <summary>The trigger of pOObject's chain has been found: the search check, the lever and the switch, who may set
+		/// it off, then its traps.</summary>
+		private static bool fFireFoundTrigger(UWObject pOObject, UWObject lOTrigger, int piExpectedTriggerId, IUWTrapHost pIHost,
+			int piSearchSkill, bool pbMovedFirst = false)
+		{
 			// HIDDEN FINDS: a look trigger can carry a search difficulty, and it is stored
 			// in its ZPos. If it is zero there is no check - the trigger fires on a mere
 			// look, which is how the orb on 58/13 hangs on its text trap. Only a
@@ -299,13 +367,14 @@ namespace UWDataImport.UWData
 			//
 			// BEFORE the traps, not after: the platform lever reads its position right
 			// back to set the target tile.
-			pIHost.AdvanceLever(pOObject);
+			if (!pbMovedFirst)
+				pIHost.AdvanceLever(pOObject);
 
 			// A SWITCH FLIPS ON EVERY USE, whatever trap hangs behind it. This used to happen only
 			// in the door trap and text trap branches, so the three buttons on level 3, 5/7 (variable
 			// traps behind them) kept their image when pressed (per user, 2026-09-17). Once here
 			// also means once per use: a chain with two door traps flipped it twice before.
-			if (piExpectedTriggerId == UWObjectMechanics.UseTriggerId)
+			if (piExpectedTriggerId == UWObjectMechanics.UseTriggerId && !pbMovedFirst)
 				pIHost.ToggleSwitchVisual(pOObject);
 
 			// THE PLAYER IS THE ONE who uses, looks and picks up, and UseTrigger asks him as for
@@ -1035,10 +1104,18 @@ namespace UWDataImport.UWData
 			// condition holds it continues at the sp_link target, otherwise at ITS neighbour
 			// in the tile list. That is how both branches hang on the same thread in the original - see
 			// fCheckVariableIsTrue.
+			// THE ELSE BRANCH ONLY RUNS A TRIGGER (uw1 event/TRIGGER.C:270-277 hands the neighbour to UseTrigger, which returns
+			// at once for anything that is not a trigger, :115; cleanup plan 2, K1, 2026-11-28 - until then a trap there ran
+			// too). No shipped check trap has a trap as its else neighbour (latent).
 			if (pOTrap.ID == UWObjectMechanics.CheckVariableTrapId && !fCheckVariableIsTrue(pOTrap))
+			{
 				lONext = lONext == null
 					? null
 					: lONext.GetNextObjectInLine(fLevel(pIHost).Masterlist);
+
+				if (lONext != null && lONext.ID < FirstTriggerId)
+					lONext = null;
+			}
 
 			// THE INVENTORY TRAP DOES NOT BRANCH, it aborts: if the player has the item
 			// being searched for, it continues at the sp_link, otherwise not at all. The reference
@@ -1349,6 +1426,17 @@ namespace UWDataImport.UWData
 		/// goblin 3/33 (0), the latter being the only one fired via a move trigger on 3/36.</summary>
 		private static bool fFireCreateObjectTrap(UWObject pOTrap, int piTileX, int piTileY, IUWTrapHost pIHost)
 		{
+			// WITH THE QUANTITY BIT the link is a count, no template: the trap rolls and makes nothing (uw1 event/TRIGGER.C:
+			// 299-303; cleanup plan 2, K2, 2026-11-28 - until then the count was read as a template index; the second game
+			// tested it already). None of the shipped game has the bit (latent).
+			if (pOTrap.HasQuantity)
+			{
+				if (!pIHost.AlwaysFireCreateObjectTraps)
+					CreateObjectRollFails(UWRandom.Next(0x8000), pOTrap.Quality);
+
+				return true;
+			}
+
 			UWObject lOTemplate = UWObjectMechanics.GetLinkedObject(pOTrap, fLevel(pIHost).Masterlist);
 
 			if (lOTemplate == null)
@@ -1752,7 +1840,9 @@ namespace UWDataImport.UWData
 		{
 			int liOwner = pOTrap.Owner;
 
-			if (liOwner == 0 || !pIHost.World.Presentation.ShowsMessages)
+			// player_did_bad angers whatever the scope shows (uw1 event/TRIGGER.C:512, critter/CRITTIME.C:470; cleanup plan 2,
+			// K5, 2026-11-28 - until then a silent scope angered nobody; its "is angered" lines go nowhere anyway).
+			if (liOwner == 0)
 				return true;
 
 			// Who minds it and what he says as for a theft - one routine in the original
@@ -1797,18 +1887,19 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fFireCameraTrap(UWObject pOTrap, UWObject pOTrigger, IUWTrapHost pIHost)
 		{
+			// THE SQUARE IS THE TRIGGER'S TARGET (uw1 event/TRIGGER.C:505 crystal_ball(trap, x, y) with the trigger's x, y;
+			// game/PLAYER.C:452-455 takes only the fine spot, the height and the heading from the trap; cleanup plan 2, K4,
+			// 2026-11-28 - until then the trap's own tile, the trigger's only when that was 0/0, as the second game's
+			// fCrystalBall has it). Both of UW1's traps sit on their trigger's target (level 2 9/34, level 4 5/55; latent).
 			int liTileX = pOTrap.TileX;
 			int liTileY = pOTrap.TileY;
 
-			// TileX/TileY are only set when reading the tile lists. If the trap hangs only on the
-			// special link of a trigger, they would be 0/0 and the camera would end up in rock.
-			// DEVIATION from the reference, which reads only its own fields - here
-			// as an emergency exit so nothing silently points into the void.
-			if (liTileX == 0 && liTileY == 0)
-			{
+			if (pOTrigger != null)
 				(liTileX, liTileY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
 
-				UWTrapLog.Detail = "-> camera (tile borrowed from trigger)";
+			if (liTileX == 0 && liTileY == 0)
+			{
+				UWTrapLog.Detail = "-> camera (no square)";
 			}
 			else
 			{
@@ -2512,7 +2603,9 @@ namespace UWDataImport.UWData
 			if (lODoorData == null)
 				return;
 
-			UWObject lOLockTemplate = UWObjectMechanics.GetLinkedObject(pOTrap, fLevel(pIHost).Masterlist);
+			// A lock template only without the quantity bit (uw1 event/TRIGGER.C:353; cleanup plan 2, K2 - the old lock goes
+			// either way; latent, as the second game has it).
+			UWObject lOLockTemplate = !pOTrap.HasQuantity ? UWObjectMechanics.GetLinkedObject(pOTrap, fLevel(pIHost).Masterlist) : null;
 			IUWDoor lODoor = pIHost.World.Doors.Find(lODoorData);
 
 			if (lODoor == null)

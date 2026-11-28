@@ -56,18 +56,42 @@ public static class UWMiscSpell
     }
 
     /// <summary>
-    /// A class 11 target spell on an item in the inventory - see
-    /// UWPendingSpell.ResolveInInventory.
+    /// A class 11 target spell on an item in the inventory - see UWPendingSpell.ResolveInInventory.
     ///
-    /// So far exactly one: Name Enchantment. Unlock needs a door and finds nothing
-    /// matching in the backpack.
+    /// ALL THREE TAKE A CARRIED THING as one in the world (uw1 ui/INTERACT.C:710 hands the inventory click to
+    /// ObjectActor, combat/SPELLS.C:734-757 obj_spells asks nothing about where it is; cleanup plan 2, G19, 2026-11-27 -
+    /// until then only Name Enchantment, and Open and Remove Trap said nothing; the second game took carried things
+    /// already): Open picks the lock of a carried chest with 45 ("The spell unlocks the lock." or "The spell has no
+    /// discernable effect."), Remove Trap finds and clears a carried thing's trap, the poisoned potion's included, and
+    /// says nothing when there is none.
     /// </summary>
     public static bool CastOnItem(int piMinorClass, UWObject pOItem, Interaction pOInteraction)
     {
         if (pOItem == null || pOInteraction == null)
             return false;
 
-        return piMinorClass == UWMiscSpellRules.NameEnchantmentSpell && pOInteraction.IdentifyItem(pOItem);
+        switch (piMinorClass)
+        {
+            case UWMiscSpellRules.NameEnchantmentSpell:
+                return pOInteraction.IdentifyItem(pOItem);
+
+            case UWMiscSpellRules.UnlockSpell:
+                pOInteraction.AddGeneralMessage(UWLockRules.CastUnlock(null, pOItem, UWLockRules.FindLoadedLock(pOItem)));
+                return true;
+
+            case UWMiscSpellRules.RemoveTrapSpell:
+                string lsLine = pOInteraction.GameData != null && pOInteraction.GameData.InitialPlayer != null
+                    ? UWTrapDisarming.RemoveCarriedTrapWithSpell(pOItem, pOInteraction.GameData.InitialPlayer.InventoryRecords,
+                        pOInteraction.GameData)
+                    : null;
+
+                if (!string.IsNullOrEmpty(lsLine))
+                    pOInteraction.AddMessage(lsLine);
+
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

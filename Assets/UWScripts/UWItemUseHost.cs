@@ -50,21 +50,6 @@ public sealed class UWItemUseHost : IUWItemUseHost
         /// <summary>The game data, known from UWItemDrag.Start.</summary>
         public DataImport Data;
 
-        /// <summary>For this long a wand cannot be used again after a use.
-        /// It applies GLOBALLY and not per wand: after a use a
-        /// second wand is also briefly dead. A RUNE spell is exempt and works immediately - it
-        /// goes through UWGameUI.fCastSelectedRunes and never passes here (all per
-        /// user, checked in the original, 2026-09-05).
-        ///
-        /// THE LENGTH IS THE ORIGINAL'S since 2026-09-24: CastSpellFromObject_seg040_1F04 sets its
-        /// timer to the game clock plus 0x2FD, and the clock runs at 256 units a second
-        /// (UWPlayerTick.PitTicksPerSecond), so just under three seconds; ours was an estimated two.</summary>
-        private const float WandCooldownSeconds = WandCooldownClockUnits / (float)UWPlayerTick.PitTicksPerSecond;
-
-        private const int WandCooldownClockUnits = 0x2FD;
-
-        private float mfNextWandUseTime;
-
         public Services(Component pOOwner, UWInventory pOInventory, UWGameUI pOGameUi, Interaction pOInteraction)
         {
             Owner = pOOwner;
@@ -73,11 +58,17 @@ public sealed class UWItemUseHost : IUWItemUseHost
             Interaction = pOInteraction;
         }
 
-        public bool IsWandCoolingDown => Time.time < mfNextWandUseTime;
+        /// <summary>After a spell from a wand, a potion or a scroll the next waits 0x2FD clock ticks, just under three
+        /// seconds. It applies GLOBALLY and not per wand: after a use a second wand is also briefly dead. A RUNE spell is
+        /// exempt and works immediately - it goes through UWGameUI.fCastSelectedRunes and never passes here (all per user,
+        /// checked in the original, 2026-09-05; the length the original's since 2026-09-24). ON THE SESSION'S CLOCK since
+        /// cleanup plan 2, K11 (2026-11-28; UWThingSpellWait, the easy steps counted) - Unity's Time.time until then,
+        /// which outlived a load.</summary>
+        public bool IsWandCoolingDown => UWThingSpellWait.IsWaiting;
 
         public void StartWandCooldown()
         {
-            mfNextWandUseTime = Time.time + WandCooldownSeconds;
+            UWThingSpellWait.Start();
         }
 
         /// <summary>The item use's presentation (cleanup step 3.1, 2026-10-17): its lines go to this

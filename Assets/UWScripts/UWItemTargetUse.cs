@@ -131,7 +131,8 @@ public static class UWItemTargetUse
                 break;
 
             case UWItemTargetRules.Action.ToggleLock:
-                fToggleLock(pOInteraction, null, pOTarget, UWLockRules.FindLoadedLock(pOTarget), false, pOItem);
+                // An open carried chest answers "That is already open." too (K24, UWLockRules.IsOpenForKey).
+                fToggleLock(pOInteraction, null, pOTarget, UWLockRules.FindLoadedLock(pOTarget), UWLockRules.IsOpenForKey(pOTarget), pOItem);
                 break;
         }
 
@@ -500,7 +501,7 @@ public static class UWItemTargetUse
         UWDoor lODoor = pOTarget.GetComponentInParent<UWDoor>();
 
         fToggleLock(pOInteraction, lODoorLock, lOContainerLock != null ? pOTarget.ObjectData : null, lOContainerLock,
-            lODoor != null && !lODoor.IsClosed, pOKey);
+            lODoor != null ? !lODoor.IsClosed : UWLockRules.IsOpenForKey(pOTarget.ObjectData), pOKey);
     }
 
     /// <summary>The key on a resolved lock, in the world or carried. The rule and the messages

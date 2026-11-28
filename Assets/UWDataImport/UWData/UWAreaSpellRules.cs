@@ -335,11 +335,17 @@ namespace UWDataImport.UWData
 				case SheetLightningMinor:
 					// DiceRoll(6, 5), so 6 to 30, of type 3, pure magic (DamageObjectsInTile with
 					// kind 2: tables 9D3/9D5/9D7). The flash at a random height (sp_sheet_light).
-					fSpawnStrikePicture(pOTile, LightningEffectObjectId, pIHost);
+					// THE ORIGINAL'S ORDER of the rolls (uw1 combat/SPELLS.C:306-317): build_new_obj's height, the square's
+					// damage, then add_animobj's start frame, rand() % 4 - each bolt starts on a frame of its own (cleanup
+					// plan 2, K10, 2026-11-28; until then all on frame 0, so they flickered in step; the second game's
+					// fSheetLightning rolls it already).
+					int liBoltZ = RollStrikeZPos(pOTile.FloorHeight >> 1);
 					// The dice are the rule set's (magic.sheetLightning.*, cleanup phase 10).
 					UWRulesMagic.SheetLightningRules lOLightning = pIHost.World.Session.Rules.Magic.SheetLightning;
 
 					fStrikeTile(pOTile.X, pOTile.Z, lOLightning.Dice, lOLightning.Sides, UWDamageTypes.Magic, pIHost);
+					fShowEffect(pOTile.X, pOTile.Z, NewObjectFine, NewObjectFine, liBoltZ, LightningEffectObjectId, pIHost,
+						-1f, UWRandom.Next(LightningStartFrames));
 
 					return true;
 
@@ -438,6 +444,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>Tiles per side of a level map.</summary>
 		private const int MapSize = 64;
+
+		/// <summary>sp_sheet_light's add_animobj start frame: rand() % 4.</summary>
+		private const int LightningStartFrames = 4;
 
 		/// <summary>CreateObj's fine position for a new object: 3, 3 (MAPADDR.C).</summary>
 		private const int NewObjectFine = 3;

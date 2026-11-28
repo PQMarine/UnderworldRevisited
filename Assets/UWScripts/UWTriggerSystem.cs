@@ -48,6 +48,18 @@ public static class UWTriggerSystem
         return UWTrapRules.TryFireLookTrigger(pOObject, new UWTrapHost(pOLevelLoader, pOInteraction), piSearchSkill);
     }
 
+    /// <summary>A carried thing was used: its use trigger, as UseObj's checkTrap with mode 4 (UWTrapRules.TryFireCarriedUseTrigger).</summary>
+    public static bool TryFireCarriedUseTrigger(UWObject pOObject, UWLevelLoader pOLevelLoader, Interaction pOInteraction)
+    {
+        return UWTrapRules.TryFireCarriedUseTrigger(pOObject, new UWTrapHost(pOLevelLoader, pOInteraction));
+    }
+
+    /// <summary>True Sight's look: the first look trigger anywhere in the chain (UWTrapRules.TryFireLookTriggerInChain).</summary>
+    public static bool TryFireLookTriggerInChain(UWObject pOObject, UWLevelLoader pOLevelLoader, Interaction pOInteraction, int piSearchSkill)
+    {
+        return UWTrapRules.TryFireLookTriggerInChain(pOObject, new UWTrapHost(pOLevelLoader, pOInteraction), piSearchSkill);
+    }
+
     /// <summary>A thing in the world casts the charged spell it carries, with itself as the
     /// caster, as a spell trap does (inanimate_spell; UWItemSpellRules.TryCastFromWorldObject,
     /// 2026-10-15). Only for a class that acts with a thing as the caster
@@ -729,6 +741,11 @@ public static class UWTriggerSystem
             return UWTriggerSystem.fFireArrowTrap(pOTrap, piTileX, piTileY, mOLoader, mOInteraction);
         }
 
+        /// <summary>do_spell's SPELLC_HEAL and SPELLC_SPECIAL (uw1 include/combat.h).</summary>
+        private const int HealSpellClass = 4;
+
+        private const int SpecialSpellClass = 13;
+
         /// <summary>See UWTrapRules.fFireSpellTrap for the two special classes.</summary>
         public bool FireSpellTrap(UWObject pOTrap, int piTileX, int piTileY, int piMajorClass, int piMinorClass)
         {
@@ -747,6 +764,23 @@ public static class UWTriggerSystem
             // False when no cutscene player is there to show it.
             if (piMajorClass == UWTrapRules.CutsceneMajorClass)
                 return mOWorld != null && mOWorld.Presentation.PlayCutscene(piMinorClass);
+
+            // THE TRAP IS THE CASTER (uw1 event/TRIGGER.C:291-295 inanimate_spell, event/WORLDEV.C:299-308 do_spell with the
+            // trap as who; cleanup plan 2, G21, 2026-11-27): an area, a summoning or another spell works from the trap's spot
+            // and facing, through the creature-like host the second game uses; the spells only the player himself can hold
+            // (light, motion, armour, protection, mana) do nothing then, as do_spell's who == ThePlayer tests have it. The
+            // missile keeps its launch from the trap below, the healing goes to the one who set it off, the special spells
+            // (the hallucination, the bullfrog) act on the player as do_spell does them whoever casts. Until then every class
+            // went through the player's runes. Latent: the only spell trap of the shipped game is the fireball on level 5.
+            if (piMajorClass != UWTrapRules.ProjectileMajorClass && piMajorClass != HealSpellClass && piMajorClass != SpecialSpellClass
+                && mOWorld != null && pOTrap != null)
+            {
+                UWSpot lOSpot = new UWSpot(new UWTilePos(piTileX, piTileY), pOTrap.XPos, pOTrap.YPos, pOTrap.ZPos);
+                IUWSpellHost lIHost = new UWCreatureSpellHost(mOWorld, UWCastContext.Creature(0, lOSpot, (pOTrap.Heading & 7) << 5),
+                    piProjectile => { });
+
+                return UWSpellCasting.ApplyEffect(new UWRunicMagic.Spell(-1, piMajorClass, piMinorClass, 0), true, lIHost);
+            }
 
             UWGameUI lOUi = UWScene.GameUi;
 

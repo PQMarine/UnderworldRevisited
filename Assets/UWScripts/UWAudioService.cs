@@ -259,25 +259,39 @@ public static class UWAudioService
     {
         UWAudioMixer lOMixer = UWAudioMixer.Instance;
 
-        if (lOMixer == null || mOData == null || mOData.Sound == null
-            || UWSoundEffectId.Water >= mOData.Sound.Effects.Count)
+        if (lOMixer == null)
             return;
 
-        if (!pbInWater)
+        // NOT BEHIND THE MAIN MENU (per user 2026-11-28, both games: in the water, then to the main menu, and the rushing
+        // went on - the world stands behind the menu with the player still in the water). The original leaves the game
+        // loop there, so nothing restarts the sound. The stop comes before the data test: the second game leaves for its
+        // menu by loading the scene again, where the service has no game data yet.
+        if (!pbInWater || UWGameClock.IsOutsideTheWorld)
         {
-            if (miWaterVoice >= 0)
-            {
-                lOMixer.StopHeldEffect(miWaterVoice);
-                miWaterVoice = -1;
-            }
+            StopWaterLoop();
 
             return;
         }
+
+        if (mOData == null || mOData.Sound == null || UWSoundEffectId.Water >= mOData.Sound.Effects.Count)
+            return;
 
         if (miWaterVoice >= 0 && lOMixer.IsHeldEffectPlaying(miWaterVoice))
             return;
 
         miWaterVoice = lOMixer.StartHeldEffect(mOData.Sound.Effects[UWSoundEffectId.Water], 0);
+    }
+
+    /// <summary>Ends the water's rushing at once (UpdateWaterLoop; the second game's Leave, which loads the scene again,
+    /// per user 2026-11-28: the rushing went on in its main menu).</summary>
+    public static void StopWaterLoop()
+    {
+        UWAudioMixer lOMixer = UWAudioMixer.Instance;
+
+        if (miWaterVoice >= 0 && lOMixer != null)
+            lOMixer.StopHeldEffect(miWaterVoice);
+
+        miWaterVoice = -1;
     }
 
     /// <summary>The voice of the water rushing, or -1 - see UpdateWaterLoop.</summary>
@@ -387,6 +401,11 @@ public static class UWAudioService
         if (lOLoader != null && !lOLoader.HasWorld && msOSelector.CurrentTheme == 0 && msOSelector.NewTheme == 0)
             return;
 
+        // scrmode 1 for the piece's end (K26): the 3D view, not the map, not a conversation.
+        UWGameUI lOUi = UWScene.GameUi;
+
+        msOSelector.OnGameView = lOLoader != null && lOLoader.HasWorld && !UWConversationController.IsAnyOpen
+            && !(lOUi != null && lOUi.Map != null && lOUi.Map.IsMapVisible) && !UWGameClock.IsOutsideTheWorld;
         msOSelector.Refresh(pbWeaponDrawn, Time.time);
     }
 

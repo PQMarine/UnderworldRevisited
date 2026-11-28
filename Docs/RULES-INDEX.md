@@ -41,9 +41,9 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg034_2F89_4E` | UWClassicLayout.cs, UWPlayerMotion.cs |
 | `CalculateAttackResults` (seg022_230E_6B9) | UWCreatureActor.cs, UWCritterCombat.cs, UWEquipmentWear.cs, UWPlayerCritterRow.cs, UWPlayerData.cs |
 | `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs |
-| `AwardKillEXP` (seg022_1725) | UWCritterCombat.cs, UWCritterRules.cs, UWExperience.cs, UWPlayerVitals.cs |
 | `PlayerUpdateTick` (seg024_24DC_3A4) | UWPlayerTick.cs, UWPlayerVitals.cs, UWWornRegeneration.cs |
 | `NPCExecuteAttack` (seg022_15DE) | UWCreatureActor.cs, UWCritterBrain.cs, UWCritterCombat.cs, UWObjectClassProperties.cs |
+| `AwardKillEXP` (seg022_1725) | UWCritterCombat.cs, UWCritterRules.cs, UWExperience.cs, UWPlayerVitals.cs |
 | `PlayerUpdates` (seg028_2985_13D) | UWPlayerTick.cs, UWPlayerVitals.cs |
 | `SkillCheck` (seg037_32E6_C) | UWCritterCombat.cs, UWCritterRules.cs, UWPlayerCritterRow.cs |
 | `seg043_37F0_8EB` | UWConversationView.cs, UWMessageLogModel.cs, UWScrollEdgeRules.cs |
@@ -626,7 +626,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `PlayerCombat` (seg022_11BA) | UWPlayerAttackInput.cs |
 | `MissileAttackHit` (seg022_14BF) | IUWMotionWorld.cs, UWCreatureActor.cs, UWCritterCombat.cs, UWCritterRules.cs, UWMissileHitRules.cs, UWCritter.cs, UWMissiles.cs, UWRuleIndexScan.cs, MissileHitChecks.cs |
 | `NPCExecuteAttack` (seg022_15DE) | ICritterHost.cs, UWCreatureActor.cs, UWCritterBrain.cs, UWCritterCombat.cs, UWObjectClassProperties.cs |
-| `AwardKillEXP` (seg022_1725) | ICritterHost.cs, UWCritterCombat.cs, UWCritterRules.cs, UWExperience.cs, UWPlayerVitals.cs, UWCharacter.cs |
+| `AwardKillEXP` (seg022_1725) | ICritterHost.cs, UWCritterCombat.cs, UWCritterRules.cs, UWExperience.cs, UWPlayerVitals.cs |
 | `seg022_230E` | UWClickRules.cs |
 | `seg022_230E_1276` | UWPowerGem.cs, RenderChecks.cs |
 | `seg022_230E_133B` | UWPowerGem.cs |
@@ -896,7 +896,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `CastSpellFromObject` (seg040_1F04) | UWItemUse.cs, UWSoundEffectId.cs, UWItemUseHost.cs |
+| `CastSpellFromObject` (seg040_1F04) | UWItemUse.cs, UWSoundEffectId.cs |
 | `Class_4_2_ObjectUsage` (seg040_352B_16C4) | UWGlowingRockRules.cs |
 | `Fountain` (seg040_352B_1816) | UWObjectMechanics.cs, UWWorldUse.cs |
 | `GlowingRock` (seg040_352B_186E) | UWGlowingRockRules.cs |

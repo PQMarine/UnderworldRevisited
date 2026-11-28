@@ -249,7 +249,9 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         if (pOOutcome.Landed && pORequest.FlashColour != UWDamageRequest.NoFlash)
             fPresentation.FlashWindow(pORequest.FlashColour, pORequest.FlashSeconds);
 
-        if (pORequest.TellsMusic)
+        // The killing blow changes no music: the death's theme follows (uw1 critter/AI.C:1490-1495 returns before the music
+        // block, game/SKILLS.C:831 player_is_dead loads MUSIC_DEATH; cleanup plan 2, G6, 2026-11-27, as the second game).
+        if (pORequest.TellsMusic && !pOOutcome.Died)
             UWAudioService.OnPlayerDamaged(fVitals.CurrentHP, fVitals.MaxHP, pORequest.Music == UWDamageMusic.Player);
     }
 
@@ -534,15 +536,26 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         fPresentation.AddMessage(psMessage);
     }
 
-    /// <summary>The vitals' KillRewarded: a creature was slain. A dragon nods (UW.EXE
-    /// AwardKillEXP_seg022_1725, before the fanfare); the victory fanfare only if a reward is
-    /// due (reference: AwardXPKill).</summary>
+    /// <summary>The vitals' KillRewarded: a creature was slain. A dragon nods and the victory fanfare plays for every
+    /// creature, with or without a reward (uw1 combat/COMBAT.C:836 player_killed_a sets MUSIC_VICTORY before the
+    /// experience is worked out; cleanup plan 2, G5, 2026-11-27 - until then only with a reward, after the
+    /// reference's AwardXPKill; the second game always played it).</summary>
     public void OnKillRewarded(bool pbRewarded)
     {
         UWHudDragons.Request(UWHudDragons.NodAnimation);
+        UWAudioService.ChangeTheme(UWMusicSelector.FanfareTheme);
+    }
 
-        if (pbRewarded)
-            UWAudioService.ChangeTheme(UWMusicSelector.FanfareTheme);
+    /// <summary>A modal screen other than the conversation lies over the world: the map or a modern window (the control
+    /// scheme's UI modal), a yes/no question, a window picture (G8).</summary>
+    private bool fWeaponHeld()
+    {
+        UWControlScheme lOScheme = UWScene.ControlScheme;
+        UWGameUI lOUi = UWScene.GameUi;
+
+        return (lOScheme != null && lOScheme.IsUIModalOpen)
+            || (mInteraction != null && mInteraction.IsAskingYesNo)
+            || (lOUi != null && lOUi.Pictures != null && lOUi.Pictures.IsWindowPictureVisible);
     }
 
     // ------------------------------------------------- Active spells
@@ -831,6 +844,13 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         // the same for sheathing and for a strike (per user on the original, 2026-09-18).
         // Everything from here to the end of Update is the weapon.
         if (UWConversationController.IsAnyOpen)
+            return;
+
+        // THE OTHER MODAL SCREENS STOP IT TOO (cleanup plan 2, G8, 2026-11-27): the swing's frames and its blow are jobs of
+        // the original's main loop (uw1 ui/PANELS.C:336-379 adjust_weapon, ui/INTERACT.C:225 player_attack, game/UWEDIT.C:119),
+        // which stands still under the map, a yes/no question or a window picture; paging and the options hold the clock
+        // already. Until then a blow released before M landed behind the map. The second game stops on IsModalOpen.
+        if (fWeaponHeld())
             return;
 
         // The weapon hand and the gem (UWWeaponView and its engine-free UWWeaponSwing since

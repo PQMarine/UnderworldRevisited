@@ -2664,10 +2664,11 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// The clock nextSpellTime is measured on: the original's game_clock goes on every frame by the time since the last
     /// (check_physics, uw2 motion/PLAYMOVE.C:318, at most 0x40 a frame), 256 units a second, while ours steps a whole
     /// player tick, 21 seconds, at a time (UWGameClock), so the wait of 0x2FD units - about three seconds - lasted
-    /// until the next step (per user, 2026-11-16: far more than three seconds). The game's own time at the
-    /// same rate instead; it stands while the game is paused, as the original's clock does. Not saved, as nextSpellTime.
+    /// until the next step (per user, 2026-11-16: far more than three seconds). Since cleanup plan 2, K11 (2026-11-28)
+    /// the session's cast clock of both games (UWThingSpellWait.Clock: the scheduler's running time plus 0x40 per easy
+    /// step), Unity's Time.time until then; it stands while the game is paused, as the original's clock does.
     /// </summary>
-    private static int fCastClock => (int)(Time.time * UWPlayerTick.PitTicksPerSecond);
+    private static int fCastClock => (int)UWThingSpellWait.Clock;
 
     /// <summary>checkTrap with mode 4 on a thing used from the pack.</summary>
     private void fCheckCarriedTrap(UWObject pOThing)

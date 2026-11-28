@@ -114,7 +114,16 @@ public sealed class UWHudRunes
         return fGetRuneUnderMouse(pOScreenPos) >= 0 || fIsInRuneClearArea(pOScreenPos);
     }
 
+    /// <summary>GameInputMode is not 0: modes 1 to 3 (fHoldsInputMode) or the roaming view's 8 (uw1 combat/SPELLS.C:792 adds
+    /// it; RUNES.C:122 mous_in_rune and :195 try_cast return for it too - cleanup plan 2, G13, 2026-11-27: until then a rune
+    /// click, the modern panel and the action bar cast during Roaming Sight; the second game held them already).</summary>
     private bool fInAnotherInputMode()
+    {
+        return fHoldsInputMode() || UWRoamingSight.IsAnyRunning;
+    }
+
+    /// <summary>GameInputMode 1 to 3: a target spell or a missile's aim waiting, a thing on the pointer or used on another.</summary>
+    private bool fHoldsInputMode()
     {
         if (mOUi.mOInteraction == null)
             mOUi.mOInteraction = mOUi.GetComponent<Interaction>();
@@ -730,7 +739,7 @@ public sealed class UWHudRunes
     /// second game's UWGameScreenUw2.fClickActiveSpell asks the same, for the classic page and the modern row.</summary>
     private bool fSpellIconsRest()
     {
-        return fInAnotherInputMode() || (mOUi.mOInteraction != null && mOUi.mOInteraction.IsRangedTargeting);
+        return fHoldsInputMode() || (mOUi.mOInteraction != null && mOUi.mOInteraction.IsRangedTargeting);
     }
 
     /// <summary>For the modern HUD's active spells (UWModernHud): the left button names it in the

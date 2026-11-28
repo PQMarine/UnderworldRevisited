@@ -19,8 +19,8 @@ namespace UnderworldRevisited.Tools
             fExpectInt("footsteps: sneaking waits the most, 0xC8 (0.78 s)", UWFootstepRules.IntervalTicks(0x60), UWFootstepRules.MaxIntervalTicks);
             fExpectInt("footsteps: ... and standing too", UWFootstepRules.IntervalTicks(0), UWFootstepRules.MaxIntervalTicks);
 
-            fExpectInt("footsteps: the note offset at a full run is 0xF + 0x3AC / 32", UWFootstepRules.NoteOffset(UWFootstepRules.FullMomentum), 0xF + 29);
-            fExpectInt("footsteps: ... standing 0xF", UWFootstepRules.NoteOffset(0), 0xF);
+            fExpectInt("footsteps: the volume offset at a full run is 0x3AC / 32 - 0x10", UWFootstepRules.NoteOffset(UWFootstepRules.FullMomentum), 29 - 0x10);
+            fExpectInt("footsteps: ... standing -0x10", UWFootstepRules.NoteOffset(0), -0x10);
 
             fExpectInt("footsteps: the full speed is the full momentum", UWFootstepRules.Momentum(3.2f, 3.2f), UWFootstepRules.FullMomentum);
             fExpectInt("footsteps: half the speed is half of it", UWFootstepRules.Momentum(1.6f, 3.2f), UWFootstepRules.FullMomentum / 2);

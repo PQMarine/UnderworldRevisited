@@ -41,10 +41,13 @@ namespace UWDataImport.UWData
 			return liTicks < MaxIntervalTicks ? liTicks : MaxIntervalTicks;
 		}
 
-		/// <summary>The step's note offset: the louder the faster.</summary>
+		/// <summary>The step's volume offset on the effect's own volume: (speed >> 5) - 0x10, the louder the faster - faint
+		/// when slow, +13 at a full run (uw1 motion/PLAYMOVE.C:461, 470, sound/SOUND.C:608 play_effect_here; cleanup plan 2,
+		/// K19, 2026-11-28 per user "Ja, nachbauen" - until then 0xF + (speed >> 5), every step 31 louder; the second game's
+		/// UWPlayerNoiseRulesUw2 had it right).</summary>
 		public static int NoteOffset(int piMomentum)
 		{
-			return 0xF + (piMomentum >> 5);
+			return (piMomentum >> 5) - 0x10;
 		}
 	}
 }

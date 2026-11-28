@@ -390,6 +390,16 @@ namespace UWDataImport.UWData
 		/// 156 to 159, "a broken wand" in string block 4. Only a wand cracks; another item that
 		/// loses its spell object simply keeps no magic.
 		/// </summary>
+		/// <summary>UseObj's checkSpell after a carried container was used (uw1 obj/USEITEMS.C:172-174; cleanup plan 2, G16): its
+		/// spell is cast as a wand's, with the same wait and charge. False without a spell.</summary>
+		public static bool TryCastCarriedSpell(UWObject pOItem, DataImport pOData, UWInventoryModel pOInventory, IUWItemUseHost pIHost)
+		{
+			if (pOItem == null || pOData == null || pIHost == null || !SpellOf(pOItem, pOData).Exists)
+				return false;
+
+			return fTryCastFromItem(pOItem, pOData, pOInventory, pIHost);
+		}
+
 		private static bool fTryCastFromItem(UWObject pOItem, DataImport pOData, UWInventoryModel pOInventory, IUWItemUseHost pIHost)
 		{
 			ItemSpell lOSpell = SpellOf(pOItem, pOData);

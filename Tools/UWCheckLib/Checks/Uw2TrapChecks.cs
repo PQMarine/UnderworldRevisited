@@ -460,15 +460,15 @@ namespace UnderworldRevisited.Tools
 
             UWObject lOKey = new UWObject(0x100) { Owner = 7 };
             UWObject lOKeyLock = lFLock(2, 1, true);
-            int liUnlock = UWLockRules.ToggleWithKey(null, lOChest, lOKeyLock, UWLockRules.IsOpenForKeySecondGame(lOChest), lOKey);
+            int liUnlock = UWLockRules.ToggleWithKey(null, lOChest, lOKeyLock, UWLockRules.IsOpenForKey(lOChest), lOKey);
             bool lbGone = !lOChest.Contents.Contains(lOKeyLock);
             // An open container of class 0x80 (odd, below index 0xC); the chest 0x15D is furniture, not a container.
             UWObject lOOpenChest = new UWObject(0x83);
             UWObject lOKept = lFLock(2, 2, true);
-            int liOpen = UWLockRules.ToggleWithKey(null, lOChest, lOKept, UWLockRules.IsOpenForKeySecondGame(lOOpenChest), lOKey);
+            int liOpen = UWLockRules.ToggleWithKey(null, lOChest, lOKept, UWLockRules.IsOpenForKey(lOOpenChest), lOKey);
 
             Check.Str("uw2 locks: the fitting key unlocks (line 6) and the lock goes; on an open container 'That is already open.' (7); open doors 0x148, not 0x140",
-                liUnlock + " " + lbGone + " " + liOpen + " " + UWLockRules.IsOpenForKeySecondGame(new UWObject(0x148)) + " " + UWLockRules.IsOpenForKeySecondGame(new UWObject(0x140)),
+                liUnlock + " " + lbGone + " " + liOpen + " " + UWLockRules.IsOpenForKey(new UWObject(0x148)) + " " + UWLockRules.IsOpenForKey(new UWObject(0x140)),
                 "6 True 7 True False");
         }
 

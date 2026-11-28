@@ -68,7 +68,7 @@ public static class UWLockUseUw2
 
         fResolve(pOTarget, pOEntity, pbCarried, out UWLockState lODoorLock, out UWObject lOContainerLock, out UWDoor lODoor);
 
-        bool lbOpen = lODoor != null ? !lODoor.IsClosed : UWLockRules.IsOpenForKeySecondGame(pOTarget);
+        bool lbOpen = lODoor != null ? !lODoor.IsClosed : UWLockRules.IsOpenForKey(pOTarget);
         int liMessage = UWLockRules.ToggleWithKey(lODoorLock, lOContainerLock != null ? pOTarget : null, lOContainerLock, lbOpen, pOKey);
 
         if (liMessage < 0)

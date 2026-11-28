@@ -202,7 +202,11 @@ public sealed class UWPlayerAttackInput
 
                 mOState.BlowPending = false;
 
-                if (lbDrawn)
+                // ONLY WITH THE POINTER IN THE VIEW on the release (uw1 combat/COMBAT.C:692-695: player_fire only if
+                // mous_in_3d_p, missile_finish either way; cleanup plan 2, G9, 2026-11-27 - until then released over the
+                // panel it shot). The pad aims at the world wherever its pointer is, as the press does; the second game
+                // asks the same (UWAttackUw2).
+                if (lbDrawn && (mOState.FromPad || UWControlScheme.Ui.PressAimsAtWorld(false)))
                     fResolveAttack();
             }
 

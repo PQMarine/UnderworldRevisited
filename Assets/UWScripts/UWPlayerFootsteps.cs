@@ -93,6 +93,25 @@ public sealed class UWPlayerFootsteps
     }
 
     /// <summary>
+    /// An EASY STEP OR TURN sounds a step at once, at speed 0 (-0x10), and the next walking step waits 100 ticks (uw1
+    /// motion/PLAYMOVE.C:458-465 make_noise with easy; cleanup plan 2, K21, 2026-11-28 - until then the first game's easy
+    /// steps were silent; the second game's are UWPlayerNoiseRulesUw2's). pbOnFoot as for Step.
+    /// </summary>
+    public void EasyStep(bool pbOnFoot)
+    {
+        if (!pbOnFoot)
+            return;
+
+        UWAudioService.PlayEffect(mbStepToggle ? UWSoundEffectId.FootstepA : UWSoundEffectId.FootstepB,
+            UWFootstepRules.NoteOffset(0));
+        mbStepToggle = !mbStepToggle;
+        mfNextStepTime = Time.time + (EasyStepPauseTicks / PitTicksPerSecond);
+    }
+
+    /// <summary>make_noise's nextstep after an easy step: GAME_TIME() + 100.</summary>
+    private const float EasyStepPauseTicks = 100f;
+
+    /// <summary>
     /// Footsteps alternating between the two sounds (UWFootstepRules). Nothing in water or in the
     /// air: pbOnFoot is the movement's word that the body walks on the ground of a world.
     /// pfFullSpeed is the faster of the two schemes' forward speeds, in world units a second.

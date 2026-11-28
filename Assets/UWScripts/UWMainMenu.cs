@@ -494,6 +494,11 @@ public class UWMainMenu : MonoBehaviour
         fEnsureCanvas();
         fShowButtons();
 
+        // NO WATER BEHIND THE MENU (per user 2026-11-28): the second game leaves for its menu by loading the scene again,
+        // and in the frame before, with every clock hold released, its terrain started the rushing anew; the menu's
+        // scene has no swimmer to end it. The menu ends it, for both games.
+        UWAudioService.StopWaterLoop();
+
         // The black cover of the start and of the step after the title (UWLevelLoader.Start,
         // UWSplashSequence.AfterSplashScreens) is there so that the game never shows before the
         // menu. Now the menu stands.

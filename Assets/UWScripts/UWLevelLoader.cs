@@ -479,7 +479,7 @@ public class UWLevelLoader : MonoBehaviour
     {
         UWSleepUw2 lOBlack = UWSleepUw2.Current;
 
-        Uw2TeleportCount++;
+        TeleportCount++;
 
         if (lOBlack != null && lOBlack.IsBlinking)
             return;
@@ -512,9 +512,10 @@ public class UWLevelLoader : MonoBehaviour
         return false;
     }
 
-    /// <summary>How many teleports the second game's session was asked for (Uw2Teleport, a blink's included) - the
-    /// player's movement asks whether its triggers teleported (UWPlayerMovement, the fall onto a teleport).</summary>
-    public int Uw2TeleportCount { get; private set; }
+    /// <summary>How many teleports were carried out or asked for (Uw2Teleport, a blink's included; the first game's
+    /// TeleportTo when it has room, cleanup plan 2, G22) - the player's movement asks whether its triggers teleported
+    /// (UWPlayerMovement, the fall onto a teleport).</summary>
+    public int TeleportCount { get; private set; }
 
     private void fUw2TeleportNow(UWTeleportUw2.Target pOTarget)
     {
@@ -900,6 +901,8 @@ public class UWLevelLoader : MonoBehaviour
             piTileZ = liY;
         }
 
+        // do_teleport answers 0x10 now (uw1 event/WORLDEV.C:191-198): a fall that met this trigger leaves no impact.
+        TeleportCount++;
         TravelTo(piLevelIndex, piTileX, piTileZ);
     }
 

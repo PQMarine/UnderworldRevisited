@@ -107,9 +107,14 @@ public sealed class UWModernSessionUw1 : IUWModernSession, IUWModernCharacter, I
 
     public bool CanUse => UWScene.ItemDrag != null;
 
-    /// <summary>Opening a container sets nothing off on the first game.</summary>
+    /// <summary>Opening a container: UseObj's checkTrap with mode 4 and checkSpell, as the classic panel's click
+    /// (UWItemDrag.AfterContainerUse; cleanup plan 2, G16, 2026-11-27 - until then nothing on the first game).</summary>
     public void ContainerOpened(UWObject pOContainer)
     {
+        UWItemDrag lODrag = UWScene.ItemDrag;
+
+        if (lODrag != null)
+            lODrag.AfterContainerUse(pOContainer);
     }
 
     public bool Use(UWObject pOItem, UWCarriedItemUse.Context peContext)

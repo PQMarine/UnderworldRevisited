@@ -67,6 +67,60 @@ namespace UnderworldRevisited.Tools
                 UWRandom.Use(null);
                 UWCarriedSpellRulesUw2.ClearWait();
             }
+
+            fCheckThingSpellWait();
+        }
+
+        /// <summary>
+        /// THE WAIT ON THE SESSION'S CLOCK (cleanup plan 2, K11, 2026-11-28; UWThingSpellWait, both games): nextSpellTime =
+        /// game_clock + 0x2FD (uw1 obj/USEITEMS.C:1059-1063), the clock the scheduler's running time plus 0x40 for every
+        /// easy step (PLAYMOVE.C:304) - twelve easy steps (0x300) end the wait at once -, and a new session starts without
+        /// a wait (reset_times, UWEDIT.C:375).
+        /// </summary>
+        private static void fCheckThingSpellWait()
+        {
+            UWGameSession lOBefore = UWGameSession.Current;
+
+            try
+            {
+                UWGameSession lOSession = new UWGameSession(null);
+                UWGameSession.MakeCurrent(lOSession);
+
+                lOSession.Schedule.Advance(1000, true);
+                UWThingSpellWait.Start();
+
+                bool lbAtOnce = UWThingSpellWait.IsWaiting;
+
+                lOSession.Schedule.Advance(UWThingSpellWait.Wait - 1, true);
+
+                bool lbJustBefore = UWThingSpellWait.IsWaiting;
+
+                lOSession.Schedule.Advance(1, true);
+
+                bool lbAtTheWait = UWThingSpellWait.IsWaiting;
+
+                UWThingSpellWait.Start();
+
+                for (int liStep = 0; liStep < 11; liStep++)
+                    UWThingSpellWait.AddEasyStep();
+
+                bool lbElevenSteps = UWThingSpellWait.IsWaiting;
+
+                UWThingSpellWait.AddEasyStep();
+
+                bool lbTwelveSteps = UWThingSpellWait.IsWaiting;
+
+                UWThingSpellWait.Start();
+                UWGameSession.MakeCurrent(new UWGameSession(null));
+
+                Check.Str("thing spell wait: after a cast, 0x2FD - 1 ticks on, 0x2FD; 11 and 12 easy steps; a new session",
+                    lbAtOnce + " " + lbJustBefore + " " + lbAtTheWait + " " + lbElevenSteps + " " + lbTwelveSteps + " "
+                    + UWThingSpellWait.IsWaiting, "True True False True False False");
+            }
+            finally
+            {
+                UWGameSession.MakeCurrent(lOBefore);
+            }
         }
     }
 }

@@ -49,6 +49,18 @@ public static class UWGameClock
         get { return msHolds.Count > 0; }
     }
 
+    /// <summary>A screen outside the world is up - the main menu, the character creation, the victory, or no game yet:
+    /// the world behind it stands, and what it keeps sounding (the water's rushing) goes quiet. The conversation, the
+    /// options, a page and a prompt are modal loops inside the game and do not count.</summary>
+    public static bool IsOutsideTheWorld
+    {
+        get
+        {
+            return msHolds.Contains(MainMenuHold) || msHolds.Contains(CharacterCreationHold) || msHolds.Contains(VictoryHold)
+                || msHolds.Contains(NoWorldHold);
+        }
+    }
+
     public static void Hold(string psReason)
     {
         msHolds.Add(psReason);

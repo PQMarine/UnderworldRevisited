@@ -57,6 +57,8 @@ public static class UWGameStartUw2
 
         Debug.Log("[Session] Leaving the game for the main menu.");
 
+        // The held water voice outlives the scene (UWAudioMixer); the new scene has no swimmer to end it.
+        UWAudioService.StopWaterLoop();
         UWScreenUi.ShowLoadingCover();
         UWGameClock.ReleaseAll();
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
